@@ -1,0 +1,430 @@
+---
+title: Supabase
+description: Encrypt and search data with the Supabase SDK using the encryptedSupabase wrapper
+---
+
+# Supabase
+
+The `encryptedSupabase` wrapper makes encrypted queries look nearly identical to normal Supabase queries. It automatically handles encryption, decryption, `::jsonb` casts, and search term formatting.
+
+## Prerequisites
+
+Install the [EQL v2 extension](https://github.com/cipherstash/encrypt-query-language/releases) in your Supabase project. The extension has a specific release for Supabase.
+
+Define your columns as `eql_v2_encrypted`:
+
+```sql
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  name eql_v2_encrypted,
+  email eql_v2_encrypted,
+  age eql_v2_encrypted
+);
+```
+
+Or store encrypted columns as JSONB if not using the EQL extension directly:
+
+```sql
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email jsonb NOT NULL,
+  name jsonb NOT NULL,
+  age jsonb,
+  role VARCHAR(50),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+## Setup
+
+```typescript
+import { Encryption } from "@cipherstash/stack"
+import { encryptedSupabase } from "@cipherstash/stack/supabase"
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
+import { createClient } from "@supabase/supabase-js"
+
+const users = encryptedTable("users", {
+  name: encryptedColumn("name")
+    .equality()
+    .freeTextSearch(),
+
+  email: encryptedColumn("email")
+    .equality()
+    .freeTextSearch(),
+
+  age: encryptedColumn("age")
+    .dataType("number")
+    .equality()
+    .orderAndRange(),
+})
+
+const client = await Encryption({ schemas: [users] })
+const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!)
+
+const eSupabase = encryptedSupabase({
+  encryptionClient: client,
+  supabaseClient: supabase,
+})
+```
+
+### Type-safe queries
+
+```typescript
+type UserRow = { id: number; name: string; email: string; age: number; role: string }
+
+const { data } = await eSupabase
+  .from<UserRow>("users", users)
+  .select("id, name, email")
+```
+
+## Inserting data
+
+Encrypted fields are automatically encrypted before insertion:
+
+```typescript
+// Single insert
+const { data, error } = await eSupabase
+  .from("users", users)
+  .insert({
+    email: "alice@example.com",  // encrypted automatically
+    name: "Alice Smith",         // encrypted automatically
+    age: 30,                     // encrypted automatically
+    role: "admin",               // not in schema, passed through
+  })
+  .select("id")
+
+// Bulk insert
+const { data, error } = await eSupabase
+  .from("users", users)
+  .insert([
+    { email: "alice@example.com", name: "Alice", age: 30, role: "admin" },
+    { email: "bob@example.com", name: "Bob", age: 25, role: "user" },
+  ])
+  .select("id")
+```
+
+## Selecting data
+
+Results are automatically decrypted:
+
+```typescript
+// List query
+const { data, error } = await eSupabase
+  .from("users", users)
+  .select("id, email, name, role")
+// data: [{ id: 1, email: "alice@example.com", name: "Alice Smith", role: "admin" }]
+
+// Single result
+const { data, error } = await eSupabase
+  .from("users", users)
+  .select("id, email, name")
+  .eq("id", 1)
+  .single()
+// data: { id: 1, email: "alice@example.com", name: "Alice Smith" }
+
+// Maybe single (returns null if no match)
+const { data, error } = await eSupabase
+  .from("users", users)
+  .select("id, email")
+  .eq("email", "nobody@example.com")
+  .maybeSingle()
+// data: null
+```
+
+> `encryptedSupabase` does not support `select('*')`. You must list columns explicitly so that encrypted columns can be cast with `::jsonb`.
+
+## Query filters
+
+All filter values for encrypted columns are automatically encrypted before the query executes. Multiple filters are batch-encrypted in a single ZeroKMS call for efficiency.
+
+### Equality filters
+
+```typescript
+// Exact match (requires .equality() on column)
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, email, name")
+  .eq("email", "alice@example.com")
+
+// Not equal
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, email, name")
+  .neq("email", "alice@example.com")
+
+// IN array (requires .equality())
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, email, name")
+  .in("name", ["Alice Smith", "Bob Jones"])
+
+// NULL check (no encryption needed)
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, email, name")
+  .is("email", null)
+```
+
+### Text search filters
+
+```typescript
+// LIKE — case sensitive (requires .freeTextSearch())
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, email, name")
+  .like("name", "%alice%")
+
+// ILIKE — case insensitive (requires .freeTextSearch())
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, email, name")
+  .ilike("email", "%example.com%")
+```
+
+### Range and comparison filters
+
+```typescript
+// Greater than (requires .orderAndRange())
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, name, age")
+  .gt("age", 21)
+
+// Greater than or equal
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, name, age")
+  .gte("age", 18)
+
+// Less than
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, name, age")
+  .lt("age", 65)
+
+// Less than or equal
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, name, age")
+  .lte("age", 100)
+```
+
+### Match (multi-column equality)
+
+```typescript
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, email, name")
+  .match({ email: "alice@example.com", name: "Alice Smith" })
+```
+
+### OR conditions
+
+```typescript
+// String format
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, email, name")
+  .or("email.eq.alice@example.com,email.eq.bob@example.com")
+
+// Structured format (more type-safe)
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, email, name")
+  .or([
+    { column: "email", op: "eq", value: "alice@example.com" },
+    { column: "email", op: "eq", value: "bob@example.com" },
+  ])
+```
+
+Both forms encrypt values for encrypted columns automatically.
+
+### NOT filter
+
+```typescript
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, email, name")
+  .not("email", "eq", "alice@example.com")
+```
+
+### Raw filter
+
+```typescript
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, email, name")
+  .filter("email", "eq", "alice@example.com")
+```
+
+### Combining encrypted and non-encrypted filters
+
+```typescript
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, email, name")
+  .eq("email", "alice@example.com")   // encrypted
+  .eq("role", "admin")                // passed through as-is
+```
+
+## Updating and deleting
+
+```typescript
+// Update
+const { data } = await eSupabase
+  .from("users", users)
+  .update({ name: "Alice Johnson" })  // encrypted automatically
+  .eq("id", 1)
+  .select("id, name")
+
+// Upsert
+const { data } = await eSupabase
+  .from("users", users)
+  .upsert(
+    { id: 1, email: "alice@example.com", name: "Alice", role: "admin" },
+    { onConflict: "id" },
+  )
+  .select("id, email, name")
+
+// Delete
+const { error } = await eSupabase
+  .from("users", users)
+  .delete()
+  .eq("id", 1)
+```
+
+## Transforms
+
+These are passed through to Supabase directly:
+
+```typescript
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, email, name")
+  .eq("name", "Alice")
+  .order("id", { ascending: false })
+  .limit(10)
+  .range(0, 9)
+```
+
+## Lock context and audit
+
+Chain `.withLockContext()` to tie encryption to a specific user's JWT:
+
+```typescript
+import { LockContext } from "@cipherstash/stack/identity"
+
+const lc = new LockContext()
+const { data: lockContext } = await lc.identify(userJwt)
+
+const { data } = await eSupabase
+  .from("users", users)
+  .insert({ email: "alice@example.com", name: "Alice" })
+  .withLockContext(lockContext)
+  .select("id")
+```
+
+Lock contexts work with all operations (insert, select, update, delete):
+
+```typescript
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, email, name")
+  .eq("email", "alice@example.com")
+  .withLockContext(lockContext)
+  .audit({ metadata: { userId: "user_123" } })
+```
+
+## Error handling
+
+Encryption errors are surfaced with an additional `encryptionError` field:
+
+```typescript
+const { data, error } = await eSupabase
+  .from("users", users)
+  .select("id, email")
+
+if (error) {
+  if (error.encryptionError) {
+    console.error("Encryption error:", error.encryptionError)
+  }
+}
+```
+
+## Response type
+
+```typescript
+type EncryptedSupabaseResponse<T> = {
+  data: T | null                     // Decrypted rows
+  error: EncryptedSupabaseError | null
+  count: number | null
+  status: number
+  statusText: string
+}
+```
+
+Errors can come from Supabase (API errors) or from encryption operations. Check `error.encryptionError` for encryption-specific failures.
+
+## Filter to index mapping
+
+| Filter Method | Required Index | Query Type |
+|---|---|---|
+| `eq`, `neq`, `in` | `.equality()` | `'equality'` |
+| `like`, `ilike` | `.freeTextSearch()` | `'freeTextSearch'` |
+| `gt`, `gte`, `lt`, `lte` | `.orderAndRange()` | `'orderAndRange'` |
+| `is` | None | No encryption (NULL/boolean check) |
+
+## Exposing EQL schema for Supabase
+
+1. Go to [API settings](https://supabase.com/dashboard/project/_/settings/api) and add `eql_v2` to "Exposed schemas"
+2. Run the following SQL:
+
+```sql
+GRANT USAGE ON SCHEMA eql_v2 TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA eql_v2 TO anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA eql_v2 TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA eql_v2 TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA eql_v2 GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA eql_v2 GRANT ALL ON ROUTINES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA eql_v2 GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+```
+
+## Complete example
+
+```typescript
+import { createClient } from "@supabase/supabase-js"
+import { Encryption } from "@cipherstash/stack"
+import { encryptedSupabase } from "@cipherstash/stack/supabase"
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
+
+// Schema
+const users = encryptedTable("users", {
+  email: encryptedColumn("email").equality().freeTextSearch(),
+  name: encryptedColumn("name").equality().freeTextSearch(),
+  age: encryptedColumn("age").dataType("number").equality().orderAndRange(),
+})
+
+// Clients
+const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!)
+const encryptionClient = await Encryption({ schemas: [users] })
+const eSupabase = encryptedSupabase({ encryptionClient, supabaseClient: supabase })
+
+// Insert
+await eSupabase
+  .from("users", users)
+  .insert([
+    { email: "alice@example.com", name: "Alice", age: 30 },
+    { email: "bob@example.com", name: "Bob", age: 25 },
+  ])
+
+// Query with multiple filters
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, email, name, age")
+  .gte("age", 18)
+  .lte("age", 35)
+  .ilike("name", "%ali%")
+
+// data is fully decrypted:
+// [{ id: 1, email: "alice@example.com", name: "Alice", age: 30 }]
+```

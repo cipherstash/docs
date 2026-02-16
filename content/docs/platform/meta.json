@@ -1,0 +1,19 @@
+{
+  "title": "Platform",
+  "description": "Dashboard, workspaces, and organization management",
+  "icon": "LayoutDashboard",
+  "root": true,
+  "pages": [
+    "index",
+    "---Workspaces---",
+    "access-keys",
+    "clients",
+    "keysets",
+    "regions",
+    "---Organizations---",
+    "members",
+    "cts",
+    "---Compliance---",
+    "compliance"
+  ]
+}

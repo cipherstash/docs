@@ -1,0 +1,77 @@
+---
+title: Access keys
+description: Create and manage access keys for programmatic access to CipherStash services
+---
+
+# Access keys
+
+Access keys are used to authenticate programmatic access to CipherStash [CTS](/docs/platform/cts) and [ZeroKMS](/docs/kms).
+
+## Creating an access key
+
+In the [CipherStash Dashboard](https://dashboard.cipherstash.com), you can create an access key by clicking the **Create access key** button in the [Access Keys](https://dashboard.cipherstash.com/workspaces/_/access-keys) section for your workspace.
+
+### Roles
+
+An access key is assigned a role which is associated with a set of permissions.
+You should use the role with the _least required privileges_ and avoid higher privileges unless absolutely necessary.
+
+### Member
+
+The member role is used for authenticating clients for cryptographic operations.
+
+These are the scopes that are available to the member role:
+
+```text
+keyset:list
+data_key:generate
+data_key:retrieve
+```
+
+### Control
+
+The control role is used for workspace automation tasks.
+It has access to the CipherStash API endpoints for creating, listing, enabling, disabling, granting, modifying, and revoking keysets and clients.
+
+These are the scopes that are available to the control role:
+
+```text
+keyset:create
+keyset:list
+keyset:enable
+keyset:disable
+keyset:grant
+keyset:modify
+keyset:revoke
+client:list
+```
+
+### Admin
+
+<Callout type="warn">
+In production environments, it is recommended to never use the admin role.
+Use the member role for authenticating clients, and the control role for workspace automation tasks.
+</Callout>
+
+The admin role is "god" mode.
+It has access to all the CipherStash API endpoints and can authenticate clients for cryptographic operations.
+
+These are the scopes that are available to the admin role:
+
+```text
+keyset:create
+keyset:list
+keyset:enable
+keyset:disable
+keyset:grant
+keyset:modify
+keyset:revoke
+data_key:generate
+data_key:retrieve
+client:create
+client:list
+client:delete
+access_key:create
+access_key:list
+access_key:delete
+```

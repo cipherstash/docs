@@ -1,0 +1,59 @@
+---
+title: Platform
+description: How CipherStash platform components work together to provide continuous security
+---
+
+# Platform
+
+The CipherStash platform consists of three core components that work together to provide continuous security for your applications and data.
+
+## Core Components
+
+### Workspaces
+
+**What**: Isolated environments for your applications and configurations.
+
+**Contains**: Regional deployments, access keys, OIDC providers.
+
+**Purpose**: Environment isolation and configuration management.
+
+### ZeroKMS
+
+**What**: Zero-trust key management service.
+
+**Contains**: Client keys, key sets, cryptographic operations.
+
+**Purpose**: Secure key generation and management without key exposure.
+
+### Organizations
+
+**What**: Multi-tenant management layer.
+
+**Contains**: Members, billing, cross-workspace policies.
+
+**Purpose**: Centralized governance and access control.
+
+## Integration Paths
+
+### For Applications
+
+- **[Encryption SDK](/docs/encryption)**: Direct integration using workspace configuration
+- **[CipherStash Proxy](/docs/proxy)**: Transparent database encryption using platform authentication
+
+### For Infrastructure
+
+- **Managed**: Use CipherStash Cloud with automatic scaling
+- **Self-hosted**: Deploy ZeroKMS in your own AWS environment (only available for Enterprise customers)
+
+## Quick Start
+
+Create an account and generate your credentials and keys in the [Dashboard](https://dashboard.cipherstash.com).
+
+## Next steps
+
+<Cards>
+  <Card title="Access keys" href="/docs/platform/access-keys" description="Create and manage access keys for programmatic access." />
+  <Card title="Clients" href="/docs/platform/clients" description="Manage client instances of Proxy or SDK applications." />
+  <Card title="ZeroKMS" href="/docs/kms" description="Configure key management." />
+  <Card title="Members" href="/docs/platform/members" description="Manage organization and workspace membership." />
+</Cards>

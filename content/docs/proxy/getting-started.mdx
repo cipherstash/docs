@@ -1,0 +1,134 @@
+---
+title: Getting started with Proxy
+description: Get up and running with CipherStash Proxy in local dev in under 5 minutes
+---
+
+# Getting started with Proxy
+
+<Steps>
+
+### Clone the repo
+
+Start by cloning the [Proxy repo](https://github.com/cipherstash/proxy):
+
+```bash
+git clone https://github.com/cipherstash/proxy
+cd proxy
+```
+
+### Obtain a client key and credentials
+
+<Callout type="info">
+If you haven't already, sign up for a [CipherStash account](https://dashboard.cipherstash.com).
+</Callout>
+
+Go to the [Dashboard onboarding](https://dashboard.cipherstash.com/workspaces/_/onboarding) and at **Step 2** click `Generate secrets`.
+The generated values will be copied to your clipboard.
+
+Store the client ID, key and credentials alongside the workspace CRN in `.env.proxy.docker`:
+
+```ini
+CS_WORKSPACE_CRN=<Workspace CRN>
+CS_CLIENT_ID=<Client ID>
+CS_CLIENT_KEY=<Client Key>
+CS_CLIENT_ACCESS_KEY=<Client Access Key>
+```
+
+### Start the containers
+
+```bash
+docker compose up
+```
+
+This will start a PostgreSQL database on `localhost:5432`, and CipherStash Proxy on `localhost:6432`.
+There's an example table called `users` that you can use to start inserting and querying encrypted data with.
+
+<Callout type="info">
+In this example table we've chosen users' email, date of birth, and salary as examples of the kind of sensitive data that you might want to protect with encryption.
+</Callout>
+
+### Insert and read some data
+
+Connect to the Proxy via `psql` and run some queries:
+
+```bash
+docker compose exec proxy psql postgres://cipherstash:3ncryp7@localhost:6432/cipherstash
+```
+
+This establishes an interactive session with the database, via CipherStash Proxy.
+
+Insert and read some data via Proxy:
+
+```sql
+INSERT INTO users (encrypted_email, encrypted_dob, encrypted_salary)
+VALUES ('alice@cipherstash.com', '1970-01-01', '100');
+
+SELECT encrypted_email, encrypted_dob, encrypted_salary FROM users;
+```
+
+The `INSERT` inserts a record into the `users` table, and the `SELECT` reads the same record back.
+Notice that it looks like nothing happened: the data in the `INSERT` was unencrypted, and the data in the `SELECT` is also unencrypted.
+
+Now connect to the database directly via `psql` and see what the data actually looks like:
+
+```bash
+docker compose exec proxy psql postgres://cipherstash:3ncryp7@postgres:5432/cipherstash
+```
+
+Query the database directly:
+
+```sql
+SELECT encrypted_email, encrypted_dob, encrypted_salary FROM users;
+```
+
+You'll see the output is _much_ larger, because the `SELECT` returns the raw encrypted data.
+The data is transparently encrypted and decrypted by Proxy.
+
+### Update data with a WHERE clause
+
+In your `psql` connection to Proxy, update the data and read it back:
+
+```sql
+UPDATE users SET encrypted_dob = '1978-02-01'
+WHERE encrypted_email = 'alice@cipherstash.com';
+
+SELECT encrypted_dob FROM users
+WHERE encrypted_email = 'alice@cipherstash.com';
+```
+
+The `=` comparison operation in the `WHERE` clause is evaluated against **encrypted** data.
+The `SELECT` returns `1978-02-01`.
+
+### Search encrypted data
+
+Insert more records via Proxy and search them:
+
+```sql
+INSERT INTO users (encrypted_email, encrypted_dob, encrypted_salary)
+VALUES ('bob@cipherstash.com', '1991-03-06', '10');
+
+INSERT INTO users (encrypted_email, encrypted_dob, encrypted_salary)
+VALUES ('carol@cipherstash.com', '2005-12-30', '1000');
+
+-- Range query on encrypted salary
+SELECT encrypted_email, encrypted_dob, encrypted_salary
+FROM users WHERE encrypted_salary <= 100;
+
+-- Pattern match on encrypted email
+SELECT encrypted_email, encrypted_dob, encrypted_salary
+FROM users WHERE encrypted_email LIKE 'alice';
+
+-- Range query on encrypted date
+SELECT encrypted_email, encrypted_dob, encrypted_salary
+FROM users WHERE encrypted_dob > '2000-01-01';
+```
+
+All comparison operations are evaluated against **encrypted** data — the literal values are transparently encrypted by Proxy before being compared in the database.
+
+</Steps>
+
+This demonstrates the power of CipherStash Proxy:
+
+- Completely transparent encryption of sensitive data in PostgreSQL
+- All data remains searchable, while being protected with non-deterministic AES-256-GCM encryption
+- Zero changes required to your application's database queries

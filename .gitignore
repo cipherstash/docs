@@ -1,0 +1,32 @@
+# dependencies
+node_modules
+
+# next.js
+.next
+out
+
+# fumadocs
+.source
+
+# environment variables
+.env
+.env*.local
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# misc
+.DS_Store
+*.tgz
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# vercel
+.vercel
+
+next-env.d.ts

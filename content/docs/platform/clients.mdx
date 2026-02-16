@@ -1,0 +1,24 @@
+---
+title: Clients
+description: Create and manage clients used by SDKs and Proxy
+---
+
+# Clients
+
+A Client is an instance of [CipherStash Proxy](/docs/proxy) or an application using an SDK like the [Encryption SDK](/docs/encryption) that you want to assign encryption or decryption privileges. A unique ID and key is generated for each client so access can be easily revoked at any time.
+
+## Clients and keysets
+
+When created, each client is associated with a [keyset](/docs/platform/keysets). This allows the client to perform encryption and decryption operations within the keyset.
+
+### Granting access to additional keysets
+
+When creating a new client, you can associate it with one or more keysets to grant access to the encrypted data in those keysets.
+
+### Revoking access to a client
+
+At any time, you can revoke access to a client by removing the association with the keysets which will prohibit that client from accessing the encrypted data in those keysets.
+
+## Creating a client
+
+In the [CipherStash Dashboard](https://dashboard.cipherstash.com), you can create a client by clicking the **Create a new client** button in the [Clients](https://dashboard.cipherstash.com/workspaces/_/clients) page.

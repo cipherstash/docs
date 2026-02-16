@@ -1,0 +1,171 @@
+---
+title: Bundling
+description: Configure webpack, esbuild, Next.js, and other build tools to work with @cipherstash/stack
+---
+
+# Bundling
+
+`@cipherstash/stack` is a native Node.js module that relies on native `require` to load platform-specific binaries at runtime. It cannot be processed by bundlers like webpack or esbuild — you must exclude it from bundling.
+
+<Callout type="warn">
+**You must exclude `@cipherstash/stack` from bundling.**
+
+`@cipherstash/stack` uses Node.js-specific features and requires the [native Node.js `require`](https://nodejs.org/api/modules.html#requireid). Bundlers that attempt to inline or transform it will break the native addon loading.
+</Callout>
+
+## Next.js
+
+Next.js bundles Server Components by default. You need to tell Next.js to skip `@cipherstash/stack` and use native `require` instead.
+
+### Next.js 15+
+
+Add `@cipherstash/stack` to `serverExternalPackages` in your `next.config.ts`:
+
+```typescript title="next.config.ts"
+const nextConfig = {
+  serverExternalPackages: ["@cipherstash/stack"],
+}
+
+export default nextConfig
+```
+
+See the [Next.js serverExternalPackages documentation](https://nextjs.org/docs/app/api-reference/config/next-config-js/serverExternalPackages) for more details.
+
+### Next.js 14
+
+Use the experimental configuration in `next.config.mjs`:
+
+```javascript title="next.config.mjs"
+const nextConfig = {
+  experimental: {
+    serverComponentsExternalPackages: ["@cipherstash/stack"],
+  },
+}
+
+export default nextConfig
+```
+
+See the [Next.js 14 serverComponentsExternalPackages documentation](https://nextjs.org/docs/14/app/api-reference/next-config-js/serverComponentsExternalPackages) for more details.
+
+## webpack
+
+Configure `externals` in your `webpack.config.js`:
+
+```javascript title="webpack.config.js"
+module.exports = {
+  externals: {
+    "@cipherstash/stack": "commonjs @cipherstash/stack",
+  },
+}
+```
+
+This tells webpack to leave `require('@cipherstash/stack')` as-is in the output instead of trying to resolve and bundle the module.
+
+## esbuild
+
+Use the `--external` flag:
+
+```bash
+esbuild app.js --bundle --external:@cipherstash/stack --platform=node
+```
+
+Or in your build configuration:
+
+```javascript
+require("esbuild").build({
+  entryPoints: ["app.js"],
+  bundle: true,
+  external: ["@cipherstash/stack"],
+  platform: "node",
+  outfile: "out.js",
+})
+```
+
+## SST and AWS Lambda
+
+When deploying with [SST](https://sst.dev/), configure esbuild externals and install the package into the Lambda deployment bundle:
+
+```typescript title="sst.config.ts"
+{
+  nodejs: {
+    esbuild: {
+      external: ["@cipherstash/stack"],
+    },
+    install: ["@cipherstash/stack"],
+  },
+}
+```
+
+The `external` option prevents esbuild from bundling the package. The `install` option ensures it gets installed into the Lambda deployment artifact so it's available at runtime.
+
+See the [SST Function documentation](https://sst.dev/docs/component/aws/function/#nodejs) for more details.
+
+## Troubleshooting Linux deployments
+
+Some npm users experience deployment failures on Linux (e.g., AWS Lambda, Docker containers) when their `package-lock.json` was created on macOS or Windows.
+
+### Who is affected
+
+- You use `npm ci` in CI/CD
+- Your `package-lock.json` is version 3 and was generated on macOS/Windows
+- You deploy on Linux (Lambda, containers, EC2, etc.)
+
+### Symptoms
+
+Build succeeds, but the app fails to start on Linux with an error like:
+- `failed to load native addon`
+- `module not found` related to the native engine
+
+### Why this happens
+
+With `package-lock.json` version 3, npm only records optional native binaries for the platform that created the lockfile. Linux builds can miss the native engine that `@cipherstash/stack` needs at runtime.
+
+### Solutions
+
+#### Option 1: Use pnpm (recommended)
+
+pnpm installs the correct native binaries for each platform automatically:
+
+```bash
+pnpm install --frozen-lockfile
+```
+
+#### Option 2: Generate lockfile on Linux in CI
+
+Ensure the Linux build records what Linux needs:
+
+```bash
+rm -f package-lock.json
+npm install --package-lock-only --ignore-scripts \
+  --no-audit --no-fund --platform=linux --arch=x64
+npm ci
+```
+
+Alternative using environment variables:
+
+```bash
+npm_config_platform=linux npm_config_arch=x64 \
+  npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+npm ci
+```
+
+#### Option 3: Pin lockfile to version 2
+
+Keep using npm but pin lockfile v2 (npm 8):
+
+Locally:
+
+```bash
+npm install --package-lock-only --lockfile-version=2
+```
+
+In CI:
+
+```bash
+npm i -g npm@8
+npm ci
+```
+
+### Quick verification
+
+Before deploying to Linux, verify the native engine loads by running your app inside a Linux container or CI job.

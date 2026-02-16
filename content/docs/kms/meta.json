@@ -1,0 +1,7 @@
+{
+  "title": "KMS",
+  "description": "Key management with ZeroKMS",
+  "icon": "Shield",
+  "root": true,
+  "pages": ["index", "keysets", "configuration", "disaster-recovery"]
+}

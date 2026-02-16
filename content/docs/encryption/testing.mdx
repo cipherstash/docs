@@ -1,0 +1,199 @@
+---
+title: Testing
+description: Test applications that use @cipherstash/stack encryption
+---
+
+# Testing
+
+This guide covers strategies for testing applications that use CipherStash encryption.
+
+## Test environment setup
+
+CipherStash encryption requires valid credentials to derive keys via ZeroKMS. For testing, you have two options:
+
+### Option 1: Use a dedicated test workspace (recommended)
+
+Create a separate CipherStash workspace for testing. This gives you real encryption behavior with isolated keys that don't affect production.
+
+```bash title=".env.test"
+CS_WORKSPACE_CRN=crn:ap-southeast-2.aws:your-test-workspace-id
+CS_CLIENT_ID=your-test-client-id
+CS_CLIENT_KEY=your-test-client-key
+CS_CLIENT_ACCESS_KEY=your-test-access-key
+```
+
+This approach tests the full encryption path including ZeroKMS key derivation.
+
+### Option 2: Mock the encryption client
+
+For unit tests where you don't need real encryption, mock the client to return predictable values:
+
+```typescript title="__mocks__/encryption.ts"
+import type { InferEncrypted } from "@cipherstash/stack/schema"
+
+export function createMockClient() {
+  return {
+    encrypt: async (plaintext: unknown) => ({
+      data: { __mock: true, plaintext },
+    }),
+    decrypt: async (encrypted: unknown) => ({
+      data: (encrypted as any).plaintext,
+    }),
+    encryptModel: async (model: unknown) => ({
+      data: model,
+    }),
+    decryptModel: async (model: unknown) => ({
+      data: model,
+    }),
+    bulkEncrypt: async (items: any[]) => ({
+      data: items.map(i => ({ id: i.id, data: { __mock: true, plaintext: i.plaintext } })),
+    }),
+    bulkDecrypt: async (items: any[]) => ({
+      data: items.map(i => ({ id: i.id, data: i.plaintext })),
+    }),
+  }
+}
+```
+
+> **Good to know**: Mocking bypasses all encryption. Use this for testing business logic, not for validating that encryption works correctly. Always run integration tests with a real workspace.
+
+## Integration tests with PostgreSQL
+
+For integration tests that verify searchable encryption queries, you need:
+
+1. A PostgreSQL database with the EQL extension
+2. A test CipherStash workspace
+3. Your schema definitions
+
+```typescript title="test/setup.ts"
+import { Encryption } from "@cipherstash/stack"
+import { users } from "../src/schema"
+import { Pool } from "pg"
+
+let client: Awaited<ReturnType<typeof Encryption>>
+let pool: Pool
+
+beforeAll(async () => {
+  pool = new Pool({ connectionString: process.env.TEST_DATABASE_URL })
+
+  // Install EQL extension
+  await pool.query("CREATE EXTENSION IF NOT EXISTS eql_v2")
+
+  // Initialize encryption client with test credentials
+  client = await Encryption({ schemas: [users] })
+
+  if (client.failure) {
+    throw new Error(`Test setup failed: ${client.failure.message}`)
+  }
+})
+
+afterAll(async () => {
+  await pool.end()
+})
+```
+
+### Testing encrypt and decrypt round-trips
+
+```typescript title="test/encryption.test.ts"
+test("encrypt and decrypt returns original value", async () => {
+  const original = "alice@example.com"
+
+  const encrypted = await client.data.encrypt(original, {
+    column: users.email,
+    table: users,
+  })
+  expect(encrypted.failure).toBeUndefined()
+
+  const decrypted = await client.data.decrypt(encrypted.data)
+  expect(decrypted.failure).toBeUndefined()
+  expect(decrypted.data).toBe(original)
+})
+```
+
+### Testing searchable queries
+
+```typescript title="test/search.test.ts"
+test("equality search finds encrypted record", async () => {
+  // Encrypt and store a value
+  const encrypted = await client.data.encrypt("alice@example.com", {
+    column: users.email,
+    table: users,
+  })
+  await pool.query(
+    "INSERT INTO users (email) VALUES ($1::jsonb)",
+    [JSON.stringify(encrypted.data)]
+  )
+
+  // Encrypt the search term
+  const query = await client.data.encryptQuery("alice@example.com", {
+    column: users.email,
+    table: users,
+    queryType: "equality",
+  })
+
+  // Query the database
+  const result = await pool.query(
+    "SELECT * FROM users WHERE email @> $1::jsonb",
+    [JSON.stringify(query.data)]
+  )
+
+  expect(result.rows.length).toBe(1)
+})
+```
+
+## CI/CD setup
+
+### GitHub Actions
+
+Store your test credentials as GitHub Actions secrets and expose them as environment variables:
+
+```yaml title=".github/workflows/test.yml"
+name: Tests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: test
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+        env:
+          CS_WORKSPACE_CRN: ${{ secrets.CS_TEST_WORKSPACE_CRN }}
+          CS_CLIENT_ID: ${{ secrets.CS_TEST_CLIENT_ID }}
+          CS_CLIENT_KEY: ${{ secrets.CS_TEST_CLIENT_KEY }}
+          CS_CLIENT_ACCESS_KEY: ${{ secrets.CS_TEST_ACCESS_KEY }}
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/test
+```
+
+> **Good to know**: Use a dedicated test workspace with limited access keys. Never use production credentials in CI.
+
+### Docker-based tests
+
+If your CI uses Docker, ensure the native addon loads correctly by using a Linux-compatible lockfile. See [Bundling — Linux deployments](/docs/encryption/bundling#troubleshooting-linux-deployments) for details.
+
+## Schema builders in test code
+
+The `@cipherstash/stack/client` subpath provides schema builders without the native FFI module. This is useful for importing schemas in client-side test code or test utilities that don't perform encryption:
+
+```typescript title="test/utils.ts"
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/client"
+
+// This import works without the native addon
+const users = encryptedTable("users", {
+  email: encryptedColumn("email").equality().freeTextSearch(),
+})
+```

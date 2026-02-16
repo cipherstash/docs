@@ -1,0 +1,77 @@
+---
+title: Migration guide
+description: Migrate from @cipherstash/protect to @cipherstash/stack
+---
+
+# Migration from @cipherstash/protect
+
+If you are migrating from `@cipherstash/protect`, use the following table to map the old API to the new one.
+
+## Import changes
+
+| `@cipherstash/protect` | `@cipherstash/stack` | Import path |
+|---|---|---|
+| `protect(config)` | `Encryption(config)` | `@cipherstash/stack` |
+| `csTable(name, cols)` | `encryptedTable(name, cols)` | `@cipherstash/stack/schema` |
+| `csColumn(name)` | `encryptedColumn(name)` | `@cipherstash/stack/schema` |
+| `import { LockContext } from "@cipherstash/protect/identify"` | `import { LockContext } from "@cipherstash/stack/identity"` | `@cipherstash/stack/identity` |
+
+## New features in `@cipherstash/stack`
+
+| Feature | Import path |
+|---|---|
+| `Secrets` class | `@cipherstash/stack/secrets` |
+| `stash` CLI | `npx stash` |
+
+## What stays the same
+
+All method signatures on the encryption client (`encrypt`, `decrypt`, `encryptModel`, `decryptModel`, `bulkEncrypt`, `bulkDecrypt`, `bulkEncryptModels`, `bulkDecryptModels`) remain the same.
+
+The `Result` pattern (`data` / `failure`) is unchanged.
+
+## Step-by-step
+
+1. Install the new package:
+
+```bash
+npm install @cipherstash/stack
+npm uninstall @cipherstash/protect
+```
+
+2. Update imports:
+
+```typescript
+// Before
+import { protect } from "@cipherstash/protect"
+import { csTable, csColumn } from "@cipherstash/protect"
+
+// After
+import { Encryption } from "@cipherstash/stack"
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
+```
+
+3. Rename function calls:
+
+```typescript
+// Before
+const client = await protect({ schemas: [users] })
+
+// After
+const client = await Encryption({ schemas: [users] })
+```
+
+4. Update schema definitions:
+
+```typescript
+// Before
+const users = csTable("users", {
+  email: csColumn("email").equality().freeTextSearch(),
+})
+
+// After
+const users = encryptedTable("users", {
+  email: encryptedColumn("email").equality().freeTextSearch(),
+})
+```
+
+No changes are needed to your encrypt/decrypt calls — they work the same way.

@@ -1,0 +1,160 @@
+---
+title: Configuration
+description: Installing and configuring CipherStash Proxy for Docker, environment variables, and database schema setup
+---
+
+# Proxy configuration
+
+CipherStash Proxy is available as a [container image](https://hub.docker.com/r/cipherstash/proxy) on Docker Hub that can be deployed locally, in CI/CD, through to production.
+
+CipherStash Proxy is a Docker container that can be deployed locally, as a cloud sidecar, or as a standalone binary.
+It speaks the PostgreSQL protocol (based on [pgcat](https://github.com/pgcat/pgcat)), meaning your application connects to Proxy exactly the same way it connects to PostgreSQL.
+
+## Installing Proxy
+
+The easiest way to start using CipherStash Proxy with your application is by adding a container to your application's `docker-compose.yml`:
+
+```yaml
+services:
+  app:
+    # Your app container config
+  db:
+    # Your Postgres container config
+  proxy:
+    image: cipherstash/proxy:latest
+    container_name: proxy
+    ports:
+      - 6432:6432
+      - 9930:9930
+    environment:
+      - CS_DATABASE__HOST=${CS_DATABASE__HOST}
+      - CS_DATABASE__PORT=${CS_DATABASE__PORT}
+      - CS_DATABASE__USERNAME=${CS_DATABASE__USERNAME}
+      - CS_DATABASE__PASSWORD=${CS_DATABASE__PASSWORD}
+      - CS_DATABASE__NAME=${CS_DATABASE__NAME}
+      - CS_WORKSPACE_CRN=${CS_WORKSPACE_CRN}
+      - CS_CLIENT_ACCESS_KEY=${CS_CLIENT_ACCESS_KEY}
+      - CS_DEFAULT_KEYSET_ID=${CS_DEFAULT_KEYSET_ID}
+      - CS_CLIENT_ID=${CS_CLIENT_ID}
+      - CS_CLIENT_KEY=${CS_CLIENT_KEY}
+      - CS_PROMETHEUS__ENABLED=${CS_PROMETHEUS__ENABLED:-true}
+```
+
+For a fully-working example, check out the [docker-compose.yml](https://github.com/cipherstash/proxy/blob/main/docker-compose.yml) in the Proxy repository.
+
+Start the Proxy container:
+
+```bash
+docker compose up
+```
+
+Connect your PostgreSQL client to Proxy on TCP 6432.
+
+<Callout type="info">
+Prometheus metrics are exposed on port 9930. Read more about them in the [reference documentation](https://github.com/cipherstash/proxy/blob/main/docs/reference/index.md#prometheus-metrics).
+</Callout>
+
+## Configuring Proxy
+
+To run, CipherStash Proxy needs to know:
+
+- What port to run on
+- How to connect to the target PostgreSQL database
+- Secrets to authenticate to CipherStash
+
+There are two ways to configure Proxy:
+
+- **Environment variables** that Proxy looks up on startup
+- **TOML file** (`cipherstash-proxy.toml`) that Proxy reads on startup
+
+Configuration loading order:
+
+1. If `cipherstash-proxy.toml` is present in the current working directory, Proxy reads its config from that file
+2. If `cipherstash-proxy.toml` is not present, Proxy looks up environment variables
+3. If **both** are present, Proxy uses the TOML file as the base and overrides with any environment variables that are set
+
+See the [Proxy config reference](https://github.com/cipherstash/proxy/blob/main/docs/reference/index.md#proxy-config-options) for all available options.
+
+## Setting up the database schema
+
+Under the hood, Proxy uses [EQL](/docs/concepts/eql) to index and search encrypted data.
+
+When you start the Proxy container, you can install EQL by setting the `CS_DATABASE__INSTALL_EQL` environment variable:
+
+```bash
+CS_DATABASE__INSTALL_EQL=true
+```
+
+This installs the version of EQL bundled with the Proxy container.
+
+<Callout type="warn">
+Using `CS_DATABASE__INSTALL_EQL` is only recommended for development environments.
+Install EQL by running [the installation script](https://github.com/cipherstash/encrypt-query-language/releases) as a database migration in production environments.
+</Callout>
+
+Check the installed EQL version:
+
+```sql
+SELECT eql_v2.version();
+```
+
+### Creating encrypted columns
+
+When storing encrypted data in PostgreSQL with Proxy, you use the `eql_v2_encrypted` column type provided by EQL.
+
+Create a table with an encrypted column:
+
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    email eql_v2_encrypted
+);
+```
+
+### Adding encrypted indexes
+
+Encrypted columns cannot be searched without an encrypted index. The indexes you define determine what kind of searches you can perform.
+
+Add a `unique` index for exact match queries:
+
+```sql
+SELECT eql_v2.add_search_config(
+  'users',
+  'email',
+  'unique',
+  'text'
+);
+```
+
+Add `match` and `ore` indexes for pattern matching and ordering:
+
+```sql
+SELECT eql_v2.add_search_config(
+  'users',
+  'email',
+  'match',
+  'text'
+);
+
+SELECT eql_v2.add_search_config(
+  'users',
+  'email',
+  'ore',
+  'text'
+);
+```
+
+<Callout type="warn">
+Adding, updating, or deleting encrypted indexes on columns that already contain encrypted data will not re-index that data. To use the new indexes, you must `SELECT` the data out of the column and `UPDATE` it again.
+</Callout>
+
+To learn about encrypted indexes for other data types (`text`, `int`, `boolean`, `date`, `jsonb`), see the [EQL documentation](https://github.com/cipherstash/encrypt-query-language/tree/main/docs).
+
+## Encrypting existing data
+
+CipherStash Proxy includes an `encrypt` CLI tool to encrypt existing data, or to apply index changes after changes to the encryption configuration.
+See the [`encrypt` tool reference](https://github.com/cipherstash/proxy/blob/main/docs/reference/encrypt-tool.md) for usage details.
+
+## Reference
+
+See the [CipherStash Proxy reference](https://github.com/cipherstash/proxy/blob/main/docs/reference/index.md) for all available options.

@@ -1,0 +1,42 @@
+---
+title: CipherStash Documentation
+description: Encrypt, manage secrets, and control keys with CipherStash
+---
+
+# CipherStash Documentation
+
+CipherStash is field-level encryption you can query without decryption. Every value is encrypted with its own unique key via [ZeroKMS](/docs/kms), a zero-knowledge key management platform where neither CipherStash nor any single party can access your data keys.
+
+```bash
+npm install @cipherstash/stack
+```
+
+## Choose your integration
+
+CipherStash offers a few ways to leverage the data security stack:
+
+| | TypeScript SDK | CipherStash Proxy |
+|---|---|---|
+| **How it works** | Encryption and Secrets SDK and CLI available as an NPM package | Postgres Encryption - Postgres wire protocol Proxy built on top of the Encryption SDK to transparently encrypt data in Postgres |
+| **Best for** | Teams moving quickly and building TypeScript apps |  More complex app architectures or non TypeScript applications using Postgres |
+| **Language** | TypeScript / JavaScript (Node.js, Deno, Bun) | Any language (connects via PostgreSQL wire protocol) |
+| **Setup** | `npm install @cipherstash/stack` | Docker container or binary |
+
+Most teams start with the **SDK** for the best developer experience.
+
+## Get started
+
+<Cards>
+  <Card title="Encryption SDK" href="/docs/encryption" description="Field-level encryption with searchable queries. Encrypt in your application code with full TypeScript support." />
+  <Card title="CipherStash Proxy" href="/docs/proxy" description="Drop-in SQL proxy for PostgreSQL. Encrypt data with zero code changes." />
+  <Card title="Secrets" href="/docs/secrets" description="End-to-end encrypted secret storage with SDK and CLI." />
+  <Card title="KMS" href="/docs/kms" description="The building blocks for secure applications." />
+</Cards>
+
+## Understand the architecture
+
+<Cards>
+  <Card title="Security architecture" href="/docs/concepts/security-architecture" description="Cryptographic primitives, key hierarchy, and trust model." />
+  <Card title="Searchable encryption" href="/docs/concepts/searchable-encryption" description="How CipherStash enables queries on encrypted data." />
+  <Card title="What is CipherStash?" href="/docs/concepts/what-is-cipherstash" description="Overview of the platform, threat model, and key capabilities." />
+</Cards>

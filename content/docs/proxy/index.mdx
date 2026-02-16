@@ -1,0 +1,36 @@
+---
+title: CipherStash Proxy
+description: Transparent, searchable encryption for your existing PostgreSQL database
+---
+
+# CipherStash Proxy
+
+CipherStash Proxy provides transparent, *searchable* encryption for your existing PostgreSQL database.
+
+## Features
+
+- **Automatic encryption and decryption** with zero changes to SQL — configure encryption for specific tables and columns
+- **Queries over encrypted values**: equality, comparison, ordering, grouping
+- **Built-in [Prometheus](https://prometheus.io/) support** for monitoring
+- **Written in Rust** for high performance and strongly-typed mapping of SQL statements
+- **Uses [ZeroKMS](/docs/kms)**, offering up to 14x the performance of AWS KMS
+- **Runs in a container** or as a standalone CLI tool
+
+Behind the scenes, CipherStash Proxy uses the [Encrypt Query Language (EQL)](/docs/concepts/eql) to index and search encrypted data.
+
+## When to use Proxy vs SDK
+
+| | CipherStash Proxy | Encryption SDK |
+|---|---|---|
+| **Best for** | DevOps teams adding encryption to existing PostgreSQL apps | Engineering teams building new applications |
+| **Code changes** | Zero — drop-in replacement for your database connection | Application-level integration with schema definitions |
+| **Setup** | Docker container, configure env vars | npm install, define schemas, integrate into app |
+| **Control** | Automatic, table/column configuration | Fine-grained, per-field control |
+
+## Next steps
+
+<Cards>
+  <Card title="Getting started" href="/docs/proxy/getting-started" description="Get up and running in local dev in under 5 minutes." />
+  <Card title="Configuration" href="/docs/proxy/configuration" description="Docker setup, environment variables, and EQL installation." />
+  <Card title="Deploy to AWS ECS" href="/docs/proxy/aws-ecs" description="Step-by-step guide for deploying Proxy to AWS ECS." />
+</Cards>

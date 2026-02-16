@@ -1,0 +1,13 @@
+{
+  "pages": [
+    "encryption",
+    "secrets",
+    "kms",
+    "proxy",
+    "platform",
+    "concepts",
+    "---Resources---",
+    "glossary",
+    "use-cases"
+  ]
+}
