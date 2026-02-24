@@ -31,13 +31,21 @@ Most teams start with the **SDK** for the best developer experience.
   <Card title="Encryption SDK" href="/docs/encryption" description="Field-level encryption with searchable queries. Encrypt in your application code with full TypeScript support." />
   <Card title="CipherStash Proxy" href="/docs/proxy" description="Drop-in SQL proxy for PostgreSQL. Encrypt data with zero code changes." />
   <Card title="Secrets" href="/docs/secrets" description="End-to-end encrypted secret storage with SDK and CLI." />
-  <Card title="KMS" href="/docs/kms" description="The building blocks for secure applications." />
+  <Card title="KMS" href="/docs/kms" description="Key management and Key Sets — the foundational layer that powers Encryption and Secrets." />
 </Cards>
+
+## How it fits together
+
+Every CipherStash product builds on [ZeroKMS](/docs/kms) and its core primitive, [Key Sets](/docs/kms/keysets):
+
+- **[Encryption](/docs/encryption)** uses Key Sets for [multi-tenant isolation](/docs/encryption/configuration#keysets) — each tenant gets its own cryptographic boundary.
+- **[Secrets](/docs/secrets)** uses Key Sets for [environment isolation](/docs/secrets/concepts#environments) — production, staging, and development secrets are cryptographically separated.
+- **[Proxy](/docs/proxy)** encrypts data transparently via PostgreSQL, backed by the same ZeroKMS key hierarchy.
 
 ## Understand the architecture
 
 <Cards>
-  <Card title="Security architecture" href="/docs/concepts/security-architecture" description="Cryptographic primitives, key hierarchy, and trust model." />
-  <Card title="Searchable encryption" href="/docs/concepts/searchable-encryption" description="How CipherStash enables queries on encrypted data." />
-  <Card title="What is CipherStash?" href="/docs/concepts/what-is-cipherstash" description="Overview of the platform, threat model, and key capabilities." />
+  <Card title="Security architecture" href="/docs/platform/security-architecture" description="Cryptographic primitives, key hierarchy, and trust model." />
+  <Card title="Searchable encryption" href="/docs/platform/searchable-encryption" description="How CipherStash enables queries on encrypted data." />
+  <Card title="What is CipherStash?" href="/docs/platform/what-is-cipherstash" description="Overview of the platform, threat model, and key capabilities." />
 </Cards>

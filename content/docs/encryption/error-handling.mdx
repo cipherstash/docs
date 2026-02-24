@@ -39,24 +39,19 @@ This pattern applies to every async method: `Encryption()`, `encrypt`, `decrypt`
 
 ## Handling initialization errors
 
-Client initialization is the most common place to encounter errors. Always check the result before using the client.
+Client initialization is the most common place to encounter errors. Unlike other SDK operations, `Encryption()` throws on failure rather than returning a `Result`.
 
 ```typescript title="init-error.ts"
 import { Encryption } from "@cipherstash/stack"
 import { users } from "./schema"
 
-const client = await Encryption({ schemas: [users] })
-
-if (client.failure) {
-  switch (client.failure.type) {
-    case "ClientInitError":
-      // Check your CS_* environment variables
-      console.error("Failed to initialize:", client.failure.message)
-      process.exit(1)
-  }
+try {
+  const client = await Encryption({ schemas: [users] })
+} catch (error) {
+  // Check your CS_* environment variables
+  console.error("Failed to initialize:", error.message)
+  process.exit(1)
 }
-
-// client.data is now the EncryptionClient
 ```
 
 ### Common initialization issues
@@ -150,7 +145,7 @@ if (identifyResult.failure) {
 |---|---|---|
 | `LockContextError` with missing claim | JWT doesn't contain the configured identity claim | Check your JWT contains the `sub` claim (or your custom claims) |
 | `CtsTokenError` with connection error | CTS endpoint unreachable | Verify `CS_CTS_ENDPOINT` is set correctly |
-| `CtsTokenError` with rejection | JWT is expired or not trusted by CTS | Ensure JWT is fresh and from a [configured identity provider](/docs/platform/cts) |
+| `CtsTokenError` with rejection | JWT is expired or not trusted by CTS | Ensure JWT is fresh and from a [configured identity provider](/docs/kms/cts) |
 
 ## Wrapping errors in application code
 
@@ -172,14 +167,15 @@ const encrypted = unwrap(await client.encrypt("hello", { column: users.email, ta
 
 ## Logging
 
-Control SDK log verbosity with the `PROTECT_LOG_LEVEL` environment variable:
+Control SDK log verbosity with the `STASH_LOG_LEVEL` environment variable:
 
 ```bash
-PROTECT_LOG_LEVEL=debug  # debug | info | error
+STASH_LOG_LEVEL=debug  # debug | info | warn | error (default: info)
 ```
 
 - `debug`: Logs key derivation requests, operation timing, and connection details (never logs plaintext or key material)
-- `info`: Logs initialization and high-level operation status
-- `error`: Logs only failures (default)
+- `info`: Logs initialization and high-level operation status (default)
+- `warn`: Logs warnings and potential issues
+- `error`: Logs only failures
 
 The SDK never logs plaintext data or key material at any log level.

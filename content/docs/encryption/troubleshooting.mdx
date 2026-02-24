@@ -65,7 +65,7 @@ const client = await Encryption({ schemas: [users] })
 
 If data was encrypted with keyset A but you're decrypting with keyset B, decryption will fail. Each keyset provides cryptographic isolation.
 
-**Fix**: Ensure the client is configured with the same keyset that was used during encryption. Check the `keyset` option in your config or verify which keyset your client is associated with in the [dashboard](/docs/platform/clients).
+**Fix**: Ensure the client is configured with the same keyset that was used during encryption. Check the `keyset` option in your config or verify which keyset your client is associated with in the [dashboard](/docs/kms/clients).
 
 ### Lock context mismatch
 
@@ -87,7 +87,7 @@ If the stored ciphertext has been modified, decryption will fail because AES-GCM
 
 ### Missing EQL extension
 
-Searchable encryption requires the [EQL PostgreSQL extension](/docs/concepts/eql). Without it, queries against encrypted columns won't work.
+Searchable encryption requires the [EQL PostgreSQL extension](/docs/platform/eql). Without it, queries against encrypted columns won't work.
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS eql_v2;
@@ -190,7 +190,7 @@ await client.bulkEncrypt(plaintexts, { column: schema.email, table: schema })
 Enable debug logging to see detailed operation information:
 
 ```bash
-PROTECT_LOG_LEVEL=debug
+STASH_LOG_LEVEL=debug
 ```
 
 This logs key derivation requests, operation timing, and connection details. The SDK never logs plaintext data or key material at any log level.

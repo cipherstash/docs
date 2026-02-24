@@ -1,0 +1,7 @@
+{
+  "title": "Reference",
+  "description": "Auto-generated API reference documentation",
+  "icon": "Code",
+  "root": true,
+  "pages": ["index", "stack", "drizzle"]
+}

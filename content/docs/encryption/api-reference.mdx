@@ -5,23 +5,23 @@ description: Complete API reference for the CipherStash Encryption SDK
 
 # API reference
 
+> For auto-generated TypeDoc reference with full type signatures, see the [generated API reference](/docs/reference).
+
 ## `Encryption(config)`
 
-Initialize the encryption client. Returns a `Result<EncryptionClient, EncryptionError>`.
+Initialize the encryption client. Returns `Promise<EncryptionClient>` and throws on error (e.g., bad credentials, missing config, invalid keyset UUID).
 
 ```typescript title="init.ts"
 import { Encryption } from "@cipherstash/stack"
 import { users } from "./schema"
 
-const client = await Encryption({
-  schemas: [users],
-  config: { /* optional — reads CS_* env vars by default */ },
-})
-
-if (client.failure) {
-  console.error(client.failure.type, client.failure.message)
-} else {
-  // client.data is the EncryptionClient
+try {
+  const client = await Encryption({
+    schemas: [users],
+    config: { /* optional — reads CS_* env vars by default */ },
+  })
+} catch (error) {
+  console.error("Init failed:", error.message)
 }
 ```
 
@@ -55,7 +55,7 @@ type EncryptionClientConfig = {
 | `CS_CLIENT_ID` | `clientId` | Client identifier |
 | `CS_CLIENT_KEY` | `clientKey` | Client key material |
 | `CS_CLIENT_ACCESS_KEY` | `accessKey` | API key for authentication |
-| `PROTECT_LOG_LEVEL` | — | Log verbosity: `debug`, `info`, `error` |
+| `STASH_LOG_LEVEL` | — | Log verbosity: `debug`, `info`, `warn`, `error` (default: `info`) |
 
 ## The `Result` type
 
@@ -182,6 +182,13 @@ const results = await client.encryptQuery([
 | `options.column` | `ProtectColumn` | Column to search |
 | `options.table` | `EncryptedTable` | Table schema |
 | `options.queryType` | `'equality' \| 'freeTextSearch' \| 'orderAndRange' \| 'searchableJson'` | Index type. Auto-inferred if omitted |
+| `options.returnType` | `'eql' \| 'composite-literal' \| 'escaped-composite-literal'` | Output format. Default: `'eql'` |
+
+| `returnType` | Output | Use case |
+|---|---|---|
+| `'eql'` (default) | `Encrypted` object | Parameterized queries, ORMs accepting JSON |
+| `'composite-literal'` | `string` | Supabase `.eq()`, string-based APIs |
+| `'escaped-composite-literal'` | `string` | Embedding inside another string or JSON value |
 
 Returns `EncryptQueryOperation` or `BatchEncryptQueryOperation` — thenable, supports `.withLockContext()`.
 
@@ -347,6 +354,9 @@ Requires `CS_CTS_ENDPOINT` environment variable for the CipherStash Token Servic
 | `@cipherstash/stack/schema` | `encryptedTable`, `encryptedColumn`, `encryptedValue`, schema types |
 | `@cipherstash/stack/identity` | `LockContext` class and identity types |
 | `@cipherstash/stack/secrets` | `Secrets` class and secrets types |
+| `@cipherstash/stack/drizzle` | `encryptedType`, `extractEncryptionSchema`, `createEncryptionOperators` for Drizzle ORM |
+| `@cipherstash/stack/supabase` | `encryptedSupabase` wrapper for Supabase |
+| `@cipherstash/stack/dynamodb` | `encryptedDynamoDB` helper for DynamoDB |
 | `@cipherstash/stack/client` | Client-safe exports (schema builders and types only — no native FFI) |
 | `@cipherstash/stack/types` | All TypeScript types |
 

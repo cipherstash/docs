@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "skills": {
+    "stash-drizzle": {
+      "source": "/Users/cj/Documents/CipherStash/Github/protectjs",
+      "sourceType": "local",
+      "computedHash": "662d64e028ff65bac914656dd968e5b95410494ac34575b14051cb37cbc1be19"
+    },
+    "stash-dynamodb": {
+      "source": "/Users/cj/Documents/CipherStash/Github/protectjs",
+      "sourceType": "local",
+      "computedHash": "def930034811950e4b86c9029c316250dfafdc36fd174b9a033725c262f226a1"
+    },
+    "stash-encryption": {
+      "source": "/Users/cj/Documents/CipherStash/Github/protectjs",
+      "sourceType": "local",
+      "computedHash": "2f0bf42a33eb86d81840dcaa8914eee6b994003becc19bde2ea768642a792440"
+    },
+    "stash-secrets": {
+      "source": "/Users/cj/Documents/CipherStash/Github/protectjs",
+      "sourceType": "local",
+      "computedHash": "a614a63f9ba28c3213cc8ed7b0310bf53aeffd5bd8f4b5ecb2ffc44717145010"
+    },
+    "stash-supabase": {
+      "source": "/Users/cj/Documents/CipherStash/Github/protectjs",
+      "sourceType": "local",
+      "computedHash": "559b9a6d358557851ed4cd1eea1abf8481b3ec1d6f670501f6d805841ea31613"
+    }
+  }
+}

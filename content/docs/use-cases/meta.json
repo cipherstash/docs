@@ -1,0 +1,9 @@
+{
+  "pages": [
+    "index",
+    "ai-rag",
+    "compliance",
+    "data-residency",
+    "provable-access"
+  ]
+}

@@ -1,0 +1,169 @@
+---
+title: Storing encrypted data
+description: Store and retrieve encrypted data in PostgreSQL and other databases using the Encryption SDK
+---
+
+# Storing encrypted data
+
+This guide shows how to persist encrypted values in your database and retrieve them later using raw SQL. If you're using an ORM, see the [Drizzle integration](/docs/encryption/drizzle) or [Supabase integration](/docs/encryption/supabase) instead.
+
+## Database compatibility
+
+The Encryption SDK works with any database that supports JSON or JSONB column types. Searchable encryption is available in PostgreSQL (via [EQL](/docs/platform/eql)) and [DynamoDB](/docs/encryption/dynamodb).
+
+| Database | Standard encryption | Searchable encryption |
+|---|---|---|
+| PostgreSQL 15+ | Yes | Yes |
+| AWS RDS PostgreSQL | Yes | Yes |
+| AWS Aurora PostgreSQL | Yes | Yes |
+| GCP Cloud SQL for PostgreSQL | Yes | Yes |
+| Azure Database for PostgreSQL | Yes | Yes |
+| OCI Database Service for PostgreSQL | Yes | Yes |
+| DynamoDB | Yes | Yes |
+| Supabase | Yes | Coming soon |
+| Neon Postgres | Yes | — |
+| MySQL | Yes | — |
+| CockroachDB | Yes | — |
+
+## PostgreSQL guide
+
+### Install EQL (optional)
+
+To enable searchable encryption in PostgreSQL, install [EQL](/docs/platform/eql) so you can use the `eql_v2_encrypted` data type. If you don't need searchable encryption, use `jsonb` instead (you can migrate to EQL later).
+
+```bash
+# DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres
+curl -sL https://cphrstsh.link/eql | psql $DATABASE_URL
+```
+
+> **Choosing the column type:**
+> - Use `eql_v2_encrypted` if you need searchable encryption (or want the option later)
+> - Use `jsonb` if you don't need searchable encryption or don't mind changing the data type later
+
+### Create a table
+
+Encrypted values ([CipherCells](/docs/platform/cipher-cell)) are stored as either `jsonb` or `eql_v2_encrypted` in PostgreSQL.
+
+With EQL:
+
+```sql
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email eql_v2_encrypted NOT NULL
+);
+```
+
+With JSONB:
+
+```sql
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email jsonb NOT NULL
+);
+```
+
+### Encrypt and insert data
+
+Encrypt the plaintext value and insert the resulting CipherCell into your database:
+
+```typescript title="insert.ts"
+import { Encryption } from "@cipherstash/stack"
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
+import { Pool } from "pg"
+
+const users = encryptedTable("users", {
+  email: encryptedColumn("email").equality(),
+})
+
+const client = await Encryption({ schemas: [users] })
+
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  port: parseInt(process.env.DB_PORT || "5432"),
+})
+
+async function insertUser(email: string) {
+  const encryptResult = await client.encrypt(email, {
+    column: users.email,
+    table: users,
+  })
+
+  if (encryptResult.failure) {
+    throw new Error(`Encryption failed: ${encryptResult.failure.message}`)
+  }
+
+  // Use the ::jsonb cast to ensure Postgres treats the data as JSONB
+  const result = await pool.query(
+    "INSERT INTO users (email) VALUES ($1::jsonb) RETURNING id",
+    [encryptResult.data]
+  )
+
+  return result.rows[0].id
+}
+```
+
+> Always use the `::jsonb` cast when inserting encrypted values, even when using the `eql_v2_encrypted` column type. This ensures PostgreSQL correctly handles the CipherCell object.
+
+### Retrieve and decrypt data
+
+Query the database and pass the CipherCell to the `decrypt` method:
+
+```typescript title="retrieve.ts"
+async function getUserEmail(userId: number) {
+  const fetchResult = await pool.query(
+    "SELECT email FROM users WHERE id = $1",
+    [userId]
+  )
+
+  if (fetchResult.rows.length === 0) {
+    throw new Error("User not found")
+  }
+
+  const decryptResult = await client.decrypt(fetchResult.rows[0].email)
+
+  if (decryptResult.failure) {
+    throw new Error(`Decryption failed: ${decryptResult.failure.message}`)
+  }
+
+  return decryptResult.data
+}
+```
+
+### Bulk insert with UNNEST
+
+When inserting many rows, use `bulkEncrypt` with PostgreSQL's `UNNEST` for efficient batch inserts:
+
+```typescript title="bulk-insert.ts"
+async function insertUsers(emails: string[]) {
+  const plaintexts = emails.map((email) => ({ plaintext: email }))
+
+  const encryptedResult = await client.bulkEncrypt(plaintexts, {
+    column: users.email,
+    table: users,
+  })
+
+  if (encryptedResult.failure) {
+    throw new Error(`Bulk encryption failed: ${encryptedResult.failure.message}`)
+  }
+
+  const result = await pool.query(
+    `INSERT INTO users (email)
+     SELECT * FROM UNNEST($1::jsonb[])`,
+    [encryptedResult.data.map((item) => item.data)]
+  )
+
+  return result.rowCount
+}
+```
+
+Using `bulkEncrypt` instead of calling `encrypt` in a loop has a significant performance impact — it batches key derivation requests to ZeroKMS.
+
+## Next steps
+
+- [Searchable encryption](/docs/encryption/searchable-encryption) — query encrypted data without decrypting
+- [Drizzle ORM integration](/docs/encryption/drizzle) — encrypted queries with Drizzle
+- [Bulk operations](/docs/encryption/encrypt-decrypt) — encrypt and decrypt multiple values efficiently
+- [Identity-aware encryption](/docs/encryption/identity) — bind operations to authenticated identities

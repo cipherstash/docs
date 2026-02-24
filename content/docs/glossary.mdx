@@ -15,7 +15,7 @@ Unlike [RBAC](#rbac-role-based-access-control), which relies solely on a user's 
 ### Access key
 
 A persistent authentication credential used for communication with [ZeroKMS](#zerokms) or [CTS](#cts-cipherstash-token-service).
-See [Access keys](/docs/platform/access-keys) for details.
+See [Access keys](/docs/kms/access-keys) for details.
 
 ### Account management
 
@@ -55,7 +55,7 @@ A unique identifier of a [client](#client). Each client key and [client ID](#cli
 
 CTS manages the trust relationships between a workspace and third-party or customer identity providers.
 It brokers secure access to CipherStash services like ZeroKMS, ensuring that only authenticated and authorized users gain entry.
-See [CTS](/docs/platform/cts) for details.
+See [CTS](/docs/kms/cts) for details.
 
 ## D
 
@@ -73,7 +73,7 @@ An event triggered by execution of SQL statements by CipherStash Proxy. Includes
 ### EQL (Encrypt Query Language)
 
 Our [open-source library](https://github.com/cipherstash/encrypt-query-language) for PostgreSQL users. It simplifies the process of encrypting and querying sensitive data, giving you powerful tools to encrypt data transparently at the field level, query encrypted data directly using familiar SQL commands, and leverage encrypted indexes for secure and efficient searches.
-See [EQL](/docs/concepts/eql) for details.
+See [EQL](/docs/platform/eql) for details.
 
 ## H
 
@@ -105,7 +105,7 @@ A keyset is used to generate data keys, and is managed by [ZeroKMS](#zerokms).
 It includes configuration for encrypted columns and queryable indexes.
 Use keysets to group data for a specific purpose or project.
 A [client](#client) can have many keysets, and a keyset can also be shared by multiple clients.
-See [Keysets](/docs/platform/keysets) and [KMS Keysets](/docs/kms/keysets) for details.
+See [Keysets](/docs/kms/keysets) for details.
 
 ## O
 
@@ -117,7 +117,7 @@ It facilitates secure single sign-on (SSO) and simplifies the authentication pro
 ### ORE (Order Revealing Encryption)
 
 A searchable encryption technique allowing for search, comparison, and sorting of encrypted data without decryption.
-See [Range queries](/docs/concepts/supported-queries#range--order) for details.
+See [Range queries](/docs/platform/supported-queries#range--order) for details.
 
 ## P
 
@@ -138,7 +138,7 @@ Unlike [ABAC](#abac-attribute-based-access-control), which evaluates policies ba
 
 An encrypted data structure for finding records in encrypted columns. Essential for querying encrypted data, as it replaces the need for full table scans, improving performance.
 This is a core feature of CipherStash, supporting range, exact, and match queries.
-See [Supported queries](/docs/concepts/supported-queries) for details.
+See [Supported queries](/docs/platform/supported-queries) for details.
 
 ## W
 

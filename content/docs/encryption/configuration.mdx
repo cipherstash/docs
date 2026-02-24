@@ -80,7 +80,13 @@ const client = await Encryption(config)
 
 ## Keysets
 
-Isolate encryption keys per tenant using keysets. See [Multi-tenant encryption](/docs/kms/keysets) for details.
+[Key Sets](/docs/kms/keysets) are a ZeroKMS primitive for cryptographic isolation.
+Each Key Set maintains its own set of data encryption keys — data encrypted under one Key Set cannot be decrypted with another.
+This is the same primitive that powers [environment isolation in Secrets](/docs/secrets/concepts#environments).
+
+You can specify a Key Set by ID or by name:
+
+### By ID
 
 ```typescript title="protect/index.ts"
 const client = await Encryption({
@@ -91,15 +97,59 @@ const client = await Encryption({
 })
 ```
 
+### By name
+
+```typescript title="protect/index.ts"
+const client = await Encryption({
+  schemas: [users],
+  config: {
+    keyset: { name: "Company A" },
+  },
+})
+```
+
+For full details on creating and managing Key Sets, see the [Key Sets reference](/docs/kms/keysets).
+
 ## Logging
 
-Control log verbosity with the `PROTECT_LOG_LEVEL` environment variable:
+Control log verbosity with the `STASH_LOG_LEVEL` environment variable:
 
 ```bash
-PROTECT_LOG_LEVEL=debug  # debug | info | error
+STASH_LOG_LEVEL=debug  # debug | info | warn | error (default: info)
 ```
 
 The SDK never logs plaintext data.
+
+### Programmatic logging
+
+```typescript title="protect/index.ts"
+const client = await Encryption({
+  schemas: [users],
+  logging: {
+    enabled: true,     // toggle logging on/off (default: true)
+    pretty: true,      // pretty-print in development (default: auto-detected)
+  },
+})
+```
+
+### Log draining
+
+Send structured logs to an external observability platform:
+
+```typescript title="protect/index.ts"
+const client = await Encryption({
+  schemas: [users],
+  logging: {
+    drain: (ctx) => {
+      // Forward to Axiom, Datadog, OTLP, etc.
+      fetch("https://your-service.com/logs", {
+        method: "POST",
+        body: JSON.stringify(ctx.event),
+      })
+    },
+  },
+})
+```
 
 ## Deploying to production
 
@@ -117,7 +167,7 @@ This has been tested on [Vercel](https://vercel.com/) and [AWS Lambda](https://a
 
 `@cipherstash/stack` includes a native FFI module that must be excluded from bundling:
 
-- **Next.js**: See [Next.js setup](/docs/encryption/nextjs)
+- **Next.js**: See [Bundling — Next.js](/docs/encryption/bundling#nextjs)
 - **SST / serverless**: See [SST setup](/docs/encryption/sst)
 - **Webpack / esbuild**: Add `@cipherstash/stack` to your externals configuration
 

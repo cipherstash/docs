@@ -15,7 +15,7 @@ CipherStash's encryption and access control capabilities support the following c
 |---|---|
 | **SOC 2 Type II** | Field-level encryption, access key scoping, audit logging of every decrypt operation, key rotation via keysets |
 | **HIPAA** | Encryption of PHI at the field level, identity-aware access controls (lock contexts), audit trails for data access |
-| **GDPR** | Encryption of personal data, data residency controls via [regional deployment](/docs/platform/regions), crypto-shredding by deleting keysets |
+| **GDPR** | Encryption of personal data, data residency controls via [regional deployment](/docs/kms/regions), crypto-shredding by deleting keysets |
 | **PCI-DSS** | Encryption of cardholder data fields, key management via ZeroKMS, separation of key material from encrypted data |
 | **ISO 27001** | Cryptographic controls (A.10), access control (A.9), logging and monitoring (A.12) |
 | **CCPA** | Encryption of consumer personal information, access controls, audit trails |
@@ -26,7 +26,7 @@ CipherStash's encryption and access control capabilities support the following c
 
 CipherStash workspaces are deployed to specific AWS regions. Key material and encryption operations stay within the configured region.
 
-Available regions are listed on the [Regions](/docs/platform/regions) page. When you create a workspace, you select a region and all ZeroKMS key material is stored and processed in that region.
+Available regions are listed on the [Regions](/docs/kms/regions) page. When you create a workspace, you select a region and all ZeroKMS key material is stored and processed in that region.
 
 ## Audit logging
 
@@ -75,4 +75,4 @@ For rotation procedures, see [Keysets](/docs/kms/keysets).
 
 ## Security architecture
 
-For a complete description of the cryptographic design, key hierarchy, and trust model, see [Security architecture](/docs/concepts/security-architecture).
+For a complete description of the cryptographic design, key hierarchy, and trust model, see [Security architecture](/docs/platform/security-architecture).

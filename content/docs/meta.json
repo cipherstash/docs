@@ -5,9 +5,11 @@
     "kms",
     "proxy",
     "platform",
-    "concepts",
+    "reference",
     "---Resources---",
     "glossary",
-    "use-cases"
+    "use-cases",
+    "supported-solutions",
+    "planning-guide"
   ]
 }

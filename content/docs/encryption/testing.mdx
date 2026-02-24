@@ -80,10 +80,11 @@ beforeAll(async () => {
   await pool.query("CREATE EXTENSION IF NOT EXISTS eql_v2")
 
   // Initialize encryption client with test credentials
-  client = await Encryption({ schemas: [users] })
-
-  if (client.failure) {
-    throw new Error(`Test setup failed: ${client.failure.message}`)
+  // Encryption() throws on failure, so wrap in try/catch
+  try {
+    client = await Encryption({ schemas: [users] })
+  } catch (error) {
+    throw new Error(`Test setup failed: ${(error as Error).message}`)
   }
 })
 
@@ -98,13 +99,13 @@ afterAll(async () => {
 test("encrypt and decrypt returns original value", async () => {
   const original = "alice@example.com"
 
-  const encrypted = await client.data.encrypt(original, {
+  const encrypted = await client.encrypt(original, {
     column: users.email,
     table: users,
   })
   expect(encrypted.failure).toBeUndefined()
 
-  const decrypted = await client.data.decrypt(encrypted.data)
+  const decrypted = await client.decrypt(encrypted.data)
   expect(decrypted.failure).toBeUndefined()
   expect(decrypted.data).toBe(original)
 })
@@ -115,7 +116,7 @@ test("encrypt and decrypt returns original value", async () => {
 ```typescript title="test/search.test.ts"
 test("equality search finds encrypted record", async () => {
   // Encrypt and store a value
-  const encrypted = await client.data.encrypt("alice@example.com", {
+  const encrypted = await client.encrypt("alice@example.com", {
     column: users.email,
     table: users,
   })
@@ -125,7 +126,7 @@ test("equality search finds encrypted record", async () => {
   )
 
   // Encrypt the search term
-  const query = await client.data.encryptQuery("alice@example.com", {
+  const query = await client.encryptQuery("alice@example.com", {
     column: users.email,
     table: users,
     queryType: "equality",

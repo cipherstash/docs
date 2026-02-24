@@ -30,3 +30,10 @@ next-env.d.ts
 .vercel
 
 next-env.d.ts
+
+# generated TypeDoc reference docs
+content/docs/reference/stack/latest/
+content/docs/reference/stack/v*/
+content/docs/reference/drizzle/latest/
+content/docs/reference/drizzle/v*/
+.tmp-*

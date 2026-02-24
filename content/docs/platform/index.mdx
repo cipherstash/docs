@@ -1,6 +1,6 @@
 ---
 title: Platform
-description: How CipherStash platform components work together to provide continuous security
+description: Dashboard, workspaces, organization management, and core concepts
 ---
 
 # Platform
@@ -52,8 +52,19 @@ Create an account and generate your credentials and keys in the [Dashboard](http
 ## Next steps
 
 <Cards>
-  <Card title="Access keys" href="/docs/platform/access-keys" description="Create and manage access keys for programmatic access." />
-  <Card title="Clients" href="/docs/platform/clients" description="Manage client instances of Proxy or SDK applications." />
-  <Card title="ZeroKMS" href="/docs/kms" description="Configure key management." />
   <Card title="Members" href="/docs/platform/members" description="Manage organization and workspace membership." />
+  <Card title="Compliance" href="/docs/platform/compliance" description="Compliance frameworks, data residency, and audit capabilities." />
+  <Card title="ZeroKMS" href="/docs/kms" description="Configure key management." />
+</Cards>
+
+## Concepts
+
+<Cards>
+  <Card title="What is CipherStash?" href="/docs/platform/what-is-cipherstash" description="Overview of the platform, threat model, and core capabilities." />
+  <Card title="Security architecture" href="/docs/platform/security-architecture" description="Cryptographic primitives, key hierarchy, and trust model." />
+  <Card title="Searchable encryption" href="/docs/platform/searchable-encryption" description="How CipherStash enables queries over encrypted data." />
+  <Card title="The CipherCell" href="/docs/platform/cipher-cell" description="The JSON format for storing encrypted data with searchable metadata." />
+  <Card title="Supported queries" href="/docs/platform/supported-queries" description="Exact match, pattern matching, and range queries on encrypted columns." />
+  <Card title="Encrypt Query Language (EQL)" href="/docs/platform/eql" description="PostgreSQL types, operators, and functions for encrypted data." />
+  <Card title="AWS KMS comparison" href="/docs/platform/aws-kms-comparison" description="CipherStash Encryption vs AWS KMS — a side-by-side comparison." />
 </Cards>

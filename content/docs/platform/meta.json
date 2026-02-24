@@ -5,15 +5,19 @@
   "root": true,
   "pages": [
     "index",
-    "---Workspaces---",
-    "access-keys",
-    "clients",
-    "keysets",
-    "regions",
     "---Organizations---",
     "members",
-    "cts",
     "---Compliance---",
-    "compliance"
+    "compliance",
+    "---Billing---",
+    "billing",
+    "---Concepts---",
+    "what-is-cipherstash",
+    "security-architecture",
+    "searchable-encryption",
+    "cipher-cell",
+    "supported-queries",
+    "eql",
+    "aws-kms-comparison"
   ]
 }

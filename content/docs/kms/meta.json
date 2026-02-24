@@ -1,7 +1,18 @@
 {
   "title": "KMS",
   "description": "Key management with ZeroKMS",
-  "icon": "Shield",
+  "icon": "KeyRound",
   "root": true,
-  "pages": ["index", "keysets", "configuration", "disaster-recovery"]
+  "pages": [
+    "index",
+    "---Configuration---",
+    "configuration",
+    "access-keys",
+    "clients",
+    "keysets",
+    "regions",
+    "cts",
+    "---Operations---",
+    "disaster-recovery"
+  ]
 }
