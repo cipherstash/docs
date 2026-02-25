@@ -88,21 +88,21 @@ encryptedColumn("bio").freeTextSearch({
 
 ## Nested objects
 
-CipherStash Encryption supports nested objects in your schema, allowing you to encrypt nested properties. You can define nested objects up to 3 levels deep using `encryptedValue`.
+CipherStash Encryption supports nested objects in your schema, allowing you to encrypt nested properties. You can define nested objects up to 3 levels deep using `encryptedField`.
 
 > Searchable encryption is not supported on nested objects. This is most useful for NoSQL databases or less structured data.
 
 ```typescript title="schema.ts"
-import { encryptedTable, encryptedColumn, encryptedValue } from "@cipherstash/stack/schema"
+import { encryptedTable, encryptedColumn, encryptedField } from "@cipherstash/stack/schema"
 
 export const protectedUsers = encryptedTable("users", {
   email: encryptedColumn("email").equality().freeTextSearch(),
   profile: {
-    name: encryptedValue("profile.name"),
+    name: encryptedField("profile.name"),
     address: {
-      street: encryptedValue("profile.address.street"),
+      street: encryptedField("profile.address.street"),
       location: {
-        coordinates: encryptedValue("profile.address.location.coordinates"),
+        coordinates: encryptedField("profile.address.location.coordinates"),
       },
     },
   },

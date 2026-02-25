@@ -112,44 +112,19 @@ For full details on creating and managing Key Sets, see the [Key Sets reference]
 
 ## Logging
 
-Control log verbosity with the `STASH_LOG_LEVEL` environment variable:
+Control log verbosity with the `STASH_STACK_LOG` environment variable:
 
 ```bash
-STASH_LOG_LEVEL=debug  # debug | info | warn | error (default: info)
+STASH_STACK_LOG=error  # debug | info | error (default: error)
 ```
+
+| Value   | What is logged          |
+| ------- | ----------------------- |
+| `error` | Errors only (default)   |
+| `info`  | Info and errors         |
+| `debug` | Debug, info, and errors |
 
 The SDK never logs plaintext data.
-
-### Programmatic logging
-
-```typescript title="protect/index.ts"
-const client = await Encryption({
-  schemas: [users],
-  logging: {
-    enabled: true,     // toggle logging on/off (default: true)
-    pretty: true,      // pretty-print in development (default: auto-detected)
-  },
-})
-```
-
-### Log draining
-
-Send structured logs to an external observability platform:
-
-```typescript title="protect/index.ts"
-const client = await Encryption({
-  schemas: [users],
-  logging: {
-    drain: (ctx) => {
-      // Forward to Axiom, Datadog, OTLP, etc.
-      fetch("https://your-service.com/logs", {
-        method: "POST",
-        body: JSON.stringify(ctx.event),
-      })
-    },
-  },
-})
-```
 
 ## Deploying to production
 

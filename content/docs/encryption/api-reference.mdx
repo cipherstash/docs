@@ -55,7 +55,7 @@ type EncryptionClientConfig = {
 | `CS_CLIENT_ID` | `clientId` | Client identifier |
 | `CS_CLIENT_KEY` | `clientKey` | Client key material |
 | `CS_CLIENT_ACCESS_KEY` | `accessKey` | API key for authentication |
-| `STASH_LOG_LEVEL` | — | Log verbosity: `debug`, `info`, `warn`, `error` (default: `info`) |
+| `STASH_STACK_LOG` | — | Log verbosity: `debug`, `info`, `error` (default: `error`) |
 
 ## The `Result` type
 
@@ -272,7 +272,7 @@ const result = await client
 import {
   encryptedTable,
   encryptedColumn,
-  encryptedValue,
+  encryptedField,
 } from "@cipherstash/stack/schema"
 ```
 
@@ -299,9 +299,9 @@ Define an encrypted column with chainable index methods.
 
 Methods are chainable — call as many as needed on a single column.
 
-### `encryptedValue(name)`
+### `encryptedField(name)`
 
-Define an encrypted value for nested objects (non-table contexts).
+Define an encrypted field for nested objects. Not searchable. Supports `.dataType()` chaining.
 
 ### Type inference
 
@@ -351,7 +351,7 @@ Requires `CS_CTS_ENDPOINT` environment variable for the CipherStash Token Servic
 | Import path | Provides |
 |---|---|
 | `@cipherstash/stack` | `Encryption` function (main entry point) |
-| `@cipherstash/stack/schema` | `encryptedTable`, `encryptedColumn`, `encryptedValue`, schema types |
+| `@cipherstash/stack/schema` | `encryptedTable`, `encryptedColumn`, `encryptedField`, schema types |
 | `@cipherstash/stack/identity` | `LockContext` class and identity types |
 | `@cipherstash/stack/secrets` | `Secrets` class and secrets types |
 | `@cipherstash/stack/drizzle` | `encryptedType`, `extractEncryptionSchema`, `createEncryptionOperators` for Drizzle ORM |

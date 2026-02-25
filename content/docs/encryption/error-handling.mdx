@@ -167,15 +167,16 @@ const encrypted = unwrap(await client.encrypt("hello", { column: users.email, ta
 
 ## Logging
 
-Control SDK log verbosity with the `STASH_LOG_LEVEL` environment variable:
+Control SDK log verbosity with the `STASH_STACK_LOG` environment variable:
 
 ```bash
-STASH_LOG_LEVEL=debug  # debug | info | warn | error (default: info)
+STASH_STACK_LOG=error  # debug | info | error (default: error)
 ```
 
-- `debug`: Logs key derivation requests, operation timing, and connection details (never logs plaintext or key material)
-- `info`: Logs initialization and high-level operation status (default)
-- `warn`: Logs warnings and potential issues
-- `error`: Logs only failures
+| Value   | What is logged          |
+| ------- | ----------------------- |
+| `error` | Errors only (default)   |
+| `info`  | Info and errors         |
+| `debug` | Debug, info, and errors |
 
 The SDK never logs plaintext data or key material at any log level.

@@ -6,6 +6,7 @@
 
 :root {
   --color-fd-primary: hsl(269, 70%, 45%);
+  --color-fd-primary-gradient-from: hsl(269, 70%, 55%);
   --color-fd-primary-foreground: hsl(0, 0%, 100%);
   --color-fd-ring: hsl(269, 70%, 45%);
 }
@@ -21,6 +22,7 @@
   --color-fd-card-foreground: hsl(0, 0%, 100%);
   --color-fd-border: hsl(0, 0%, 15%);
   --color-fd-primary: hsl(269, 70%, 55%);
+  --color-fd-primary-gradient-from: hsl(269, 70%, 65%);
   --color-fd-primary-foreground: hsl(0, 0%, 100%);
   --color-fd-secondary: hsl(0, 0%, 10%);
   --color-fd-secondary-foreground: hsl(0, 0%, 100%);

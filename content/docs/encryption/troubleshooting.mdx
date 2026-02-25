@@ -190,7 +190,7 @@ await client.bulkEncrypt(plaintexts, { column: schema.email, table: schema })
 Enable debug logging to see detailed operation information:
 
 ```bash
-STASH_LOG_LEVEL=debug
+STASH_STACK_LOG=debug
 ```
 
 This logs key derivation requests, operation timing, and connection details. The SDK never logs plaintext data or key material at any log level.

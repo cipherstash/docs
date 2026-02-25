@@ -1,14 +1,15 @@
 "use client";
-import { useMemo, useState } from "react";
-import { Check, ChevronDown, Copy, ExternalLinkIcon } from "lucide-react";
-import { cn } from "@/lib/cn";
-import { useCopyButton } from "fumadocs-ui/utils/use-copy-button";
 import { buttonVariants } from "fumadocs-ui/components/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "fumadocs-ui/components/ui/popover";
+import { useCopyButton } from "fumadocs-ui/utils/use-copy-button";
+import { Check, ChevronDown, Copy, ExternalLinkIcon } from "lucide-react";
+import posthog from "posthog-js";
+import { useMemo, useState } from "react";
+import { cn } from "@/lib/cn";
 
 const cache = new Map<string, string>();
 
@@ -23,7 +24,10 @@ export function LLMCopyButton({
   const [isLoading, setLoading] = useState(false);
   const [checked, onClick] = useCopyButton(async () => {
     const cached = cache.get(markdownUrl);
-    if (cached) return navigator.clipboard.writeText(cached);
+    if (cached) {
+      posthog.capture("copy_markdown_clicked", { markdown_url: markdownUrl });
+      return navigator.clipboard.writeText(cached);
+    }
 
     setLoading(true);
 
@@ -38,6 +42,7 @@ export function LLMCopyButton({
           }),
         }),
       ]);
+      posthog.capture("copy_markdown_clicked", { markdown_url: markdownUrl });
     } finally {
       setLoading(false);
     }
@@ -235,6 +240,16 @@ export function ViewOptions({
             rel="noreferrer noopener"
             target="_blank"
             className="text-sm p-2 rounded-lg inline-flex items-center gap-2 hover:text-fd-accent-foreground hover:bg-fd-accent [&_svg]:size-4"
+            onClick={() =>
+              posthog.capture("open_in_ai_tool_clicked", {
+                tool: item.title,
+                markdown_url: markdownUrl,
+                page_url:
+                  typeof window !== "undefined"
+                    ? window.location.href
+                    : undefined,
+              })
+            }
           >
             {item.icon}
             {item.title}

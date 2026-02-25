@@ -84,9 +84,18 @@ if (decryptedResult.failure) {
 const decryptedUser = decryptedResult.data
 ```
 
-### Type-safe generics
+### Schema-aware return types
 
-Pass a type parameter for full type safety:
+The return type of `encryptModel` is schema-aware: fields matching the table schema are typed as `Encrypted`, while other fields retain their original types. For best results, let TypeScript infer the type parameters from the arguments:
+
+```typescript title="encrypt-model.ts"
+const result = await client.encryptModel(user, users)
+// result.data.email is typed as Encrypted
+// result.data.id is typed as string
+// result.data.createdAt is typed as Date
+```
+
+Passing an explicit type parameter (e.g., `client.encryptModel<User>(...)`) still works for backward compatibility — the return type degrades to `User` in that case:
 
 ```typescript title="encrypt-model.ts"
 type User = {
@@ -94,28 +103,10 @@ type User = {
   email: string | null
   address: string | null
   createdAt: Date
-  metadata?: {
-    preferences?: {
-      notifications: boolean
-      theme: string
-    }
-  }
 }
 
 const result = await client.encryptModel<User>(user, users)
 const back = await client.decryptModel<User>(encryptedUser)
-```
-
-The type system ensures:
-- Type safety for input models
-- Correct handling of optional and nullable fields
-- Preservation of nested object structures
-
-Types can also be inferred from your schema definition:
-
-```typescript title="encrypt-model.ts"
-const result = await client.encryptModel(user, users)
-// Result type includes encrypted fields for email and address
 ```
 
 ## Bulk operations

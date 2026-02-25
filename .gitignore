@@ -37,3 +37,4 @@ content/docs/reference/stack/v*/
 content/docs/reference/drizzle/latest/
 content/docs/reference/drizzle/v*/
 .tmp-*
+.env.local

@@ -12,7 +12,6 @@
     "lint": "biome check",
     "format": "biome format --write",
     "generate-docs": "tsx scripts/generate-docs.ts",
-    "generate-docs:stack": "tsx scripts/generate-stack-docs.ts",
     "generate-docs:eql": "tsx scripts/generate-eql-docs.ts"
   },
   "dependencies": {
@@ -21,11 +20,14 @@
     "fumadocs-ui": "16.6.0",
     "lucide-react": "^0.563.0",
     "next": "16.1.6",
+    "posthog-js": "^1.354.0",
+    "posthog-node": "^5.26.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.3.14",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/mdx": "^2.0.13",
     "@types/node": "^25.2.1",
@@ -33,11 +35,10 @@
     "@types/react-dom": "^19.2.3",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5.9.3",
-    "@biomejs/biome": "^2.3.14",
+    "tsx": "^4.0.0",
     "typedoc": "^0.28.0",
-    "typedoc-plugin-markdown": "^4.2.0",
     "typedoc-plugin-frontmatter": "^1.3.0",
-    "tsx": "^4.0.0"
+    "typedoc-plugin-markdown": "^4.2.0",
+    "typescript": "^5.9.3"
   }
 }
