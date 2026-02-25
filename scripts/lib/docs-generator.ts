@@ -173,25 +173,6 @@ export async function generateDocsForTag(
     console.log("Using local copy - skipping checkout");
   }
 
-  // Build workspace packages for drizzle
-  if (config.referencePathSegment === "drizzle") {
-    console.log("Building workspace packages...");
-    try {
-      execSync(
-        'pnpm --filter "@cipherstash/protect" --filter "@cipherstash/schema" build',
-        { cwd: workingDir, stdio: "inherit" },
-      );
-    } catch {
-      try {
-        execSync("pnpm build", { cwd: workingDir, stdio: "inherit" });
-      } catch {
-        console.log(
-          "Build failed, continuing (packages may already be built)...",
-        );
-      }
-    }
-  }
-
   // Create output directory
   await fs.mkdir(outputDir, { recursive: true });
 
@@ -202,6 +183,7 @@ export async function generateDocsForTag(
     exclude: ["node_modules", "examples", "dist", "__tests__"],
     compilerOptions: {
       paths: {
+        "@/*": ["./packages/stack/src/*"],
         "@cipherstash/schema": ["./packages/schema/src/index.ts"],
         "@cipherstash/schema/*": ["./packages/schema/src/*"],
       },

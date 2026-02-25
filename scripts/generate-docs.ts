@@ -2,9 +2,7 @@
 /**
  * Main orchestrator for generating TypeDoc API reference documentation.
  *
- * Generates docs for:
- * - @cipherstash/stack
- * - @cipherstash/drizzle
+ * Generates docs for @cipherstash/stack (which includes all integrations).
  *
  * Set PROTECT_WORKSPACE_PATH to point to a local protectjs checkout
  * for development (e.g., /Users/cj/Documents/CipherStash/Github/protectjs).
@@ -18,22 +16,21 @@ const stackConfig: DocsConfig = {
   repoUrl: "https://github.com/cipherstash/protectjs.git",
   tempDirName: ".tmp-stack",
   baseOutputDir: path.join(process.cwd(), "content/docs/reference/stack"),
-  entryPoints: ["./packages/stack/src/index.ts"],
+  entryPoints: [
+    "./packages/stack/src/index.ts",
+    "./packages/stack/src/client.ts",
+    "./packages/stack/src/identity/index.ts",
+    "./packages/stack/src/secrets/index.ts",
+    "./packages/stack/src/schema/index.ts",
+    "./packages/stack/src/types-public.ts",
+    "./packages/stack/src/drizzle/index.ts",
+    "./packages/stack/src/dynamodb/index.ts",
+    "./packages/stack/src/supabase/index.ts",
+  ],
   tsconfigInclude: ["packages/stack/src/**/*"],
   tagFilter: (tag: string) =>
     tag.includes("@cipherstash/stack@") && !tag.includes("stack-"),
   referencePathSegment: "stack",
-};
-
-const drizzleConfig: DocsConfig = {
-  packageName: "@cipherstash/drizzle",
-  repoUrl: "https://github.com/cipherstash/protectjs.git",
-  tempDirName: ".tmp-drizzle",
-  baseOutputDir: path.join(process.cwd(), "content/docs/reference/drizzle"),
-  entryPoints: ["packages/drizzle/src/pg/index.ts"],
-  tsconfigInclude: ["packages/drizzle/src/pg/**/*"],
-  tagFilter: (tag: string) => tag.includes("@cipherstash/drizzle@"),
-  referencePathSegment: "drizzle",
 };
 
 async function main() {
@@ -48,14 +45,10 @@ async function main() {
     console.log("\nNo PROTECT_WORKSPACE_PATH set — will clone from GitHub");
   }
 
-  const configs: DocsConfig[] = [stackConfig, drizzleConfig];
-
-  for (const config of configs) {
-    await generateDocs(config);
-  }
+  await generateDocs(stackConfig);
 
   console.log(`\n${"=".repeat(60)}`);
-  console.log("All documentation generated successfully!");
+  console.log("Documentation generated successfully!");
   console.log("=".repeat(60));
 }
 

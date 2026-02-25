@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "prebuild": "pnpm generate-docs",
+    "prebuild": "pnpm generate-docs && pnpm generate-docs:eql",
     "build": "next build",
     "dev": "next dev",
     "start": "next start",
@@ -13,7 +13,7 @@
     "format": "biome format --write",
     "generate-docs": "tsx scripts/generate-docs.ts",
     "generate-docs:stack": "tsx scripts/generate-stack-docs.ts",
-    "generate-docs:drizzle": "tsx scripts/generate-drizzle-docs.ts"
+    "generate-docs:eql": "tsx scripts/generate-eql-docs.ts"
   },
   "dependencies": {
     "fumadocs-core": "16.6.0",
