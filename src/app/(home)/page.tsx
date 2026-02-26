@@ -66,9 +66,9 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,var(--color-fd-primary)/0.15,transparent)]" />
         <div className="relative mx-auto flex max-w-[1200px] flex-col items-center px-6 py-12 text-center md:px-12">
           <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-fd-foreground md:text-5xl lg:text-6xl">
-            Encrypt your data.
+            The data security stack
             <br />
-            <span className="text-fd-primary">Keep it searchable.</span>
+            <span className="text-fd-primary">designed for devs</span>
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-fd-muted-foreground md:text-xl">
             CipherStash provides field-level encryption, key management, and
