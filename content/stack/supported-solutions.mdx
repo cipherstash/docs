@@ -1,0 +1,73 @@
+---
+title: Supported solutions
+description: Integration options, supported databases, and performance characteristics for CipherStash encryption
+---
+
+# Supported solutions
+
+CipherStash offers multiple integration paths designed for developer productivity and production readiness.
+
+## Integration options
+
+### Encryption SDK
+
+**Best for**: Teams who want fine-grained control over data encryption directly in their application.
+
+The `@cipherstash/stack` SDK provides application-layer encryption with full TypeScript support, schema-based configuration, and searchable encryption capabilities.
+
+- **Languages**: TypeScript / JavaScript (Node.js)
+- **ORMs**: [Drizzle](/stack/encryption/drizzle), [Supabase](/stack/encryption/supabase)
+- **Get started**: [Encryption SDK guide](/stack/encryption/getting-started)
+
+### CipherStash Proxy
+
+**Best for**: DevOps teams who want to add encryption to existing PostgreSQL applications with little to no code changes.
+
+A drop-in SQL proxy for PostgreSQL that automatically handles encryption and decryption operations.
+
+- **Database**: PostgreSQL only
+- **Get started**: [Proxy guide](/stack/proxy/getting-started)
+
+## Supported databases
+
+### Database compatibility
+
+| Database | Standard encryption | Searchable encryption |
+|---|---|---|
+| PostgreSQL 15+ | Yes | Yes |
+| AWS RDS PostgreSQL | Yes | Yes |
+| AWS Aurora PostgreSQL | Yes | Yes |
+| GCP Cloud SQL for PostgreSQL | Yes | Yes |
+| Azure Database for PostgreSQL | Yes | Yes |
+| OCI Database Service for PostgreSQL | Yes | Yes |
+| DynamoDB | Yes | Yes |
+| Supabase | Yes | Coming soon |
+| Neon Postgres | Yes | — |
+| MySQL | Yes | — |
+| CockroachDB | Yes | — |
+
+**Standard encryption** works with any database that supports JSON or JSONB column types. Encrypted values are stored as JSON objects ([CipherCells](/stack/platform/cipher-cell)).
+
+**Searchable encryption** requires [EQL](/stack/platform/eql) (for PostgreSQL) or native integration (for DynamoDB). Searchable encryption enables equality lookups, range queries, ordering, and free-text search on encrypted data without decryption.
+
+## Performance characteristics
+
+### SDK integration
+
+- **Latency**: Less than 5ms overhead for most operations
+- **Throughput**: Scales with your application
+- **Setup time**: Running in local dev in under 1 hour, production in under 3 days
+
+### Proxy integration
+
+- **Latency**: Less than 5ms overhead for most operations
+- **Throughput**: Horizontally scalable based on database throughput
+- **Setup time**: Operational in hours with existing PostgreSQL
+
+## Getting started
+
+1. **Choose your integration path** based on your application type and requirements
+2. **Review the getting started guide** for your selected solution — [Encryption SDK](/stack/encryption/getting-started) or [Proxy](/stack/proxy/getting-started)
+3. **Set up your development environment** with the appropriate SDK or proxy
+4. **Provision credentials** in the [CipherStash Dashboard](https://dashboard.cipherstash.com/)
+5. **Deploy to production** with confidence in your security posture

@@ -4,7 +4,7 @@
  *
  * Fetches the latest release from the encrypt-query-language repository,
  * downloads the docs tarball, and converts API.md to an MDX page under
- * content/docs/reference/eql/.
+ * content/stack/reference/eql/.
  */
 import { execSync } from "node:child_process";
 import fs from "node:fs/promises";
@@ -13,7 +13,7 @@ import path from "node:path";
 const GITHUB_API_URL =
   "https://api.github.com/repos/cipherstash/encrypt-query-language/releases";
 const TEMP_DIR = ".tmp-eql";
-const OUTPUT_DIR = path.join(process.cwd(), "content/docs/reference/eql");
+const OUTPUT_DIR = path.join(process.cwd(), "content/stack/reference/eql");
 
 /**
  * Check if a tarball URL exists (returns HTTP 200)

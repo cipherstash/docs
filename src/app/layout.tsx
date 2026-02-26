@@ -12,7 +12,15 @@ export default function Layout({ children }: LayoutProps<"/">) {
     <html lang="en" className={inter.className} suppressHydrationWarning>
       <body className="flex flex-col min-h-screen">
         <PostHogProvider>
-          <RootProvider>{children}</RootProvider>
+          <RootProvider
+            search={{
+              options: {
+                api: "/docs/api/search",
+              },
+            }}
+          >
+            {children}
+          </RootProvider>
         </PostHogProvider>
       </body>
     </html>

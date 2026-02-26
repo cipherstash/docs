@@ -4,12 +4,13 @@ const withMDX = createMDX();
 
 /** @type {import('next').NextConfig} */
 const config = {
+  basePath: "/docs",
   reactStrictMode: true,
   async rewrites() {
     return [
       {
-        source: "/docs/:path*.mdx",
-        destination: "/llms.mdx/docs/:path*",
+        source: "/stack/:path*.mdx",
+        destination: "/llms.mdx/stack/:path*",
       },
       {
         source: "/ingest/static/:path*",

@@ -1,0 +1,70 @@
+---
+title: Platform
+description: Dashboard, workspaces, organization management, and core concepts
+---
+
+# Platform
+
+The CipherStash platform consists of three core components that work together to provide continuous security for your applications and data.
+
+## Core Components
+
+### Workspaces
+
+**What**: Isolated environments for your applications and configurations.
+
+**Contains**: Regional deployments, access keys, OIDC providers.
+
+**Purpose**: Environment isolation and configuration management.
+
+### ZeroKMS
+
+**What**: Zero-trust key management service.
+
+**Contains**: Client keys, key sets, cryptographic operations.
+
+**Purpose**: Secure key generation and management without key exposure.
+
+### Organizations
+
+**What**: Multi-tenant management layer.
+
+**Contains**: Members, billing, cross-workspace policies.
+
+**Purpose**: Centralized governance and access control.
+
+## Integration Paths
+
+### For Applications
+
+- **[Encryption SDK](/stack/encryption)**: Direct integration using workspace configuration
+- **[CipherStash Proxy](/stack/proxy)**: Transparent database encryption using platform authentication
+
+### For Infrastructure
+
+- **Managed**: Use CipherStash Cloud with automatic scaling
+- **Self-hosted**: Deploy ZeroKMS in your own AWS environment (only available for Enterprise customers)
+
+## Quick Start
+
+Create an account and generate your credentials and keys in the [Dashboard](https://dashboard.cipherstash.com).
+
+## Next steps
+
+<Cards>
+  <Card title="Members" href="/stack/platform/members" description="Manage organization and workspace membership." />
+  <Card title="Compliance" href="/stack/platform/compliance" description="Compliance frameworks, data residency, and audit capabilities." />
+  <Card title="ZeroKMS" href="/stack/kms" description="Configure key management." />
+</Cards>
+
+## Concepts
+
+<Cards>
+  <Card title="What is CipherStash?" href="/stack/platform/what-is-cipherstash" description="Overview of the platform, threat model, and core capabilities." />
+  <Card title="Security architecture" href="/stack/platform/security-architecture" description="Cryptographic primitives, key hierarchy, and trust model." />
+  <Card title="Searchable encryption" href="/stack/platform/searchable-encryption" description="How CipherStash enables queries over encrypted data." />
+  <Card title="The CipherCell" href="/stack/platform/cipher-cell" description="The JSON format for storing encrypted data with searchable metadata." />
+  <Card title="Supported queries" href="/stack/platform/supported-queries" description="Exact match, pattern matching, and range queries on encrypted columns." />
+  <Card title="Encrypt Query Language (EQL)" href="/stack/platform/eql" description="PostgreSQL types, operators, and functions for encrypted data." />
+  <Card title="AWS KMS comparison" href="/stack/platform/aws-kms-comparison" description="CipherStash Encryption vs AWS KMS — a side-by-side comparison." />
+</Cards>

@@ -18,7 +18,7 @@ const products = [
     title: "Encryption",
     description:
       "Field-level encryption with searchable queries. Encrypt data at the application level while preserving the ability to search, sort, and filter.",
-    href: "/docs/encryption",
+    href: "/stack/encryption",
     icon: Lock,
     badge: "Core",
   },
@@ -26,34 +26,34 @@ const products = [
     title: "Secrets",
     description:
       "End-to-end encrypted secret storage and management. Store API keys, credentials, and sensitive configuration securely.",
-    href: "/docs/secrets",
+    href: "/stack/secrets",
     icon: Server,
   },
   {
     title: "ZeroKMS",
     description:
       "Key management backed by AWS KMS. Manage encryption keysets with zero-knowledge architecture.",
-    href: "/docs/kms",
+    href: "/stack/kms",
     icon: KeyRound,
   },
   {
     title: "Proxy",
     description:
       "Transparent, searchable encryption for your existing PostgreSQL database.",
-    href: "/docs/proxy",
+    href: "/stack/proxy",
     icon: Database,
   },
   {
     title: "Platform",
     description: "Learn more about concepts and how the platform works.",
-    href: "/docs/platform",
+    href: "/stack/platform",
     icon: LayoutDashboard,
   },
   {
     title: "Reference",
     description:
       "Reference documentation for the CipherStash Stack. Learn about the Encryption SDK, Secrets API, and more.",
-    href: "/docs/reference",
+    href: "/stack/reference",
     icon: BookOpen,
   },
 ];
@@ -82,14 +82,14 @@ export default function HomePage() {
           </div>
           <div className="mt-6 flex flex-wrap justify-center gap-4">
             <Link
-              href="/docs/encryption"
+              href="/stack/encryption"
               className="inline-flex items-center justify-center gap-2 rounded py-2 px-4 text-sm font-medium text-white focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fd-primary bg-linear-to-br from-(--color-fd-primary-gradient-from) to-fd-primary hover:saturate-200 hover:from-(--color-fd-primary-gradient-from)/90 hover:to-fd-primary/90 transition-colors"
             >
               Get started
               <ArrowRight className="size-4" />
             </Link>
             <Link
-              href="/docs/platform"
+              href="/stack/platform"
               className="inline-flex items-center justify-center gap-2 rounded py-2 px-4 text-sm font-medium focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 bg-fd-primary/30 border border-fd-primary/70 text-fd-foreground hover:border-fd-primary transition-colors"
             >
               Learn about the platform
@@ -199,7 +199,7 @@ export default function HomePage() {
               <ArrowRight className="size-4" />
             </Link>
             <a
-              href="https://github.com/cipherstash/docs"
+              href="https://github.com/cipherstash/stack"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 rounded py-2 px-4 text-sm font-medium focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 bg-fd-primary/30 border border-fd-primary/70 text-fd-foreground hover:border-fd-primary transition-colors"

@@ -1,0 +1,104 @@
+---
+title: Planning guide
+description: Technical planning guide for adopting CipherStash encryption-in-use in your application
+---
+
+# Planning guide
+
+This guide helps you plan a CipherStash integration. Use it to evaluate your security posture, choose the right integration path, and understand the architecture.
+
+## Key discovery areas
+
+Before starting, assess the following:
+
+- **Current data security posture** — How do you currently encrypt sensitive data? Are you relying solely on encryption-at-rest?
+- **Compliance requirements** — What regulations apply (GDPR, HIPAA, PCI-DSS, SOC2)?
+- **Architecture constraints** — What databases and application frameworks are you using?
+- **Security concerns** — What attack vectors are you most concerned about (breaches, insider threats, accidental exposure)?
+
+## Understanding encryption types
+
+### Encryption-at-rest
+
+Data is encrypted when stored on disk but decrypted for any operation. A database breach that exposes memory or query results reveals plaintext data.
+
+### Encryption-in-transit
+
+Data is encrypted between services (TLS) but decrypted at each endpoint. Data is exposed in application memory and during processing.
+
+### Encryption-in-use
+
+Data remains encrypted during search and processing. CipherStash provides encryption-in-use through searchable encryption — you can query encrypted data without decrypting it first.
+
+| Capability | At-rest | In-transit | In-use (CipherStash) |
+|---|---|---|---|
+| Protects stored data | Yes | No | Yes |
+| Protects data in transit | No | Yes | Yes |
+| Protects data during queries | No | No | Yes |
+| Searchable without decryption | No | No | Yes |
+| Zero-trust architecture | No | No | Yes |
+
+## Architecture considerations
+
+### Zero-knowledge design
+
+CipherStash uses a split-key architecture. [ZeroKMS](/stack/kms) manages an authority key that is necessary but not sufficient to derive data keys. Your application holds an independent client key. Data keys are derived locally and never leave your infrastructure.
+
+This means:
+
+- Plaintext data never leaves your systems
+- Data keys are never transmitted over the network
+- Even CipherStash cannot access your data
+
+### PostgreSQL integration
+
+CipherStash is designed around PostgreSQL — the most popular open-source database. Integration requires no architecture changes:
+
+- **[EQL](/stack/platform/eql)** provides native PostgreSQL types for encrypted data
+- Existing queries and applications work with minimal modification
+- Performance overhead is minimal (sub-millisecond for most operations)
+
+### Integration paths
+
+| Path | Best for | Code changes |
+|---|---|---|
+| [Encryption SDK](/stack/encryption) | Application-layer encryption with fine-grained control | Moderate — encrypt/decrypt calls in your data layer |
+| [CipherStash Proxy](/stack/proxy) | Existing PostgreSQL applications with minimal code changes | Minimal — point your connection at the proxy |
+
+### ORM support
+
+The Encryption SDK integrates with popular ORMs:
+
+- **[Drizzle ORM](/stack/encryption/drizzle)** — Custom encrypted column types with query operators
+- **[Supabase](/stack/encryption/supabase)** — Transparent encryption wrapper around the Supabase client
+- **[DynamoDB](/stack/encryption/dynamodb)** — Encrypted attributes with searchable capabilities
+
+## ZeroKMS overview
+
+[ZeroKMS](/stack/kms) is CipherStash's zero-trust key management service:
+
+- **Key hierarchy** — Authority keys, client keys, and derived data keys provide defense in depth
+- **Regional deployment** — Available in [multiple regions](/stack/kms/regions) for data sovereignty
+- **Audit logging** — Complete visibility into key usage and access patterns
+- **Disaster recovery** — Multi-region key replication with [automated failover](/stack/kms/disaster-recovery)
+
+## Enterprise features
+
+### Lock contexts
+
+[Lock contexts](/stack/encryption/identity) provide identity-aware encryption. Bind encryption operations to authenticated users using JWTs for:
+
+- Temporal access control — time-limited access to sensitive data
+- Provable access boundaries — cryptographic proof of who accessed what
+- Audit trails — complete record of all data access events
+
+### Multi-tenant encryption
+
+Cryptographic tenant isolation ensures complete separation between tenants. Each tenant's data is encrypted with independent key material, meeting strict data residency and compliance requirements.
+
+## Next steps
+
+1. **Choose your integration path** — [Encryption SDK](/stack/encryption/getting-started) or [CipherStash Proxy](/stack/proxy/getting-started)
+2. **Set up credentials** — Create a workspace in the [CipherStash Dashboard](https://dashboard.cipherstash.com/)
+3. **Define your schema** — Declare which columns to encrypt and what queries to support
+4. **Deploy to production** — See [supported solutions](/stack/supported-solutions) for deployment options

@@ -1,0 +1,160 @@
+---
+title: Glossary
+description: Definitions of concepts and terms used in CipherStash
+---
+
+# Glossary
+
+## A
+
+### ABAC (Attribute Based Access Control)
+
+ABAC is a dynamic security model that makes access decisions based on a variety of attributes, including user characteristics, resource details, and environmental factors.
+Unlike [RBAC](#rbac-role-based-access-control), which relies solely on a user's assigned role, ABAC offers more granular and context-aware policies that adapt to changing conditions and diverse scenarios.
+
+### Access key
+
+A persistent authentication credential used for communication with [ZeroKMS](#zerokms) or [CTS](#cts-cipherstash-token-service).
+See [Access keys](/stack/kms/access-keys) for details.
+
+### Account management
+
+Activities to administer your CipherStash account, like billing, adding, and removing users.
+
+## C
+
+### Ciphertext
+
+An encrypted version of plaintext, produced by applying an encryption algorithm (a cipher). It is unreadable without a cipher to decrypt it.
+
+See also: [Plaintext](#plaintext)
+
+### CipherStash CLI
+
+The command line tool for interacting with CipherStash services.
+
+### CipherStash Proxy
+
+A database proxy that sits between an application and a database, enhancing your existing database with encryption in use.
+CipherStash Proxy works in-tandem with your existing infrastructure and is fully contained within your environment.
+See [CipherStash Proxy](/stack/proxy) for details.
+
+### Client
+
+A programmatic access point to a [keyset](#keyset). A client can have many keysets, and a keyset can also be shared by multiple clients. To access a keyset, you need a [client key](#client-key) and a [client ID](#client-id).
+
+### Client ID
+
+A unique identifier of a [client](#client). Each [client key](#client-key) and client ID is unique to your app.
+
+### Client key
+
+A unique identifier of a [client](#client). Each client key and [client ID](#client-id) is unique to your app. The client key is sensitive and should be kept secret.
+
+### CTS (CipherStash Token Service)
+
+CTS manages the trust relationships between a workspace and third-party or customer identity providers.
+It brokers secure access to CipherStash services like ZeroKMS, ensuring that only authenticated and authorized users gain entry.
+See [CTS](/stack/kms/cts) for details.
+
+## D
+
+### Dashboard
+
+The web interface for configuring and using CipherStash services.
+Available at [dashboard.cipherstash.com](https://dashboard.cipherstash.com/).
+
+### Data access event
+
+An event triggered by execution of SQL statements by CipherStash Proxy. Includes metadata of statements executed and records accessed.
+
+## E
+
+### EQL (Encrypt Query Language)
+
+Our [open-source library](https://github.com/cipherstash/encrypt-query-language) for PostgreSQL users. It simplifies the process of encrypting and querying sensitive data, giving you powerful tools to encrypt data transparently at the field level, query encrypted data directly using familiar SQL commands, and leverage encrypted indexes for secure and efficient searches.
+See [EQL](/stack/platform/eql) for details.
+
+## H
+
+### HMAC (Hash-based Message Authentication Code)
+
+A cryptographic technique that combines a hash function with a secret key to verify both the integrity and authenticity of a message.
+Unlike raw hash functions (such as SHA-256), HMAC requires a secret key, which means only parties with the key can generate valid HMACs.
+This prevents attackers from pre-computing hash tables (rainbow tables) or guessing values.
+In searchable encryption, HMACs are used to create encrypted search tokens — the key stays client-side, so the server can match encrypted search tokens without ever learning the plaintext or being able to generate new tokens.
+
+## I
+
+### IdP (Identity Provider)
+
+A third party identity provider, like Auth0, Okta, or Clerk.
+
+## J
+
+### JWT (JSON Web Token)
+
+JWT is a compact, URL-safe means of representing claims between two parties as a JSON object, typically used for authentication and authorization.
+They are digitally signed to ensure the integrity and authenticity of the information, allowing systems to verify user identity without maintaining server-side sessions.
+
+## K
+
+### Keyset
+
+A keyset is used to generate data keys, and is managed by [ZeroKMS](#zerokms).
+It includes configuration for encrypted columns and queryable indexes.
+Use keysets to group data for a specific purpose or project.
+A [client](#client) can have many keysets, and a keyset can also be shared by multiple clients.
+See [Keysets](/stack/kms/keysets) for details.
+
+## O
+
+### OIDC (OpenID Connect)
+
+OIDC is an identity layer built on top of the OAuth 2.0 protocol that enables clients to verify user identity through an [Identity Provider](#idp-identity-provider).
+It facilitates secure single sign-on (SSO) and simplifies the authentication process by allowing the Identity Provider to share standardized identity information using RESTful APIs and [JSON Web Tokens](#jwt-json-web-token) (JWTs).
+
+### ORE (Order Revealing Encryption)
+
+A searchable encryption technique allowing for search, comparison, and sorting of encrypted data without decryption.
+See [Range queries](/stack/platform/supported-queries#range--order) for details.
+
+## P
+
+### Plaintext
+
+Unencrypted information, readable by humans and computers.
+
+## R
+
+### RBAC (Role Based Access Control)
+
+RBAC is a security model that assigns access permissions based on a user's role within an organization, streamlining the management of access rights by grouping permissions into predefined roles.
+Unlike [ABAC](#abac-attribute-based-access-control), which evaluates policies based on a range of attributes, RBAC relies solely on roles to determine access.
+
+## S
+
+### Searchable encrypted metadata
+
+An encrypted data structure for finding records in encrypted columns. Essential for querying encrypted data, as it replaces the need for full table scans, improving performance.
+This is a core feature of CipherStash, supporting range, exact, and match queries.
+See [Supported queries](/stack/platform/supported-queries) for details.
+
+## W
+
+### Workspace
+
+CipherStash uses workspaces to keep things organized.
+A workspace contains [keysets](#keyset), clients, and configuration, and can:
+- Be used to separate environments (e.g. dev and prod)
+- Be shared with other users
+- Be associated with a custom identity provider
+
+See [Platform](/stack/platform) for details.
+
+## Z
+
+### ZeroKMS
+
+CipherStash's specialized key management service. ZeroKMS provides high performance batch encryption and decryption, enabling a unique encryption key per field.
+See [ZeroKMS](/stack/kms) for details.

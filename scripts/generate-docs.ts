@@ -15,7 +15,7 @@ const stackConfig: DocsConfig = {
   packageName: "@cipherstash/stack",
   repoUrl: "https://github.com/cipherstash/protectjs.git",
   tempDirName: ".tmp-stack",
-  baseOutputDir: path.join(process.cwd(), "content/docs/reference/stack"),
+  baseOutputDir: path.join(process.cwd(), "content/stack/reference/stack"),
   entryPoints: [
     "./packages/stack/src/encryption/index.ts",
     "./packages/stack/src/secrets/index.ts",

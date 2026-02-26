@@ -1,0 +1,418 @@
+---
+title: DynamoDB
+description: Encrypt and decrypt DynamoDB items with the encryptedDynamoDB helper
+---
+
+# DynamoDB
+
+CipherStash provides a DynamoDB integration through `@cipherstash/stack/dynamodb`. The `encryptedDynamoDB` helper encrypts items before writing to DynamoDB and decrypts them after reading — it does not wrap the AWS SDK, so you keep full control of your DynamoDB operations.
+
+## Installation
+
+```bash
+npm install @cipherstash/stack @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb
+```
+
+The DynamoDB integration is included in `@cipherstash/stack` and imports from `@cipherstash/stack/dynamodb`.
+
+## How it works
+
+CipherStash encrypts each attribute into two DynamoDB attributes:
+
+| Original attribute | Stored as | Purpose |
+|---|---|---|
+| `email` | `email__source` | Encrypted ciphertext |
+| `email` | `email__hmac` | HMAC for equality lookups (only if `.equality()` is set) |
+
+Non-encrypted attributes pass through unchanged. On decryption, the `__source` and `__hmac` attributes are recombined back into the original attribute name with the plaintext value.
+
+## Setup
+
+### Define an encrypted schema
+
+Use `encryptedTable` and `encryptedColumn` from `@cipherstash/stack/schema` to declare which attributes to encrypt:
+
+```typescript
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
+
+const users = encryptedTable("users", {
+  email: encryptedColumn("email").equality(),   // searchable via HMAC
+  name: encryptedColumn("name"),                // encrypt-only, no search
+  phone: encryptedColumn("phone"),              // encrypt-only
+  metadata: encryptedColumn("metadata").dataType("json"), // encrypted JSON
+})
+```
+
+Only attributes with `.equality()` get an `__hmac` attribute for querying. Attributes without it are encrypted but cannot be searched.
+
+See [Schema definition](/stack/encryption/schema) for full details on index types, data types, and nested objects.
+
+### Initialize the clients
+
+```typescript
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb"
+import { Encryption } from "@cipherstash/stack"
+import { encryptedDynamoDB } from "@cipherstash/stack/dynamodb"
+
+const dynamoClient = new DynamoDBClient({ region: "us-east-1" })
+const docClient = DynamoDBDocumentClient.from(dynamoClient)
+
+const encryptionClient = await Encryption({ schemas: [users] })
+const dynamo = encryptedDynamoDB({ encryptionClient })
+```
+
+### Optional: logger and error handler
+
+```typescript
+const dynamo = encryptedDynamoDB({
+  encryptionClient,
+  options: {
+    logger: {
+      error: (message, error) => console.error(`[DynamoDB] ${message}`, error),
+    },
+    errorHandler: (error) => {
+      console.error(`[${error.code}] ${error.message}`)
+    },
+  },
+})
+```
+
+## Encrypt and write
+
+### Single item
+
+Encrypt a model, then pass the result to a standard DynamoDB `PutCommand`:
+
+```typescript
+import { PutCommand } from "@aws-sdk/lib-dynamodb"
+
+const user = {
+  pk: "user#1",
+  email: "alice@example.com",  // will be encrypted
+  name: "Alice Smith",         // will be encrypted
+  role: "admin",               // not in schema, passes through
+}
+
+const result = await dynamo.encryptModel(user, users)
+
+if (result.failure) {
+  console.error("Encryption failed:", result.failure.message)
+} else {
+  await docClient.send(new PutCommand({
+    TableName: "Users",
+    Item: result.data,
+    // result.data looks like:
+    // {
+    //   pk: "user#1",
+    //   email__source: "<ciphertext>",
+    //   email__hmac: "<hmac>",
+    //   name__source: "<ciphertext>",
+    //   role: "admin",
+    // }
+  }))
+}
+```
+
+### Bulk items
+
+```typescript
+import { BatchWriteCommand } from "@aws-sdk/lib-dynamodb"
+
+const items = [
+  { pk: "user#1", email: "alice@example.com", name: "Alice" },
+  { pk: "user#2", email: "bob@example.com", name: "Bob" },
+]
+
+const result = await dynamo.bulkEncryptModels(items, users)
+
+if (!result.failure) {
+  await docClient.send(new BatchWriteCommand({
+    RequestItems: {
+      Users: result.data.map(item => ({
+        PutRequest: { Item: item },
+      })),
+    },
+  }))
+}
+```
+
+## Read and decrypt
+
+### Single item
+
+```typescript
+import { GetCommand } from "@aws-sdk/lib-dynamodb"
+
+const getResult = await docClient.send(new GetCommand({
+  TableName: "Users",
+  Key: { pk: "user#1" },
+}))
+
+const result = await dynamo.decryptModel(getResult.Item, users)
+
+if (!result.failure) {
+  console.log(result.data)
+  // { pk: "user#1", email: "alice@example.com", name: "Alice Smith", role: "admin" }
+}
+```
+
+### Bulk items
+
+```typescript
+import { BatchGetCommand } from "@aws-sdk/lib-dynamodb"
+
+const batchResult = await docClient.send(new BatchGetCommand({
+  RequestItems: {
+    Users: {
+      Keys: [{ pk: "user#1" }, { pk: "user#2" }],
+    },
+  },
+}))
+
+const result = await dynamo.bulkDecryptModels(
+  batchResult.Responses?.Users ?? [],
+  users,
+)
+
+if (!result.failure) {
+  for (const user of result.data) {
+    console.log(user.email) // plaintext
+  }
+}
+```
+
+## Querying with encrypted keys
+
+DynamoDB queries use key conditions, so you need to encrypt the search value into its HMAC form. Use `encryptionClient.encryptQuery()` to get the HMAC, then use it in your key condition.
+
+### Encrypted partition key
+
+When an encrypted attribute is the partition key (e.g., `email__hmac`):
+
+```typescript
+import { QueryCommand } from "@aws-sdk/lib-dynamodb"
+
+// 1. Encrypt the search value to get the HMAC
+const queryResult = await encryptionClient.encryptQuery([{
+  value: "alice@example.com",
+  column: users.email,
+  table: users,
+  queryType: "equality",
+}])
+
+if (queryResult.failure) {
+  throw new Error(`Query encryption failed: ${queryResult.failure.message}`)
+}
+
+const emailHmac = queryResult.data[0]?.hm
+
+// 2. Use the HMAC in a DynamoDB query
+const result = await docClient.send(new QueryCommand({
+  TableName: "Users",
+  KeyConditionExpression: "email__hmac = :email",
+  ExpressionAttributeValues: {
+    ":email": emailHmac,
+  },
+}))
+
+// 3. Decrypt the results
+const decrypted = await dynamo.bulkDecryptModels(result.Items ?? [], users)
+```
+
+### Encrypted sort key
+
+When an encrypted attribute is used as a sort key:
+
+```typescript
+const result = await docClient.send(new GetCommand({
+  TableName: "Users",
+  Key: {
+    pk: "org#1",              // partition key (plain)
+    email__hmac: emailHmac,   // sort key (encrypted HMAC)
+  },
+}))
+
+const decrypted = await dynamo.decryptModel(result.Item, users)
+```
+
+### Encrypted attribute in a GSI
+
+When querying a Global Secondary Index where the GSI key is an encrypted HMAC:
+
+```typescript
+const result = await docClient.send(new QueryCommand({
+  TableName: "Users",
+  IndexName: "EmailIndex",
+  KeyConditionExpression: "email__hmac = :email",
+  ExpressionAttributeValues: {
+    ":email": emailHmac,
+  },
+  Limit: 1,
+}))
+
+if (result.Items?.length) {
+  const decrypted = await dynamo.decryptModel(result.Items[0], users)
+}
+```
+
+## Table design considerations
+
+### Key schema patterns
+
+| Pattern | Partition key | Sort key | Use case |
+|---|---|---|---|
+| Plain PK | `pk` (plain) | — | Standard lookup by ID |
+| Encrypted PK | `email__hmac` | — | Lookup by encrypted attribute |
+| Encrypted SK | `pk` (plain) | `email__hmac` | Composite key with encrypted sort |
+| GSI on HMAC | `pk` (plain) | — | Query by encrypted attribute via GSI with `email__hmac` as GSI PK |
+
+### What you can query
+
+- Equality on `__hmac` attributes (exact match only)
+- `attribute_exists(email__source)` / `attribute_not_exists(email__source)` in condition expressions
+
+### What you cannot query
+
+- Range or comparison on encrypted attributes (no `BETWEEN`, `<`, `>` on `__source`)
+- Substring matching on encrypted attributes (no `begins_with`, `contains` on `__source`)
+- `__source` values are encrypted binary — only equality via `__hmac` is supported
+
+## Audit logging
+
+All operations support `.audit()` chaining for audit metadata:
+
+```typescript
+const result = await dynamo
+  .encryptModel(user, users)
+  .audit({
+    metadata: {
+      sub: "user-id-123",
+      action: "user_registration",
+      timestamp: new Date().toISOString(),
+    },
+  })
+```
+
+## Error handling
+
+All operations return `Result<T, EncryptedDynamoDBError>` with either `data` or `failure`:
+
+```typescript
+const result = await dynamo.encryptModel(user, users)
+
+if (result.failure) {
+  console.error(result.failure.message)
+  console.error(result.failure.code)    // ProtectErrorCode | "DYNAMODB_ENCRYPTION_ERROR"
+  console.error(result.failure.details)
+}
+```
+
+See [Error handling](/stack/encryption/error-handling) for details on error codes and handling patterns.
+
+## API reference
+
+### `encryptedDynamoDB(config)`
+
+```typescript
+import { encryptedDynamoDB } from "@cipherstash/stack/dynamodb"
+
+const dynamo = encryptedDynamoDB({
+  encryptionClient: EncryptionClient,
+  options?: {
+    logger?: { error: (message: string, error: Error) => void }
+    errorHandler?: (error: EncryptedDynamoDBError) => void
+  }
+})
+```
+
+### Instance methods
+
+| Method | Signature | Returns |
+|---|---|---|
+| `encryptModel` | `(item: T, table)` | `EncryptModelOperation<EncryptedFromSchema<T, S>>` |
+| `bulkEncryptModels` | `(items: T[], table)` | `BulkEncryptModelsOperation<EncryptedFromSchema<T, S>>` |
+| `decryptModel` | `(item, table)` | `DecryptModelOperation<T>` |
+| `bulkDecryptModels` | `(items[], table)` | `BulkDecryptModelsOperation<T>` |
+
+All operations are thenable (awaitable) and support `.audit({ metadata })` chaining.
+
+### Querying encrypted attributes
+
+Use the encryption client directly (not the DynamoDB helper):
+
+```typescript
+const result = await encryptionClient.encryptQuery([{
+  value: "search-value",
+  column: schema.fieldName,
+  table: schema,
+  queryType: "equality",
+}])
+
+const hmac = result.data[0]?.hm  // Use in DynamoDB key conditions
+```
+
+## Complete example
+
+```typescript
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
+import {
+  DynamoDBDocumentClient,
+  PutCommand,
+  GetCommand,
+  QueryCommand,
+} from "@aws-sdk/lib-dynamodb"
+import { Encryption } from "@cipherstash/stack"
+import { encryptedDynamoDB } from "@cipherstash/stack/dynamodb"
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
+
+// Schema
+const users = encryptedTable("users", {
+  email: encryptedColumn("email").equality(),
+  name: encryptedColumn("name"),
+})
+
+// Clients
+const dynamoClient = new DynamoDBClient({ region: "us-east-1" })
+const docClient = DynamoDBDocumentClient.from(dynamoClient)
+const encryptionClient = await Encryption({ schemas: [users] })
+const dynamo = encryptedDynamoDB({ encryptionClient })
+
+// Write
+const user = { pk: "user#1", email: "alice@example.com", name: "Alice" }
+const encResult = await dynamo.encryptModel(user, users)
+if (!encResult.failure) {
+  await docClient.send(new PutCommand({
+    TableName: "Users",
+    Item: encResult.data,
+  }))
+}
+
+// Read by primary key
+const getResult = await docClient.send(new GetCommand({
+  TableName: "Users",
+  Key: { pk: "user#1" },
+}))
+const decResult = await dynamo.decryptModel(getResult.Item, users)
+if (!decResult.failure) {
+  console.log(decResult.data.email) // "alice@example.com"
+}
+
+// Query by encrypted email (via HMAC)
+const queryEnc = await encryptionClient.encryptQuery([{
+  value: "alice@example.com",
+  column: users.email,
+  table: users,
+  queryType: "equality",
+}])
+const hmac = queryEnc.data[0]?.hm
+
+const queryResult = await docClient.send(new QueryCommand({
+  TableName: "Users",
+  IndexName: "EmailIndex",
+  KeyConditionExpression: "email__hmac = :e",
+  ExpressionAttributeValues: { ":e": hmac },
+}))
+
+const decrypted = await dynamo.bulkDecryptModels(queryResult.Items ?? [], users)
+```

@@ -1,0 +1,184 @@
+---
+title: Getting started
+description: Install the SDK and encrypt your first value in under 5 minutes
+---
+
+# Getting started
+
+This guide walks you through installing CipherStash Encryption, defining a schema, and encrypting your first value.
+
+## Prerequisites
+
+- [Node.js](https://nodejs.org/) >= 18
+- [TypeScript](https://www.typescriptlang.org/)
+- A CipherStash account — [sign up here](https://cipherstash.com/signup)
+
+## Project structure
+
+If you're starting from scratch, here's the recommended file structure:
+
+```
+project-root/
+├── src/
+│   ├── protect/
+│   │   ├── index.ts      # Encryption client
+│   │   └── schema.ts     # Table definitions
+│   └── index.ts          # Your app
+├── .env
+├── package.json
+└── tsconfig.json
+```
+
+Create the structure:
+
+```bash
+mkdir -p my-app/src/protect
+cd my-app
+npm init -y
+```
+
+## Step 1: Install
+
+```bash
+npm install @cipherstash/stack
+```
+
+Or with your preferred package manager:
+
+```bash
+yarn add @cipherstash/stack
+pnpm add @cipherstash/stack
+```
+
+> `@cipherstash/stack` includes a native FFI module written in Rust.
+> You must opt out of bundling in tools like Webpack, esbuild, or Next.js.
+> See [Bundling](/stack/encryption/bundling) or [SST setup](/stack/encryption/sst) for details.
+
+## Step 2: Set up credentials
+
+Sign up at [cipherstash.com/signup](https://cipherstash.com/signup) and follow the onboarding to get your credentials.
+
+Save them to a `.env` file:
+
+```bash
+CS_WORKSPACE_CRN=   # The workspace identifier
+CS_CLIENT_ID=        # The client identifier
+CS_CLIENT_KEY=       # Key material used with ZeroKMS
+CS_CLIENT_ACCESS_KEY= # API key for CipherStash API
+```
+
+See [Configuration](/stack/encryption/configuration) for all configuration options including TOML files and programmatic config.
+
+## Step 3: Define your schema
+
+Schemas declare which columns to encrypt and what queries to support.
+
+Create `src/protect/schema.ts`:
+
+```typescript title="schema.ts"
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
+
+export const users = encryptedTable("users", {
+  email: encryptedColumn("email"),
+})
+
+export const orders = encryptedTable("orders", {
+  address: encryptedColumn("address"),
+})
+```
+
+To enable searchable encryption, chain index methods on your columns:
+
+```typescript title="schema.ts"
+export const users = encryptedTable("users", {
+  email: encryptedColumn("email")
+    .equality()        // exact match queries
+    .freeTextSearch()  // full-text search
+    .orderAndRange(),  // sorting and range queries
+})
+```
+
+See [Schema definition](/stack/encryption/schema) for all index types.
+
+## Step 4: Initialize the client
+
+Create `src/protect/index.ts`:
+
+```typescript title="protect/index.ts"
+import { Encryption } from "@cipherstash/stack"
+import { users, orders } from "./schema"
+
+export const client = await Encryption({ schemas: [users, orders] })
+```
+
+The client reads `CS_*` environment variables automatically.
+
+## Step 5: Encrypt data
+
+Create `src/index.ts`:
+
+```typescript title="index.ts"
+import { users } from "./protect/schema"
+import { client } from "./protect"
+
+const encryptResult = await client.encrypt("secret@squirrel.example", {
+  column: users.email,
+  table: users,
+})
+
+if (encryptResult.failure) {
+  console.error(encryptResult.failure.type, encryptResult.failure.message)
+} else {
+  console.log("Encrypted:", encryptResult.data)
+}
+```
+
+Run it:
+
+```bash
+npx tsx src/index.ts
+```
+
+The result is a JSON payload ready for database storage:
+
+```typescript
+// Success
+{ data: { c: '\\x61202020202020472aaf602219d48c4a...' } }
+
+// Failure
+{ failure: { type: 'EncryptionError', message: '...' } }
+```
+
+## Step 6: Decrypt data
+
+```typescript title="index.ts"
+const decryptResult = await client.decrypt(encryptResult.data)
+
+if (decryptResult.failure) {
+  console.error(decryptResult.failure.message)
+} else {
+  console.log("Plaintext:", decryptResult.data) // "secret@squirrel.example"
+}
+```
+
+## Step 7: Store in a database
+
+Encrypted data can be stored in any database that supports JSONB. For PostgreSQL, specify the column type as `jsonb`:
+
+```sql
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email jsonb NOT NULL
+);
+```
+
+For searchable encryption in PostgreSQL, install the [EQL extension](https://github.com/cipherstash/encrypt-query-language) and use the `eql_v2_encrypted` column type instead. See [Searchable encryption](/stack/encryption/searchable-encryption) for details.
+
+## Next steps
+
+<Cards>
+  <Card title="Schema definition" href="/stack/encryption/schema" description="Index types, data types, and nested objects." />
+  <Card title="Encrypt and decrypt" href="/stack/encryption/encrypt-decrypt" description="Single values, models, and bulk operations." />
+  <Card title="Drizzle ORM" href="/stack/encryption/drizzle" description="Encrypted queries with Drizzle ORM." />
+  <Card title="Supabase" href="/stack/encryption/supabase" description="Encrypted queries with the Supabase SDK." />
+</Cards>

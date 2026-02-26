@@ -1,0 +1,270 @@
+---
+title: Searchable encryption
+description: How CipherStash enables querying encrypted data without decryption — theory, architecture, and security model
+---
+
+# Searchable encryption
+
+Traditional encryption (at-rest and in-transit) only protects data some of the time. To protect data fully, it must remain encrypted **in-use**.
+This ensures data remains protected even when other controls fail.
+
+<Callout type="info">
+Searchable encryption allows sensitive values to be encrypted but still queryable by trusted users.
+</Callout>
+
+With searchable encryption:
+- Data can be encrypted, stored, and searched in your existing database
+- Encrypted data can be searched using equality, free text search, and range queries
+- Data remains encrypted, and is decrypted in your application
+- Queries are blazing fast, and won't slow down your application experience
+- Every decryption event is logged, giving you an audit trail of data access events
+
+## Supported technologies
+
+Searchable encryption is supported in PostgreSQL 14+ when used with:
+
+- [Encryption SDK](/stack/encryption)
+- [CipherStash Proxy](/stack/proxy)
+
+## Vs field-level encryption
+
+Often referred to as _field-level_ or _row-level_ encryption, encryption-in-use in the database has historically come with a number of challenges relating to key management and performance.
+Crucially, when values in a database table are encrypted using traditional approaches, queries over those records cease to function correctly.
+This is the core problem addressed by searchable encryption.
+
+| Capability                                | Field-Level Encryption | Searchable Encryption |
+| ----------------------------------------- | ---------------------- | --------------------- |
+| **Search over encrypted data**            | Requires decryption    | Native                |
+| **Plaintext exposure during queries**     | Yes                    | No                    |
+| **Where trust is required**               | Application + database | Application only      |
+| **Supports indexing**                     | No                     | Yes                   |
+| **Blast radius of credential compromise** | Large                  | Minimized             |
+| **Provable access boundaries**            | No                     | Yes                   |
+
+**Searchable encryption** protects sensitive data by ensuring that all search queries are encrypted before leaving the application. Comparisons are performed between encrypted query terms and stored encrypted records without needing to decrypt any values.
+
+## Why make encryption searchable?
+
+Consider an everyday example.
+You have a table of users in your database, and you want to search for a user by their email address:
+
+```sql
+-- Search by exact match
+SELECT * FROM users WHERE email = 'person@example.net';
+```
+
+Whether you executed this query directly in the database, or through an application ORM, you'd expect the result to be the same.
+
+**But what if the email address is encrypted before it's stored in the database?**
+
+```sql
+SELECT * FROM users;
+-- Results:
+-- | id |      name      |           email
+-- |----+----------------+----------------------------
+-- | 1  | Alice Johnson  | mBbKmsMMkbKBSN...
+-- | 2  | Jane Doe       | s1THy_NfQdN892...
+-- | 3  | Bob Smith      | 892!dercydsd0s...
+```
+
+Now, what's the issue if you execute the equality query with this data set?
+
+```sql
+SELECT * FROM users WHERE email = 'alice.johnson@example.com';
+-- No results
+```
+
+There would be no results returned, because `alice.johnson@example.com` does not equal `mBbKmsMMkbKBSN...`!
+
+Another problem arises when _sorting_ query results. Results would be ordered by the _encryption_ of each value and not by the underlying plaintext data.
+
+### Queries over encrypted data
+
+Searchable encryption solves these problems by encrypting query terms in a way that allows them to match encrypted database values _without revealing the underlying plaintext_.
+
+When you use CipherStash searchable encryption, your application encrypts the search term before sending it to the database. The encrypted query term can then be compared against the encrypted stored values, enabling correct query results while keeping everything encrypted.
+
+### Supported query types
+
+CipherStash searchable encryption supports several types of queries over encrypted data:
+
+- **Equality queries**: Exact matching (e.g., `WHERE email = <encrypted_term>`)
+- **Free text search**: Pattern matching and substring searches (e.g., `WHERE description LIKE <encrypted_pattern>`)
+- **Range queries**: Comparison operations (e.g., `WHERE age > <encrypted_value>`)
+- **Ordering**: Sorting encrypted data (e.g., `ORDER BY price DESC`)
+
+See [Supported Queries](/stack/platform/supported-queries) for a complete list, implementation details and limitations.
+
+## Isn't this just hashing?
+
+At first glance, searchable encryption might seem similar to hashing — both allow you to compare values without revealing the original data. However, there are critical differences that make searchable encryption far more powerful and secure.
+
+**Hashing has significant limitations:**
+
+- **Public function**: Standard hashing algorithms (SHA-256, bcrypt, etc.) are public and unkeyed, meaning anyone can compute hashes and compare them against your database
+- **Rainbow table attacks**: Because hashes are deterministic and publicly computable, attackers can pre-compute hashes of common values and match them against your database
+- **Limited query types**: Hashing only supports exact equality checks — you cannot perform range queries (`>`, `<`), ordering (`ORDER BY`), or pattern matching (`LIKE`)
+- **Irreversible**: Once hashed, data cannot be decrypted for legitimate use in your application
+
+**Searchable encryption provides stronger protection:**
+
+- **Keyed functions**: CipherStash uses keyed cryptographic functions (like HMAC) for generating search terms, meaning attackers cannot generate valid search terms without access to your encryption keys
+- **Randomized encryption**: The actual encrypted data uses randomness, so the same plaintext produces different ciphertexts each time it's encrypted
+- **Rich queries**: Supports equality, range queries, ordering, and pattern matching while keeping data encrypted
+- **Decryptable**: Authorized applications can decrypt values for legitimate use, with every decryption logged for audit purposes
+- **Minimized information leakage**: While some information leakage is inherent to any searchable scheme (you need to match values to search them), the use of secret keys prevents direct attacks
+
+## How it works
+
+Searchable encryption is fundamentally about the interaction between a trusted client and an untrusted (or semi-trusted) server.
+
+The client converts query terms (such as keywords or JSON paths) into cryptographic search tokens using keys that never leave the client or its trusted boundary. The server operates only on these opaque tokens, matching them against encrypted metadata to identify relevant records and return encrypted results.
+
+To query a set of encrypted values, a special query term is generated and encrypted using a key that only the client controls.
+A simple and secure way to do this is using a Hash-based Message Authentication Code (HMAC).
+Values are encrypted using standard randomized encryption (AES-GCM-SIV with 256-bit keys) and stored in the database along with their HMAC:
+
+```sql
+ id |           name
+----+---------------------------------------
+  1 | {"e": "U9QKapIGP9rQZINK", "hm": "EDV6F1loviSFpbFOLhC2DPLT/jOYjt03Bv/DbqWiQdw"}
+  2 | {"e": "v0QmT6XcuMenl+Cy", "hm": "0uZMw7qI0ztSL6Ra1E8QkdzfJMHvHyiMxPJK373dV88"}
+  3 | {"e": "7aOcdrGXu9b+6h1u", "hm": "crMCp//4GMayU6ulBlGZRu2Gm/f+zIODBzCYdWcxbok"}
+```
+
+To query the data we generate the HMAC of the query term and use it to find records with matching HMAC values.
+For example, to find all users who have the name `Dan`, we'd generate the HMAC of the string `"Dan"`:
+
+```sql
+SELECT
+  name->e
+FROM users
+WHERE
+  name->hm = '0uZMw7qI0ztSL6Ra1E8QkdzfJMHvHyiMxPJK373dV88';
+```
+
+CipherStash uses a strict JSON schema called a [CipherCell](/stack/platform/cipher-cell) which is covered in the next section.
+
+<Callout type="info">
+**HMAC is a keyed hash**
+
+Unlike raw hash functions (such as SHA-256), HMAC requires a secret key. This means only parties with the key can generate valid HMACs, preventing attackers from pre-computing hash tables (rainbow tables) or guessing values. The key stays client-side, so the server can match encrypted search tokens without ever learning the plaintext or being able to generate new tokens.
+</Callout>
+
+## Architectural elements
+
+CipherStash searchable encryption combines a number of different components:
+
+| Component | Description |
+|-|-|
+| CipherCell | Storage format for encrypted data + metadata |
+| Encrypt Query Language (EQL) | Types, operators, and functions for querying encrypted data |
+| ZeroKMS | High-performance key management service designed for searchable encryption |
+| Client | [CipherStash Proxy](/stack/proxy) or an app running the [Encryption SDK](/stack/encryption) |
+
+## A query over encrypted data
+
+To help explain the flow of a query using searchable encryption let's use an example.
+In this case the client will be a Node.js application using the Encryption SDK and the server will be a PostgreSQL database with EQL types installed.
+
+A query over encrypted data follows these steps:
+
+### 1. Client encrypts the query via ZeroKMS
+
+The client application (or proxy) first encrypts the query terms using ZeroKMS.
+For example, to search for users with the name `"Dan"`, the client generates an HMAC of the search term using encryption keys managed by ZeroKMS.
+
+```typescript title="encrypt.ts"
+import { encryption } from "./encryption";
+import { users } from "./schema";
+
+// The client encrypts the query term
+const encryptResult = await encryption.encrypt("Dan", {
+  column: users.name,
+  table: users,
+});
+
+if (encryptResult.failure) {
+  console.error("Encryption failed:", encryptResult.failure.message);
+}
+
+// The CipherCell contains the HMAC for searching
+const hmac = encryptResult.data.hm;
+// Returns: "0uZMw7qI0ztSL6Ra1E8QkdzfJMHvHyiMxPJK373dV88"
+```
+
+### 2. Client generates SQL with encrypted query
+
+The client uses the encrypted query token to construct an SQL statement.
+
+```sql
+SELECT
+  name->>'e' as encrypted_name
+FROM users
+WHERE
+  name->>'hm' = '0uZMw7qI0ztSL6Ra1E8QkdzfJMHvHyiMxPJK373dV88';
+```
+
+The database receives only the encrypted search token — it never sees the plaintext query `"Dan"`.
+
+### 3. Database executes query and returns encrypted results
+
+The database executes the query by matching the encrypted search token against the HMAC values stored in CipherCells.
+Matching records are identified and the database returns the encrypted ciphertexts (the `e` field) to the client.
+
+```json
+{
+  "encrypted_name": "v0QmT6XcuMenl+Cy"
+}
+```
+
+### 4. Client decrypts data via ZeroKMS
+
+Finally, the client decrypts the returned CipherCells using ZeroKMS to reveal the plaintext data.
+
+```typescript title="decrypt.ts"
+import { encryption } from "./encryption";
+
+// Decrypt the CipherCell returned from the database
+const decryptResult = await encryption.decrypt({
+  c: "v0QmT6XcuMenl+Cy",
+  // ...
+});
+
+if (decryptResult.failure) {
+  console.error("Decryption failed:", decryptResult.failure.message);
+}
+
+const plaintext = decryptResult.data;
+// Returns: "Dan"
+```
+
+## Security model
+
+Under this security model:
+
+- The server can perform search operations, but cannot read data or queries
+- Keys remain entirely client-controlled, ensuring a strong trust boundary
+
+Leakage is tightly constrained to what is inherent to enabling search (e.g., whether two encrypted tokens are equal), and can be further minimised using advanced constructions such as structured encryption, per-record keys, or oblivious search patterns.
+
+This model allows applications to offer rich, real-time search over encrypted data while preserving strong privacy: the server executes the query, but only the client understands it.
+
+## Performance
+
+Based on some [benchmarks](https://github.com/cipherstash/tfhe-ore-bench?tab=readme-ov-file#results) CipherStash's approach is **410,000x faster** than homomorphic encryption:
+
+| Operation | Homomorphic | CipherStash | Speedup |
+|-----------|-------------|-------------|---------|
+| Encrypt   | 1.97 ms     | 48 µs       | ~41x    |
+| `a == b`  | 111 ms      | 238 ns      | ~466,000x |
+| `a > b`   | 192 ms      | 238 ns      | ~807,000x |
+| `a < b`   | 190 ms      | 240 ns      | ~792,000x |
+| `a >= a`  | 44 ms       | 221 ns      | ~199,000x |
+| `a <= a`  | 44 ms       | 226 ns      | ~195,000x |
+
+## Next steps
+
+- Learn about the [CipherCell](/stack/platform/cipher-cell) storage format
+- Review [supported queries](/stack/platform/supported-queries)
+- Understand the [Encrypt Query Language (EQL)](/stack/platform/eql)

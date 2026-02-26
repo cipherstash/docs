@@ -32,9 +32,9 @@ next-env.d.ts
 next-env.d.ts
 
 # generated TypeDoc reference docs
-content/docs/reference/stack/latest/
-content/docs/reference/stack/v*/
-content/docs/reference/drizzle/latest/
-content/docs/reference/drizzle/v*/
+content/stack/reference/stack/latest/
+content/stack/reference/stack/v*/
+content/stack/reference/drizzle/latest/
+content/stack/reference/drizzle/v*/
 .tmp-*
 .env.local

@@ -1,0 +1,51 @@
+---
+title: CipherStash Documentation
+description: The data security stack designed for devs
+---
+
+# CipherStash Documentation
+
+CipherStash is the new standard for data security that feels invisible.
+Encrypt, control, and audit access to sensitive data directly in your TypeScript applications.
+
+```bash
+npm install @cipherstash/stack
+```
+
+## Choose your integration
+
+CipherStash offers a few ways to leverage the data security stack:
+
+| | TypeScript SDK | CipherStash Proxy |
+|---|---|---|
+| **How it works** | Encryption and Secrets SDK and CLI available as an NPM package | Postgres Encryption - Postgres wire protocol Proxy built on top of the Encryption SDK to transparently encrypt data in Postgres |
+| **Best for** | Teams moving quickly and building TypeScript apps |  More complex app architectures or non TypeScript applications using Postgres |
+| **Language** | TypeScript / JavaScript (Node.js, Deno, Bun) | Any language (connects via PostgreSQL wire protocol) |
+| **Setup** | `npm install @cipherstash/stack` | Docker container or binary |
+
+Most teams start with the **SDK** for the best developer experience.
+
+## Get started
+
+<Cards>
+  <Card title="Encryption SDK" href="/stack/encryption" description="Field-level encryption with searchable queries. Encrypt in your application code with full TypeScript support." />
+  <Card title="CipherStash Proxy" href="/stack/proxy" description="Drop-in SQL proxy for PostgreSQL. Encrypt data with zero code changes." />
+  <Card title="Secrets" href="/stack/secrets" description="End-to-end encrypted secret storage with SDK and CLI." />
+  <Card title="KMS" href="/stack/kms" description="Key management and Key Sets — the foundational layer that powers Encryption and Secrets." />
+</Cards>
+
+## How it fits together
+
+Every CipherStash product builds on [ZeroKMS](/stack/kms) and its core primitive, [Key Sets](/stack/kms/keysets):
+
+- **[Encryption](/stack/encryption)** uses Key Sets for [multi-tenant isolation](/stack/encryption/configuration#keysets) — each tenant gets its own cryptographic boundary.
+- **[Secrets](/stack/secrets)** uses Key Sets for [environment isolation](/stack/secrets/concepts#environments) — production, staging, and development secrets are cryptographically separated.
+- **[Proxy](/stack/proxy)** encrypts data transparently via PostgreSQL, backed by the same ZeroKMS key hierarchy.
+
+## Understand the architecture
+
+<Cards>
+  <Card title="Security architecture" href="/stack/platform/security-architecture" description="Cryptographic primitives, key hierarchy, and trust model." />
+  <Card title="Searchable encryption" href="/stack/platform/searchable-encryption" description="How CipherStash enables queries on encrypted data." />
+  <Card title="What is CipherStash?" href="/stack/platform/what-is-cipherstash" description="Overview of the platform, threat model, and key capabilities." />
+</Cards>

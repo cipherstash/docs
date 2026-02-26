@@ -242,7 +242,7 @@ export async function generateDocsForTag(
       "Variable",
       "Enum",
     ],
-    publicPath: `/docs/reference/${config.referencePathSegment}/${dirName}/`,
+    publicPath: `/stack/reference/${config.referencePathSegment}/${dirName}/`,
   };
 
   const configPath = path.join(workingDir, "typedoc.json");
