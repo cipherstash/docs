@@ -24,7 +24,7 @@ function PostHogInit() {
     if (!POSTHOG_KEY || !POSTHOG_HOST) return;
 
     posthog.init(POSTHOG_KEY, {
-      api_host: "/ingest",
+      api_host: "/docs/ingest",
       ui_host: POSTHOG_HOST,
       capture_pageview: false, // we track manually for SPA nav
       capture_pageleave: true,
