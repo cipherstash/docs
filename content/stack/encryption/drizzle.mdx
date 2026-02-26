@@ -53,7 +53,7 @@ CREATE TABLE users (
 
 ## Schema definition
 
-Use `encryptedType<T>()` to define encrypted columns directly in your Drizzle table schema:
+Use `encryptedType<T>()` to define encrypted columns directly in your Drizzle table schema. TypeScript property names in camelCase map to their corresponding snake_case database column names (e.g., `createdAt` in TypeScript maps to `created_at` in the database).
 
 ```typescript
 import { pgTable, integer, timestamp, varchar } from "drizzle-orm/pg-core"
@@ -137,6 +137,8 @@ import postgres from "postgres"
 
 const db = drizzle({ client: postgres(process.env.DATABASE_URL!) })
 ```
+
+> For fine-grained control over encryption timing (e.g., caching encrypted values, debugging, or building custom abstractions), you can use the manual `encryptionClient.encrypt()` pattern instead of the auto-encrypting operators. See [Encrypt and decrypt](/stack/encryption/encrypt-decrypt) for the low-level API.
 
 ## Insert encrypted data
 
@@ -237,6 +239,58 @@ const results = await db
   .select()
   .from(usersTable)
   .orderBy(encryptionOps.desc(usersTable.age))
+```
+
+### Select specific columns
+
+```typescript
+const results = await db.select({
+  id: usersTable.id,
+  email: usersTable.email,
+  createdAt: usersTable.createdAt,
+}).from(usersTable)
+```
+
+### Pagination
+
+```typescript
+// First page
+const results = await db.select().from(usersTable).limit(10)
+
+// Second page
+const results = await db.select().from(usersTable).limit(10).offset(10)
+```
+
+### Aggregation
+
+```typescript
+import { sql } from "drizzle-orm"
+
+// Total count
+const result = await db.select({ count: sql`count(*)` }).from(usersTable)
+
+// Count with condition
+const result = await db
+  .select({ count: sql`count(*)` })
+  .from(usersTable)
+  .where(await encryptionOps.gte(usersTable.age, 18))
+```
+
+### Date and timestamp queries
+
+```typescript
+const now = new Date()
+const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
+
+const results = await db
+  .select()
+  .from(usersTable)
+  .where(
+    await encryptionOps.and(
+      encryptionOps.gte(usersTable.createdAt, twoWeeksAgo.getTime()),
+      encryptionOps.lte(usersTable.createdAt, now.getTime()),
+    ),
+  )
 ```
 
 ## JSONB queries

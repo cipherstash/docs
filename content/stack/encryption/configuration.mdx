@@ -1,11 +1,11 @@
 ---
 title: Configuration
-description: Configure the SDK with environment variables, TOML files, or programmatically
+description: Configure the SDK with environment variables or programmatically
 ---
 
 # Configuration
 
-The SDK supports three configuration methods. Environment variables take precedence over config files.
+The SDK supports two configuration methods: environment variables and programmatic config. Environment variables take precedence over programmatic config.
 
 ## Environment variables
 
@@ -17,45 +17,10 @@ The simplest approach. Set these in a `.env` file or your hosting platform:
 | `CS_CLIENT_ID` | The client identifier | Yes |
 | `CS_CLIENT_KEY` | Client key material used with ZeroKMS | Yes |
 | `CS_CLIENT_ACCESS_KEY` | API key for authenticating with the CipherStash API | Yes |
-| `CS_CONFIG_PATH` | Temporary path for client configuration | No |
+| `CS_CONFIG_PATH` | Temporary path for client configuration | No (default: `/home/{username}/.cipherstash`) |
+| `STASH_STACK_LOG` | Log level (`debug`, `info`, `error`) | No (default: `error`) |
 
 Sign up at [cipherstash.com/signup](https://cipherstash.com/signup) and follow the onboarding to generate credentials.
-
-## TOML config files
-
-For projects that prefer file-based configuration, use two files in your project root:
-
-### `cipherstash.toml`
-
-Non-sensitive configuration. Safe to commit to version control.
-
-```toml
-[encrypt]
-client_id = "your-client-id"
-
-[auth]
-workspace_crn = "your-workspace-crn"
-```
-
-| Section | Key | Description |
-|---|---|---|
-| `[encrypt]` | `client_id` | Required. Client identifier (UUID). |
-| `[encrypt]` | `default_keyset_id` | Optional. Default keyset UUID. |
-| `[encrypt]` | `client_key` | **Not allowed.** Use `cipherstash.secret.toml` or env var. |
-| `[auth]` | `workspace_crn` | Required. Workspace CRN. |
-| `[auth]` | `access_key` | **Not allowed.** Use `cipherstash.secret.toml` or env var. |
-
-### `cipherstash.secret.toml`
-
-Sensitive credentials. Add this file to `.gitignore`.
-
-```toml
-[encrypt]
-client_key = "your-client-key"
-
-[auth]
-access_key = "your-access-key"
-```
 
 ## Programmatic config
 
@@ -92,6 +57,10 @@ You can specify a Key Set by ID or by name:
 const client = await Encryption({
   schemas: [users],
   config: {
+    workspaceCrn: "your-workspace-crn",
+    accessKey: "your-access-key",
+    clientId: "your-client-id",
+    clientKey: "your-client-key",
     keyset: { id: "123e4567-e89b-12d3-a456-426614174000" },
   },
 })
@@ -103,6 +72,10 @@ const client = await Encryption({
 const client = await Encryption({
   schemas: [users],
   config: {
+    workspaceCrn: "your-workspace-crn",
+    accessKey: "your-access-key",
+    clientId: "your-client-id",
+    clientKey: "your-client-key",
     keyset: { name: "Company A" },
   },
 })

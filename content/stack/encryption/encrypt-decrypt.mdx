@@ -109,6 +109,12 @@ const result = await client.encryptModel<User>(user, users)
 const back = await client.decryptModel<User>(encryptedUser)
 ```
 
+For full schema-aware types with explicit parameters, provide both the model type and the schema type:
+
+```typescript title="encrypt-model.ts"
+const result = await client.encryptModel<User, typeof users>(user, users)
+```
+
 ## Bulk operations
 
 All bulk methods make a single call to ZeroKMS regardless of the number of records, while still using a unique key per value.
@@ -176,5 +182,9 @@ const decrypted = await client
 // Also works with bulk operations
 const bulkEncrypted = await client
   .bulkEncryptModels(userModels, users)
+  .withLockContext(lockContext)
+
+const bulkDecrypted = await client
+  .bulkDecryptModels(encryptedUsers)
   .withLockContext(lockContext)
 ```

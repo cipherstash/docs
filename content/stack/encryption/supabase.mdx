@@ -22,7 +22,7 @@ CREATE TABLE users (
 );
 ```
 
-Or store encrypted columns as JSONB if not using the EQL extension directly:
+Or store encrypted columns as JSONB if not using Searchable Encryption:
 
 ```sql
 CREATE TABLE users (
@@ -315,7 +315,13 @@ Chain `.withLockContext()` to tie encryption to a specific user's JWT:
 import { LockContext } from "@cipherstash/stack/identity"
 
 const lc = new LockContext()
-const { data: lockContext } = await lc.identify(userJwt)
+const identifyResult = await lc.identify(userJwt)
+
+if (identifyResult.failure) {
+  throw new Error(identifyResult.failure.message)
+}
+
+const lockContext = identifyResult.data
 
 const { data } = await eSupabase
   .from("users", users)
@@ -369,7 +375,7 @@ Errors can come from Supabase (API errors) or from encryption operations. Check 
 
 | Filter Method | Required Index | Query Type |
 |---|---|---|
-| `eq`, `neq`, `in` | `.equality()` | `'equality'` |
+| `eq`, `neq`, `in`, `match` | `.equality()` | `'equality'` |
 | `like`, `ilike` | `.freeTextSearch()` | `'freeTextSearch'` |
 | `gt`, `gte`, `lt`, `lte` | `.orderAndRange()` | `'orderAndRange'` |
 | `is` | None | No encryption (NULL/boolean check) |
@@ -388,6 +394,16 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA eql_v2 GRANT ALL ON TABLES 
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA eql_v2 GRANT ALL ON ROUTINES TO anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA eql_v2 GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
 ```
+
+## How it works
+
+Under the hood, `encryptedSupabase` uses a deferred query builder pattern. All chained operations (`.select()`, `.eq()`, `.insert()`, etc.) are recorded synchronously. When the query is `await`ed, the builder:
+
+1. **Encrypts mutation data** — calls `encryptModel` / `bulkEncryptModels` and converts to PG composites
+2. **Adds `::jsonb` casts** — parses your select string and adds `::jsonb` to encrypted columns
+3. **Batch-encrypts filter values** — collects all filter values for encrypted columns and encrypts them in a single `encryptQuery()` call (one round-trip to ZeroKMS)
+4. **Executes the real Supabase query** — chains all operations on the underlying Supabase client
+5. **Decrypts results** — calls `decryptModel` / `bulkDecryptModels` on the returned data
 
 ## Complete example
 

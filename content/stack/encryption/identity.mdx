@@ -9,6 +9,16 @@ Lock encryption to a specific user by requiring a valid JWT for decryption. When
 
 ## How it works
 
+> Lock contexts require a Business or Enterprise workspace plan.
+
+Lock contexts are useful for:
+
+- Multi-tenant applications where each user's data must be isolated
+- Compliance requirements that demand per-user encryption boundaries
+- Applications where you need to prove that only authorized users accessed specific records
+
+The flow is:
+
 1. Create a `LockContext` instance.
 2. Identify the user with their JWT.
 3. Pass the lock context to encrypt and decrypt operations.
@@ -63,6 +73,14 @@ const bulkEncrypted = await client
 const bulkDecrypted = await client
   .bulkDecryptModels(encryptedUsers)
   .withLockContext(lockContext)
+
+// Query operations
+const term = await client
+  .encryptQuery("user@example.com", {
+    column: users.email,
+    table: users,
+  })
+  .withLockContext(lockContext)
 ```
 
 ## Custom identity claims
@@ -81,6 +99,16 @@ const lc = new LockContext({
 |---|---|
 | `sub` | The user's subject identifier |
 | `scopes` | The user's scopes set by your IDP policy |
+
+You can combine claims for identity + permissions scoping:
+
+```typescript title="identity.ts"
+const lc = new LockContext({
+  context: {
+    identityClaim: ["sub", "scopes"],
+  },
+})
+```
 
 ## Using with Clerk and Next.js
 
@@ -123,7 +151,7 @@ export default async function Page() {
 
 ### Create a LockContext with an existing CTS token
 
-Since the CTS token is already available from the middleware, construct the `LockContext` directly:
+Since the CTS token is already available from the middleware, construct the `LockContext` directly. The CTS token has the shape `{ accessToken: string, expiry: number }` — passing it directly avoids a second round-trip to CTS.
 
 ```typescript title="page.tsx"
 import { LockContext } from "@cipherstash/stack/identity"
@@ -141,3 +169,27 @@ export default async function Page() {
   // Use lockContext with encrypt/decrypt operations
 }
 ```
+
+`getCtsToken` returns `{ success: true, ctsToken: CtsToken }` on success or `{ success: false, error: string }` on failure.
+
+## Error handling
+
+The `identify` method returns a `Result` type:
+
+```typescript title="identity.ts"
+const result = await lc.identify(userJwt)
+
+if (result.failure) {
+  // result.failure.type is 'CtsTokenError'
+  console.error("CTS token exchange failed:", result.failure.message)
+}
+```
+
+Common failure scenarios:
+
+| Scenario | Error type | Description |
+|---|---|---|
+| Invalid JWT | `CtsTokenError` | The JWT token was rejected by CTS |
+| Network failure | `CtsTokenError` | Could not reach the CTS endpoint |
+| Missing workspace | Runtime error | `CS_WORKSPACE_CRN` is not configured |
+| Expired CTS token | `LockContextError` | The CTS token has expired. Call `identify` again |

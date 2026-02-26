@@ -180,6 +180,130 @@ const encryptedMap = bulkResult.data;
 | **Zero-Knowledge** | AWS has key access | True zero-knowledge |
 | **Setup Complexity** | Medium (AWS credentials, regions) | Low (just environment variables) |
 
+## Developer experience comparison
+
+### Error handling
+
+**AWS KMS:** Try/catch with manual error type checking:
+
+```typescript
+try {
+  const response = await client.send(command)
+} catch (error) {
+  if (error.name === "AccessDeniedException") {
+    // Handle access denied
+  } else if (error.name === "InvalidKeyUsageException") {
+    // Handle invalid key usage
+  }
+}
+```
+
+**CipherStash Encryption:** Type-safe Result pattern:
+
+```typescript
+const result = await client.encrypt(plaintext, options)
+
+if (result.failure) {
+  switch (result.failure.type) {
+    case "EncryptionError":
+      // TypeScript knows this is an EncryptionError
+      break
+    case "ClientInitError":
+      // TypeScript knows this is a ClientInitError
+      break
+  }
+}
+```
+
+### Type safety
+
+**AWS KMS:** Manual typing with binary data handling:
+
+```typescript
+const plaintext: string = Buffer.from(response.Plaintext).toString("utf-8")
+```
+
+**CipherStash Encryption:** Full TypeScript inference:
+
+```typescript
+const plaintext = decryptResult.data // Type: string
+```
+
+### Storage format
+
+**AWS KMS:** Binary data that needs encoding:
+
+```typescript
+// Returns Uint8Array, must encode for storage
+const base64 = Buffer.from(ciphertext).toString("base64")
+```
+
+**CipherStash Encryption:** JSON payload ready for database:
+
+```typescript
+// Returns JSON payload ready for JSONB storage
+const ciphertext = encryptResult.data
+```
+
+## Complete workflow comparison
+
+### AWS KMS: Full implementation
+
+```typescript
+import { KMSClient, EncryptCommand, DecryptCommand } from "@aws-sdk/client-kms"
+
+const client = new KMSClient({ region: "us-west-2" })
+const keyId = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-efgh-5678-ijkl-9012mnopqrst"
+
+async function encrypt(plaintext: string): Promise<string> {
+  const command = new EncryptCommand({
+    KeyId: keyId,
+    Plaintext: Buffer.from(plaintext),
+  })
+  const response = await client.send(command)
+  return Buffer.from(response.CiphertextBlob).toString("base64")
+}
+
+async function decrypt(base64Ciphertext: string): Promise<string> {
+  const command = new DecryptCommand({
+    CiphertextBlob: Buffer.from(base64Ciphertext, "base64"),
+  })
+  const response = await client.send(command)
+  return Buffer.from(response.Plaintext).toString("utf-8")
+}
+
+const encrypted = await encrypt("secret@squirrel.example")
+const decrypted = await decrypt(encrypted)
+```
+
+~25 lines for basic encrypt/decrypt. You manage: key ARNs, binary conversions, base64 encoding, error handling, AWS credentials, regions.
+
+### CipherStash Encryption: Full implementation
+
+```typescript
+import { Encryption } from "@cipherstash/stack"
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
+
+const users = encryptedTable("users", {
+  email: encryptedColumn("email"),
+})
+
+const client = await Encryption({ schemas: [users] })
+
+const encryptResult = await client.encrypt("secret@squirrel.example", {
+  column: users.email,
+  table: users,
+})
+
+if (encryptResult.failure) {
+  throw new Error(encryptResult.failure.message)
+}
+
+const decryptResult = await client.decrypt(encryptResult.data)
+```
+
+~20 lines including setup. You manage: nothing — `@cipherstash/stack` handles it all.
+
 ## When to use each
 
 ### Use AWS KMS when:

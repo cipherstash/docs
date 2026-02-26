@@ -60,6 +60,18 @@ export const protectedUsers = encryptedTable("users", {
 
 Only enable the indexes you need — each additional index type has a performance cost.
 
+### Equality token filters
+
+The `.equality()` method accepts an optional array of token filters that are applied before indexing:
+
+```typescript title="schema.ts"
+email: encryptedColumn("email").equality([{ kind: "downcase" }])
+```
+
+| Filter | Description |
+|---|---|
+| `{ kind: 'downcase' }` | Converts values to lowercase before comparison, enabling case-insensitive equality matching |
+
 > For columns storing JSON data, `.searchableJson()` is the recommended index. It automatically configures the column for encrypted JSONB path and containment queries. See [Searchable encryption](/stack/encryption/searchable-encryption) for details.
 
 ### Data types
@@ -70,7 +82,14 @@ Use `.dataType()` to specify the plaintext type for a column:
 encryptedColumn("age").dataType("number").orderAndRange()
 ```
 
-Supported data types: `'string'`, `'number'`, `'boolean'`, `'date'`, `'bigint'`, `'json'`.
+| Data type | Description |
+|---|---|
+| `'string'` | Text values. This is the default. |
+| `'number'` | Numeric values (integers and floats). |
+| `'boolean'` | Boolean `true` / `false` values. |
+| `'date'` | Date or timestamp values. |
+| `'bigint'` | Large integer values. |
+| `'json'` | JSON objects. Automatically set when using `.searchableJson()`. |
 
 ### Free-text search options
 
@@ -86,11 +105,21 @@ encryptedColumn("bio").freeTextSearch({
 })
 ```
 
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `tokenizer` | `{ kind: 'standard' }` or `{ kind: 'ngram', token_length: number }` | `{ kind: 'ngram', token_length: 3 }` | Tokenization strategy |
+| `token_filters` | `TokenFilter[]` | `[{ kind: 'downcase' }]` | Filters applied to tokens before indexing |
+| `k` | `number` | `6` | Number of hash functions for the bloom filter |
+| `m` | `number` | `2048` | Size of the bloom filter in bits |
+| `include_original` | `boolean` | `true` | Whether to include the original value in the index |
+
 ## Nested objects
 
 CipherStash Encryption supports nested objects in your schema, allowing you to encrypt nested properties. You can define nested objects up to 3 levels deep using `encryptedField`.
 
 > Searchable encryption is not supported on nested objects. This is most useful for NoSQL databases or less structured data.
+
+> Using nested objects is not recommended for SQL databases. You should either use a JSON data type and encrypt the entire object, or use a separate column for each nested property.
 
 ```typescript title="schema.ts"
 import { encryptedTable, encryptedColumn, encryptedField } from "@cipherstash/stack/schema"
@@ -114,6 +143,8 @@ When working with nested objects:
 - The maximum nesting depth is 3 levels
 - Null and undefined values are supported at any level
 - Optional nested objects are supported
+
+> The schema builder does not validate the values you supply to the `encryptedField` or `encryptedColumn` functions. These values are meant to be unique, and may cause unexpected behavior if they are not defined correctly.
 
 ## Encrypted JSONB
 

@@ -50,6 +50,24 @@ if (term.failure) {
 console.log(term.data) // encrypted query term
 ```
 
+### Properties
+
+| Property | Description |
+|---|---|
+| `value` | The value to search for |
+| `column` | The column to search in |
+| `table` | The table to search in |
+| `queryType` | _(optional)_ The query type — auto-inferred from the column's indexes when omitted |
+| `returnType` | _(optional)_ The output format — `'eql'` (default), `'composite-literal'`, or `'escaped-composite-literal'` |
+
+### `returnType` options
+
+| `returnType` | Return type | Description |
+|---|---|---|
+| `'eql'` (default) | `Encrypted` object | Raw EQL JSON payload. Use with parameterized queries (`$1`) or ORMs that accept JSON objects. |
+| `'composite-literal'` | `string` | PostgreSQL composite literal format `("json")`. Use with Supabase `.eq()` or other APIs that require a string value. |
+| `'escaped-composite-literal'` | `string` | Escaped composite literal `"(\"json\")"`. Use when the query string will be embedded inside another string or JSON value. |
+
 ### Batch queries
 
 Encrypt multiple query terms in a single call:
@@ -98,6 +116,8 @@ const result = await pgClient.query(
 ### Sorting and range queries
 
 Use `.orderAndRange()` for sorting and range operations:
+
+> When using ORDER BY with encrypted columns, you need to use the EQL v2 functions if your PostgreSQL database doesn't support EQL Operator families. For databases that support EQL Operator families, you can use ORDER BY directly with encrypted column names.
 
 ```typescript title="search.ts"
 const result = await pgClient.query(
@@ -154,6 +174,7 @@ import { toJsonPath } from "@cipherstash/stack"
 
 toJsonPath("user.email")     // '$.user.email'
 toJsonPath("$.user.email")   // '$.user.email' (unchanged)
+toJsonPath("name")           // '$.name'
 ```
 
 ### Containment queries
@@ -180,7 +201,15 @@ const tagsTerm = await client.encryptQuery(["admin", "user"], {
 })
 ```
 
-> Bare numbers and booleans are not supported as top-level `searchableJson` query values. Wrap them in an object or array.
+> Bare numbers and booleans are not supported as top-level `searchableJson` query values. For `orderAndRange` queries, bare numbers are supported directly. Wrap them in an object or array for `searchableJson`.
+
+```typescript title="search.ts"
+// Wrong for searchableJson — will fail (works for orderAndRange)
+await client.encryptQuery(42, { column: documents.metadata, table: documents })
+
+// Correct — wrap in an object
+await client.encryptQuery({ value: 42 }, { column: documents.metadata, table: documents })
+```
 
 Use the `buildNestedObject` helper to construct nested containment queries:
 
@@ -207,6 +236,56 @@ const result = await pgClient.query(
   "SELECT * FROM documents WHERE cs_ste_vec_v2(metadata_encrypted) @> $1",
   [term.data[0]]
 )
+```
+
+### Batch JSONB queries
+
+Use `encryptQuery` with an array to encrypt multiple JSONB query terms in a single call. Each item can have a different plaintext type:
+
+```typescript title="search.ts"
+const terms = await client.encryptQuery([
+  {
+    value: "$.user.email",        // string -> JSONPath selector
+    column: documents.metadata,
+    table: documents,
+  },
+  {
+    value: { role: "admin" },     // object -> containment
+    column: documents.metadata,
+    table: documents,
+  },
+  {
+    value: ["tag1", "tag2"],      // array -> containment
+    column: documents.metadata,
+    table: documents,
+  },
+])
+```
+
+### Advanced: Explicit query types
+
+For advanced use cases, you can specify the query type explicitly instead of relying on auto-inference:
+
+| Approach | `queryType` | When to use |
+|---|---|---|
+| **searchableJson** (recommended) | `'searchableJson'` or omitted | Auto-infers from plaintext type. Use for most JSONB queries. |
+| **steVecSelector** (explicit) | `'steVecSelector'` | When you want to be explicit about JSONPath selector queries. |
+| **steVecTerm** (explicit) | `'steVecTerm'` | When you want to be explicit about containment queries. |
+
+```typescript title="search.ts"
+// Explicit steVecSelector
+const selectorTerm = await client.encryptQuery("$.user.email", {
+  column: documents.metadata,
+  table: documents,
+  queryType: "steVecSelector",
+})
+
+// Explicit steVecTerm
+const containTerm = await client.encryptQuery({ role: "admin" }, {
+  column: documents.metadata,
+  table: documents,
+  queryType: "steVecTerm",
+})
 ```
 
 ## Implementation example
@@ -251,10 +330,29 @@ const decryptedData = await client.bulkDecryptModels(result.rows)
 
 ## Best practices
 
-1. **Choose the right indexes** — Use `.equality()` for exact matches (most efficient), `.freeTextSearch()` for text search, and `.orderAndRange()` for sorting (most expensive). Only enable what you need.
+### Schema design
 
-2. **Use parameterized queries** — Always use parameterized queries to prevent SQL injection.
+- Use `.equality()` for exact matches (most efficient)
+- Use `.freeTextSearch()` for text-based searches (more expensive)
+- Use `.orderAndRange()` for numerical data and sorting (most expensive)
+- Only enable features you need to minimize performance impact
+- Use `eql_v2_encrypted` column type in your database schema for encrypted columns
 
-3. **Use bulk operations** — Use `bulkEncryptModels` and `bulkDecryptModels` when working with multiple records.
+### Security
 
-4. **Handle errors** — Always check for failures with any `@cipherstash/stack` method.
+- Never store unencrypted sensitive data
+- Keep your CipherStash secrets secure
+- Use parameterized queries to prevent SQL injection
+
+### Performance
+
+- Index your encrypted columns appropriately
+- Use bulk operations (`bulkEncryptModels`, `bulkDecryptModels`) when working with multiple records
+- Monitor query performance and consider the impact of search operations on your database
+- Cache frequently accessed data
+
+### Error handling
+
+- Always check for failures with any `@cipherstash/stack` method
+- Handle encryption errors aggressively
+- Handle decryption errors gracefully
