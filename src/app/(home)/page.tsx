@@ -90,7 +90,7 @@ export default function HomePage() {
             </Link>
             <Link
               href="/docs/platform"
-              className="inline-flex items-center justify-center gap-2 rounded py-2 px-4 text-sm font-medium focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 bg-fd-primary/30 border border-fd-primary/70 text-fd-primary-foreground/70 hover:border-fd-primary transition-colors"
+              className="inline-flex items-center justify-center gap-2 rounded py-2 px-4 text-sm font-medium focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 bg-fd-primary/30 border border-fd-primary/70 text-fd-foreground hover:border-fd-primary transition-colors"
             >
               Learn about the platform
               <ArrowRight className="size-4" />
@@ -163,14 +163,14 @@ export default function HomePage() {
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link
                 href="/llms.txt"
-                className="inline-flex items-center justify-center gap-2 rounded py-2 px-4 text-sm font-medium focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 bg-fd-primary/30 border border-fd-primary/70 text-fd-primary-foreground/70 hover:border-fd-primary transition-colors"
+                className="inline-flex items-center justify-center gap-2 rounded py-2 px-4 text-sm font-medium focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 bg-fd-primary/30 border border-fd-primary/70 text-fd-foreground hover:border-fd-primary transition-colors"
               >
                 <FileText className="size-4" />
                 llms.txt
               </Link>
               <Link
                 href="/llms-full.txt"
-                className="inline-flex items-center justify-center gap-2 rounded py-2 px-4 text-sm font-medium focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 bg-fd-primary/30 border border-fd-primary/70 text-fd-primary-foreground/70 hover:border-fd-primary transition-colors"
+                className="inline-flex items-center justify-center gap-2 rounded py-2 px-4 text-sm font-medium focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 bg-fd-primary/30 border border-fd-primary/70 text-fd-foreground hover:border-fd-primary transition-colors"
               >
                 <FileText className="size-4" />
                 llms-full.txt
@@ -202,7 +202,7 @@ export default function HomePage() {
               href="https://github.com/cipherstash/docs"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded py-2 px-4 text-sm font-medium focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 bg-fd-primary/30 border border-fd-primary/70 text-fd-primary-foreground/70 hover:border-fd-primary transition-colors"
+              className="inline-flex items-center justify-center gap-2 rounded py-2 px-4 text-sm font-medium focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 bg-fd-primary/30 border border-fd-primary/70 text-fd-foreground hover:border-fd-primary transition-colors"
             >
               Docs on GitHub
               <ExternalLinkIcon className="size-4" />
