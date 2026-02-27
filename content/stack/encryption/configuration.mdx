@@ -26,7 +26,7 @@ Sign up at [cipherstash.com/signup](https://cipherstash.com/signup) and follow t
 
 Pass config directly when initializing the client. Useful when loading credentials from a secret manager:
 
-```typescript title="protect/index.ts"
+```typescript title="encryption/index.ts"
 import { Encryption, type EncryptionClientConfig } from "@cipherstash/stack"
 import { users } from "./schema"
 
@@ -53,7 +53,7 @@ You can specify a Key Set by ID or by name:
 
 ### By ID
 
-```typescript title="protect/index.ts"
+```typescript title="encryption/index.ts"
 const client = await Encryption({
   schemas: [users],
   config: {
@@ -68,7 +68,7 @@ const client = await Encryption({
 
 ### By name
 
-```typescript title="protect/index.ts"
+```typescript title="encryption/index.ts"
 const client = await Encryption({
   schemas: [users],
   config: {

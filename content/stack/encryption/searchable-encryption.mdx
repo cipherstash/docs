@@ -117,7 +117,9 @@ const result = await pgClient.query(
 
 Use `.orderAndRange()` for sorting and range operations:
 
-> When using ORDER BY with encrypted columns, you need to use the EQL v2 functions if your PostgreSQL database doesn't support EQL Operator families. For databases that support EQL Operator families, you can use ORDER BY directly with encrypted column names.
+<Callout type="info">
+  When using ORDER BY with encrypted columns, you need to use the EQL v2 functions if your PostgreSQL database doesn't support EQL Operator families. For databases that support EQL Operator families, you can use ORDER BY directly with encrypted column names.
+</Callout>
 
 ```typescript title="search.ts"
 const result = await pgClient.query(
@@ -201,7 +203,9 @@ const tagsTerm = await client.encryptQuery(["admin", "user"], {
 })
 ```
 
-> Bare numbers and booleans are not supported as top-level `searchableJson` query values. For `orderAndRange` queries, bare numbers are supported directly. Wrap them in an object or array for `searchableJson`.
+<Callout type="warn">
+  Bare numbers and booleans are not supported as top-level `searchableJson` query values. For `orderAndRange` queries, bare numbers are supported directly. Wrap them in an object or array for `searchableJson`.
+</Callout>
 
 ```typescript title="search.ts"
 // Wrong for searchableJson — will fail (works for orderAndRange)

@@ -7,48 +7,41 @@ description: Encrypt and search data with the Supabase SDK using the encryptedSu
 
 The `encryptedSupabase` wrapper makes encrypted queries look nearly identical to normal Supabase queries. It automatically handles encryption, decryption, `::jsonb` casts, and search term formatting.
 
-## Prerequisites
+## Database schema
 
-Install the [EQL v2 extension](https://github.com/cipherstash/encrypt-query-language/releases) in your Supabase project. The extension has a specific release for Supabase.
+Encrypted columns must be stored as JSONB in your Supabase database:
 
-Define your columns as `eql_v2_encrypted`:
-
-```sql
+```sql filename="schema.sql"
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
-  name eql_v2_encrypted,
-  email eql_v2_encrypted,
-  age eql_v2_encrypted
-);
-```
-
-Or store encrypted columns as JSONB if not using Searchable Encryption:
-
-```sql
-CREATE TABLE users (
-  id SERIAL PRIMARY KEY,
-  email jsonb NOT NULL,
-  name jsonb NOT NULL,
-  age jsonb,
-  role VARCHAR(50),
+  email jsonb NOT NULL,        -- encrypted column
+  name jsonb NOT NULL,         -- encrypted column
+  age jsonb,                   -- encrypted column (numeric)
+  role VARCHAR(50),            -- regular column (not encrypted)
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
+For searchable encryption (equality, range, text search), install the EQL extension:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS eql_v2;
+```
+
 ## Setup
 
-```typescript
+```typescript filename="app/db.ts"
+import { createClient } from "@supabase/supabase-js"
 import { Encryption } from "@cipherstash/stack"
 import { encryptedSupabase } from "@cipherstash/stack/supabase"
 import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
-import { createClient } from "@supabase/supabase-js"
 
 const users = encryptedTable("users", {
-  name: encryptedColumn("name")
+  email: encryptedColumn("email")
     .equality()
     .freeTextSearch(),
 
-  email: encryptedColumn("email")
+  name: encryptedColumn("name")
     .equality()
     .freeTextSearch(),
 
@@ -58,30 +51,33 @@ const users = encryptedTable("users", {
     .orderAndRange(),
 })
 
-const client = await Encryption({ schemas: [users] })
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!)
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!,
+)
+
+const encryptionClient = await Encryption({ schemas: [users] })
 
 const eSupabase = encryptedSupabase({
-  encryptionClient: client,
+  encryptionClient,
   supabaseClient: supabase,
 })
 ```
 
-### Type-safe queries
+All queries go through `eSupabase.from(tableName, schema)`:
 
-```typescript
-type UserRow = { id: number; name: string; email: string; age: number; role: string }
-
-const { data } = await eSupabase
-  .from<UserRow>("users", users)
-  .select("id, name, email")
+```typescript filename="app/db.ts"
+const { data, error } = await eSupabase
+  .from("users", users)
+  .select("id, email, name")
+  .eq("email", "alice@example.com")
 ```
 
 ## Inserting data
 
 Encrypted fields are automatically encrypted before insertion:
 
-```typescript
+```typescript filename="app/actions.ts"
 // Single insert
 const { data, error } = await eSupabase
   .from("users", users)
@@ -107,8 +103,8 @@ const { data, error } = await eSupabase
 
 Results are automatically decrypted:
 
-```typescript
-// List query
+```typescript filename="app/queries.ts"
+// List query — returns decrypted array
 const { data, error } = await eSupabase
   .from("users", users)
   .select("id, email, name, role")
@@ -131,7 +127,11 @@ const { data, error } = await eSupabase
 // data: null
 ```
 
-> `encryptedSupabase` does not support `select('*')`. You must list columns explicitly so that encrypted columns can be cast with `::jsonb`.
+<Callout type="warn">
+  You must list columns explicitly in `select()` — using `select('*')` will throw an error. The wrapper automatically adds `::jsonb` casts to encrypted columns so PostgreSQL parses them correctly.
+</Callout>
+
+`select()` also accepts an optional second parameter: `select(columns, { head?: boolean, count?: 'exact' | 'planned' | 'estimated' })`.
 
 ## Query filters
 
@@ -139,7 +139,7 @@ All filter values for encrypted columns are automatically encrypted before the q
 
 ### Equality filters
 
-```typescript
+```typescript filename="app/queries.ts"
 // Exact match (requires .equality() on column)
 const { data } = await eSupabase
   .from("users", users)
@@ -167,7 +167,7 @@ const { data } = await eSupabase
 
 ### Text search filters
 
-```typescript
+```typescript filename="app/queries.ts"
 // LIKE — case sensitive (requires .freeTextSearch())
 const { data } = await eSupabase
   .from("users", users)
@@ -183,7 +183,7 @@ const { data } = await eSupabase
 
 ### Range and comparison filters
 
-```typescript
+```typescript filename="app/queries.ts"
 // Greater than (requires .orderAndRange())
 const { data } = await eSupabase
   .from("users", users)
@@ -211,7 +211,7 @@ const { data } = await eSupabase
 
 ### Match (multi-column equality)
 
-```typescript
+```typescript filename="app/queries.ts"
 const { data } = await eSupabase
   .from("users", users)
   .select("id, email, name")
@@ -220,7 +220,7 @@ const { data } = await eSupabase
 
 ### OR conditions
 
-```typescript
+```typescript filename="app/queries.ts"
 // String format
 const { data } = await eSupabase
   .from("users", users)
@@ -241,7 +241,7 @@ Both forms encrypt values for encrypted columns automatically.
 
 ### NOT filter
 
-```typescript
+```typescript filename="app/queries.ts"
 const { data } = await eSupabase
   .from("users", users)
   .select("id, email, name")
@@ -250,7 +250,7 @@ const { data } = await eSupabase
 
 ### Raw filter
 
-```typescript
+```typescript filename="app/queries.ts"
 const { data } = await eSupabase
   .from("users", users)
   .select("id, email, name")
@@ -259,7 +259,7 @@ const { data } = await eSupabase
 
 ### Combining encrypted and non-encrypted filters
 
-```typescript
+```typescript filename="app/queries.ts"
 const { data } = await eSupabase
   .from("users", users)
   .select("id, email, name")
@@ -269,7 +269,7 @@ const { data } = await eSupabase
 
 ## Updating and deleting
 
-```typescript
+```typescript filename="app/actions.ts"
 // Update
 const { data } = await eSupabase
   .from("users", users)
@@ -297,31 +297,36 @@ const { error } = await eSupabase
 
 These are passed through to Supabase directly:
 
-```typescript
+```typescript filename="app/queries.ts"
 const { data } = await eSupabase
   .from("users", users)
   .select("id, email, name")
   .eq("name", "Alice")
-  .order("id", { ascending: false })
+  .order("name", { ascending: true })
   .limit(10)
   .range(0, 9)
+```
+
+The following transform methods are also supported:
+
+```typescript filename="app/queries.ts"
+.csv()
+.abortSignal(signal)
+.throwOnError()
+.returns<U>()
 ```
 
 ## Lock context and audit
 
 Chain `.withLockContext()` to tie encryption to a specific user's JWT:
 
-```typescript
+```typescript filename="app/actions.ts"
 import { LockContext } from "@cipherstash/stack/identity"
 
 const lc = new LockContext()
-const identifyResult = await lc.identify(userJwt)
-
-if (identifyResult.failure) {
-  throw new Error(identifyResult.failure.message)
-}
-
-const lockContext = identifyResult.data
+const identified = await lc.identify(userJwt)
+if (identified.failure) throw new Error(identified.failure.message)
+const lockContext = identified.data
 
 const { data } = await eSupabase
   .from("users", users)
@@ -332,20 +337,20 @@ const { data } = await eSupabase
 
 Lock contexts work with all operations (insert, select, update, delete):
 
-```typescript
+```typescript filename="app/queries.ts"
 const { data } = await eSupabase
   .from("users", users)
   .select("id, email, name")
   .eq("email", "alice@example.com")
   .withLockContext(lockContext)
-  .audit({ metadata: { userId: "user_123" } })
+  .audit({ metadata: { action: "user-lookup", requestId: "abc-123" } })
 ```
 
 ## Error handling
 
 Encryption errors are surfaced with an additional `encryptionError` field:
 
-```typescript
+```typescript filename="app/queries.ts"
 const { data, error } = await eSupabase
   .from("users", users)
   .select("id, email")
@@ -359,7 +364,7 @@ if (error) {
 
 ## Response type
 
-```typescript
+```typescript filename="types.ts"
 type EncryptedSupabaseResponse<T> = {
   data: T | null                     // Decrypted rows
   error: EncryptedSupabaseError | null
@@ -371,21 +376,43 @@ type EncryptedSupabaseResponse<T> = {
 
 Errors can come from Supabase (API errors) or from encryption operations. Check `error.encryptionError` for encryption-specific failures.
 
+The full `EncryptedSupabaseError` type:
+
+```typescript filename="types.ts"
+type EncryptedSupabaseError = {
+  message: string
+  details?: string       // Supabase error details
+  hint?: string          // Supabase error hint
+  code?: string          // Supabase/PostgreSQL error code
+  encryptionError?: EncryptionError  // CipherStash encryption-specific error
+}
+```
+
 ## Filter to index mapping
 
 | Filter Method | Required Index | Query Type |
 |---|---|---|
-| `eq`, `neq`, `in`, `match` | `.equality()` | `'equality'` |
+| `eq`, `neq`, `in` | `.equality()` | `'equality'` |
 | `like`, `ilike` | `.freeTextSearch()` | `'freeTextSearch'` |
 | `gt`, `gte`, `lt`, `lte` | `.orderAndRange()` | `'orderAndRange'` |
 | `is` | None | No encryption (NULL/boolean check) |
+
+## Exported types
+
+`@cipherstash/stack/supabase` also exports the following types:
+
+- `EncryptedSupabaseConfig`
+- `EncryptedSupabaseInstance`
+- `EncryptedQueryBuilder`
+- `PendingOrCondition`
+- `SupabaseClientLike`
 
 ## Exposing EQL schema for Supabase
 
 1. Go to [API settings](https://supabase.com/dashboard/project/_/settings/api) and add `eql_v2` to "Exposed schemas"
 2. Run the following SQL:
 
-```sql
+```sql filename="supabase-grants.sql"
 GRANT USAGE ON SCHEMA eql_v2 TO anon, authenticated, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA eql_v2 TO anon, authenticated, service_role;
 GRANT ALL ON ALL ROUTINES IN SCHEMA eql_v2 TO anon, authenticated, service_role;
@@ -407,7 +434,7 @@ Under the hood, `encryptedSupabase` uses a deferred query builder pattern. All c
 
 ## Complete example
 
-```typescript
+```typescript filename="app/example.ts"
 import { createClient } from "@supabase/supabase-js"
 import { Encryption } from "@cipherstash/stack"
 import { encryptedSupabase } from "@cipherstash/stack/supabase"

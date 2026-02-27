@@ -21,7 +21,7 @@ If you're starting from scratch, here's the recommended file structure:
 ```
 project-root/
 ├── src/
-│   ├── protect/
+│   ├── encryption/
 │   │   ├── index.ts      # Encryption client
 │   │   └── schema.ts     # Table definitions
 │   └── index.ts          # Your app
@@ -33,7 +33,7 @@ project-root/
 Create the structure:
 
 ```bash
-mkdir -p my-app/src/protect
+mkdir -p my-app/src/encryption
 cd my-app
 npm init -y
 ```
@@ -51,9 +51,9 @@ yarn add @cipherstash/stack
 pnpm add @cipherstash/stack
 ```
 
-> `@cipherstash/stack` includes a native FFI module written in Rust.
-> You must opt out of bundling in tools like Webpack, esbuild, or Next.js.
-> See [Bundling](/stack/encryption/bundling) or [SST setup](/stack/encryption/sst) for details.
+<Callout type="warn">
+  `@cipherstash/stack` includes a native FFI module written in Rust. You must opt out of bundling in tools like Webpack, esbuild, or Next.js. See [Bundling](/stack/encryption/bundling) or [SST setup](/stack/encryption/sst) for details.
+</Callout>
 
 ## Step 2: Set up credentials
 
@@ -74,7 +74,7 @@ See [Configuration](/stack/encryption/configuration) for all configuration optio
 
 Schemas declare which columns to encrypt and what queries to support.
 
-Create `src/protect/schema.ts`:
+Create `src/encryption/schema.ts`:
 
 ```typescript title="schema.ts"
 import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
@@ -103,9 +103,9 @@ See [Schema definition](/stack/encryption/schema) for all index types.
 
 ## Step 4: Initialize the client
 
-Create `src/protect/index.ts`:
+Create `src/encryption/index.ts`:
 
-```typescript title="protect/index.ts"
+```typescript title="encryption/index.ts"
 import { Encryption } from "@cipherstash/stack"
 import { users, orders } from "./schema"
 
@@ -119,7 +119,7 @@ The client reads `CS_*` environment variables automatically.
 Create `src/index.ts`:
 
 ```typescript title="index.ts"
-import { users } from "./protect/schema"
+import { users } from "./encryption/schema"
 import { client } from "./protect"
 
 const encryptResult = await client.encrypt("secret@squirrel.example", {
@@ -162,11 +162,17 @@ if (decryptResult.failure) {
 }
 ```
 
-> For encrypting and decrypting multiple values or entire objects, see [Encrypt and decrypt](/stack/encryption/encrypt-decrypt) for bulk operations like `bulkEncryptModels` and `bulkDecryptModels`.
+<Callout type="info">
+  For encrypting and decrypting multiple values or entire objects, see [Encrypt and decrypt](/stack/encryption/encrypt-decrypt) for bulk operations like `bulkEncryptModels` and `bulkDecryptModels`.
+</Callout>
 
 ## Step 7: Store in a database
 
 Encrypted data can be stored in any database that supports JSONB. For PostgreSQL, specify the column type as `jsonb`:
+
+<Callout type="info">
+  For searchable encryption in PostgreSQL, install the [EQL extension](https://github.com/cipherstash/encrypt-query-language) and use the `eql_v2_encrypted` column type instead. See [Searchable encryption](/stack/encryption/searchable-encryption) for details.
+</Callout>
 
 ```sql
 CREATE TABLE users (
@@ -174,8 +180,6 @@ CREATE TABLE users (
   email jsonb NOT NULL
 );
 ```
-
-For searchable encryption in PostgreSQL, install the [EQL extension](https://github.com/cipherstash/encrypt-query-language) and use the `eql_v2_encrypted` column type instead. See [Searchable encryption](/stack/encryption/searchable-encryption) for details.
 
 ## Next steps
 

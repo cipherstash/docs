@@ -12,12 +12,12 @@ Schemas tell the SDK which database columns to encrypt and what types of queries
 Declare your encryption schema in TypeScript — either in a single file or split across multiple files:
 
 ```
-src/protect/
+src/encryption/
 └── schema.ts          # single file
 ```
 
 ```
-src/protect/schemas/
+src/encryption/schemas/
 ├── users.ts           # per-table files
 └── posts.ts
 ```
@@ -39,6 +39,10 @@ export const protectedUsers = encryptedTable("users", {
 ```
 
 ## Index types
+
+<Callout type="warning">
+  Full searchable encryption is only supported in Postgres. See [Searchable encryption](/stack/encryption/searchable-encryption) for details.
+</Callout>
 
 Index types determine what queries you can run on encrypted data. Methods are chainable — call as many as you need on a single column.
 
@@ -72,7 +76,9 @@ email: encryptedColumn("email").equality([{ kind: "downcase" }])
 |---|---|
 | `{ kind: 'downcase' }` | Converts values to lowercase before comparison, enabling case-insensitive equality matching |
 
-> For columns storing JSON data, `.searchableJson()` is the recommended index. It automatically configures the column for encrypted JSONB path and containment queries. See [Searchable encryption](/stack/encryption/searchable-encryption) for details.
+<Callout type="info">
+  For columns storing JSON data, `.searchableJson()` is the recommended index. It automatically configures the column for encrypted JSONB path and containment queries. See [Searchable encryption](/stack/encryption/searchable-encryption) for details.
+</Callout>
 
 ### Data types
 
@@ -85,6 +91,7 @@ encryptedColumn("age").dataType("number").orderAndRange()
 | Data type | Description |
 |---|---|
 | `'string'` | Text values. This is the default. |
+| `'text'` | Long-form text values. |
 | `'number'` | Numeric values (integers and floats). |
 | `'boolean'` | Boolean `true` / `false` values. |
 | `'date'` | Date or timestamp values. |
@@ -117,9 +124,13 @@ encryptedColumn("bio").freeTextSearch({
 
 CipherStash Encryption supports nested objects in your schema, allowing you to encrypt nested properties. You can define nested objects up to 3 levels deep using `encryptedField`.
 
-> Searchable encryption is not supported on nested objects. This is most useful for NoSQL databases or less structured data.
+<Callout type="info">
+  Searchable encryption is not supported on nested objects. This is most useful for NoSQL databases or less structured data.
+</Callout>
 
-> Using nested objects is not recommended for SQL databases. You should either use a JSON data type and encrypt the entire object, or use a separate column for each nested property.
+<Callout type="warn">
+  Using nested objects is not recommended for SQL databases. You should either use a JSON data type and encrypt the entire object, or use a separate column for each nested property.
+</Callout>
 
 ```typescript title="schema.ts"
 import { encryptedTable, encryptedColumn, encryptedField } from "@cipherstash/stack/schema"
@@ -144,7 +155,9 @@ When working with nested objects:
 - Null and undefined values are supported at any level
 - Optional nested objects are supported
 
-> The schema builder does not validate the values you supply to the `encryptedField` or `encryptedColumn` functions. These values are meant to be unique, and may cause unexpected behavior if they are not defined correctly.
+<Callout type="warn">
+  The schema builder does not validate the values you supply to the `encryptedField` or `encryptedColumn` functions. These values are meant to be unique, and may cause unexpected behavior if they are not defined correctly.
+</Callout>
 
 ## Encrypted JSONB
 
@@ -162,7 +175,7 @@ This enables both JSONPath selector queries and containment queries on the encry
 
 Pass multiple schemas when initializing the client:
 
-```typescript title="protect/index.ts"
+```typescript title="encryption/index.ts"
 import { Encryption } from "@cipherstash/stack"
 
 const client = await Encryption({ schemas: [protectedUsers, documents] })

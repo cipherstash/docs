@@ -36,9 +36,10 @@ To enable searchable encryption in PostgreSQL, install [EQL](/stack/platform/eql
 curl -sL https://cphrstsh.link/eql | psql $DATABASE_URL
 ```
 
-> **Choosing the column type:**
-> - Use `eql_v2_encrypted` if you need searchable encryption (or want the option later)
-> - Use `jsonb` if you don't need searchable encryption or don't mind changing the data type later
+<Callout type="info" title="Choosing the column type">
+  - Use `eql_v2_encrypted` if you need searchable encryption (or want the option later)
+  - Use `jsonb` if you don't need searchable encryption or don't mind changing the data type later
+</Callout>
 
 ### Create a table
 
@@ -105,7 +106,9 @@ async function insertUser(email: string) {
 }
 ```
 
-> Always use the `::jsonb` cast when inserting encrypted values, even when using the `eql_v2_encrypted` column type. This ensures PostgreSQL correctly handles the CipherCell object.
+<Callout type="warn">
+  Always use the `::jsonb` cast when inserting encrypted values, even when using the `eql_v2_encrypted` column type. This ensures PostgreSQL correctly handles the CipherCell object.
+</Callout>
 
 ### Retrieve and decrypt data
 

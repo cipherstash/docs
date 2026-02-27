@@ -55,7 +55,9 @@ export function createMockClient() {
 }
 ```
 
-> **Good to know**: Mocking bypasses all encryption. Use this for testing business logic, not for validating that encryption works correctly. Always run integration tests with a real workspace.
+<Callout type="warn">
+  Mocking bypasses all encryption. Use this for testing business logic, not for validating that encryption works correctly. Always run integration tests with a real workspace.
+</Callout>
 
 ## Integration tests with PostgreSQL
 
@@ -180,7 +182,9 @@ jobs:
           TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/test
 ```
 
-> **Good to know**: Use a dedicated test workspace with limited access keys. Never use production credentials in CI.
+<Callout type="warn">
+  Use a dedicated test workspace with limited access keys. Never use production credentials in CI.
+</Callout>
 
 ### Docker-based tests
 

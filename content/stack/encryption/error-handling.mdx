@@ -5,7 +5,11 @@ description: Handle errors with the Result pattern used across the SDK
 
 # Error handling
 
-All async methods in the SDK return a `Result` object — a discriminated union with either a `data` key (success) or a `failure` key (error). You never get both. The SDK never throws exceptions.
+All async methods in the SDK return a `Result` object — a discriminated union with either a `data` key (success) or a `failure` key (error). You never get both.
+
+<Callout type="info">
+  The one exception is `Encryption()` initialization, which throws on failure rather than returning a `Result`. See [Handling initialization errors](#handling-initialization-errors) below.
+</Callout>
 
 ## The Result pattern
 
@@ -25,7 +29,7 @@ if (result.failure) {
 }
 ```
 
-This pattern applies to every async method: `Encryption()`, `encrypt`, `decrypt`, `encryptModel`, `decryptModel`, `bulkEncrypt`, `bulkDecrypt`, `encryptQuery`, and `LockContext.identify()`.
+This pattern applies to every async method: `encrypt`, `decrypt`, `encryptModel`, `decryptModel`, `bulkEncrypt`, `bulkDecrypt`, `bulkEncryptModels`, `bulkDecryptModels`, `encryptQuery`, and `LockContext.identify()`. The one exception is `Encryption()` initialization, which throws on failure.
 
 ## Error types
 
@@ -147,6 +151,55 @@ if (identifyResult.failure) {
 | `CtsTokenError` with connection error | CTS endpoint unreachable | Verify `CS_CTS_ENDPOINT` is set correctly |
 | `CtsTokenError` with rejection | JWT is expired or not trusted by CTS | Ensure JWT is fresh and from a [configured identity provider](/stack/kms/cts) |
 
+## Error type constants and utilities
+
+The `@cipherstash/stack/errors` subpath exports runtime constants, the `StackError` union type, and a utility for safely extracting error messages.
+
+### `StackError` union type
+
+`StackError` is a discriminated union of all error types, enabling exhaustive `switch` handling:
+
+```typescript title="error-types.ts"
+import { EncryptionErrorTypes, type StackError, getErrorMessage } from "@cipherstash/stack/errors"
+
+function handleError(error: StackError) {
+  switch (error.type) {
+    case EncryptionErrorTypes.ClientInitError:
+      console.error("Init failed:", error.message)
+      break
+    case EncryptionErrorTypes.EncryptionError:
+      console.error("Encrypt failed:", error.message, error.code)
+      break
+    case EncryptionErrorTypes.DecryptionError:
+      console.error("Decrypt failed:", error.message)
+      break
+    case EncryptionErrorTypes.LockContextError:
+      console.error("Lock context failed:", error.message)
+      break
+    case EncryptionErrorTypes.CtsTokenError:
+      console.error("CTS token failed:", error.message)
+      break
+    default:
+      // TypeScript ensures exhaustiveness
+      const _exhaustive: never = error
+  }
+}
+```
+
+### `getErrorMessage`
+
+Use `getErrorMessage` to safely extract a message from any thrown value:
+
+```typescript title="get-error-message.ts"
+import { getErrorMessage } from "@cipherstash/stack/errors"
+
+try {
+  await client.encrypt("data", { column: users.email, table: users })
+} catch (e) {
+  console.error(getErrorMessage(e))
+}
+```
+
 ## Wrapping errors in application code
 
 A common pattern is to create a helper that converts `Result` into thrown errors for frameworks that expect exceptions (e.g., Express, Next.js API routes):
@@ -163,7 +216,9 @@ function unwrap<T>(result: { data?: T; failure?: { type: string; message: string
 const encrypted = unwrap(await client.encrypt("hello", { column: users.email, table: users }))
 ```
 
-> **Good to know**: The `Result` pattern is intentionally designed to avoid thrown exceptions. Use the `unwrap` helper only at your application's boundaries where exceptions are expected.
+<Callout type="info">
+  The `Result` pattern is intentionally designed to avoid thrown exceptions. Use the `unwrap` helper only at your application's boundaries where exceptions are expected.
+</Callout>
 
 ## Logging
 

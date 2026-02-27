@@ -32,7 +32,7 @@ Non-encrypted attributes pass through unchanged. On decryption, the `__source` a
 
 Use `encryptedTable` and `encryptedColumn` from `@cipherstash/stack/schema` to declare which attributes to encrypt:
 
-```typescript
+```typescript filename="schema.ts"
 import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
 
 const users = encryptedTable("users", {
@@ -45,11 +45,15 @@ const users = encryptedTable("users", {
 
 Only attributes with `.equality()` get an `__hmac` attribute for querying. Attributes without it are encrypted but cannot be searched.
 
+<Callout type="info">
+  `encryptedColumn` also supports `.orderAndRange()`, `.freeTextSearch()`, and `.searchableJson()` index methods, but only `.equality()` produces HMAC values usable for DynamoDB key condition queries.
+</Callout>
+
 See [Schema definition](/stack/encryption/schema) for full details on index types, data types, and nested objects.
 
 ### Initialize the clients
 
-```typescript
+```typescript filename="setup.ts"
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb"
 import { Encryption } from "@cipherstash/stack"
@@ -64,7 +68,7 @@ const dynamo = encryptedDynamoDB({ encryptionClient })
 
 ### Optional: logger and error handler
 
-```typescript
+```typescript filename="setup-with-options.ts"
 const dynamo = encryptedDynamoDB({
   encryptionClient,
   options: {
@@ -84,7 +88,7 @@ const dynamo = encryptedDynamoDB({
 
 Encrypt a model, then pass the result to a standard DynamoDB `PutCommand`:
 
-```typescript
+```typescript filename="encrypt-single.ts"
 import { PutCommand } from "@aws-sdk/lib-dynamodb"
 
 const user = {
@@ -116,7 +120,7 @@ if (result.failure) {
 
 ### Bulk items
 
-```typescript
+```typescript filename="encrypt-bulk.ts"
 import { BatchWriteCommand } from "@aws-sdk/lib-dynamodb"
 
 const items = [
@@ -141,7 +145,7 @@ if (!result.failure) {
 
 ### Single item
 
-```typescript
+```typescript filename="decrypt-single.ts"
 import { GetCommand } from "@aws-sdk/lib-dynamodb"
 
 const getResult = await docClient.send(new GetCommand({
@@ -159,7 +163,7 @@ if (!result.failure) {
 
 ### Bulk items
 
-```typescript
+```typescript filename="decrypt-bulk.ts"
 import { BatchGetCommand } from "@aws-sdk/lib-dynamodb"
 
 const batchResult = await docClient.send(new BatchGetCommand({
@@ -190,7 +194,7 @@ DynamoDB queries use key conditions, so you need to encrypt the search value int
 
 When an encrypted attribute is the partition key (e.g., `email__hmac`):
 
-```typescript
+```typescript filename="query-partition-key.ts"
 import { QueryCommand } from "@aws-sdk/lib-dynamodb"
 
 // 1. Encrypt the search value to get the HMAC
@@ -224,7 +228,7 @@ const decrypted = await dynamo.bulkDecryptModels(result.Items ?? [], users)
 
 When an encrypted attribute is used as a sort key:
 
-```typescript
+```typescript filename="query-sort-key.ts"
 const result = await docClient.send(new GetCommand({
   TableName: "Users",
   Key: {
@@ -240,7 +244,7 @@ const decrypted = await dynamo.decryptModel(result.Item, users)
 
 When querying a Global Secondary Index where the GSI key is an encrypted HMAC:
 
-```typescript
+```typescript filename="query-gsi.ts"
 const result = await docClient.send(new QueryCommand({
   TableName: "Users",
   IndexName: "EmailIndex",
@@ -260,7 +264,7 @@ if (result.Items?.length) {
 
 The DynamoDB helper supports nested object encryption using `encryptedField`:
 
-```typescript title="schema.ts"
+```typescript filename="schema.ts"
 import { encryptedTable, encryptedColumn, encryptedField } from "@cipherstash/stack/schema"
 
 const users = encryptedTable("users", {
@@ -274,7 +278,7 @@ const users = encryptedTable("users", {
 })
 ```
 
-```typescript title="dynamodb.ts"
+```typescript filename="nested-encrypt.ts"
 const user = {
   id: "1",
   email: "user@example.com",
@@ -290,7 +294,9 @@ const user = {
 const encryptedResult = await dynamo.encryptModel(user, users)
 ```
 
-> Nested objects support encryption up to 3 levels deep. Searchable encryption is not supported on nested fields.
+<Callout type="info">
+  Nested objects support encryption up to 3 levels deep. Searchable encryption is not supported on nested fields.
+</Callout>
 
 ## Table design considerations
 
@@ -318,7 +324,7 @@ const encryptedResult = await dynamo.encryptModel(user, users)
 
 All operations support `.audit()` chaining for audit metadata:
 
-```typescript
+```typescript filename="audit.ts"
 const result = await dynamo
   .encryptModel(user, users)
   .audit({
@@ -334,7 +340,7 @@ const result = await dynamo
 
 All operations return `Result<T, EncryptedDynamoDBError>` with either `data` or `failure`:
 
-```typescript
+```typescript filename="error-handling.ts"
 const result = await dynamo.encryptModel(user, users)
 
 if (result.failure) {
@@ -350,7 +356,7 @@ See [Error handling](/stack/encryption/error-handling) for details on error code
 
 ### `encryptedDynamoDB(config)`
 
-```typescript
+```typescript filename="api-reference.ts"
 import { encryptedDynamoDB } from "@cipherstash/stack/dynamodb"
 
 const dynamo = encryptedDynamoDB({
@@ -366,10 +372,10 @@ const dynamo = encryptedDynamoDB({
 
 | Method | Signature | Returns |
 |---|---|---|
-| `encryptModel` | `(item: T, table)` | `EncryptModelOperation<EncryptedFromSchema<T, S>>` |
-| `bulkEncryptModels` | `(items: T[], table)` | `BulkEncryptModelsOperation<EncryptedFromSchema<T, S>>` |
-| `decryptModel` | `(item, table)` | `DecryptModelOperation<T>` |
-| `bulkDecryptModels` | `(items[], table)` | `BulkDecryptModelsOperation<T>` |
+| `encryptModel` | `(item: T, table: EncryptedTable)` | `EncryptModelOperation<T>` |
+| `bulkEncryptModels` | `(items: T[], table: EncryptedTable)` | `BulkEncryptModelsOperation<T>` |
+| `decryptModel` | `(item: Record<string, EncryptedValue \| unknown>, table: EncryptedTable)` | `DecryptModelOperation<T>` (resolves to `Decrypted<T>`) |
+| `bulkDecryptModels` | `(items: Record<string, EncryptedValue \| unknown>[], table: EncryptedTable)` | `BulkDecryptModelsOperation<T>` (resolves to `Decrypted<T>[]`) |
 
 All operations are thenable (awaitable) and support `.audit({ metadata })` chaining.
 
@@ -377,20 +383,29 @@ All operations are thenable (awaitable) and support `.audit({ metadata })` chain
 
 Use the encryption client directly (not the DynamoDB helper):
 
-```typescript
-const result = await encryptionClient.encryptQuery([{
+```typescript filename="query-single.ts"
+// Single value form (recommended for DynamoDB lookups):
+const result = await encryptionClient.encryptQuery(
+  "search-value",
+  { column: schema.fieldName, table: schema, queryType: "equality" }
+)
+const hmac = result.data?.hm
+```
+
+```typescript filename="query-batch.ts"
+// Batch array form:
+const batchResult = await encryptionClient.encryptQuery([{
   value: "search-value",
   column: schema.fieldName,
   table: schema,
   queryType: "equality",
 }])
-
-const hmac = result.data[0]?.hm  // Use in DynamoDB key conditions
+const hmac = batchResult.data[0]?.hm  // Use in DynamoDB key conditions
 ```
 
 ## Complete example
 
-```typescript
+```typescript filename="complete-example.ts"
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
 import {
   DynamoDBDocumentClient,
