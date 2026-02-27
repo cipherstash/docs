@@ -7,25 +7,31 @@ description: Encrypt and search data with the Supabase SDK using the encryptedSu
 
 The `encryptedSupabase` wrapper makes encrypted queries look nearly identical to normal Supabase queries. It automatically handles encryption, decryption, `::jsonb` casts, and search term formatting.
 
+<Callout type="info">
+  Install the EQL schema in your Supabase (PostgreSQL) database so encrypted columns can use the `eql_v2_encrypted` type. Apply with **psql** using your database URL, or **download** the SQL file and run it in the Supabase SQL editor.
+</Callout>
+
+**Apply with psql:**
+
+```bash
+curl -sL https://github.com/cipherstash/encrypt-query-language/releases/download/eql-2.2.1/cipherstash-encrypt-supabase.sql | psql $DATABASE_URL
+```
+
+**Download:** [cipherstash-encrypt-supabase.sql](https://github.com/cipherstash/encrypt-query-language/releases/download/eql-2.2.1/cipherstash-encrypt-supabase.sql) — then open the Supabase SQL editor and run the file contents.
+
 ## Database schema
 
-Encrypted columns must be stored as JSONB in your Supabase database:
+Encrypted columns must be stored as `eql_v2_encrypted` or JSONB if you don't want searchable capabilities.
 
 ```sql filename="schema.sql"
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
-  email jsonb NOT NULL,        -- encrypted column
-  name jsonb NOT NULL,         -- encrypted column
-  age jsonb,                   -- encrypted column (numeric)
+  email eql_v2_encrypted NOT NULL,        -- encrypted column
+  name eql_v2_encrypted NOT NULL,         -- encrypted column
+  age eql_v2_encrypted,                   -- encrypted column (numeric)
   role VARCHAR(50),            -- regular column (not encrypted)
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-```
-
-For searchable encryption (equality, range, text search), install the EQL extension:
-
-```sql
-CREATE EXTENSION IF NOT EXISTS eql_v2;
 ```
 
 ## Setup
