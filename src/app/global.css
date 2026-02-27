@@ -30,3 +30,15 @@
   --color-fd-accent-foreground: hsl(0, 0%, 100%);
   --color-fd-ring: hsl(269, 70%, 55%);
 }
+
+@layer base {
+  ::selection {
+    background-color: hsl(269 70% 50%);
+    color: hsl(0 0% 100%);
+  }
+
+  ::-moz-selection {
+    background-color: hsl(269 70% 50%);
+    color: hsl(0 0% 100%);
+  }
+}
