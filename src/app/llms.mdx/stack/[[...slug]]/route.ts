@@ -31,6 +31,7 @@ export async function GET(
   return new Response(await getLLMText(page), {
     headers: {
       "Content-Type": "text/markdown",
+      "Access-Control-Allow-Origin": "*",
     },
   });
 }
