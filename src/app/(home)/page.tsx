@@ -14,6 +14,12 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
+import type { ComponentType } from "react";
+import {
+  DrizzleLogo,
+  DynamoDBLogo,
+  SupabaseLogo,
+} from "@/components/integration-logos";
 
 const products = [
   {
@@ -50,24 +56,31 @@ const products = [
   },
 ];
 
-const integrations = [
+const integrations: {
+  title: string;
+  description: string;
+  href: string;
+  logo: ComponentType<{ className?: string }>;
+}[] = [
   {
     title: "Drizzle ORM",
     description: "Encrypted column types and query operators for Drizzle.",
     href: "/stack/encryption/drizzle",
-    image: "/images/drizzle.svg",
+    logo: DrizzleLogo,
   },
   {
     title: "Supabase",
-    description: "Transparent encryption for your Supabase project.",
+    description:
+      "Transparent encryption for your Supabase project using the Supabase JS SDK.",
     href: "/stack/encryption/supabase",
-    image: "/images/supabase.svg",
+    logo: SupabaseLogo,
   },
   {
     title: "DynamoDB",
-    description: "Encrypt items before writes and decrypt after reads.",
+    description:
+      "Encrypted DynamoDB attributes with searchable equality lookups.",
     href: "/stack/encryption/dynamodb",
-    image: "/images/dynamodb.svg",
+    logo: DynamoDBLogo,
   },
 ];
 
@@ -208,9 +221,8 @@ export default function HomePage() {
                 href={integration.href}
                 className="group flex flex-col items-center rounded-xl border border-fd-border bg-fd-card p-6 text-center transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
               >
-                {/* Image placeholder */}
-                <div className="flex size-16 items-center justify-center rounded-xl bg-fd-muted/30">
-                  <Database className="size-8 text-fd-muted-foreground/40" />
+                <div className="flex size-24 items-center justify-center">
+                  <integration.logo className="h-12 w-auto" />
                 </div>
                 <h3 className="mt-4 font-semibold text-fd-foreground">
                   {integration.title}
