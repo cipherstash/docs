@@ -9,6 +9,7 @@
 import { execSync } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
+import GithubSlugger from "github-slugger";
 
 const GITHUB_API_URL =
   "https://api.github.com/repos/cipherstash/encrypt-query-language/releases";
@@ -128,6 +129,71 @@ function escapeBraces(content: string): string {
 }
 
 /**
+ * Fix anchor links to match the heading IDs that Fumadocs generates via github-slugger.
+ *
+ * The upstream API.md uses a different slugification algorithm (likely replacing
+ * underscores with hyphens), but Fumadocs uses github-slugger which preserves
+ * underscores and has different rules for special characters. This function:
+ *
+ * 1. Scans all markdown headings in document order
+ * 2. Computes the correct github-slugger ID for each (including deduplication suffixes)
+ * 3. Replaces every in-page anchor link `](#old-slug)` with the correct slug
+ */
+function fixAnchorLinks(content: string): string {
+  const slugger = new GithubSlugger();
+
+  // Extract all headings and compute their github-slugger IDs in document order.
+  // Headings may use inline code: ### `function_name(params)`
+  const headingRegex = /^(#{1,6})\s+`?([^`\n]+?)`?\s*$/gm;
+  const headingSlugMap = new Map<string, string>();
+
+  // Track how many times we've seen each heading text to handle the
+  // deduplication suffix that github-slugger adds (-1, -2, etc.)
+  for (
+    let match = headingRegex.exec(content);
+    match !== null;
+    match = headingRegex.exec(content)
+  ) {
+    const headingText = match[2];
+    const slug = slugger.slug(headingText);
+    // Map the heading text to its computed slug.
+    // For duplicate headings, later occurrences get -1, -2, etc.
+    // We store all of them, keyed by occurrence.
+    headingSlugMap.set(`${headingText}::${headingSlugMap.size}`, slug);
+  }
+
+  // Build a lookup from heading text to an array of slugs (to handle duplicates)
+  const textToSlugs = new Map<string, string[]>();
+  for (const [key, slug] of headingSlugMap) {
+    const text = key.replace(/::[\d]+$/, "");
+    const existing = textToSlugs.get(text) ?? [];
+    existing.push(slug);
+    textToSlugs.set(text, existing);
+  }
+
+  // Track consumption index for each heading text (for duplicate handling)
+  const consumedIndex = new Map<string, number>();
+
+  // Replace anchor links in list items.
+  // Pattern: [`link text`](#old-slug)
+  // The link text matches the heading text, so we use it to look up the correct slug.
+  return content.replace(
+    /\[`([^`]+)`\]\(#([^)]+)\)/g,
+    (_fullMatch, linkText: string, _oldSlug: string) => {
+      const slugs = textToSlugs.get(linkText);
+      if (!slugs) {
+        // No matching heading found -- leave the link unchanged
+        return _fullMatch;
+      }
+      const idx = consumedIndex.get(linkText) ?? 0;
+      const correctSlug = slugs[idx] ?? slugs[slugs.length - 1];
+      consumedIndex.set(linkText, idx + 1);
+      return `[\`${linkText}\`](#${correctSlug})`;
+    },
+  );
+}
+
+/**
  * Convert the API.md content to an MDX page with Fumadocs frontmatter
  */
 function convertToMdx(content: string, tag: string): string {
@@ -146,7 +212,8 @@ function convertToMdx(content: string, tag: string): string {
 
   const versionBadge = `> **Latest Version:** ${version}\n\n`;
 
-  return frontmatter + versionBadge + escapeBraces(stripped.trim()) + "\n";
+  const withFixedAnchors = fixAnchorLinks(stripped.trim());
+  return `${frontmatter}${versionBadge}${escapeBraces(withFixedAnchors)}\n`;
 }
 
 async function main() {

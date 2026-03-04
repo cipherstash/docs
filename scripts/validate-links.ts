@@ -34,12 +34,18 @@ function filePathToUrl(filePath: string): string {
 }
 
 /**
- * Normalize a URL for validation: strip .mdx extension and /index suffix.
+ * Check if a URL has a /index suffix that would 404 at runtime.
+ * Fumadocs serves index.mdx at the directory URL, so /path/index is not a valid route.
  */
-function normalizeUrl(url: string): string {
-  let normalized = url.replace(/\.mdx$/, "");
-  normalized = normalized.replace(/\/index$/, "");
-  return normalized;
+function hasIndexSuffix(url: string): boolean {
+  return /\/index$/.test(url);
+}
+
+/**
+ * Check if a URL has a .mdx extension that should have been stripped.
+ */
+function hasMdxExtension(url: string): boolean {
+  return /\.mdx$/.test(url);
 }
 
 /**
@@ -62,13 +68,12 @@ interface BrokenLink {
 
 /**
  * Resolve a relative link to an absolute URL path using the file's actual location.
+ * Does NOT strip /index or .mdx — the caller should detect and report those as errors.
  */
 function resolveRelativeLink(link: string, currentFilePath: string): string {
   const currentDir = path.dirname(currentFilePath);
   const resolvedPath = path.join(currentDir, link);
-  let rel = path.relative(CONTENT_DIR, resolvedPath);
-  rel = rel.replace(/\.mdx$/, "");
-  rel = rel.replace(/\/index$/, "");
+  const rel = path.relative(CONTENT_DIR, resolvedPath);
   return `/stack/${rel}`;
 }
 
@@ -115,8 +120,23 @@ function scanFile(filePath: string, validUrls: Set<string>): BrokenLink[] {
 
       // Internal absolute links (start with /stack/)
       if (urlWithoutAnchor.startsWith("/stack/")) {
-        const normalized = normalizeUrl(urlWithoutAnchor);
-        if (!validUrls.has(normalized)) {
+        if (hasIndexSuffix(urlWithoutAnchor)) {
+          broken.push({
+            file: path.relative(process.cwd(), filePath),
+            line: i + 1,
+            url,
+            reason:
+              "Link ends with /index which will 404. Remove /index — Fumadocs serves index.mdx at the directory URL.",
+          });
+        } else if (hasMdxExtension(urlWithoutAnchor)) {
+          broken.push({
+            file: path.relative(process.cwd(), filePath),
+            line: i + 1,
+            url,
+            reason:
+              "Link has .mdx extension which will 404. Remove the .mdx extension.",
+          });
+        } else if (!validUrls.has(urlWithoutAnchor)) {
           broken.push({
             file: path.relative(process.cwd(), filePath),
             line: i + 1,
@@ -132,13 +152,29 @@ function scanFile(filePath: string, validUrls: Set<string>): BrokenLink[] {
 
       // Relative links — resolve against current file's directory
       const resolved = resolveRelativeLink(urlWithoutAnchor, filePath);
-      if (resolved.startsWith("/stack/") && !validUrls.has(resolved)) {
-        broken.push({
-          file: path.relative(process.cwd(), filePath),
-          line: i + 1,
-          url,
-          reason: `Page not found (resolved to ${resolved})`,
-        });
+      if (resolved.startsWith("/stack/")) {
+        if (hasIndexSuffix(resolved)) {
+          broken.push({
+            file: path.relative(process.cwd(), filePath),
+            line: i + 1,
+            url,
+            reason: `Link resolves to ${resolved} which ends with /index and will 404. Remove /index from the link target.`,
+          });
+        } else if (hasMdxExtension(resolved)) {
+          broken.push({
+            file: path.relative(process.cwd(), filePath),
+            line: i + 1,
+            url,
+            reason: `Link resolves to ${resolved} which has .mdx extension and will 404. Remove the .mdx extension.`,
+          });
+        } else if (!validUrls.has(resolved)) {
+          broken.push({
+            file: path.relative(process.cwd(), filePath),
+            line: i + 1,
+            url,
+            reason: `Page not found (resolved to ${resolved})`,
+          });
+        }
       }
     }
   }

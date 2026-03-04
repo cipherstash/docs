@@ -8,81 +8,81 @@ Complete API reference for the Encrypt Query Language (EQL) PostgreSQL extension
 
 ## Functions
 
-- [`->(eql_v2_encrypted, eql_v2_encrypted)`](#eql-v2-encrypted-eql-v2-encrypted) - -> operator with encrypted selector
-- [`->>(eql_v2_encrypted, eql_v2_encrypted)`](#eql-v2-encrypted-eql-v2-encrypted) - ->> operator with encrypted selector
-- [`>(eql_v2_encrypted, eql_v2_encrypted)`](#eql-v2-encrypted-eql-v2-encrypted) - > operator for encrypted value and JSONB
-- [`blake3(eql_v2_encrypted)`](#blake3eql-v2-encrypted) - Extract Blake3 hash index term from encrypted column value.
-- [`bloom_filter(eql_v2_encrypted)`](#bloom-filtereql-v2-encrypted) - Extract Bloom filter index term from encrypted column value.
-- [`check_encrypted(eql_v2_encrypted)`](#check-encryptedeql-v2-encrypted) - Validate encrypted composite type structure.
-- [`compare_ore_block_u64_8_256_terms(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#compare-ore-block-u64-8-256-termseql-v2ore-block-u64-8-256-eql-v2ore-block-u64-8-256) - Compare ORE block composite types.
-- [`compare_ore_block_u64_8_256_terms(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#compare-ore-block-u64-8-256-termseql-v2ore-block-u64-8-256-eql-v2ore-block-u64-8-256) - Compare ORE block composite types.
-- [`compare_ore_block_u64_8_256_terms(eql_v2.ore_block_u64_8_256_term, eql_v2.ore_block_u64_8_256_term)`](#compare-ore-block-u64-8-256-termseql-v2ore-block-u64-8-256-term-eql-v2ore-block-u64-8-256-term) - Compare arrays of ORE block terms recursively.
-- [`compare_ore_cllw_term_bytes(bytea, bytea)`](#compare-ore-cllw-term-bytesbytea-bytea) - Compare CLLW ORE ciphertext bytes.
-- [`compare_ore_cllw_var_8_term(eql_v2.ore_cllw_var_8, eql_v2.ore_cllw_var_8)`](#compare-ore-cllw-var-8-termeql-v2ore-cllw-var-8-eql-v2ore-cllw-var-8) - Compare variable-width CLLW ORE ciphertext terms.
-- [`config_add_cast(text, text, text, jsonb)`](#config-add-casttext-text-text-jsonb) - Set cast type for column in configuration.
-- [`config_add_column(text, text, jsonb)`](#config-add-columntext-text-jsonb) - Add column to table configuration if not present.
-- [`config_add_index(text, text, text, jsonb, jsonb)`](#config-add-indextext-text-text-jsonb-jsonb) - Add search index to column configuration.
-- [`config_add_table(text, jsonb)`](#config-add-tabletext-jsonb) - Add table to configuration if not present.
-- [`config_check_cast(jsonb)`](#config-check-castjsonb) - Validate cast types in configuration.
-- [`config_check_indexes(jsonb)`](#config-check-indexesjsonb) - Validate index types in configuration.
-- [`config_check_tables(jsonb)`](#config-check-tablesjsonb) - Validate tables field presence.
-- [`config_check_version(jsonb)`](#config-check-versionjsonb) - Validate version field presence.
-- [`config_match_default()`](#config-match-default) - Generate default options for match index.
-- [`count_encrypted_with_active_config(TEXT, TEXT)`](#count-encrypted-with-active-configtext-text) - Count rows encrypted with active configuration.
-- [`create_encrypted_columns()`](#create-encrypted-columns) - Create encrypted columns for initial encryption.
-- [`diff_config(JSONB, JSONB)`](#diff-configjsonb-jsonb) - Compare two configurations and find differences.
-- [`eql_v2_configuration()`](#eql-v2-configuration) - Unique pending configuration constraint.
-- [`has_blake3(jsonb)`](#has-blake3jsonb) - Check if JSONB payload contains Blake3 index term.
-- [`has_bloom_filter(jsonb)`](#has-bloom-filterjsonb) - Check if JSONB payload contains Bloom filter index term.
-- [`has_hmac_256(jsonb)`](#has-hmac-256jsonb) - Check if JSONB payload contains HMAC-SHA256 index term.
-- [`has_ore_block_u64_8_256(jsonb)`](#has-ore-block-u64-8-256jsonb) - Check if JSONB payload contains ORE block index term.
-- [`has_ore_cllw_u64_8(jsonb)`](#has-ore-cllw-u64-8jsonb) - Check if JSONB payload contains CLLW ORE index term.
-- [`has_ore_cllw_var_8(jsonb)`](#has-ore-cllw-var-8jsonb) - Check if JSONB payload contains variable-width CLLW ORE index term.
-- [`hmac_256(eql_v2_encrypted)`](#hmac-256eql-v2-encrypted) - Extract HMAC-SHA256 index term from encrypted column value.
-- [`ilike(eql_v2_encrypted, eql_v2_encrypted)`](#ilikeeql-v2-encrypted-eql-v2-encrypted) - Case-insensitive pattern matching helper.
-- [`is_ste_vec_array(jsonb)`](#is-ste-vec-arrayjsonb) - Check if JSONB payload is marked as an STE vector array.
-- [`is_ste_vec_array()`](#is-ste-vec-array) - Check if encrypted column value is marked as an STE vector array.
-- [`is_ste_vec_value(jsonb)`](#is-ste-vec-valuejsonb) - Check if JSONB payload is a single-element STE vector.
-- [`jsonb_array(jsonb)`](#jsonb-arrayjsonb) - Extract deterministic fields as array for GIN indexing.
-- [`jsonb_array_elements(jsonb)`](#jsonb-array-elementsjsonb) - Extract elements from encrypted JSONB array.
-- [`jsonb_array_elements_text(jsonb)`](#jsonb-array-elements-textjsonb) - Extract encrypted array elements as ciphertext.
-- [`jsonb_array_from_array_elements(jsonb)`](#jsonb-array-from-array-elementsjsonb) - Extract full encrypted JSONB elements as array.
-- [`jsonb_array_length(jsonb)`](#jsonb-array-lengthjsonb) - Get length of encrypted JSONB array.
-- [`jsonb_array_to_bytea_array(jsonb)`](#jsonb-array-to-bytea-arrayjsonb) - Convert JSONB hex array to bytea array.
-- [`jsonb_contained_by(eql_v2_encrypted, eql_v2_encrypted)`](#jsonb-contained-byeql-v2-encrypted-eql-v2-encrypted) - GIN-indexable JSONB "is contained by" check.
-- [`jsonb_contains(eql_v2_encrypted, jsonb)`](#jsonb-containseql-v2-encrypted-jsonb) - GIN-indexable JSONB containment check (encrypted, jsonb)
-- [`jsonb_path_exists(jsonb, text)`](#jsonb-path-existsjsonb-text) - Check if selector path exists in encrypted JSONB.
-- [`jsonb_path_query(eql_v2_encrypted, eql_v2_encrypted)`](#jsonb-path-queryeql-v2-encrypted-eql-v2-encrypted) - Query encrypted JSONB with encrypted selector.
-- [`jsonb_path_query_first(jsonb, text)`](#jsonb-path-query-firstjsonb-text) - Get first element matching selector.
+- [`->(eql_v2_encrypted, eql_v2_encrypted)`](#-eql_v2_encrypted-eql_v2_encrypted) - -> operator with encrypted selector
+- [`->>(eql_v2_encrypted, eql_v2_encrypted)`](#-eql_v2_encrypted-eql_v2_encrypted-1) - ->> operator with encrypted selector
+- [`>(eql_v2_encrypted, eql_v2_encrypted)`](#eql_v2_encrypted-eql_v2_encrypted) - > operator for encrypted value and JSONB
+- [`blake3(eql_v2_encrypted)`](#blake3eql_v2_encrypted) - Extract Blake3 hash index term from encrypted column value.
+- [`bloom_filter(eql_v2_encrypted)`](#bloom_filtereql_v2_encrypted) - Extract Bloom filter index term from encrypted column value.
+- [`check_encrypted(eql_v2_encrypted)`](#check_encryptedeql_v2_encrypted) - Validate encrypted composite type structure.
+- [`compare_ore_block_u64_8_256_terms(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#compare_ore_block_u64_8_256_termseql_v2ore_block_u64_8_256-eql_v2ore_block_u64_8_256) - Compare ORE block composite types.
+- [`compare_ore_block_u64_8_256_terms(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#compare_ore_block_u64_8_256_termseql_v2ore_block_u64_8_256-eql_v2ore_block_u64_8_256-1) - Compare ORE block composite types.
+- [`compare_ore_block_u64_8_256_terms(eql_v2.ore_block_u64_8_256_term, eql_v2.ore_block_u64_8_256_term)`](#compare_ore_block_u64_8_256_termseql_v2ore_block_u64_8_256_term-eql_v2ore_block_u64_8_256_term) - Compare arrays of ORE block terms recursively.
+- [`compare_ore_cllw_term_bytes(bytea, bytea)`](#compare_ore_cllw_term_bytesbytea-bytea) - Compare CLLW ORE ciphertext bytes.
+- [`compare_ore_cllw_var_8_term(eql_v2.ore_cllw_var_8, eql_v2.ore_cllw_var_8)`](#compare_ore_cllw_var_8_termeql_v2ore_cllw_var_8-eql_v2ore_cllw_var_8) - Compare variable-width CLLW ORE ciphertext terms.
+- [`config_add_cast(text, text, text, jsonb)`](#config_add_casttext-text-text-jsonb) - Set cast type for column in configuration.
+- [`config_add_column(text, text, jsonb)`](#config_add_columntext-text-jsonb) - Add column to table configuration if not present.
+- [`config_add_index(text, text, text, jsonb, jsonb)`](#config_add_indextext-text-text-jsonb-jsonb) - Add search index to column configuration.
+- [`config_add_table(text, jsonb)`](#config_add_tabletext-jsonb) - Add table to configuration if not present.
+- [`config_check_cast(jsonb)`](#config_check_castjsonb) - Validate cast types in configuration.
+- [`config_check_indexes(jsonb)`](#config_check_indexesjsonb) - Validate index types in configuration.
+- [`config_check_tables(jsonb)`](#config_check_tablesjsonb) - Validate tables field presence.
+- [`config_check_version(jsonb)`](#config_check_versionjsonb) - Validate version field presence.
+- [`config_match_default()`](#config_match_default) - Generate default options for match index.
+- [`count_encrypted_with_active_config(TEXT, TEXT)`](#count_encrypted_with_active_configtext-text) - Count rows encrypted with active configuration.
+- [`create_encrypted_columns()`](#create_encrypted_columns) - Create encrypted columns for initial encryption.
+- [`diff_config(JSONB, JSONB)`](#diff_configjsonb-jsonb) - Compare two configurations and find differences.
+- [`eql_v2_configuration()`](#eql_v2_configuration) - Unique pending configuration constraint.
+- [`has_blake3(jsonb)`](#has_blake3jsonb) - Check if JSONB payload contains Blake3 index term.
+- [`has_bloom_filter(jsonb)`](#has_bloom_filterjsonb) - Check if JSONB payload contains Bloom filter index term.
+- [`has_hmac_256(jsonb)`](#has_hmac_256jsonb) - Check if JSONB payload contains HMAC-SHA256 index term.
+- [`has_ore_block_u64_8_256(jsonb)`](#has_ore_block_u64_8_256jsonb) - Check if JSONB payload contains ORE block index term.
+- [`has_ore_cllw_u64_8(jsonb)`](#has_ore_cllw_u64_8jsonb) - Check if JSONB payload contains CLLW ORE index term.
+- [`has_ore_cllw_var_8(jsonb)`](#has_ore_cllw_var_8jsonb) - Check if JSONB payload contains variable-width CLLW ORE index term.
+- [`hmac_256(eql_v2_encrypted)`](#hmac_256eql_v2_encrypted) - Extract HMAC-SHA256 index term from encrypted column value.
+- [`ilike(eql_v2_encrypted, eql_v2_encrypted)`](#ilikeeql_v2_encrypted-eql_v2_encrypted) - Case-insensitive pattern matching helper.
+- [`is_ste_vec_array(jsonb)`](#is_ste_vec_arrayjsonb) - Check if JSONB payload is marked as an STE vector array.
+- [`is_ste_vec_array()`](#is_ste_vec_array) - Check if encrypted column value is marked as an STE vector array.
+- [`is_ste_vec_value(jsonb)`](#is_ste_vec_valuejsonb) - Check if JSONB payload is a single-element STE vector.
+- [`jsonb_array(jsonb)`](#jsonb_arrayjsonb) - Extract deterministic fields as array for GIN indexing.
+- [`jsonb_array_elements(jsonb)`](#jsonb_array_elementsjsonb) - Extract elements from encrypted JSONB array.
+- [`jsonb_array_elements_text(jsonb)`](#jsonb_array_elements_textjsonb) - Extract encrypted array elements as ciphertext.
+- [`jsonb_array_from_array_elements(jsonb)`](#jsonb_array_from_array_elementsjsonb) - Extract full encrypted JSONB elements as array.
+- [`jsonb_array_length(jsonb)`](#jsonb_array_lengthjsonb) - Get length of encrypted JSONB array.
+- [`jsonb_array_to_bytea_array(jsonb)`](#jsonb_array_to_bytea_arrayjsonb) - Convert JSONB hex array to bytea array.
+- [`jsonb_contained_by(eql_v2_encrypted, eql_v2_encrypted)`](#jsonb_contained_byeql_v2_encrypted-eql_v2_encrypted) - GIN-indexable JSONB "is contained by" check.
+- [`jsonb_contains(eql_v2_encrypted, jsonb)`](#jsonb_containseql_v2_encrypted-jsonb) - GIN-indexable JSONB containment check (encrypted, jsonb)
+- [`jsonb_path_exists(jsonb, text)`](#jsonb_path_existsjsonb-text) - Check if selector path exists in encrypted JSONB.
+- [`jsonb_path_query(eql_v2_encrypted, eql_v2_encrypted)`](#jsonb_path_queryeql_v2_encrypted-eql_v2_encrypted) - Query encrypted JSONB with encrypted selector.
+- [`jsonb_path_query_first(jsonb, text)`](#jsonb_path_query_firstjsonb-text) - Get first element matching selector.
 - [`log(text, text)`](#logtext-text) - Log message with context.
 - [`log(text)`](#logtext) - Log message for debugging.
-- [`ore_block_u64_8_256(jsonb)`](#ore-block-u64-8-256jsonb) - Extract ORE block index term from JSONB payload.
-- [`ore_block_u64_8_256_gt(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#ore-block-u64-8-256-gteql-v2ore-block-u64-8-256-eql-v2ore-block-u64-8-256) - Greater than operator for ORE block types.
-- [`ore_block_u64_8_256_gte(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#ore-block-u64-8-256-gteeql-v2ore-block-u64-8-256-eql-v2ore-block-u64-8-256) - Greater than or equal operator for ORE block types.
-- [`ore_block_u64_8_256_lt(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#ore-block-u64-8-256-lteql-v2ore-block-u64-8-256-eql-v2ore-block-u64-8-256) - Less than operator for ORE block types.
-- [`ore_block_u64_8_256_lte(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#ore-block-u64-8-256-lteeql-v2ore-block-u64-8-256-eql-v2ore-block-u64-8-256) - Less than or equal operator for ORE block types.
-- [`ore_block_u64_8_256_neq(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#ore-block-u64-8-256-neqeql-v2ore-block-u64-8-256-eql-v2ore-block-u64-8-256) - Not equal operator for ORE block types.
-- [`ore_cllw_u64_8(eql_v2_encrypted)`](#ore-cllw-u64-8eql-v2-encrypted) - Extract CLLW ORE index term from encrypted column value.
-- [`ore_cllw_var_8(eql_v2_encrypted)`](#ore-cllw-var-8eql-v2-encrypted) - Extract variable-width CLLW ORE index term from encrypted column value.
-- [`ready_for_encryption()`](#ready-for-encryption) - Check if database is ready for encryption.
-- [`reload_config()`](#reload-config) - Reload configuration from CipherStash Proxy.
-- [`rename_encrypted_columns()`](#rename-encrypted-columns) - Finalize initial encryption by renaming columns.
-- [`select_pending_columns()`](#select-pending-columns) - Get columns with pending configuration changes.
-- [`select_target_columns()`](#select-target-columns) - Map pending columns to their encrypted target columns.
+- [`ore_block_u64_8_256(jsonb)`](#ore_block_u64_8_256jsonb) - Extract ORE block index term from JSONB payload.
+- [`ore_block_u64_8_256_gt(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#ore_block_u64_8_256_gteql_v2ore_block_u64_8_256-eql_v2ore_block_u64_8_256) - Greater than operator for ORE block types.
+- [`ore_block_u64_8_256_gte(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#ore_block_u64_8_256_gteeql_v2ore_block_u64_8_256-eql_v2ore_block_u64_8_256) - Greater than or equal operator for ORE block types.
+- [`ore_block_u64_8_256_lt(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#ore_block_u64_8_256_lteql_v2ore_block_u64_8_256-eql_v2ore_block_u64_8_256) - Less than operator for ORE block types.
+- [`ore_block_u64_8_256_lte(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#ore_block_u64_8_256_lteeql_v2ore_block_u64_8_256-eql_v2ore_block_u64_8_256) - Less than or equal operator for ORE block types.
+- [`ore_block_u64_8_256_neq(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#ore_block_u64_8_256_neqeql_v2ore_block_u64_8_256-eql_v2ore_block_u64_8_256) - Not equal operator for ORE block types.
+- [`ore_cllw_u64_8(eql_v2_encrypted)`](#ore_cllw_u64_8eql_v2_encrypted) - Extract CLLW ORE index term from encrypted column value.
+- [`ore_cllw_var_8(eql_v2_encrypted)`](#ore_cllw_var_8eql_v2_encrypted) - Extract variable-width CLLW ORE index term from encrypted column value.
+- [`ready_for_encryption()`](#ready_for_encryption) - Check if database is ready for encryption.
+- [`reload_config()`](#reload_config) - Reload configuration from CipherStash Proxy.
+- [`rename_encrypted_columns()`](#rename_encrypted_columns) - Finalize initial encryption by renaming columns.
+- [`select_pending_columns()`](#select_pending_columns) - Get columns with pending configuration changes.
+- [`select_target_columns()`](#select_target_columns) - Map pending columns to their encrypted target columns.
 - [`selector(jsonb)`](#selectorjsonb) - Extract selector value from JSONB payload.
-- [`ste_vec(eql_v2_encrypted)`](#ste-veceql-v2-encrypted) - Extract STE vector index from encrypted column value.
-- [`ste_vec_contains(eql_v2_encrypted, eql_v2_encrypted)`](#ste-vec-containseql-v2-encrypted-eql-v2-encrypted) - Check if encrypted value 'a' contains all elements of encrypted value 'b'.
-- [`ste_vec_contains(public.eql_v2_encrypted, eql_v2_encrypted)`](#ste-vec-containspubliceql-v2-encrypted-eql-v2-encrypted) - Check if STE vector array contains a specific encrypted element.
-- [`to_encrypted(text)`](#to-encryptedtext) - Convert text to encrypted type.
-- [`to_jsonb(eql_v2_encrypted)`](#to-jsonbeql-v2-encrypted) - Convert encrypted type to JSONB.
-- [`to_ste_vec_value(jsonb)`](#to-ste-vec-valuejsonb) - Convert single-element STE vector to regular encrypted value.
+- [`ste_vec(eql_v2_encrypted)`](#ste_veceql_v2_encrypted) - Extract STE vector index from encrypted column value.
+- [`ste_vec_contains(eql_v2_encrypted, eql_v2_encrypted)`](#ste_vec_containseql_v2_encrypted-eql_v2_encrypted) - Check if encrypted value 'a' contains all elements of encrypted value 'b'.
+- [`ste_vec_contains(public.eql_v2_encrypted, eql_v2_encrypted)`](#ste_vec_containspubliceql_v2_encrypted-eql_v2_encrypted) - Check if STE vector array contains a specific encrypted element.
+- [`to_encrypted(text)`](#to_encryptedtext) - Convert text to encrypted type.
+- [`to_jsonb(eql_v2_encrypted)`](#to_jsonbeql_v2_encrypted) - Convert encrypted type to JSONB.
+- [`to_ste_vec_value(jsonb)`](#to_ste_vec_valuejsonb) - Convert single-element STE vector to regular encrypted value.
 
 ### Private Functions
 
-- [`_encrypted_check_c(jsonb)`](#encrypted-check-cjsonb) - Validate ciphertext field in encrypted payload.
-- [`_encrypted_check_i_ct(jsonb)`](#encrypted-check-i-ctjsonb) - Validate table and column fields in ident.
-- [`_encrypted_check_v(jsonb)`](#encrypted-check-vjsonb) - Validate version field in encrypted payload.
-- [`_first_grouped_value()`](#first-grouped-value) - State transition function for grouped_value aggregate.
+- [`_encrypted_check_c(jsonb)`](#_encrypted_check_cjsonb) - Validate ciphertext field in encrypted payload.
+- [`_encrypted_check_i_ct(jsonb)`](#_encrypted_check_i_ctjsonb) - Validate table and column fields in ident.
+- [`_encrypted_check_v(jsonb)`](#_encrypted_check_vjsonb) - Validate version field in encrypted payload.
+- [`_first_grouped_value()`](#_first_grouped_value) - State transition function for grouped_value aggregate.
 
 ---
 
@@ -148,7 +148,7 @@ text Encrypted value at selector, implicitly cast from eql_v2_encrypted
 
 #### Variants
 
-- [`>(eql_v2_encrypted, eql_v2_encrypted)`](#eql-v2-encrypted-eql-v2-encrypted)
+- [`>(eql_v2_encrypted, eql_v2_encrypted)`](#eql_v2_encrypted-eql_v2_encrypted)
 
 ---
 
@@ -497,7 +497,7 @@ Boolean True if Blake3 hash is present
 
 #### Variants
 
-- [`has_blake3(jsonb)`](#has-blake3jsonb)
+- [`has_blake3(jsonb)`](#has_blake3jsonb)
 
 ---
 
@@ -523,7 +523,7 @@ Boolean True if Bloom filter is present
 
 #### Variants
 
-- [`has_bloom_filter(jsonb)`](#has-bloom-filterjsonb)
+- [`has_bloom_filter(jsonb)`](#has_bloom_filterjsonb)
 
 ---
 
@@ -549,7 +549,7 @@ Boolean True if HMAC-SHA256 hash is present
 
 #### Variants
 
-- [`has_hmac_256(jsonb)`](#has-hmac-256jsonb)
+- [`has_hmac_256(jsonb)`](#has_hmac_256jsonb)
 
 ---
 
@@ -575,7 +575,7 @@ Boolean True if ORE block is present
 
 #### Variants
 
-- [`has_ore_block_u64_8_256(jsonb)`](#has-ore-block-u64-8-256jsonb)
+- [`has_ore_block_u64_8_256(jsonb)`](#has_ore_block_u64_8_256jsonb)
 
 ---
 
@@ -601,7 +601,7 @@ Boolean True if CLLW ORE ciphertext is present
 
 #### Variants
 
-- [`has_ore_cllw_u64_8(jsonb)`](#has-ore-cllw-u64-8jsonb)
+- [`has_ore_cllw_u64_8(jsonb)`](#has_ore_cllw_u64_8jsonb)
 
 ---
 
@@ -627,7 +627,7 @@ Boolean True if variable-width CLLW ORE ciphertext is present
 
 #### Variants
 
-- [`has_ore_cllw_var_8(jsonb)`](#has-ore-cllw-var-8jsonb)
+- [`has_ore_cllw_var_8(jsonb)`](#has_ore_cllw_var_8jsonb)
 
 ---
 
@@ -690,7 +690,7 @@ Boolean True if value is marked as an STE vector array
 
 #### Variants
 
-- [`is_ste_vec_array(jsonb)`](#is-ste-vec-arrayjsonb)
+- [`is_ste_vec_array(jsonb)`](#is_ste_vec_arrayjsonb)
 
 ---
 
@@ -714,7 +714,7 @@ Boolean True if value is marked as an STE vector array
 
 #### Variants
 
-- [`is_ste_vec_array(jsonb)`](#is-ste-vec-arrayjsonb)
+- [`is_ste_vec_array(jsonb)`](#is_ste_vec_arrayjsonb)
 
 ---
 
@@ -740,7 +740,7 @@ Boolean True if value is a single-element STE vector
 
 #### Variants
 
-- [`is_ste_vec_value(jsonb)`](#is-ste-vec-valuejsonb)
+- [`is_ste_vec_value(jsonb)`](#is_ste_vec_valuejsonb)
 
 ---
 
@@ -770,7 +770,7 @@ Use this for GIN indexes and containment queries
 
 #### Variants
 
-- [`jsonb_array(jsonb)`](#jsonb-arrayjsonb)
+- [`jsonb_array(jsonb)`](#jsonb_arrayjsonb)
 
 ---
 
@@ -860,7 +860,7 @@ jsonb[] Array of full JSONB elements
 
 #### Variants
 
-- [`jsonb_array_from_array_elements(jsonb)`](#jsonb-array-from-array-elementsjsonb)
+- [`jsonb_array_from_array_elements(jsonb)`](#jsonb_array_from_array_elementsjsonb)
 
 ---
 
@@ -933,7 +933,7 @@ Boolean True if all elements of a are contained in b
 
 #### Variants
 
-- [`jsonb_contained_by(eql_v2_encrypted, eql_v2_encrypted)`](#jsonb-contained-byeql-v2-encrypted-eql-v2-encrypted)
+- [`jsonb_contained_by(eql_v2_encrypted, eql_v2_encrypted)`](#jsonb_contained_byeql_v2_encrypted-eql_v2_encrypted)
 
 ---
 
@@ -987,7 +987,7 @@ boolean True if path exists
 
 #### Variants
 
-- [`jsonb_path_exists(jsonb, text)`](#jsonb-path-existsjsonb-text)
+- [`jsonb_path_exists(jsonb, text)`](#jsonb_path_existsjsonb-text)
 
 ---
 
@@ -1043,7 +1043,7 @@ Uses LIMIT 1 internally for efficiency
 
 #### Variants
 
-- [`jsonb_path_query_first(jsonb, text)`](#jsonb-path-query-firstjsonb-text)
+- [`jsonb_path_query_first(jsonb, text)`](#jsonb_path_query_firstjsonb-text)
 
 ---
 
@@ -1118,7 +1118,7 @@ eql_v2.ore_block_u64_8_256 ORE block index term
 
 #### Variants
 
-- [`ore_block_u64_8_256(jsonb)`](#ore-block-u64-8-256jsonb)
+- [`ore_block_u64_8_256(jsonb)`](#ore_block_u64_8_256jsonb)
 
 ---
 
@@ -1459,7 +1459,7 @@ Compares both selector and encrypted value for match
 
 #### Variants
 
-- [`ste_vec_contains(eql_v2_encrypted, eql_v2_encrypted)`](#ste-vec-containseql-v2-encrypted-eql-v2-encrypted)
+- [`ste_vec_contains(eql_v2_encrypted, eql_v2_encrypted)`](#ste_vec_containseql_v2_encrypted-eql_v2_encrypted)
 
 ---
 
@@ -1541,7 +1541,7 @@ eql_v2_encrypted Regular encrypted value (unwrapped if single-element STE vector
 
 #### Variants
 
-- [`to_ste_vec_value(jsonb)`](#to-ste-vec-valuejsonb)
+- [`to_ste_vec_value(jsonb)`](#to_ste_vec_valuejsonb)
 
 ---
 

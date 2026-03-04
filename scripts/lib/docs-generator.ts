@@ -34,11 +34,18 @@ export interface VersionInfo {
 }
 
 /**
- * Strips .mdx extensions from markdown links and fixes /docs/ prefixed links
- * in all .mdx files.
+ * Cleans up markdown links in generated .mdx files:
+ * 1. Strips .mdx extensions from link targets
+ * 2. Fixes /docs/reference/ prefix to /stack/reference/
+ * 3. Removes /index suffix from link targets (index pages are served at the directory URL)
+ * 4. Strips temp directory prefix from source link text
  *
  * TypeDoc source comments may contain links with /docs/reference/ prefix,
  * but Next.js basePath already prepends /docs, so these need to be /stack/reference/.
+ *
+ * TypeDoc also emits "Defined in:" source links where the link text includes the
+ * temp directory name (e.g., `.tmp-stack/packages/...`). We strip that prefix so
+ * the displayed path shows the clean repository-relative path.
  */
 export async function stripMdxExtensions(dir: string): Promise<void> {
   const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -55,6 +62,13 @@ export async function stripMdxExtensions(dir: string): Promise<void> {
         /\]\(\/docs\/reference\//g,
         "](/stack/reference/",
       );
+      // Strip /index suffix from link targets.
+      // TypeDoc generates links to index pages (e.g., ../index or /stack/.../index)
+      // but Fumadocs serves index.mdx at the directory URL without /index.
+      content = content.replace(/\]\(([^)#]*)\/index([#)])/g, "]($1$2");
+      // Strip temp directory prefix from source link text (e.g., .tmp-stack/)
+      // Matches: [.tmp-stack/packages/...](url) → [packages/...](url)
+      content = content.replace(/\[\.tmp-[^/]+\//g, "[");
       await fs.writeFile(fullPath, content, "utf8");
     }
   }
@@ -213,6 +227,7 @@ export async function generateDocsForTag(
   const typedocConfig = {
     entryPoints: config.entryPoints,
     tsconfig: "./typedoc.tsconfig.json",
+    basePath: workingDir,
     plugin: [
       "typedoc-plugin-markdown",
       "typedoc-plugin-frontmatter",
