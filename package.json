@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "prebuild": "pnpm generate-docs && pnpm generate-docs:eql",
+    "prebuild": "pnpm generate-docs && pnpm generate-docs:eql && pnpm validate-links",
     "build": "next build",
     "dev": "next dev -p 3001",
     "start": "next start",
@@ -12,7 +12,8 @@
     "lint": "biome check",
     "format": "biome format --write",
     "generate-docs": "tsx scripts/generate-docs.ts",
-    "generate-docs:eql": "tsx scripts/generate-eql-docs.ts"
+    "generate-docs:eql": "tsx scripts/generate-eql-docs.ts",
+    "validate-links": "tsx scripts/validate-links.ts"
   },
   "dependencies": {
     "fumadocs-core": "16.6.0",

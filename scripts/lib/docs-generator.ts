@@ -34,7 +34,11 @@ export interface VersionInfo {
 }
 
 /**
- * Strips .mdx extensions from markdown links in all .mdx files
+ * Strips .mdx extensions from markdown links and fixes /docs/ prefixed links
+ * in all .mdx files.
+ *
+ * TypeDoc source comments may contain links with /docs/reference/ prefix,
+ * but Next.js basePath already prepends /docs, so these need to be /stack/reference/.
  */
 export async function stripMdxExtensions(dir: string): Promise<void> {
   const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -46,7 +50,11 @@ export async function stripMdxExtensions(dir: string): Promise<void> {
       await stripMdxExtensions(fullPath);
     } else if (entry.isFile() && entry.name.endsWith(".mdx")) {
       let content = await fs.readFile(fullPath, "utf8");
-      content = content.replace(/\]\(([^)]+)\.mdx\)/g, "]($1)");
+      content = content.replace(/\]\(([^)#]+)\.mdx([#)])/g, "]($1$2");
+      content = content.replace(
+        /\]\(\/docs\/reference\//g,
+        "](/stack/reference/",
+      );
       await fs.writeFile(fullPath, content, "utf8");
     }
   }
