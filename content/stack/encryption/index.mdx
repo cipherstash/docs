@@ -6,28 +6,28 @@ description: Field-level encryption with searchable queries, powered by ZeroKMS
 # Encryption
 
 CipherStash Encryption provides field-level encryption for your application data.
-Every value is encrypted with its own unique key via [ZeroKMS](/stack/kms), backed by AWS KMS — giving you strong data protection without sacrificing query capability.
+Every value is encrypted with its own unique key via [ZeroKMS](/stack/kms), backed by AWS KMS. This gives you strong data protection without sacrificing query capability.
 
 ## What you get
 
-- **Field-level encryption** — Each value encrypted with a unique key, not a shared table key.
-- **Searchable encryption** — Run exact match, free-text search, and range queries on encrypted data in PostgreSQL.
-- **Encrypted JSONB** — Query encrypted JSON fields using JSONPath selectors and containment operators.
-- **Bulk operations** — Encrypt or decrypt thousands of values in a single ZeroKMS call.
-- **Identity-aware encryption** — Tie encryption to a user's JWT so only that user can decrypt their data.
-- **Multi-tenant isolation** — Use [Key Sets](/stack/kms/keysets) from ZeroKMS to cryptographically isolate encryption keys per tenant, customer, or business unit.
-- **TypeScript-first** — Strongly typed schemas, results, and model operations.
+- **Field-level encryption:** Each value encrypted with a unique key, not a shared table key.
+- **Searchable encryption:** Run exact match, free-text search, and range queries on encrypted data in PostgreSQL.
+- **Encrypted JSONB:** Query encrypted JSON fields using JSONPath selectors and containment operators.
+- **Bulk operations:** Encrypt or decrypt thousands of values in a single ZeroKMS call.
+- **Identity-aware encryption:** Tie encryption to a user's JWT so only that user can decrypt their data.
+- **Multi-tenant isolation:** Use [Key Sets](/stack/kms/keysets) from ZeroKMS to cryptographically isolate encryption keys per tenant, customer, or business unit.
+- **TypeScript-first:** Strongly typed schemas, results, and model operations.
 
 ## How it works
 
-1. **Define a schema** — Declare which columns to encrypt and what queries to support.
-2. **Initialize a client** — The SDK connects to ZeroKMS to manage encryption keys.
-3. **Encrypt and store** — Encrypt values before writing to your database.
-4. **Query encrypted data** — Encrypt query terms and run them against your encrypted columns.
-5. **Decrypt on read** — Decrypt values when reading from the database.
+1. **Define a schema:** Declare which columns to encrypt and what queries to support.
+2. **Initialize a client:** The SDK connects to ZeroKMS to manage encryption keys.
+3. **Encrypt and store:** Encrypt values before writing to your database.
+4. **Query encrypted data:** Encrypt query terms and run them against your encrypted columns.
+5. **Decrypt on read:** Decrypt values when reading from the database.
 
 <Callout type="info">
-All key management — key generation, derivation, and isolation — is handled by [ZeroKMS](/stack/kms). Encryption keys are organized into [Key Sets](/stack/kms/keysets), the same primitive that powers [Secrets environment isolation](/stack/secrets/concepts#environments).
+All key management (key generation, derivation, and isolation) is handled by [ZeroKMS](/stack/kms). Encryption keys are organized into [Key Sets](/stack/kms/keysets), the same primitive that powers [Secrets environment isolation](/stack/secrets/concepts#environments).
 </Callout>
 
 ## Integration paths
@@ -50,5 +50,5 @@ All key management — key generation, derivation, and isolation — is handled 
   <Card title="Getting started" href="/stack/encryption/getting-started" description="Install the SDK and encrypt your first value in under 5 minutes." />
   <Card title="Schema definition" href="/stack/encryption/schema" description="Define which columns to encrypt and what queries to support." />
   <Card title="Searchable encryption" href="/stack/encryption/searchable-encryption" description="Run queries on encrypted data in PostgreSQL." />
-  <Card title="CipherStash Proxy" href="/stack/proxy" description="Transparent encryption proxy — zero code changes required." />
+  <Card title="CipherStash Proxy" href="/stack/proxy" description="Transparent encryption proxy. No code changes required." />
 </Cards>

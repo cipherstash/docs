@@ -5,17 +5,17 @@ description: Protect sensitive data in AI retrieval-augmented generation pipelin
 
 # Securing AI and RAG pipelines
 
-Retrieval-Augmented Generation (RAG) pipelines commonly store sensitive documents alongside vector embeddings. Without encryption, this data is exposed at rest and during retrieval — creating a significant attack surface. CipherStash lets you encrypt sensitive content while preserving the ability to search and retrieve it.
+Retrieval-Augmented Generation (RAG) pipelines commonly store sensitive documents alongside vector embeddings. Without encryption, this data is exposed at rest and during retrieval, creating a significant attack surface. CipherStash lets you encrypt sensitive content while preserving the ability to search and retrieve it.
 
 ## The problem
 
 RAG architectures typically store:
 
-- **Document chunks** — the original text, often containing PII, financial data, or confidential business information
-- **Metadata** — source references, user associations, access tags
-- **Vector embeddings** — numeric representations used for similarity search
+- **Document chunks**: the original text, often containing PII, financial data, or confidential business information
+- **Metadata**: source references, user associations, access tags
+- **Vector embeddings**: numeric representations used for similarity search
 
-If any of this data is exfiltrated from the database, the plaintext content is immediately exposed. Encryption-at-rest does not help — the data is decrypted as soon as it's queried.
+If any of this data is exfiltrated from the database, the plaintext content is immediately exposed. Encryption-at-rest does not help because the data is decrypted as soon as it is queried.
 
 ## Encrypting RAG context data
 
@@ -23,7 +23,7 @@ Use the Encryption SDK to encrypt sensitive fields before storing them alongside
 
 ### Define a schema for your documents
 
-```typescript title="schema.ts"
+```typescript filename="schema.ts"
 import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
 
 export const documents = encryptedTable("documents", {
@@ -38,7 +38,7 @@ export const documents = encryptedTable("documents", {
 
 ### Encrypt before storage
 
-```typescript title="ingest.ts"
+```typescript filename="ingest.ts"
 import { Encryption } from "@cipherstash/stack"
 import { documents } from "./schema"
 
@@ -77,7 +77,7 @@ async function ingestDocument(doc: { content: string; source: string; userId: st
 
 After vector similarity search retrieves relevant documents, decrypt the content before passing it to the LLM:
 
-```typescript title="retrieve.ts"
+```typescript filename="retrieve.ts"
 async function retrieveContext(queryEmbedding: number[], topK: number = 5) {
   // Vector similarity search returns encrypted rows
   const results = await db.query(
@@ -116,11 +116,11 @@ ORDER BY embedding <-> $2
 LIMIT 10;
 ```
 
-This combines encrypted metadata filtering with vector similarity — without ever decrypting the metadata in the database.
+This combines encrypted metadata filtering with vector similarity, without ever decrypting the metadata in the database.
 
 ## Benefits for AI pipelines
 
-- **Sensitive context stays encrypted** — document chunks containing PII or confidential data are never stored in plaintext
-- **Compliance-ready** — encrypted storage meets GDPR, HIPAA, and SOC2 requirements for data protection
-- **Selective decryption** — only decrypt what the LLM needs, reducing exposure surface
-- **Audit trail** — track who retrieved which documents and when using [identity-aware encryption](/stack/encryption/identity)
+- **Sensitive context stays encrypted**: document chunks containing PII or confidential data are never stored in plaintext
+- **Compliance-ready**: encrypted storage meets GDPR, HIPAA, and SOC2 requirements for data protection
+- **Selective decryption**: only decrypt what the LLM needs, reducing exposure surface
+- **Audit trail**: track who retrieved which documents and when using [identity-aware encryption](/stack/encryption/identity)

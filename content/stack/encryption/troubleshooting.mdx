@@ -11,7 +11,7 @@ description: Common issues and fixes for @cipherstash/stack
 
 The SDK reads `CS_*` environment variables by default. If any are missing, initialization fails with a `ClientInitError`.
 
-```
+```text
 ClientInitError: Missing workspace CRN
 ```
 
@@ -26,7 +26,7 @@ CS_CLIENT_ACCESS_KEY=your-access-key
 
 Or pass them explicitly in config:
 
-```typescript title="explicit-config.ts"
+```typescript filename="explicit-config.ts"
 const client = await Encryption({
   schemas: [users],
   config: {
@@ -40,7 +40,7 @@ const client = await Encryption({
 
 ### ZeroKMS connection timeout
 
-If the SDK cannot reach ZeroKMS, initialization will time out.
+If the SDK cannot reach ZeroKMS, initialization times out.
 
 **Check**:
 - Your application has outbound HTTPS access
@@ -51,7 +51,7 @@ If the SDK cannot reach ZeroKMS, initialization will time out.
 
 The `Encryption()` function requires at least one schema:
 
-```typescript title="schema-required.ts"
+```typescript filename="schema-required.ts"
 // This will fail
 const client = await Encryption({ schemas: [] })
 
@@ -63,7 +63,7 @@ const client = await Encryption({ schemas: [users] })
 
 ### Wrong keyset
 
-If data was encrypted with keyset A but you're decrypting with keyset B, decryption will fail. Each keyset provides cryptographic isolation.
+Decryption fails if the client uses a different keyset than the one used during encryption. Keysets provide cryptographic isolation.
 
 **Fix**: Ensure the client is configured with the same keyset that was used during encryption. Check the `keyset` option in your config or verify which keyset your client is associated with in the [dashboard](/stack/kms/clients).
 
@@ -71,7 +71,7 @@ If data was encrypted with keyset A but you're decrypting with keyset B, decrypt
 
 If data was encrypted with [identity-aware encryption](/stack/encryption/identity), it can only be decrypted with the same user's identity.
 
-```
+```text
 DecryptionError: Lock context mismatch
 ```
 
@@ -79,7 +79,7 @@ DecryptionError: Lock context mismatch
 
 ### Corrupted or tampered ciphertext
 
-If the stored ciphertext has been modified, decryption will fail because AES-GCM-SIV provides authenticated encryption.
+If the stored ciphertext has been modified, decryption fails. AES-GCM-SIV provides authenticated encryption, which detects tampering.
 
 **Fix**: Check that no database triggers, application code, or migrations have modified the encrypted column values.
 
@@ -89,8 +89,11 @@ If the stored ciphertext has been modified, decryption will fail because AES-GCM
 
 Searchable encryption requires the [EQL PostgreSQL extension](/stack/platform/eql). Without it, queries against encrypted columns won't work.
 
-```sql
-CREATE EXTENSION IF NOT EXISTS eql_v2;
+**Fix**: Install EQL using [CipherStash Forge](/stack/encryption/stash-forge):
+
+```bash
+npm install -D @cipherstash/stack-forge
+npx stash-forge install
 ```
 
 ### Wrong query type
@@ -112,7 +115,7 @@ The schema used to encrypt data must match the schema used to encrypt query term
 
 ### Symptoms
 
-```
+```text
 Error: failed to load native addon
 Error: module not found: @cipherstash/protect-ffi
 ```
@@ -174,7 +177,7 @@ CipherStash encryption adds < 5ms overhead per operation. If you're seeing highe
 
 For best performance with bulk operations:
 
-```typescript title="bulk-optimization.ts"
+```typescript filename="bulk-optimization.ts"
 // Slow: one ZeroKMS call per value
 for (const user of users) {
   await client.encrypt(user.email, { column: schema.email, table: schema })

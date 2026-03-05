@@ -22,7 +22,7 @@ All encryption happens client-side in the application process. CipherStash infra
 
 ## Key hierarchy
 
-CipherStash uses a **distributed trust model** with a dual-party key split. No single party — including CipherStash — can derive data encryption keys alone.
+CipherStash uses a **distributed trust model** with a dual-party key split. No single party (including CipherStash) can derive data encryption keys alone.
 
 ### Key types
 
@@ -30,7 +30,7 @@ CipherStash uses a **distributed trust model** with a dual-party key split. No s
 |---|---|---|
 | **Authority key** | ZeroKMS (server-side, HSM-friendly) | Server half of the key derivation input |
 | **Client key** | Your application / workload | Client half of the key derivation input (`CS_CLIENT_KEY` env var) |
-| **Data key** | Ephemeral — in-memory only | Per-value encryption key, derived from both halves, never stored |
+| **Data key** | Ephemeral (in-memory only) | Per-value encryption key, derived from both halves, never stored |
 
 ### Key derivation
 
@@ -41,16 +41,16 @@ ZeroKMS uses an **HMAC-based key derivation scheme**:
 3. The SDK uses the key seed to derive a unique data encryption key locally.
 4. The data key encrypts the value using AES-GCM-SIV, then is immediately discarded.
 
-Data keys are **ephemeral** — they are never stored, cached, or transmitted. This eliminates wrapped-key storage overhead and removes the risk of key cache compromise.
+Data keys are **ephemeral**: they are never stored, cached, or transmitted. This eliminates wrapped-key storage overhead and removes the risk of key cache compromise.
 
 ### Why this matters
 
 | Traditional KMS | CipherStash ZeroKMS |
 |---|---|
-| Wrapped data keys stored alongside data | Data keys are ephemeral — never stored |
-| Key caching required for performance | No caching needed — HMAC derivation at 10,000+ ops/sec per node |
-| Single point of trust (KMS provider) | Distributed trust — both authority key and client key required |
-| Compromising KMS exposes all data keys | Compromising ZeroKMS alone is insufficient — attacker also needs client key |
+| Wrapped data keys stored alongside data | Data keys are ephemeral (never stored) |
+| Key caching required for performance | No caching needed. HMAC derivation at 10,000+ ops/sec per node |
+| Single point of trust (KMS provider) | Distributed trust: both authority key and client key required |
+| Compromising KMS exposes all data keys | Compromising ZeroKMS alone is insufficient. Attacker also needs client key |
 
 ## Trust model
 
@@ -107,7 +107,7 @@ CipherStash uses [keysets](/stack/kms/keysets) to scope encryption keys:
 1. Application calls `client.encryptQuery(searchTerm, { column, table, queryType })`.
 2. SDK generates search tokens (HMAC for equality, ORE for range, Bloom filter for free-text) using a key derived from ZeroKMS.
 3. Application sends the encrypted tokens to PostgreSQL.
-4. PostgreSQL's [EQL extension](/stack/platform/eql) compares encrypted tokens using the appropriate index — the database never sees plaintext.
+4. PostgreSQL's [EQL extension](/stack/platform/eql) compares encrypted tokens using the appropriate index. The database never sees plaintext.
 
 ## Searchable encryption security properties
 
@@ -148,7 +148,7 @@ The core cryptographic implementations (ORE, Bloom filter construction) are open
 
 ## Further reading
 
-- [What is CipherStash?](/stack/platform/what-is-cipherstash) — platform overview and threat model
-- [ZeroKMS](/stack/kms) — key management and keyset isolation
-- [CipherCell format](/stack/platform/cipher-cell) — encrypted payload structure
-- [Disaster recovery](/stack/kms/disaster-recovery) — key recovery and outage behavior
+- [What is CipherStash?](/stack/platform/what-is-cipherstash): Platform overview and threat model
+- [ZeroKMS](/stack/kms): Key management and keyset isolation
+- [CipherCell format](/stack/platform/cipher-cell): Encrypted payload structure
+- [Disaster recovery](/stack/kms/disaster-recovery): Key recovery and outage behavior

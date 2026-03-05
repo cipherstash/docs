@@ -31,15 +31,15 @@ Most teams start with the **SDK** for the best developer experience.
   <Card title="Encryption SDK" href="/stack/encryption" description="Field-level encryption with searchable queries. Encrypt in your application code with full TypeScript support." />
   <Card title="CipherStash Proxy" href="/stack/proxy" description="Drop-in SQL proxy for PostgreSQL. Encrypt data with zero code changes." />
   <Card title="Secrets" href="/stack/secrets" description="End-to-end encrypted secret storage with SDK and CLI." />
-  <Card title="KMS" href="/stack/kms" description="Key management and Key Sets — the foundational layer that powers Encryption and Secrets." />
+  <Card title="KMS" href="/stack/kms" description="Key management and Key Sets, the foundational layer that powers Encryption and Secrets." />
 </Cards>
 
 ## How it fits together
 
 Every CipherStash product builds on [ZeroKMS](/stack/kms) and its core primitive, [Key Sets](/stack/kms/keysets):
 
-- **[Encryption](/stack/encryption)** uses Key Sets for [multi-tenant isolation](/stack/encryption/configuration#keysets) — each tenant gets its own cryptographic boundary.
-- **[Secrets](/stack/secrets)** uses Key Sets for [environment isolation](/stack/secrets/concepts#environments) — production, staging, and development secrets are cryptographically separated.
+- **[Encryption](/stack/encryption)** uses Key Sets for [multi-tenant isolation](/stack/encryption/configuration#keysets). Each tenant gets its own cryptographic boundary.
+- **[Secrets](/stack/secrets)** uses Key Sets for [environment isolation](/stack/secrets/concepts#environments). Production, staging, and development secrets are cryptographically separated.
 - **[Proxy](/stack/proxy)** encrypts data transparently via PostgreSQL, backed by the same ZeroKMS key hierarchy.
 
 ## Understand the architecture

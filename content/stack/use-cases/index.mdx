@@ -27,7 +27,7 @@ In contrast, Skyflow and VGS both process and store plaintext data. There is no 
 
 ### Searchable encryption
 
-CipherStash encryption is searchable and supports simple lookups, range queries, ordering and even free-text search. Data does not need to be decrypted to operate on and can therefore remain encrypted in a broader range of systems. CipherStash searchable encryption is incredibly fast — even the slowest of the mechanisms used takes less than 1ms to filter records in a PostgreSQL table containing 120 million rows.
+CipherStash encryption is searchable and supports simple lookups, range queries, ordering, and free-text search. Data does not need to be decrypted to be queried and can remain encrypted in a broader range of systems. CipherStash searchable encryption is fast: even the slowest mechanism takes less than 1ms to filter records in a PostgreSQL table containing 120 million rows.
 
 Skyflow supports only exact lookups. VGS does not support searchable encryption at all.
 
@@ -43,7 +43,7 @@ A vault offers no or limited protection for data outside the vault. If original 
 
 | Vendor | How DOB is stored | Query capability | Avoids N+1 | Performance |
 |--------|-------------------|-----------------|------------|-------------|
-| **CipherStash** | Encrypted per-value in your DB | Range queries via ORE | Yes | Efficient — runs in PostgreSQL |
+| **CipherStash** | Encrypted per-value in your DB | Range queries via ORE | Yes | Efficient (runs in PostgreSQL) |
 | **Skyflow** | Plaintext in vault, token outside | Exact match only; range limited | No | Extra 50–200 ms per vault query |
 | **VGS** | Plaintext in vault, alias outside | Equality only (no range queries) | No | Requires fetching all and filtering client-side |
 
@@ -55,10 +55,10 @@ CipherStash provides comprehensive solutions for data sovereignty requirements. 
 
 ### Zero-knowledge architecture
 
-- **Data keys are never transmitted across networks** — keys are derived locally in your infrastructure
-- **Plaintext data never leaves your systems** — encryption and decryption occur entirely within your environment
-- **Even encrypted values remain in your infrastructure** — CipherStash Proxy and Encryption SDK run in your systems
-- **No single point of compromise** — cryptographic proofs ensure unauthorized access is mathematically impossible
+- **Data keys are never transmitted across networks**: keys are derived locally in your infrastructure
+- **Plaintext data never leaves your systems**: encryption and decryption occur entirely within your environment
+- **Even encrypted values remain in your infrastructure**: CipherStash Proxy and Encryption SDK run in your systems
+- **No single point of compromise**: cryptographic proofs ensure unauthorized access is mathematically impossible
 
 ### Cryptographic control
 

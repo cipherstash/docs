@@ -5,9 +5,7 @@ description: Installing and configuring CipherStash Proxy for Docker, environmen
 
 # Proxy configuration
 
-CipherStash Proxy is available as a [container image](https://hub.docker.com/r/cipherstash/proxy) on Docker Hub that can be deployed locally, in CI/CD, through to production.
-
-CipherStash Proxy is a Docker container that can be deployed locally, as a cloud sidecar, or as a standalone binary.
+CipherStash Proxy is available as a [container image](https://hub.docker.com/r/cipherstash/proxy) on Docker Hub. Deploy it locally, as a cloud sidecar, or as a standalone binary.
 It speaks the PostgreSQL protocol (based on [pgcat](https://github.com/pgcat/pgcat)), meaning your application connects to Proxy exactly the same way it connects to PostgreSQL.
 
 ## Installing Proxy
@@ -77,7 +75,7 @@ See the [Proxy config reference](https://github.com/cipherstash/proxy/blob/main/
 
 ## Setting up the database schema
 
-Under the hood, Proxy uses [EQL](/stack/platform/eql) to index and search encrypted data.
+Proxy uses [EQL](/stack/platform/eql) to index and search encrypted data.
 
 When you start the Proxy container, you can install EQL by setting the `CS_DATABASE__INSTALL_EQL` environment variable:
 

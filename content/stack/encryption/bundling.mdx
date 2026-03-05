@@ -5,7 +5,7 @@ description: Configure webpack, esbuild, Next.js, and other build tools to work 
 
 # Bundling
 
-`@cipherstash/stack` is a native Node.js module that relies on native `require` to load platform-specific binaries at runtime. It cannot be processed by bundlers like webpack or esbuild — you must exclude it from bundling.
+`@cipherstash/stack` is a native Node.js module that relies on native `require` to load platform-specific binaries at runtime. It cannot be processed by bundlers like webpack or esbuild. You must exclude it from bundling.
 
 <Callout type="warn">
 **You must exclude `@cipherstash/stack` from bundling.**
@@ -21,7 +21,7 @@ Next.js bundles Server Components by default. You need to tell Next.js to skip `
 
 Add `@cipherstash/stack` to `serverExternalPackages` in your `next.config.ts`:
 
-```typescript title="next.config.ts"
+```typescript filename="next.config.ts"
 const nextConfig = {
   serverExternalPackages: ["@cipherstash/stack"],
 }
@@ -35,7 +35,7 @@ See the [Next.js serverExternalPackages documentation](https://nextjs.org/docs/a
 
 Use the experimental configuration in `next.config.mjs`:
 
-```javascript title="next.config.mjs"
+```javascript filename="next.config.mjs"
 const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ["@cipherstash/stack"],
@@ -51,7 +51,7 @@ See the [Next.js 14 serverComponentsExternalPackages documentation](https://next
 
 Configure `externals` in your `webpack.config.js`:
 
-```javascript title="webpack.config.js"
+```javascript filename="webpack.config.js"
 module.exports = {
   externals: {
     "@cipherstash/stack": "commonjs @cipherstash/stack",
@@ -71,7 +71,7 @@ esbuild app.js --bundle --external:@cipherstash/stack --platform=node
 
 Or in your build configuration:
 
-```javascript
+```javascript filename="build.js"
 require("esbuild").build({
   entryPoints: ["app.js"],
   bundle: true,
@@ -85,7 +85,7 @@ require("esbuild").build({
 
 When deploying with [SST](https://sst.dev/), configure esbuild externals and install the package into the Lambda deployment bundle:
 
-```typescript title="sst.config.ts"
+```typescript filename="sst.config.ts"
 {
   nodejs: {
     esbuild: {

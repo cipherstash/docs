@@ -17,7 +17,7 @@ You can configure multiple index types on the same field to support different qu
 
 ## Choosing index types
 
-When designing your schema, consider what queries you'll need to perform:
+When designing your schema, consider what queries you need to perform:
 
 | Query pattern | Required index type |
 |--------------|--------------------|
@@ -188,7 +188,7 @@ Token filters normalize tokens after tokenization:
 #### Pipeline impact on queries
 
 <Callout type="warn">
-If a **downcase** token filter is configured in the pipeline, both `LIKE` and `ILIKE` will perform case-insensitive searches. The distinction between `LIKE` (case-sensitive) and `ILIKE` (case-insensitive) only applies when no case-normalizing filters are used.
+If a **downcase** token filter is configured in the pipeline, both `LIKE` and `ILIKE` perform case-insensitive searches. The distinction between `LIKE` (case-sensitive) and `ILIKE` (case-insensitive) only applies when no case-normalizing filters are used.
 </Callout>
 
 ### Supported operators

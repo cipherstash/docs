@@ -46,7 +46,7 @@ const users = encryptedTable("users", {
 Only attributes with `.equality()` get an `__hmac` attribute for querying. Attributes without it are encrypted but cannot be searched.
 
 <Callout type="info">
-  `encryptedColumn` also supports `.orderAndRange()`, `.freeTextSearch()`, and `.searchableJson()` index methods, but only `.equality()` produces HMAC values usable for DynamoDB key condition queries.
+  `encryptedColumn` supports `.orderAndRange()`, `.freeTextSearch()`, and `.searchableJson()` index methods. Only `.equality()` produces HMAC values usable for DynamoDB key condition queries.
 </Callout>
 
 See [Schema definition](/stack/encryption/schema) for full details on index types, data types, and nested objects.

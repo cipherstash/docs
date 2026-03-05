@@ -31,7 +31,7 @@ stash setup --proxy
 # Outputs credentials to .env.proxy.docker
 ```
 
-Note down the credentials — you will need these in later steps.
+Note the credentials. You need them in later steps.
 
 ### Prepare your Docker image
 
@@ -87,7 +87,7 @@ aws secretsmanager create-secret \
   --secret-string file://cipherstash-proxy-secrets.json
 ```
 
-Note the ARN of the secret — you will need it for the task definition.
+Note the ARN. You need it for the task definition.
 
 ### Set up IAM roles and permissions
 
@@ -266,6 +266,6 @@ aws logs tail --since 6h --follow cipherstash-proxy
 
 ## Notes and considerations
 
-- **Security**: Make sure sensitive data such as keys and passwords are managed securely, preferably using AWS Secrets Manager or Parameter Store.
-- **Networking**: Configure network settings properly to allow your ECS tasks to communicate with other services.
-- **Scaling and management**: Monitor the service and adjust scaling as necessary.
+- **Security**: Store secrets (keys and passwords) in AWS Secrets Manager or Parameter Store, not in environment variables or task definitions.
+- **Networking**: Configure security groups and subnets so your ECS tasks can reach your RDS instance.
+- **Scaling**: Monitor ECS service metrics and adjust `desired-count` based on load.

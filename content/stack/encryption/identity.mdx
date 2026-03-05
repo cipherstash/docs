@@ -27,7 +27,7 @@ The flow is:
 
 ## Basic usage
 
-```typescript title="identity.ts"
+```typescript filename="identity.ts"
 import { LockContext } from "@cipherstash/stack/identity"
 
 // 1. Create a lock context (defaults to the "sub" claim)
@@ -57,7 +57,7 @@ const decrypted = await client
 
 Lock contexts work with all encrypt and decrypt operations:
 
-```typescript title="identity.ts"
+```typescript filename="identity.ts"
 // Single operations
 const encrypted = await client
   .encryptModel(user, users)
@@ -89,7 +89,7 @@ const term = await client
 
 Override the default context by specifying which identity claims to use:
 
-```typescript title="identity.ts"
+```typescript filename="identity.ts"
 const lc = new LockContext({
   context: {
     identityClaim: ["sub"],  // this is the default
@@ -102,9 +102,9 @@ const lc = new LockContext({
 | `sub` | The user's subject identifier |
 | `scopes` | The user's scopes set by your IDP policy |
 
-You can combine claims for identity + permissions scoping:
+Combine claims for identity and permissions scoping:
 
-```typescript title="identity.ts"
+```typescript filename="identity.ts"
 const lc = new LockContext({
   context: {
     identityClaim: ["sub", "scopes"],
@@ -114,7 +114,7 @@ const lc = new LockContext({
 
 ## Using with Clerk and Next.js
 
-If you're using [Clerk](https://clerk.com/) as your identity provider, install the `@cipherstash/nextjs` package for automatic CTS token setup.
+Install the `@cipherstash/nextjs` package for automatic CTS token setup with [Clerk](https://clerk.com/):
 
 ```bash
 npm install @cipherstash/nextjs
@@ -124,7 +124,7 @@ npm install @cipherstash/nextjs
 
 In your `middleware.ts`, use `protectClerkMiddleware` to automatically generate CTS tokens for every user session:
 
-```typescript title="middleware.ts"
+```typescript filename="middleware.ts"
 import { clerkMiddleware } from "@clerk/nextjs/server"
 import { protectClerkMiddleware } from "@cipherstash/nextjs/clerk"
 
@@ -137,7 +137,7 @@ export default clerkMiddleware(async (auth, req) => {
 
 Use `getCtsToken` to get the CTS token for the current user:
 
-```typescript title="page.tsx"
+```typescript filename="page.tsx"
 import { getCtsToken } from "@cipherstash/nextjs"
 
 export default async function Page() {
@@ -153,9 +153,9 @@ export default async function Page() {
 
 ### Create a LockContext with an existing CTS token
 
-Since the CTS token is already available from the middleware, construct the `LockContext` directly. The CTS token has the shape `{ accessToken: string, expiry: number }` — passing it directly avoids a second round-trip to CTS.
+Since the CTS token is already available from the middleware, construct the `LockContext` directly. The CTS token has the shape `{ accessToken: string, expiry: number }`. Passing it directly avoids a second round-trip to CTS.
 
-```typescript title="page.tsx"
+```typescript filename="page.tsx"
 import { LockContext } from "@cipherstash/stack/identity"
 import { getCtsToken } from "@cipherstash/nextjs"
 
@@ -178,7 +178,7 @@ export default async function Page() {
 
 The `identify` method returns a `Result` type:
 
-```typescript title="identity.ts"
+```typescript filename="identity.ts"
 const result = await lc.identify(userJwt)
 
 if (result.failure) {

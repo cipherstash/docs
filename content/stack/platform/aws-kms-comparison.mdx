@@ -5,11 +5,11 @@ description: A side-by-side comparison of CipherStash Encryption and AWS KMS for
 
 # CipherStash vs AWS KMS
 
-Encrypting data shouldn't require managing binary buffers, base64 encoding, key ARNs, or building custom search solutions. CipherStash Encryption eliminates these complexities, giving you encryption that "just works" with a developer-friendly API.
+Encrypting data should not require managing binary buffers, base64 encoding, key ARNs, or building custom search solutions. CipherStash Encryption eliminates these complexities with a developer-friendly API.
 
 ## The simple truth: Encrypting a value
 
-Let's start with the most basic operation — encrypting a single value.
+Start with the most basic operation: encrypting a single value.
 
 ### AWS KMS: Manual work required
 
@@ -145,7 +145,7 @@ const decryptResult = await client.decrypt(ciphertext)
 
 ### 3. Bulk operations: Native API vs manual batching
 
-**AWS KMS** has no bulk API — you must manually batch operations and handle rate limits.
+**AWS KMS** has no bulk API. You must manually batch operations and handle rate limits.
 
 **CipherStash Encryption** has native bulk encryption:
 
@@ -302,7 +302,7 @@ if (encryptResult.failure) {
 const decryptResult = await client.decrypt(encryptResult.data)
 ```
 
-~20 lines including setup. You manage: nothing — `@cipherstash/stack` handles it all.
+~20 lines including setup. `@cipherstash/stack` handles everything.
 
 ## When to use each
 

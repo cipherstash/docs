@@ -67,10 +67,10 @@ This means:
 
 ## Use cases
 
-- **Multi-tenant SaaS** — Give each customer their own keyset so their data is cryptographically separated. See [Encryption configuration](/stack/encryption/configuration#keysets).
-- **Environment isolation** — Use different keysets for production, staging, and development. See [Secrets concepts](/stack/secrets/concepts#environments).
-- **Compliance boundaries** — Isolate data by jurisdiction or regulatory requirement.
-- **Custom isolation boundaries** — Key Sets are a general-purpose primitive. Use them for any cryptographic boundary your application needs — per-region, per-department, or per-feature.
+- **Multi-tenant SaaS:** Give each customer their own keyset so their data is cryptographically separated. See [Encryption configuration](/stack/encryption/configuration#keysets).
+- **Environment isolation:** Use different keysets for production, staging, and development. See [Secrets concepts](/stack/secrets/concepts#environments).
+- **Compliance boundaries:** Isolate data by jurisdiction or regulatory requirement.
+- **Custom isolation boundaries:** Key Sets are a general-purpose primitive. Use them for any cryptographic boundary your application needs: per-region, per-department, or per-feature.
 
 ## Keysets and clients
 
@@ -115,7 +115,7 @@ curl https://ap-southeast-2.aws.auth.viturhosted.net/api/authorize \
   -d '{"accessKey": "your_access_key_set_with_control_role"}'
 ```
 
-This will return a JSON response containing the access token and expiry information:
+The response contains the access token and expiry information:
 
 ```json
 {
@@ -143,7 +143,7 @@ curl https://ap-southeast-2.aws.viturhosted.net/create-keyset \
   -d '{"name":"my_automated_keyset","description":"automated"}' -v
 ```
 
-This will return a JSON response containing the ID of the keyset created:
+The response contains the ID of the created keyset:
 
 ```json
 {
@@ -165,4 +165,4 @@ curl https://ap-southeast-2.aws.viturhosted.net/grant-keyset \
   -d '{"keyset_id":"key_set_id","client_id":"client_id_to_grant_access_to"}' -v
 ```
 
-This will return an HTTP 200 response if successful.
+Returns HTTP 200 on success.

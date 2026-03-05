@@ -29,11 +29,11 @@ The Encryption SDK works with any database that supports JSON or JSONB column ty
 
 ### Install EQL (optional)
 
-To enable searchable encryption in PostgreSQL, install [EQL](/stack/platform/eql) so you can use the `eql_v2_encrypted` data type. If you don't need searchable encryption, use `jsonb` instead (you can migrate to EQL later).
+To enable searchable encryption in PostgreSQL, install [EQL](/stack/platform/eql) using [CipherStash Forge](/stack/encryption/stash-forge) so you can use the `eql_v2_encrypted` data type. If you don't need searchable encryption, use `jsonb` instead (you can migrate to EQL later).
 
 ```bash
-# DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres
-curl -sL https://cphrstsh.link/eql | psql $DATABASE_URL
+npm install -D @cipherstash/stack-forge
+npx stash-forge install
 ```
 
 <Callout type="info" title="Choosing the column type">
@@ -67,7 +67,7 @@ CREATE TABLE users (
 
 Encrypt the plaintext value and insert the resulting CipherCell into your database:
 
-```typescript title="insert.ts"
+```typescript filename="insert.ts"
 import { Encryption } from "@cipherstash/stack"
 import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
 import { Pool } from "pg"
@@ -114,7 +114,7 @@ async function insertUser(email: string) {
 
 Query the database and pass the CipherCell to the `decrypt` method:
 
-```typescript title="retrieve.ts"
+```typescript filename="retrieve.ts"
 async function getUserEmail(userId: number) {
   const fetchResult = await pool.query(
     "SELECT email FROM users WHERE id = $1",
@@ -139,7 +139,7 @@ async function getUserEmail(userId: number) {
 
 When inserting many rows, use `bulkEncrypt` with PostgreSQL's `UNNEST` for efficient batch inserts:
 
-```typescript title="bulk-insert.ts"
+```typescript filename="bulk-insert.ts"
 async function insertUsers(emails: string[]) {
   const plaintexts = emails.map((email) => ({ plaintext: email }))
 
@@ -162,11 +162,11 @@ async function insertUsers(emails: string[]) {
 }
 ```
 
-Using `bulkEncrypt` instead of calling `encrypt` in a loop has a significant performance impact — it batches key derivation requests to ZeroKMS.
+Using `bulkEncrypt` instead of calling `encrypt` in a loop is significantly faster. It batches key derivation requests to ZeroKMS.
 
 ## Next steps
 
-- [Searchable encryption](/stack/encryption/searchable-encryption) — query encrypted data without decrypting
-- [Drizzle ORM integration](/stack/encryption/drizzle) — encrypted queries with Drizzle
-- [Bulk operations](/stack/encryption/encrypt-decrypt) — encrypt and decrypt multiple values efficiently
-- [Identity-aware encryption](/stack/encryption/identity) — bind operations to authenticated identities
+- [Searchable encryption](/stack/encryption/searchable-encryption): query encrypted data without decrypting it
+- [Drizzle ORM integration](/stack/encryption/drizzle): encrypted queries with Drizzle
+- [Bulk operations](/stack/encryption/encrypt-decrypt): encrypt and decrypt multiple values efficiently
+- [Identity-aware encryption](/stack/encryption/identity): bind operations to authenticated identities

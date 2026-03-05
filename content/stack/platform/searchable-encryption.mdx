@@ -1,6 +1,6 @@
 ---
 title: Searchable encryption
-description: How CipherStash enables querying encrypted data without decryption — theory, architecture, and security model
+description: How CipherStash enables querying encrypted data without decryption: theory, architecture, and security model
 ---
 
 # Searchable encryption
@@ -16,7 +16,7 @@ With searchable encryption:
 - Data can be encrypted, stored, and searched in your existing database
 - Encrypted data can be searched using equality, free text search, and range queries
 - Data remains encrypted, and is decrypted in your application
-- Queries are blazing fast, and won't slow down your application experience
+- Queries are fast and do not slow down your application
 - Every decryption event is logged, giving you an audit trail of data access events
 
 ## Supported technologies
@@ -97,13 +97,13 @@ See [Supported Queries](/stack/platform/supported-queries) for a complete list, 
 
 ## Isn't this just hashing?
 
-At first glance, searchable encryption might seem similar to hashing — both allow you to compare values without revealing the original data. However, there are critical differences that make searchable encryption far more powerful and secure.
+At first glance, searchable encryption might seem similar to hashing. Both allow you to compare values without revealing the original data. However, there are critical differences that make searchable encryption far more powerful and secure.
 
 **Hashing has significant limitations:**
 
 - **Public function**: Standard hashing algorithms (SHA-256, bcrypt, etc.) are public and unkeyed, meaning anyone can compute hashes and compare them against your database
 - **Rainbow table attacks**: Because hashes are deterministic and publicly computable, attackers can pre-compute hashes of common values and match them against your database
-- **Limited query types**: Hashing only supports exact equality checks — you cannot perform range queries (`>`, `<`), ordering (`ORDER BY`), or pattern matching (`LIKE`)
+- **Limited query types**: Hashing only supports exact equality checks. You cannot perform range queries (`>`, `<`), ordering (`ORDER BY`), or pattern matching (`LIKE`).
 - **Irreversible**: Once hashed, data cannot be decrypted for legitimate use in your application
 
 **Searchable encryption provides stronger protection:**
@@ -164,8 +164,7 @@ CipherStash searchable encryption combines a number of different components:
 
 ## A query over encrypted data
 
-To help explain the flow of a query using searchable encryption let's use an example.
-In this case the client will be a Node.js application using the Encryption SDK and the server will be a PostgreSQL database with EQL types installed.
+The following example traces a query through the full stack. The client is a Node.js application using the Encryption SDK. The server is a PostgreSQL database with EQL types installed.
 
 A query over encrypted data follows these steps:
 
@@ -174,7 +173,7 @@ A query over encrypted data follows these steps:
 The client application (or proxy) first encrypts the query terms using ZeroKMS.
 For example, to search for users with the name `"Dan"`, the client generates an HMAC of the search term using encryption keys managed by ZeroKMS.
 
-```typescript title="encrypt.ts"
+```typescript filename="encrypt.ts"
 import { encryption } from "./encryption";
 import { users } from "./schema";
 
@@ -205,7 +204,7 @@ WHERE
   name->>'hm' = '0uZMw7qI0ztSL6Ra1E8QkdzfJMHvHyiMxPJK373dV88';
 ```
 
-The database receives only the encrypted search token — it never sees the plaintext query `"Dan"`.
+The database receives only the encrypted search token. It never sees the plaintext query `"Dan"`.
 
 ### 3. Database executes query and returns encrypted results
 
@@ -222,7 +221,7 @@ Matching records are identified and the database returns the encrypted ciphertex
 
 Finally, the client decrypts the returned CipherCells using ZeroKMS to reveal the plaintext data.
 
-```typescript title="decrypt.ts"
+```typescript filename="decrypt.ts"
 import { encryption } from "./encryption";
 
 // Decrypt the CipherCell returned from the database
@@ -241,10 +240,8 @@ const plaintext = decryptResult.data;
 
 ## Security model
 
-Under this security model:
-
-- The server can perform search operations, but cannot read data or queries
-- Keys remain entirely client-controlled, ensuring a strong trust boundary
+- The server can perform search operations, but cannot read data or queries.
+- Keys remain entirely client-controlled, ensuring a strong trust boundary.
 
 Leakage is tightly constrained to what is inherent to enabling search (e.g., whether two encrypted tokens are equal), and can be further minimised using advanced constructions such as structured encryption, per-record keys, or oblivious search patterns.
 

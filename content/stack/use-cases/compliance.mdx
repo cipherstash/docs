@@ -15,7 +15,7 @@ Many compliance frameworks require that sensitive identifiers (email, SSN, tax I
 
 When you define an `equality()` index on a column, CipherStash generates a deterministic HMAC that can be used for unique constraints:
 
-```typescript title="schema.ts"
+```typescript filename="schema.ts"
 import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
 
 export const patients = encryptedTable("patients", {
@@ -44,7 +44,7 @@ CREATE UNIQUE INDEX patients_email_unique
   ON patients (eql_v2.hmac_256(email));
 ```
 
-This ensures no two patients can have the same SSN or email — enforced at the database level — while the actual values remain encrypted.
+This ensures no two patients can have the same SSN or email, enforced at the database level, while the actual values remain encrypted.
 
 ## GDPR compliance patterns
 
@@ -56,7 +56,7 @@ Encrypted data with CipherStash supports crypto-shredding: revoke the keyset or 
 
 Encrypt all personal data fields and use [Lock Contexts](/stack/encryption/identity) to restrict which application components can decrypt specific records:
 
-```typescript title="minimize-access.ts"
+```typescript filename="minimize-access.ts"
 // Only the billing service can decrypt payment data
 const result = await client
   .withLockContext({ identityToken: billingServiceJWT })
@@ -65,7 +65,7 @@ const result = await client
 
 ### Data portability (Article 20)
 
-Encrypted values are stored as standard JSON objects ([CipherCells](/stack/platform/cipher-cell)). They can be exported, transferred between systems, and decrypted at the destination — provided the recipient has the appropriate key material.
+Encrypted values are stored as standard JSON objects ([CipherCells](/stack/platform/cipher-cell)). They can be exported, transferred between systems, and decrypted at the destination, provided the recipient has the appropriate key material.
 
 ## HIPAA compliance patterns
 
@@ -73,7 +73,7 @@ Encrypted values are stored as standard JSON objects ([CipherCells](/stack/platf
 
 Use identity-aware encryption to bind decryption to authenticated healthcare providers:
 
-```typescript title="hipaa-access.ts"
+```typescript filename="hipaa-access.ts"
 // Encrypt patient records with identity binding
 const encrypted = await client
   .withLockContext({ identityToken: providerJWT })
@@ -89,7 +89,7 @@ Every encryption and decryption operation through ZeroKMS produces an audit even
 
 ### Integrity controls (§ 164.312(c))
 
-CipherStash's authenticated encryption (AES-256-GCM) ensures that any tampering with encrypted data is detected during decryption — the operation will fail if the ciphertext has been modified.
+CipherStash's authenticated encryption (AES-256-GCM) detects any tampering with encrypted data during decryption. The operation fails if the ciphertext has been modified.
 
 ## PCI-DSS compliance patterns
 
@@ -97,7 +97,7 @@ CipherStash's authenticated encryption (AES-256-GCM) ensures that any tampering 
 
 Encrypt cardholder data at the application layer before it reaches the database:
 
-```typescript title="pci-store.ts"
+```typescript filename="pci-store.ts"
 import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
 
 export const cards = encryptedTable("cards", {
@@ -111,9 +111,9 @@ export const cards = encryptedTable("cards", {
 
 CipherStash's audit logging provides cryptographic proof of data access. Every decryption request is logged with:
 
-- **Who** — the authenticated identity (via Lock Context)
-- **What** — which encrypted column was accessed
-- **When** — timestamp of the operation
+- **Who**: the authenticated identity (via Lock Context)
+- **What**: which encrypted column was accessed
+- **When**: timestamp of the operation
 
 ## Supported regulations
 

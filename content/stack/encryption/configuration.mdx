@@ -9,7 +9,7 @@ The SDK supports two configuration methods: environment variables and programmat
 
 ## Environment variables
 
-The simplest approach. Set these in a `.env` file or your hosting platform:
+Set these in a `.env` file or your hosting platform:
 
 | Variable | Description | Required |
 |---|---|---|
@@ -24,9 +24,9 @@ Sign up at [cipherstash.com/signup](https://cipherstash.com/signup) and follow t
 
 ## Programmatic config
 
-Pass config directly when initializing the client. Useful when loading credentials from a secret manager:
+Pass config directly when initializing the client. Use this approach when loading credentials from a secret manager:
 
-```typescript title="encryption/index.ts"
+```typescript filename="encryption/index.ts"
 import { Encryption, type EncryptionClientConfig } from "@cipherstash/stack"
 import { users } from "./schema"
 
@@ -46,14 +46,14 @@ const client = await Encryption(config)
 ## Keysets
 
 [Key Sets](/stack/kms/keysets) are a ZeroKMS primitive for cryptographic isolation.
-Each Key Set maintains its own set of data encryption keys — data encrypted under one Key Set cannot be decrypted with another.
+Each Key Set maintains its own set of data encryption keys. Data encrypted under one Key Set cannot be decrypted with another.
 This is the same primitive that powers [environment isolation in Secrets](/stack/secrets/concepts#environments).
 
 You can specify a Key Set by ID or by name:
 
 ### By ID
 
-```typescript title="encryption/index.ts"
+```typescript filename="encryption/index.ts"
 const client = await Encryption({
   schemas: [users],
   config: {
@@ -68,7 +68,7 @@ const client = await Encryption({
 
 ### By name
 
-```typescript title="encryption/index.ts"
+```typescript filename="encryption/index.ts"
 const client = await Encryption({
   schemas: [users],
   config: {
@@ -115,12 +115,12 @@ This has been tested on [Vercel](https://vercel.com/) and [AWS Lambda](https://a
 
 `@cipherstash/stack` includes a native FFI module that must be excluded from bundling:
 
-- **Next.js**: See [Bundling — Next.js](/stack/encryption/bundling#nextjs)
+- **Next.js**: See [Bundling: Next.js](/stack/encryption/bundling#nextjs)
 - **SST / serverless**: See [SST setup](/stack/encryption/sst)
 - **Webpack / esbuild**: Add `@cipherstash/stack` to your externals configuration
 
 ### Platform requirements
 
 - **Node.js** >= 18
-- [Bun](https://bun.sh/) is not currently supported due to incomplete Node-API compatibility
+- [Bun](https://bun.sh/) is not supported due to incomplete Node-API compatibility
 - See [Troubleshooting](/stack/encryption/troubleshooting) for npm lockfile issues on Linux

@@ -8,16 +8,15 @@ description: Encrypt and search data with the Supabase SDK using the encryptedSu
 The `encryptedSupabase` wrapper makes encrypted queries look nearly identical to normal Supabase queries. It automatically handles encryption, decryption, `::jsonb` casts, and search term formatting.
 
 <Callout type="info">
-  Install the EQL schema in your Supabase (PostgreSQL) database so encrypted columns can use the `eql_v2_encrypted` type. Apply with **psql** using your database URL, or **download** the SQL file and run it in the Supabase SQL editor.
+  Install [EQL](/stack/platform/eql) in your Supabase database using [CipherStash Forge](/stack/encryption/stash-forge) so encrypted columns can use the `eql_v2_encrypted` type.
 </Callout>
 
-**Apply with psql:**
-
 ```bash
-curl -sL https://github.com/cipherstash/encrypt-query-language/releases/download/eql-2.2.1/cipherstash-encrypt-supabase.sql | psql $DATABASE_URL
+npm install -D @cipherstash/stack-forge
+npx stash-forge install --supabase
 ```
 
-**Download:** [cipherstash-encrypt-supabase.sql](https://github.com/cipherstash/encrypt-query-language/releases/download/eql-2.2.1/cipherstash-encrypt-supabase.sql) — then open the Supabase SQL editor and run the file contents.
+The `--supabase` flag installs a Supabase-compatible version of EQL and grants the required permissions on the `eql_v2` schema to `anon`, `authenticated`, and `service_role`.
 
 ## Database schema
 
@@ -81,7 +80,7 @@ const { data, error } = await eSupabase
 
 ## Inserting data
 
-Encrypted fields are automatically encrypted before insertion:
+The wrapper encrypts fields before insertion:
 
 ```typescript filename="app/actions.ts"
 // Single insert
@@ -107,7 +106,7 @@ const { data, error } = await eSupabase
 
 ## Selecting data
 
-Results are automatically decrypted:
+The wrapper decrypts results automatically:
 
 ```typescript filename="app/queries.ts"
 // List query — returns decrypted array
@@ -415,22 +414,17 @@ type EncryptedSupabaseError = {
 
 ## Exposing EQL schema for Supabase
 
-1. Go to [API settings](https://supabase.com/dashboard/project/_/settings/api) and add `eql_v2` to "Exposed schemas"
-2. Run the following SQL:
+If you installed EQL with `npx stash-forge install --supabase`, the role grants are already applied. You still need to expose the schema in the Supabase dashboard:
 
-```sql filename="supabase-grants.sql"
-GRANT USAGE ON SCHEMA eql_v2 TO anon, authenticated, service_role;
-GRANT ALL ON ALL TABLES IN SCHEMA eql_v2 TO anon, authenticated, service_role;
-GRANT ALL ON ALL ROUTINES IN SCHEMA eql_v2 TO anon, authenticated, service_role;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA eql_v2 TO anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA eql_v2 GRANT ALL ON TABLES TO anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA eql_v2 GRANT ALL ON ROUTINES TO anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA eql_v2 GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
-```
+Go to [API settings](https://supabase.com/dashboard/project/_/settings/api) and add `eql_v2` to **Exposed schemas**.
+
+<Callout type="info">
+  If you installed EQL manually (without `--supabase`), you also need to grant permissions. See [CipherStash Forge — Install for Supabase](/stack/encryption/stash-forge#install-for-supabase) for the required grants.
+</Callout>
 
 ## How it works
 
-Under the hood, `encryptedSupabase` uses a deferred query builder pattern. All chained operations (`.select()`, `.eq()`, `.insert()`, etc.) are recorded synchronously. When the query is `await`ed, the builder:
+`encryptedSupabase` uses a deferred query builder pattern. All chained operations (`.select()`, `.eq()`, `.insert()`) are recorded synchronously. When you `await` the query, the builder:
 
 1. **Encrypts mutation data** — calls `encryptModel` / `bulkEncryptModels` and converts to PG composites
 2. **Adds `::jsonb` casts** — parses your select string and adds `::jsonb` to encrypted columns

@@ -12,7 +12,7 @@ See [Error handling](/stack/encryption/error-handling) for details.
 
 ### Encrypt
 
-```typescript title="encrypt.ts"
+```typescript filename="encrypt.ts"
 const encrypted = await client.encrypt("user@example.com", {
   column: users.email,
   table: users,
@@ -27,7 +27,7 @@ if (encrypted.failure) {
 
 ### Decrypt
 
-```typescript title="decrypt.ts"
+```typescript filename="decrypt.ts"
 const decrypted = await client.decrypt(encrypted.data)
 
 if (decrypted.failure) {
@@ -39,11 +39,11 @@ if (decrypted.failure) {
 
 ## Model operations
 
-Encrypt or decrypt an entire object. Only fields matching your schema are encrypted — other fields pass through unchanged.
+Encrypt or decrypt an entire object. Only fields matching your schema are encrypted. Other fields pass through unchanged.
 
 ### Encrypt a model
 
-```typescript title="encrypt-model.ts"
+```typescript filename="encrypt-model.ts"
 const user = {
   id: "1",
   email: "user@example.com",   // defined in schema -> encrypted
@@ -73,7 +73,7 @@ const encryptedUser = encryptedResult.data
 
 `decryptModel` automatically detects and decrypts any encrypted fields:
 
-```typescript title="decrypt-model.ts"
+```typescript filename="decrypt-model.ts"
 const decryptedResult = await client.decryptModel(encryptedUser)
 
 if (decryptedResult.failure) {
@@ -86,18 +86,18 @@ const decryptedUser = decryptedResult.data
 
 ### Schema-aware return types
 
-The return type of `encryptModel` is schema-aware: fields matching the table schema are typed as `Encrypted`, while other fields retain their original types. For best results, let TypeScript infer the type parameters from the arguments:
+The return type of `encryptModel` is schema-aware: fields matching the table schema are typed as `Encrypted`, while other fields retain their original types. Let TypeScript infer the type parameters from the arguments:
 
-```typescript title="encrypt-model.ts"
+```typescript filename="encrypt-model.ts"
 const result = await client.encryptModel(user, users)
 // result.data.email is typed as Encrypted
 // result.data.id is typed as string
 // result.data.createdAt is typed as Date
 ```
 
-Passing an explicit type parameter (e.g., `client.encryptModel<User>(...)`) still works for backward compatibility — the return type degrades to `User` in that case:
+Passing an explicit type parameter (e.g., `client.encryptModel<User>(...)`) is supported for backward compatibility. The return type degrades to `User`:
 
-```typescript title="encrypt-model.ts"
+```typescript filename="encrypt-model.ts"
 type User = {
   id: string
   email: string | null
@@ -111,7 +111,7 @@ const back = await client.decryptModel<User>(encryptedUser)
 
 For full schema-aware types with explicit parameters, provide both the model type and the schema type:
 
-```typescript title="encrypt-model.ts"
+```typescript filename="encrypt-model.ts"
 const result = await client.encryptModel<User, typeof users>(user, users)
 ```
 
@@ -121,7 +121,7 @@ All bulk methods make a single call to ZeroKMS regardless of the number of recor
 
 ### Bulk encrypt and decrypt values
 
-```typescript title="bulk-encrypt.ts"
+```typescript filename="bulk-encrypt.ts"
 const plaintexts = [
   { id: "u1", plaintext: "alice@example.com" },
   { id: "u2", plaintext: "bob@example.com" },
@@ -134,7 +134,7 @@ const encrypted = await client.bulkEncrypt(plaintexts, {
 })
 ```
 
-```typescript title="bulk-decrypt.ts"
+```typescript filename="bulk-decrypt.ts"
 const decrypted = await client.bulkDecrypt(encrypted.data)
 
 for (const item of decrypted.data) {
@@ -148,7 +148,7 @@ for (const item of decrypted.data) {
 
 ### Bulk encrypt and decrypt models
 
-```typescript title="bulk-encrypt-models.ts"
+```typescript filename="bulk-encrypt-models.ts"
 const userModels = [
   { id: "1", email: "alice@example.com", address: "123 Main St" },
   { id: "2", email: "bob@example.com", address: "456 Oak Ave" },
@@ -160,7 +160,7 @@ const decrypted = await client.bulkDecryptModels(encrypted.data)
 
 Bulk model operations also support type parameters:
 
-```typescript title="bulk-encrypt-models.ts"
+```typescript filename="bulk-encrypt-models.ts"
 const result = await client.bulkEncryptModels<User>(userModels, users)
 const back = await client.bulkDecryptModels<User>(encrypted.data)
 ```
@@ -170,7 +170,7 @@ const back = await client.bulkDecryptModels<User>(encrypted.data)
 Any encrypt or decrypt operation can be scoped to a specific user with a lock context.
 See [Identity-aware encryption](/stack/encryption/identity) for details.
 
-```typescript title="identity-encrypt.ts"
+```typescript filename="identity-encrypt.ts"
 const encrypted = await client
   .encryptModel(user, users)
   .withLockContext(lockContext)

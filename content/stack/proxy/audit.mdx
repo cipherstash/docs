@@ -5,7 +5,7 @@ description: Statement fingerprinting, SQL redaction, primary key injection, and
 
 # Audit features
 
-CipherStash Proxy provides comprehensive data access auditing for PostgreSQL. These features work transparently — no changes to your SQL or application code are required.
+CipherStash Proxy provides comprehensive data access auditing for PostgreSQL. These features work transparently. They require no changes to your SQL or application code.
 
 ## Statement fingerprinting
 
@@ -24,7 +24,7 @@ Both queries produce the same fingerprint because they access the same columns f
 
 The statement SQL is redacted before being included in an event payload. All static values in the SQL string are stripped. Table names, column names, and function names are retained.
 
-If parsing fails or another issue prevents redaction, the statement will not be transmitted.
+If parsing fails or another issue prevents redaction, Proxy does not transmit the statement.
 
 Most PostgreSQL libraries and frameworks default to using parameterized statements and the PostgreSQL Extended Protocol, in which case values will not be included in the SQL.
 

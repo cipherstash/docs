@@ -5,7 +5,7 @@ description: Run equality, free-text, range, and JSON queries on encrypted data 
 
 # Searchable encryption
 
-CipherStash lets you run queries on encrypted data in PostgreSQL without decrypting it first — and it's [410,000x faster](https://github.com/cipherstash/tfhe-ore-bench) than homomorphic encryption.
+CipherStash lets you run queries on encrypted data in PostgreSQL without decrypting it first. It is [410,000x faster](https://github.com/cipherstash/tfhe-ore-bench) than homomorphic encryption.
 
 | Operation | Homomorphic | CipherStash | Speedup |
 |---|---|---|---|
@@ -17,7 +17,11 @@ Every decryption event is logged in [ZeroKMS](/stack/kms), giving you an audit t
 
 ## Prerequisites
 
-1. Install the [EQL custom types and functions](https://github.com/cipherstash/encrypt-query-language) in your PostgreSQL database
+1. Install [EQL](/stack/platform/eql) in your PostgreSQL database using [CipherStash Forge](/stack/encryption/stash-forge):
+   ```bash
+   npm install -D @cipherstash/stack-forge
+   npx stash-forge install
+   ```
 2. Define your encryption schema with the appropriate search indexes
 
 ## What is EQL?
@@ -37,7 +41,7 @@ CREATE TABLE users (
 
 Encrypt a query term so you can search encrypted data in PostgreSQL:
 
-```typescript title="search.ts"
+```typescript filename="search.ts"
 const term = await client.encryptQuery("user@example.com", {
   column: schema.email,
   table: schema,
@@ -72,7 +76,7 @@ console.log(term.data) // encrypted query term
 
 Encrypt multiple query terms in a single call:
 
-```typescript title="search.ts"
+```typescript filename="search.ts"
 const terms = await client.encryptQuery([
   { value: "user@example.com", column: schema.email, table: schema },
   { value: "18", column: schema.age, table: schema },
@@ -85,7 +89,7 @@ const terms = await client.encryptQuery([
 
 Use `.equality()` for exact match lookups:
 
-```typescript title="search.ts"
+```typescript filename="search.ts"
 const term = await client.encryptQuery("user@example.com", {
   column: schema.email,
   table: schema,
@@ -101,7 +105,7 @@ const result = await pgClient.query(
 
 Use `.freeTextSearch()` for text-based searches:
 
-```typescript title="search.ts"
+```typescript filename="search.ts"
 const term = await client.encryptQuery("example", {
   column: schema.email,
   table: schema,
@@ -118,10 +122,10 @@ const result = await pgClient.query(
 Use `.orderAndRange()` for sorting and range operations:
 
 <Callout type="info">
-  When using ORDER BY with encrypted columns, you need to use the EQL v2 functions if your PostgreSQL database doesn't support EQL Operator families. For databases that support EQL Operator families, you can use ORDER BY directly with encrypted column names.
+  If your PostgreSQL database does not support EQL Operator families, use the `eql_v2.ore_block_u64_8_256()` function for `ORDER BY`. Databases with Operator family support can use `ORDER BY` directly on the encrypted column name.
 </Callout>
 
-```typescript title="search.ts"
+```typescript filename="search.ts"
 const result = await pgClient.query(
   "SELECT * FROM users ORDER BY eql_v2.ore_block_u64_8_256(age_encrypted) ASC"
 )
@@ -131,7 +135,7 @@ const result = await pgClient.query(
 
 For columns storing JSON data, `.searchableJson()` is the recommended approach. It automatically infers the correct query operation from the plaintext value type.
 
-```typescript title="schema.ts"
+```typescript filename="schema.ts"
 const documents = encryptedTable("documents", {
   metadata: encryptedColumn("metadata_encrypted").searchableJson(),
 })
@@ -150,7 +154,7 @@ const documents = encryptedTable("documents", {
 
 Pass a string to query by JSON path:
 
-```typescript title="search.ts"
+```typescript filename="search.ts"
 const pathTerm = await client.encryptQuery("$.user.email", {
   column: documents.metadata,
   table: documents,
@@ -171,7 +175,7 @@ const arrayTerm = await client.encryptQuery("$.items[0].name", {
 
 Use the `toJsonPath` helper to convert dot-notation paths:
 
-```typescript title="search.ts"
+```typescript filename="search.ts"
 import { toJsonPath } from "@cipherstash/stack"
 
 toJsonPath("user.email")     // '$.user.email'
@@ -183,7 +187,7 @@ toJsonPath("name")           // '$.name'
 
 Pass an object or array to query by containment:
 
-```typescript title="search.ts"
+```typescript filename="search.ts"
 // Key-value containment
 const roleTerm = await client.encryptQuery({ role: "admin" }, {
   column: documents.metadata,
@@ -207,8 +211,8 @@ const tagsTerm = await client.encryptQuery(["admin", "user"], {
   Bare numbers and booleans are not supported as top-level `searchableJson` query values. For `orderAndRange` queries, bare numbers are supported directly. Wrap them in an object or array for `searchableJson`.
 </Callout>
 
-```typescript title="search.ts"
-// Wrong for searchableJson — will fail (works for orderAndRange)
+```typescript filename="search.ts"
+// Wrong for searchableJson: will fail (works for orderAndRange)
 await client.encryptQuery(42, { column: documents.metadata, table: documents })
 
 // Correct — wrap in an object
@@ -217,7 +221,7 @@ await client.encryptQuery({ value: 42 }, { column: documents.metadata, table: do
 
 Use the `buildNestedObject` helper to construct nested containment queries:
 
-```typescript title="search.ts"
+```typescript filename="search.ts"
 import { buildNestedObject } from "@cipherstash/stack"
 
 buildNestedObject("user.role", "admin")
@@ -228,7 +232,7 @@ buildNestedObject("user.role", "admin")
 
 Specify `returnType: 'composite-literal'` for direct use in SQL:
 
-```typescript title="search.ts"
+```typescript filename="search.ts"
 const term = await client.encryptQuery([{
   value: "$.user.email",
   column: documents.metadata,
@@ -246,7 +250,7 @@ const result = await pgClient.query(
 
 Use `encryptQuery` with an array to encrypt multiple JSONB query terms in a single call. Each item can have a different plaintext type:
 
-```typescript title="search.ts"
+```typescript filename="search.ts"
 const terms = await client.encryptQuery([
   {
     value: "$.user.email",        // string -> JSONPath selector
@@ -276,7 +280,7 @@ For advanced use cases, you can specify the query type explicitly instead of rel
 | **steVecSelector** (explicit) | `'steVecSelector'` | When you want to be explicit about JSONPath selector queries. |
 | **steVecTerm** (explicit) | `'steVecTerm'` | When you want to be explicit about containment queries. |
 
-```typescript title="search.ts"
+```typescript filename="search.ts"
 // Explicit steVecSelector
 const selectorTerm = await client.encryptQuery("$.user.email", {
   column: documents.metadata,
@@ -296,7 +300,7 @@ const containTerm = await client.encryptQuery({ role: "admin" }, {
 
 ### Using the `pg` client
 
-```typescript title="search.ts"
+```typescript filename="search.ts"
 import { Client } from "pg"
 import { Encryption } from "@cipherstash/stack"
 import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
@@ -308,7 +312,7 @@ const schema = encryptedTable("users", {
     .orderAndRange(),
 })
 
-const pgClient = new Client({ /* connection details */ })
+const pgClient = new Client({ connectionString: process.env.DATABASE_URL })
 const client = await Encryption({ schemas: [schema] })
 
 // Insert encrypted data

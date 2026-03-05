@@ -11,10 +11,10 @@ This guide helps you plan a CipherStash integration. Use it to evaluate your sec
 
 Before starting, assess the following:
 
-- **Current data security posture** — How do you currently encrypt sensitive data? Are you relying solely on encryption-at-rest?
-- **Compliance requirements** — What regulations apply (GDPR, HIPAA, PCI-DSS, SOC2)?
-- **Architecture constraints** — What databases and application frameworks are you using?
-- **Security concerns** — What attack vectors are you most concerned about (breaches, insider threats, accidental exposure)?
+- **Current data security posture**: How do you currently encrypt sensitive data? Are you relying solely on encryption-at-rest?
+- **Compliance requirements**: What regulations apply (GDPR, HIPAA, PCI-DSS, SOC2)?
+- **Architecture constraints**: What databases and application frameworks are you using?
+- **Security concerns**: What attack vectors are you most concerned about (breaches, insider threats, accidental exposure)?
 
 ## Understanding encryption types
 
@@ -28,7 +28,7 @@ Data is encrypted between services (TLS) but decrypted at each endpoint. Data is
 
 ### Encryption-in-use
 
-Data remains encrypted during search and processing. CipherStash provides encryption-in-use through searchable encryption — you can query encrypted data without decrypting it first.
+Data remains encrypted during search and processing. CipherStash provides encryption-in-use through searchable encryption. You can query encrypted data without decrypting it first.
 
 | Capability | At-rest | In-transit | In-use (CipherStash) |
 |---|---|---|---|
@@ -52,7 +52,7 @@ This means:
 
 ### PostgreSQL integration
 
-CipherStash is designed around PostgreSQL — the most popular open-source database. Integration requires no architecture changes:
+CipherStash is designed around PostgreSQL, the most popular open-source database. Integration requires no architecture changes:
 
 - **[EQL](/stack/platform/eql)** provides native PostgreSQL types for encrypted data
 - Existing queries and applications work with minimal modification
@@ -62,25 +62,25 @@ CipherStash is designed around PostgreSQL — the most popular open-source datab
 
 | Path | Best for | Code changes |
 |---|---|---|
-| [Encryption SDK](/stack/encryption) | Application-layer encryption with fine-grained control | Moderate — encrypt/decrypt calls in your data layer |
-| [CipherStash Proxy](/stack/proxy) | Existing PostgreSQL applications with minimal code changes | Minimal — point your connection at the proxy |
+| [Encryption SDK](/stack/encryption) | Application-layer encryption with fine-grained control | Moderate (encrypt/decrypt calls in your data layer) |
+| [CipherStash Proxy](/stack/proxy) | Existing PostgreSQL applications with minimal code changes | Minimal (point your connection at the proxy) |
 
 ### ORM support
 
 The Encryption SDK integrates with popular ORMs:
 
-- **[Drizzle ORM](/stack/encryption/drizzle)** — Custom encrypted column types with query operators
-- **[Supabase](/stack/encryption/supabase)** — Transparent encryption wrapper around the Supabase client
-- **[DynamoDB](/stack/encryption/dynamodb)** — Encrypted attributes with searchable capabilities
+- **[Drizzle ORM](/stack/encryption/drizzle)**: Custom encrypted column types with query operators
+- **[Supabase](/stack/encryption/supabase)**: Transparent encryption wrapper around the Supabase client
+- **[DynamoDB](/stack/encryption/dynamodb)**: Encrypted attributes with searchable capabilities
 
 ## ZeroKMS overview
 
 [ZeroKMS](/stack/kms) is CipherStash's zero-trust key management service:
 
-- **Key hierarchy** — Authority keys, client keys, and derived data keys provide defense in depth
-- **Regional deployment** — Available in [multiple regions](/stack/kms/regions) for data sovereignty
-- **Audit logging** — Complete visibility into key usage and access patterns
-- **Disaster recovery** — Multi-region key replication with [automated failover](/stack/kms/disaster-recovery)
+- **Key hierarchy**: Authority keys, client keys, and derived data keys provide defense in depth
+- **Regional deployment**: Available in [multiple regions](/stack/kms/regions) for data sovereignty
+- **Audit logging**: Complete visibility into key usage and access patterns
+- **Disaster recovery**: Multi-region key replication with [automated failover](/stack/kms/disaster-recovery)
 
 ## Enterprise features
 
@@ -88,9 +88,9 @@ The Encryption SDK integrates with popular ORMs:
 
 [Lock contexts](/stack/encryption/identity) provide identity-aware encryption. Bind encryption operations to authenticated users using JWTs for:
 
-- Temporal access control — time-limited access to sensitive data
-- Provable access boundaries — cryptographic proof of who accessed what
-- Audit trails — complete record of all data access events
+- Temporal access control: time-limited access to sensitive data
+- Provable access boundaries: cryptographic proof of who accessed what
+- Audit trails: complete record of all data access events
 
 ### Multi-tenant encryption
 
@@ -98,7 +98,7 @@ Cryptographic tenant isolation ensures complete separation between tenants. Each
 
 ## Next steps
 
-1. **Choose your integration path** — [Encryption SDK](/stack/encryption/getting-started) or [CipherStash Proxy](/stack/proxy/getting-started)
-2. **Set up credentials** — Create a workspace in the [CipherStash Dashboard](https://dashboard.cipherstash.com/)
-3. **Define your schema** — Declare which columns to encrypt and what queries to support
-4. **Deploy to production** — See [supported solutions](/stack/supported-solutions) for deployment options
+1. **Choose your integration path**: [Encryption SDK](/stack/encryption/getting-started) or [CipherStash Proxy](/stack/proxy/getting-started)
+2. **Set up credentials**: Create a workspace in the [CipherStash Dashboard](https://dashboard.cipherstash.com/)
+3. **Define your schema**: Declare which columns to encrypt and what queries to support
+4. **Deploy to production**: See [supported solutions](/stack/supported-solutions) for deployment options

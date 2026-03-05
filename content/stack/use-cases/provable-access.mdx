@@ -5,23 +5,23 @@ description: Cryptographic proof-based access control with Lock Contexts for ide
 
 # Provable access control
 
-Traditional access control relies on application logic — if a bug or misconfiguration exposes data, there's no way to prove access was unauthorized. CipherStash provides **cryptographic proof-based access control** through Lock Contexts, where access to data is mathematically bound to authenticated identities.
+Traditional access control relies on application logic. If a bug or misconfiguration exposes data, there is no way to prove access was unauthorized. CipherStash provides **cryptographic proof-based access control** through Lock Contexts, where access to data is mathematically bound to authenticated identities.
 
 ## How it works
 
-CipherStash [Lock Contexts](/stack/encryption/identity) bind encryption and decryption operations to an authenticated identity (typically a JWT from your identity provider). The identity token becomes part of the key derivation process — without a valid token, the data keys cannot be derived and the data cannot be decrypted.
+CipherStash [Lock Contexts](/stack/encryption/identity) bind encryption and decryption operations to an authenticated identity (typically a JWT from your identity provider). The identity token becomes part of the key derivation process. Without a valid token, the data keys cannot be derived and the data cannot be decrypted.
 
 This creates a provable access boundary:
 
 - If data was decrypted, the identity token **must** have been present
 - ZeroKMS logs the identity associated with every key derivation
-- The audit trail is cryptographically verifiable — it cannot be falsified
+- The audit trail is cryptographically verifiable; it cannot be falsified
 
 ## Identity-aware encryption
 
 ### Bind encryption to an identity
 
-```typescript title="identity-encrypt.ts"
+```typescript filename="identity-encrypt.ts"
 import { Encryption } from "@cipherstash/stack"
 import { patients } from "./schema"
 
@@ -49,7 +49,7 @@ async function encryptPatientRecord(
 
 ### Decrypt with identity verification
 
-```typescript title="identity-decrypt.ts"
+```typescript filename="identity-decrypt.ts"
 async function decryptPatientRecord(
   encryptedDiagnosis: unknown,
   providerJWT: string
@@ -83,12 +83,12 @@ Every encryption and decryption operation through ZeroKMS produces an audit even
 
 When using [CipherStash Proxy](/stack/proxy), additional audit capabilities are available:
 
-- **[Statement fingerprinting](/stack/proxy/audit)** — identify unique SQL query patterns accessing encrypted data
-- **[SQL redaction](/stack/proxy/audit)** — strip sensitive values from logged queries
-- **[Primary key injection](/stack/proxy/audit)** — track which specific records were accessed
-- **[Record reconciliation](/stack/proxy/audit)** — map data access events to specific table records
+- **[Statement fingerprinting](/stack/proxy/audit)**: identify unique SQL query patterns accessing encrypted data
+- **[SQL redaction](/stack/proxy/audit)**: strip sensitive values from logged queries
+- **[Primary key injection](/stack/proxy/audit)**: track which specific records were accessed
+- **[Record reconciliation](/stack/proxy/audit)**: map data access events to specific table records
 
-Together, these provide an end-to-end audit trail: **who** accessed **what data**, **when**, using **which query**.
+Together, these provide an end-to-end audit trail: **who** accessed **what data**, **when**, and using **which query**.
 
 ## Use cases
 
@@ -96,7 +96,7 @@ Together, these provide an end-to-end audit trail: **who** accessed **what data*
 
 HIPAA requires audit controls that record who accessed Protected Health Information (PHI). With Lock Contexts, every access to patient data is cryptographically tied to the authenticated provider:
 
-```typescript title="hipaa-audit.ts"
+```typescript filename="hipaa-audit.ts"
 // Each access is provably tied to the authenticated provider
 const diagnosis = await client
   .withLockContext({ identityToken: drSmithJWT })
@@ -113,7 +113,7 @@ const diagnosis = await client
 
 Ensure that only authorized roles can access specific data categories:
 
-```typescript title="segregation.ts"
+```typescript filename="segregation.ts"
 // Compliance team can decrypt audit records
 const auditData = await client
   .withLockContext({ identityToken: complianceTeamJWT })
@@ -127,7 +127,7 @@ const auditData = await client
 
 Bind encryption to tenant identity to provide cryptographic tenant isolation:
 
-```typescript title="tenant-isolation.ts"
+```typescript filename="tenant-isolation.ts"
 // Encrypt data with tenant-scoped identity
 const encrypted = await client
   .withLockContext({ identityToken: tenantAJWT })
@@ -144,7 +144,7 @@ const encrypted = await client
 
 | Aspect | Traditional (application logic) | Provable (CipherStash Lock Contexts) |
 |---|---|---|
-| **Enforcement** | Software checks that can be bypassed | Cryptographic — mathematically impossible to bypass |
+| **Enforcement** | Software checks that can be bypassed | Cryptographic: mathematically impossible to bypass |
 | **Audit trail** | Application logs that can be modified | ZeroKMS audit logs that are cryptographically verifiable |
 | **Proof of access** | Circumstantial (log entries) | Deterministic (key derivation requires identity) |
 | **Blast radius of bugs** | Data exposed if access check is bypassed | Data remains encrypted even if application logic fails |

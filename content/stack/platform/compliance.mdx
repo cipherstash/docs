@@ -32,7 +32,7 @@ Available regions are listed on the [Regions](/stack/kms/regions) page. When you
 
 ## Audit logging
 
-CipherStash logs every key derivation event — which means every encrypt and decrypt operation is recorded with context about who performed it, when, and for which keyset.
+CipherStash logs every key derivation event. Every encrypt and decrypt operation is recorded with context about who performed it, when, and for which keyset.
 
 Audit logs are available through the CipherStash dashboard. For programmatic access or SIEM integration, contact [support@cipherstash.com](mailto:support@cipherstash.com).
 
@@ -50,7 +50,7 @@ Audit logs are available through the CipherStash dashboard. For programmatic acc
 
 The SDK supports attaching audit metadata to any operation:
 
-```typescript title="audit-example.ts"
+```typescript filename="audit-example.ts"
 const result = await client
   .encrypt(plaintext, { column: users.email, table: users })
   .audit({ metadata: { action: "create", resource: "user" } })
@@ -60,7 +60,7 @@ This metadata is included in the audit log alongside the standard fields.
 
 ## Crypto-shredding
 
-CipherStash supports crypto-shredding — permanently destroying data by deleting the encryption keys rather than the ciphertext.
+CipherStash supports crypto-shredding: permanently destroying data by deleting the encryption keys rather than the ciphertext.
 
 Because each [keyset](/stack/kms/keysets) provides cryptographic isolation, you can:
 

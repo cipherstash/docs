@@ -12,6 +12,8 @@
     "encrypt-decrypt",
     "searchable-encryption",
     "identity",
+    "---Database setup---",
+    "stash-forge",
     "---Integrations---",
     "storing-data",
     "drizzle",

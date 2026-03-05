@@ -1,0 +1,235 @@
+---
+title: CipherStash Forge
+description: Install EQL, manage encryption schemas, and generate Drizzle migrations with the stash-forge CLI tool
+---
+
+# CipherStash Forge
+
+`@cipherstash/stack-forge` is a dev-time CLI for managing [EQL](/stack/platform/eql) (Encrypt Query Language) in your PostgreSQL database. It handles installing the EQL extension, pushing encryption schemas, and generating Drizzle migrations.
+
+It works like Drizzle Kit or Prisma CLI: a companion tool that sets up the database while `@cipherstash/stack` handles runtime encryption.
+
+| Package | Role | Install as |
+|---|---|---|
+| `@cipherstash/stack` | Runtime encryption and decryption | dependency |
+| `@cipherstash/stack-forge` | Database setup and schema management | devDependency |
+
+## Install
+
+```bash
+npm install -D @cipherstash/stack-forge
+```
+
+With pnpm, Yarn, or Bun:
+
+```bash
+pnpm add -D @cipherstash/stack-forge
+yarn add -D @cipherstash/stack-forge
+bun add -D @cipherstash/stack-forge
+```
+
+## Configuration
+
+Create a `stash.config.ts` file in your project root:
+
+```typescript filename="stash.config.ts"
+import { defineConfig } from '@cipherstash/stack-forge'
+
+export default defineConfig({
+  databaseUrl: process.env.DATABASE_URL!,
+})
+```
+
+Add your database connection string to `.env`:
+
+```bash filename=".env"
+DATABASE_URL=postgresql://user:password@localhost:5432/mydb
+```
+
+The CLI loads `.env` automatically, so `process.env` references work in `stash.config.ts` without any extra setup.
+
+### All options
+
+```typescript filename="stash.config.ts"
+import { defineConfig } from '@cipherstash/stack-forge'
+
+export default defineConfig({
+  // Required: PostgreSQL connection string
+  databaseUrl: process.env.DATABASE_URL!,
+
+  // Optional: path to your encryption client (default: './src/encryption/index.ts')
+  // Used by `stash-forge push` to load the encryption schema
+  client: './src/encryption/index.ts',
+
+  // Optional: CipherStash workspace and credentials
+  workspaceId: process.env.CS_WORKSPACE_ID,
+  clientAccessKey: process.env.CS_CLIENT_ACCESS_KEY,
+})
+```
+
+| Option | Required | Description |
+|---|---|---|
+| `databaseUrl` | Yes | PostgreSQL connection string |
+| `client` | No | Path to encryption client file (default: `'./src/encryption/index.ts'`). Used by `push` to load the encryption schema. |
+| `workspaceId` | No | CipherStash workspace ID |
+| `clientAccessKey` | No | CipherStash client access key |
+
+The config file is resolved by walking up from the current directory, similar to `tsconfig.json`.
+
+## Install EQL
+
+The `install` command downloads and installs the EQL extension into your PostgreSQL database:
+
+```bash
+npx stash-forge install
+```
+
+EQL is now installed. You can use the `eql_v2_encrypted` column type in your schema.
+
+### Preview before installing
+
+```bash
+npx stash-forge install --dry-run
+```
+
+### Reinstall or upgrade
+
+```bash
+npx stash-forge install --force
+```
+
+### Install for Supabase
+
+Supabase databases don't support `CREATE OPERATOR FAMILY`, which requires superuser access. Use `--supabase` to install a compatible version and grant permissions to Supabase roles:
+
+```bash
+npx stash-forge install --supabase
+```
+
+This downloads the Supabase-specific SQL variant and grants `USAGE`, table, routine, and sequence permissions on the `eql_v2` schema to `anon`, `authenticated`, and `service_role`.
+
+### Install options
+
+| Flag | Description |
+|---|---|
+| `--dry-run` | Preview what would happen without making changes |
+| `--force` | Reinstall even if EQL is already installed |
+| `--supabase` | Supabase-compatible install (no operator families + role grants) |
+| `--exclude-operator-family` | Skip operator family creation (for non-superuser database roles) |
+
+### Permission pre-checks
+
+Before installing, the CLI verifies that your database role has the required permissions:
+
+- `CREATE` on the database (for `CREATE SCHEMA` and `CREATE EXTENSION`)
+- `CREATE` on the `public` schema (for `CREATE TYPE public.eql_v2_encrypted`)
+- `SUPERUSER` or extension owner (for `CREATE EXTENSION pgcrypto`, if not already installed)
+
+If permissions are insufficient, the CLI exits with a message listing exactly what's missing.
+
+## Install EQL via Drizzle migrations
+
+If you use [Drizzle ORM](/stack/encryption/drizzle) and want EQL installation as part of your migration history, use the `drizzle generate` command instead of `install`:
+
+<Steps>
+  <Step>
+    ### Generate the migration
+
+    ```bash
+    npx stash-forge drizzle generate
+    ```
+
+    This creates a Drizzle migration file containing the EQL install SQL.
+  </Step>
+
+  <Step>
+    ### Apply the migration
+
+    ```bash
+    npx drizzle-kit migrate
+    ```
+  </Step>
+</Steps>
+
+| Flag | Default | Description |
+|---|---|---|
+| `--name <value>` | `install-eql` | Migration name |
+| `--out <value>` | `drizzle` | Output directory (must match your Drizzle config) |
+
+The `--out` value must match the `out` option in your `drizzle.config.ts`. This command requires `drizzle-kit` to be installed.
+
+## Push encryption schema
+
+The `push` command reads your encryption schema from the file specified by `client` in `stash.config.ts` and applies it to the database:
+
+```bash
+npx stash-forge push
+```
+
+This connects to Postgres, marks any existing rows in `eql_v2_configuration` as `inactive`, and inserts the current encrypt config as a new `active` row. The runtime SDK reads the active configuration from this table.
+
+Run `push` whenever you change your encryption schema (e.g., add a new encrypted column or search index).
+
+### Preview your schema
+
+```bash
+npx stash-forge push --dry-run
+```
+
+This loads and validates the schema, then prints it as JSON without making any database changes.
+
+## Programmatic API
+
+Import `@cipherstash/stack-forge` directly for custom tooling or CI scripts:
+
+```typescript filename="scripts/setup-db.ts"
+import { EQLInstaller, loadStashConfig } from '@cipherstash/stack-forge'
+
+const config = await loadStashConfig()
+
+const installer = new EQLInstaller({
+  databaseUrl: config.databaseUrl,
+})
+
+const permissions = await installer.checkPermissions()
+if (!permissions.ok) {
+  console.error('Missing permissions:', permissions.missing)
+  process.exit(1)
+}
+
+if (await installer.isInstalled()) {
+  console.log('EQL is already installed')
+} else {
+  await installer.install()
+}
+```
+
+### EQLInstaller methods
+
+| Method | Returns | Description |
+|---|---|---|
+| `checkPermissions()` | `Promise<PermissionCheckResult>` | Check if the database role has required privileges |
+| `isInstalled()` | `Promise<boolean>` | Check if the `eql_v2` schema exists |
+| `getInstalledVersion()` | `Promise<string \| null>` | Get the installed EQL version (or `null`) |
+| `install(options?)` | `Promise<void>` | Download and execute the EQL install SQL in a transaction |
+
+### Install options (programmatic)
+
+```typescript filename="scripts/setup-db.ts"
+await installer.install({
+  excludeOperatorFamily: true,  // Skip CREATE OPERATOR FAMILY
+  supabase: true,               // Supabase mode (implies excludeOperatorFamily + grants roles)
+})
+```
+
+## Troubleshooting
+
+| Error | Cause | Fix |
+|---|---|---|
+| `Could not find stash.config.ts` | No config file in cwd or parent dirs | Create `stash.config.ts` in your project root |
+| `databaseUrl is required` | Config missing `databaseUrl` | Add `databaseUrl` to config and check `.env` is loaded |
+| `must be superuser to create an operator family` | Standard SQL requires superuser | Use `--supabase` or `--exclude-operator-family` |
+| `Insufficient database permissions` | Role lacks CREATE privileges | Connect as superuser or grant permissions |
+| `EQL is already installed` | `eql_v2` schema exists | Use `--force` to reinstall |
+| `Encrypt client file not found` | `push` can't find the file at `config.client` | Set `client` in `stash.config.ts` to the correct path |
+| `drizzle-kit generate failed` | drizzle-kit not installed or wrong output dir | Install `drizzle-kit` and set `--out` to match your Drizzle config |

@@ -41,7 +41,7 @@ In the event of a complete regional failure, CipherStash can restore ZeroKMS ser
 
 **During a CipherStash outage, can we access our encrypted data?**
 
-No. While ZeroKMS is unavailable, your applications cannot perform cryptographic operations (encrypt or decrypt). This is an intentional security design — cryptographic operations require active key management infrastructure.
+No. While ZeroKMS is unavailable, your applications cannot perform cryptographic operations (encrypt or decrypt). This is an intentional security design: cryptographic operations require active key management infrastructure.
 
 **Is our encrypted data at risk?**
 
@@ -60,12 +60,12 @@ Once service is restored to a new region or infrastructure:
 
 ### Compared to traditional approaches
 
-Many encryption and data protection solutions require storing both encrypted data and keys together in a "vault." During disaster recovery, these solutions must restore the entire vault — potentially terabytes of data, taking hours or days.
+Many encryption and data protection solutions require storing both encrypted data and keys together in a "vault." During disaster recovery, these solutions must restore the entire vault, potentially terabytes of data, taking hours or days.
 
 **ZeroKMS is different:**
 
 - Only lightweight key material (megabytes) needs to be restored
-- Your encrypted data never moves — it stays in your database
+- Your encrypted data never moves. It stays in your database.
 - Recovery is based on cryptographic regeneration, not data restoration
 
 ### Security during recovery

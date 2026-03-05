@@ -23,7 +23,7 @@ If you haven't already, sign up for a [CipherStash account](https://dashboard.ci
 </Callout>
 
 Go to the [Dashboard onboarding](https://dashboard.cipherstash.com/workspaces/_/onboarding) and at **Step 2** click `Generate secrets`.
-The generated values will be copied to your clipboard.
+The generated values are copied to your clipboard.
 
 Store the client ID, key and credentials alongside the workspace CRN in `.env.proxy.docker`:
 
@@ -40,11 +40,11 @@ CS_CLIENT_ACCESS_KEY=<Client Access Key>
 docker compose up
 ```
 
-This will start a PostgreSQL database on `localhost:5432`, and CipherStash Proxy on `localhost:6432`.
-There's an example table called `users` that you can use to start inserting and querying encrypted data with.
+This starts a PostgreSQL database on `localhost:5432` and CipherStash Proxy on `localhost:6432`.
+The repo includes an example `users` table for inserting and querying encrypted data.
 
 <Callout type="info">
-In this example table we've chosen users' email, date of birth, and salary as examples of the kind of sensitive data that you might want to protect with encryption.
+This example uses email, date of birth, and salary to represent sensitive data worth encrypting.
 </Callout>
 
 ### Insert and read some data
@@ -81,7 +81,7 @@ Query the database directly:
 SELECT encrypted_email, encrypted_dob, encrypted_salary FROM users;
 ```
 
-You'll see the output is _much_ larger, because the `SELECT` returns the raw encrypted data.
+The output is significantly larger because the `SELECT` returns the raw encrypted data.
 The data is transparently encrypted and decrypted by Proxy.
 
 ### Update data with a WHERE clause
@@ -127,8 +127,8 @@ All comparison operations are evaluated against **encrypted** data — the liter
 
 </Steps>
 
-This demonstrates the power of CipherStash Proxy:
+CipherStash Proxy provides:
 
 - Completely transparent encryption of sensitive data in PostgreSQL
-- All data remains searchable, while being protected with non-deterministic AES-256-GCM encryption
+- All data remains searchable, protected with non-deterministic AES-256-GCM encryption
 - Zero changes required to your application's database queries

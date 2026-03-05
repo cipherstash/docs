@@ -202,7 +202,7 @@ try {
 
 ## Wrapping errors in application code
 
-A common pattern is to create a helper that converts `Result` into thrown errors for frameworks that expect exceptions (e.g., Express, Next.js API routes):
+Create a helper that converts `Result` into thrown errors for frameworks that expect exceptions (e.g., Express, Next.js API routes):
 
 ```typescript title="helpers.ts"
 function unwrap<T>(result: { data?: T; failure?: { type: string; message: string } }): T {

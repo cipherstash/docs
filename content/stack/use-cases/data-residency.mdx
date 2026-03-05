@@ -22,14 +22,14 @@ By selecting a ZeroKMS region, you control where authority keys are managed. Com
 
 CipherStash uses a dual-party key split architecture that provides a strong sovereignty guarantee:
 
-1. **Authority key** — managed by ZeroKMS in your chosen region
-2. **Client key** — managed by your application in your infrastructure
+1. **Authority key**: managed by ZeroKMS in your chosen region
+2. **Client key**: managed by your application in your infrastructure
 
 Neither key alone is sufficient to derive data keys. Both must cooperate to encrypt or decrypt data. This means:
 
-- **ZeroKMS alone cannot access your data** — it only holds half of the key material
-- **Your application alone cannot access data** — it needs ZeroKMS to derive data keys
-- **Data keys are never transmitted** — they are derived locally in your infrastructure
+- **ZeroKMS alone cannot access your data**: it only holds half of the key material
+- **Your application alone cannot access data**: it needs ZeroKMS to derive data keys
+- **Data keys are never transmitted**: they are derived locally in your infrastructure
 
 ## Deployment patterns
 
@@ -75,13 +75,13 @@ Each region has its own:
 - Client keys that never leave the region
 - Database with encrypted data
 
-Data encrypted in one region cannot be decrypted in another — providing cryptographic enforcement of data residency boundaries.
+Data encrypted in one region cannot be decrypted in another, providing cryptographic enforcement of data residency boundaries.
 
 ### Cross-border access with centralized control
 
 When you need to access encrypted data across regions (e.g., a global support team), use the Encryption SDK with region-specific client keys:
 
-```typescript title="regional-access.ts"
+```typescript filename="regional-access.ts"
 import { Encryption } from "@cipherstash/stack"
 import { customers } from "./schema"
 
@@ -98,7 +98,7 @@ const euClient = await Encryption({
 const result = await euClient.decrypt(encryptedEuRecord)
 ```
 
-Access to each region's data requires that region's credentials. This provides an auditable, revocable access model — if a team member's access to a region needs to be revoked, delete their client credentials for that region's workspace.
+Access to each region's data requires that region's credentials. This provides an auditable, revocable access model. To revoke a team member's access to a region, delete their client credentials for that region's workspace.
 
 ## Compliance alignment
 

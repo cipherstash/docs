@@ -60,10 +60,10 @@ EQL includes functions for configuration, querying, and working with encrypted d
 
 Functions to set up and manage encrypted columns:
 
-- `eql_v2.add_column()` — Initialize a column for encryption
-- `eql_v2.add_search_config()` — Add searchable indexes to encrypted columns
-- `eql_v2.remove_column()` — Remove column configuration
-- `eql_v2.config()` — View current configuration
+- `eql_v2.add_column()`: Initialize a column for encryption
+- `eql_v2.add_search_config()`: Add searchable indexes to encrypted columns
+- `eql_v2.remove_column()`: Remove column configuration
+- `eql_v2.config()`: View current configuration
 
 #### Query functions
 
@@ -77,33 +77,33 @@ Functions for querying encrypted data (operator equivalents also available):
 
 Functions to extract searchable terms from CipherCells:
 
-- `eql_v2.encrypted_get_hmac_256()` — Extract HMAC term for exact matches
-- `eql_v2.encrypted_get_bloom_filter()` — Extract Bloom filter for pattern matching
-- `eql_v2.encrypted_get_ore()` — Extract ORE term for range queries
+- `eql_v2.encrypted_get_hmac_256()`: Extract HMAC term for exact matches
+- `eql_v2.encrypted_get_bloom_filter()`: Extract Bloom filter for pattern matching
+- `eql_v2.encrypted_get_ore()`: Extract ORE term for range queries
 
 ## Index types
 
 EQL supports multiple searchable encryption index types. Each index type enables different query patterns:
 
-### `unique` — Exact match
+### `unique`: Exact match
 
 Enables exact equality queries and unique constraints using HMAC-SHA256.
 
 [Learn more about exact indexes](/stack/platform/supported-queries#exact-match)
 
-### `ore` — Range queries
+### `ore`: Range queries
 
 Enables range comparisons (`<`, `>`, `BETWEEN`) and ordering (`ORDER BY`) using Order Revealing Encryption.
 
 [Learn more about range indexes](/stack/platform/supported-queries#range--order)
 
-### `match` — Pattern matching
+### `match`: Pattern matching
 
 Enables substring and full-text search (`LIKE`, `ILIKE`) using encrypted Bloom filters with trigrams.
 
 [Learn more about match indexes](/stack/platform/supported-queries#match-pattern)
 
-### `ste_vec` — Structured data
+### `ste_vec`: Structured data
 
 Enables containment queries and JSON-style operations on encrypted arrays and JSONB data.
 
@@ -121,9 +121,9 @@ When a query is executed:
 
 EQL is designed to work with:
 
-- **PostgreSQL 14+** — Full support for all EQL features
-- **Managed databases** — Works with AWS RDS, Azure Database, Google Cloud SQL, and other managed PostgreSQL providers
-- **CipherStash SDKs** — Integrates with all CipherStash SDKs as well as CipherStash Proxy
+- **PostgreSQL 14+**: Full support for all EQL features
+- **Managed databases**: Works with AWS RDS, Azure Database, Google Cloud SQL, and other managed PostgreSQL providers
+- **CipherStash SDKs**: Integrates with all CipherStash SDKs as well as CipherStash Proxy
 
 <Callout type="info">
 Unlike PostgreSQL extensions that require `CREATE EXTENSION`, EQL types and functions are installed directly into your database schema, making it compatible with managed database environments that restrict extension installation.
@@ -131,5 +131,5 @@ Unlike PostgreSQL extensions that require `CREATE EXTENSION`, EQL types and func
 
 ## Related documentation
 
-- [CipherCell format](/stack/platform/cipher-cell) — The data structure used by EQL
-- [Supported queries](/stack/platform/supported-queries) — Available searchable encryption schemes
+- [CipherCell format](/stack/platform/cipher-cell): The data structure used by EQL
+- [Supported queries](/stack/platform/supported-queries): Available searchable encryption schemes

@@ -17,26 +17,20 @@ The Drizzle integration is included in `@cipherstash/stack` and imports from `@c
 
 ## Database setup
 
-### Install the EQL extension
+### Install EQL via Drizzle migrations
 
-The EQL (Encrypt Query Language) PostgreSQL extension enables searchable encryption functions. Generate a migration:
+Use [CipherStash Forge](/stack/encryption/stash-forge) to generate a Drizzle migration that installs the [EQL](/stack/platform/eql) extension:
 
 ```bash
-npx generate-eql-migration
+npm install -D @cipherstash/stack-forge
+npx stash-forge drizzle generate
+npx drizzle-kit migrate
 ```
-
-Options:
 
 | Flag | Default | Description |
 |---|---|---|
-| `-n, --name <name>` | `install-eql` | Migration name |
-| `-o, --out <dir>` | `drizzle` | Output directory |
-
-Then apply it:
-
-```bash
-npx drizzle-kit migrate
-```
+| `--name <value>` | `install-eql` | Migration name |
+| `--out <value>` | `drizzle` | Output directory (must match your Drizzle config) |
 
 ### Column storage
 
@@ -536,31 +530,26 @@ app.listen(3000)
 
 ## Error handling
 
-Individual operators (e.g., `eq()`, `gte()`, `like()`) throw errors when invoked with invalid configuration or missing indexes:
+Individual operators (e.g., `eq()`, `gte()`, `like()`) throw when called with invalid configuration or missing indexes:
 
-- **`EncryptionOperatorError`** -- thrown for operator-level issues (e.g., invalid arguments, unsupported operations).
-- **`EncryptionConfigError`** -- thrown for configuration issues (e.g., using `like` on a column without `freeTextSearch: true`).
+- **`EncryptionOperatorError`**: thrown for operator-level issues (e.g., invalid arguments, unsupported operations).
+- **`EncryptionConfigError`**: thrown for configuration issues (e.g., using `like` on a column without `freeTextSearch: true`).
 
-```typescript filename="error-classes.ts"
+```typescript filename="error-handling.ts"
 import {
   createEncryptionOperators,
   EncryptionOperatorError,
   EncryptionConfigError,
 } from "@cipherstash/stack/drizzle"
 
-class EncryptionOperatorError extends Error {
-  context?: {
-    tableName?: string
-    columnName?: string
-    operator?: string
-  }
-}
-
-class EncryptionConfigError extends Error {
-  context?: {
-    tableName?: string
-    columnName?: string
-    operator?: string
+try {
+  const result = await encryptionOps.like(usersTable.age, "%foo%")
+} catch (err) {
+  if (err instanceof EncryptionConfigError) {
+    // Column does not have freeTextSearch enabled
+    console.error("Config error:", err.message, err.context)
+  } else if (err instanceof EncryptionOperatorError) {
+    console.error("Operator error:", err.message, err.context)
   }
 }
 ```
