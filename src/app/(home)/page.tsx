@@ -8,9 +8,11 @@ import {
   KeyRound,
   LayoutDashboard,
   Lock,
+  Search,
   Server,
   ShieldCheck,
   Terminal,
+  WrenchIcon,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
@@ -121,8 +123,9 @@ export default function HomePage() {
             CipherStash Docs
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-fd-muted-foreground">
-            Learn how to encrypt application data, manage secrets, and secure
-            your infrastructure with the CipherStash Stack.
+            Field-level encryption, query over encrypted data, type-safe APIs,
+            and zero-knowledge by design. CipherStash isn't just a generic
+            security tool, it's your data's guard dog.
           </p>
 
           {/* Getting started cards */}
@@ -163,6 +166,40 @@ export default function HomePage() {
               </div>
               <ArrowRight className="ml-auto size-4 shrink-0 text-fd-muted-foreground transition-colors group-hover:text-fd-primary" />
             </Link>
+            <Link
+              href="/stack/platform/searchable-encryption"
+              className="group flex items-center gap-4 rounded-lg border border-fd-border bg-fd-card p-4 transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
+            >
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-fd-primary/10 text-fd-primary">
+                <Search className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-fd-foreground">
+                  Searchable encryption
+                </p>
+                <p className="text-sm text-fd-muted-foreground">
+                  Equality, free text, range, ordering, and JSON queries. Your
+                  usual PostgreSQL ops, but the data's encrypted.
+                </p>
+              </div>
+              <ArrowRight className="ml-auto size-4 shrink-0 text-fd-muted-foreground transition-colors group-hover:text-fd-primary" />
+            </Link>
+            <Link
+              href="/stack/platform/searchable-encryption"
+              className="group flex items-center gap-4 rounded-lg border border-fd-border bg-fd-card p-4 transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
+            >
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-fd-primary/10 text-fd-primary">
+                <WrenchIcon className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-fd-foreground">Forge</p>
+                <p className="text-sm text-fd-muted-foreground">
+                  The sidekick that sets up the database bits so searchable
+                  encryption just works.
+                </p>
+              </div>
+              <ArrowRight className="ml-auto size-4 shrink-0 text-fd-muted-foreground transition-colors group-hover:text-fd-primary" />
+            </Link>
           </div>
         </div>
       </section>
@@ -173,8 +210,8 @@ export default function HomePage() {
           The Stack
         </h2>
         <p className="mt-2 text-fd-muted-foreground">
-          Core data security stack for encrypting, managing, and securing your
-          data.
+          Everything you need to encrypt, stash secrets, and keep keys in check,
+          no duct tape required.
         </p>
 
         <div className="mt-8 grid gap-5 sm:grid-cols-2">
@@ -211,7 +248,7 @@ export default function HomePage() {
             Integrations
           </h2>
           <p className="mt-2 text-fd-muted-foreground">
-            Use CipherStash with your existing database and ORM.
+            Drop-in encryption for the databases and ORMs you already use.
           </p>
 
           <div className="mt-8 grid gap-5 sm:grid-cols-3">
@@ -275,8 +312,8 @@ export default function HomePage() {
             AI-ready documentation
           </h2>
           <p className="mx-auto mt-2 max-w-lg text-sm text-fd-muted-foreground">
-            Every page is available as clean markdown. Use our docs with
-            ChatGPT, Claude, Cursor, or any LLM.
+            Every page is clean markdown. Feed it to ChatGPT, Claude, Cursor, or
+            your favorite LLM, they'll feel right at home.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link
