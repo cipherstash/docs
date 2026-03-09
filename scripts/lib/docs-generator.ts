@@ -404,11 +404,9 @@ export async function generateDocs(config: DocsConfig): Promise<void> {
       "utf8",
     );
 
-    // Clean up temp directory (only if not using local path)
-    if (!localPath) {
-      console.log("\nCleaning up...");
-      await fs.rm(tempDir, { recursive: true, force: true, maxRetries: 3 });
-    }
+    // Clean up temp directory
+    console.log("\nCleaning up...");
+    await fs.rm(tempDir, { recursive: true, force: true, maxRetries: 3 });
 
     console.log(
       `\nAll ${config.packageName} documentation generated successfully!`,
@@ -419,11 +417,8 @@ export async function generateDocs(config: DocsConfig): Promise<void> {
       `\nError generating ${config.packageName} documentation:`,
       error,
     );
-    const localPath = process.env.PROTECT_WORKSPACE_PATH;
-    if (!localPath) {
-      const tempDir = path.join(process.cwd(), config.tempDirName);
-      await fs.rm(tempDir, { recursive: true, force: true, maxRetries: 3 });
-    }
+    const tempDir = path.join(process.cwd(), config.tempDirName);
+    await fs.rm(tempDir, { recursive: true, force: true, maxRetries: 3 });
     throw error;
   }
 }

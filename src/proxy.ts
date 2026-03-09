@@ -2,13 +2,21 @@ import { NextResponse } from "next/server";
 import type { NextFetchEvent, NextRequest } from "next/server";
 import { getPostHogClient } from "@/lib/posthog/server";
 
-export function proxy(request: NextRequest, event: NextFetchEvent) {
-  if (request.method !== "GET") {
-    return NextResponse.next();
-  }
+const SKIP_PATHS = ["/api", "/_next/static", "/_next/image", "/ingest"];
 
-  // Never track API requests
-  if (request.nextUrl.pathname.startsWith("/api")) {
+const SKIP_EXTENSIONS = /\.(?:svg|png|jpg|jpeg|gif|webp|ico|rsc)$/;
+
+function shouldSkip(pathname: string): boolean {
+  if (SKIP_PATHS.some((p) => pathname.startsWith(p))) return true;
+  if (SKIP_EXTENSIONS.test(pathname)) return true;
+  if (pathname === "/favicon.ico") return true;
+  // Skip Next.js segment prefetch requests
+  if (pathname.includes(".segments/")) return true;
+  return false;
+}
+
+export function proxy(request: NextRequest, event: NextFetchEvent) {
+  if (request.method !== "GET" || shouldSkip(request.nextUrl.pathname)) {
     return NextResponse.next();
   }
 
@@ -59,8 +67,9 @@ export function proxy(request: NextRequest, event: NextFetchEvent) {
   return response;
 }
 
+// Use "/" matcher to work around Next.js 16 basePath + regex matcher bug
+// https://github.com/vercel/next.js/issues/86701
+// Path filtering is handled in the proxy function body instead.
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|ingest|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
-  ],
+  matcher: "/",
 };

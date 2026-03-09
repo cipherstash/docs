@@ -8,6 +8,7 @@
  * for development (e.g., /Users/cj/Documents/CipherStash/Github/protectjs).
  * Otherwise, the script clones from GitHub.
  */
+import fs from "node:fs/promises";
 import path from "node:path";
 import { type DocsConfig, generateDocs } from "./lib/docs-generator.js";
 
@@ -37,6 +38,19 @@ async function main() {
   console.log("=".repeat(60));
   console.log("CipherStash API Reference Documentation Generator");
   console.log("=".repeat(60));
+
+  // Clean up any stale .tmp-* directories from previous runs
+  const rootDir = process.cwd();
+  const entries = await fs.readdir(rootDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.isDirectory() && entry.name.startsWith(".tmp-")) {
+      console.log(`Removing stale temp directory: ${entry.name}`);
+      await fs.rm(path.join(rootDir, entry.name), {
+        recursive: true,
+        force: true,
+      });
+    }
+  }
 
   const localPath = process.env.PROTECT_WORKSPACE_PATH;
   if (localPath) {

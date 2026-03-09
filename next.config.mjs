@@ -31,6 +31,9 @@ const config = {
       fallback: [],
     };
   },
+  experimental: {
+    turbopackFileSystemCacheForDev: true,
+  },
 };
 
 export default withMDX(config);
