@@ -1,0 +1,65 @@
+---
+title: Encrypt tool
+description: Use the encrypt CLI tool to encrypt existing data or apply index changes after updating CipherStash Proxy encryption configuration.
+---
+
+CipherStash Proxy includes an `encrypt` tool, a CLI application to encrypt existing plaintext data or apply index changes after updating the encryption configuration of a protected database.
+
+## Usage
+
+Encrypt data from a `source` column into a specified encrypted `target` column. The tool connects to CipherStash Proxy using the `cipherstash.toml` configuration or environment variables.
+
+```bash
+cipherstash-proxy encrypt [OPTIONS] --table <TABLE> --columns <SOURCE_COLUMN=TARGET_COLUMN>...
+```
+
+## How it works
+
+The process for encrypting a column is:
+
+1. Add a new encrypted destination column with the appropriate encryption configuration.
+2. Use CipherStash Proxy to process the migration:
+   1. Select from the original plaintext column.
+   2. Update the encrypted column with the plaintext value.
+3. Drop the original plaintext column.
+4. Rename the encrypted column to the original plaintext column name.
+
+The `encrypt` tool automates this process. Updates run in batches of 100 records (configurable via `--batch-size`). The process is idempotent and can be run repeatedly.
+
+## Configuration options
+
+| Option | Description | Default |
+|---|---|---|
+| `-t`, `--table` | Specifies the table to migrate | Required |
+| `-c`, `--columns` | List of columns to migrate (space-delimited `key=value` pairs) | Required |
+| `-k`, `--primary-key` | List of primary key columns (space-delimited) | `id` |
+| `-b`, `--batch-size` | Number of records to process at once | `100` |
+| `-d`, `--dry-run` | Loads data but does not perform updates | Optional |
+| `-v`, `--verbose` | Turns on additional logging output | Optional |
+| `-h`, `--help` | Displays help message | — |
+
+## Examples
+
+These examples assume a running CipherStash Proxy instance and a `users` table with:
+
+- `id`: the primary key column
+- `email`: the source plaintext column
+- `encrypted_email`: the destination column configured for encrypted text
+
+### Encrypt a column
+
+```bash
+cipherstash-proxy encrypt --table users --columns email=encrypted_email
+```
+
+### Specify a primary key column
+
+```bash
+cipherstash-proxy encrypt --table users --columns email=encrypted_email --primary-key user_id
+```
+
+### Compound primary key
+
+```bash
+cipherstash-proxy encrypt --table users --columns email=encrypted_email --primary-key user_id tenant_id
+```

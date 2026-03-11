@@ -49,7 +49,7 @@ docker compose up
 Connect your PostgreSQL client to Proxy on TCP 6432.
 
 <Callout type="info">
-Prometheus metrics are exposed on port 9930. Read more about them in the [reference documentation](https://github.com/cipherstash/proxy/blob/main/docs/reference/index.md#prometheus-metrics).
+Prometheus metrics are exposed on port 9930. Read more about them in the [reference documentation](/stack/proxy/reference#prometheus-metrics).
 </Callout>
 
 ## Configuring Proxy
@@ -71,7 +71,7 @@ Configuration loading order:
 2. If `cipherstash-proxy.toml` is not present, Proxy looks up environment variables
 3. If **both** are present, Proxy uses the TOML file as the base and overrides with any environment variables that are set
 
-See the [Proxy config reference](https://github.com/cipherstash/proxy/blob/main/docs/reference/index.md#proxy-config-options) for all available options.
+See the [Proxy config reference](/stack/proxy/reference) for all available options.
 
 ## Setting up the database schema
 
@@ -151,8 +151,8 @@ To learn about encrypted indexes for other data types (`text`, `int`, `boolean`,
 ## Encrypting existing data
 
 CipherStash Proxy includes an `encrypt` CLI tool to encrypt existing data, or to apply index changes after changes to the encryption configuration.
-See the [`encrypt` tool reference](https://github.com/cipherstash/proxy/blob/main/docs/reference/encrypt-tool.md) for usage details.
+See the [CLI reference](/stack/proxy/reference#cli-reference) for usage details.
 
 ## Reference
 
-See the [CipherStash Proxy reference](https://github.com/cipherstash/proxy/blob/main/docs/reference/index.md) for all available options.
+See the [CipherStash Proxy reference](/stack/proxy/reference) for all available options.

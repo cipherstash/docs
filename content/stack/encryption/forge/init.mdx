@@ -1,0 +1,66 @@
+---
+title: Interactive setup
+description: Set up your CipherStash project with the interactive init wizard, part of the @cipherstash/stack package
+---
+
+# Interactive setup
+
+The `init` command is part of `@cipherstash/stack`. It generates your encryption schema and installs `@cipherstash/stack-forge` as a devDependency.
+
+```bash
+npx @cipherstash/stack init
+```
+
+## What the wizard does
+
+The wizard walks through these steps:
+
+1. **Chooses your database connection method**: Drizzle ORM, Supabase JS, Prisma, or Raw SQL.
+2. **Builds your encryption schema**: Two options:
+   - **Build interactively:** Asks for table name, column names, data types, and search operations for each column.
+   - **Use a placeholder:** Generates an example `users` table with `email` and `name` columns.
+3. **Generates the encryption client file** (default: `./src/encryption/index.ts`).
+4. **Installs `@cipherstash/stack-forge`**: Adds it as a devDependency for database tooling. Detects your package manager (npm, pnpm, yarn, bun) automatically.
+5. **Prints next steps**: Shows what to do next, with links to the [CipherStash dashboard](https://dashboard.cipherstash.com/sign-up) for credentials.
+
+| Flag | Description |
+|---|---|
+| `--supabase` | Use Supabase-specific setup flow |
+
+## Generated file
+
+### Encryption client
+
+The path depends on your answer during setup (default: `./src/encryption/index.ts`). If you chose the interactive schema builder, it generates a complete schema based on your inputs. If you chose the placeholder, it generates:
+
+```typescript filename="src/encryption/index.ts"
+import { Encryption } from "@cipherstash/stack"
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
+
+const users = encryptedTable("users", {
+  email: encryptedColumn("email").equality().freeTextSearch(),
+  name: encryptedColumn("name").equality().freeTextSearch(),
+})
+
+export default await Encryption({ schemas: [users] })
+```
+
+## After init
+
+Once the wizard completes, set up your database:
+
+```bash
+npx stash-forge setup
+```
+
+This will auto-detect your encryption client, ask for your database URL, generate `stash.config.ts`, detect your Postgres provider, and install EQL. See [setup](/stack/encryption/forge/install#setup) for details.
+
+Or use `stash-forge install` directly for non-interactive setup:
+
+```bash
+npx stash-forge install
+npx stash-forge install --drizzle  # Generate a Drizzle migration instead
+npx stash-forge install --supabase # Supabase-compatible install
+```
+
+Then set up your CipherStash credentials. See [Configuration](/stack/encryption/configuration) for the required environment variables.

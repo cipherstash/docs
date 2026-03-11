@@ -43,6 +43,24 @@ const config: EncryptionClientConfig = {
 const client = await Encryption(config)
 ```
 
+## Subpath exports
+
+The SDK provides multiple subpath exports for importing only what you need:
+
+| Import path | Provides |
+|---|---|
+| `@cipherstash/stack` | `Encryption` function, `Secrets` class, `encryptedTable`, `encryptedColumn`, `encryptedField` (convenience re-exports) |
+| `@cipherstash/stack/schema` | `encryptedTable`, `encryptedColumn`, `encryptedField`, schema types |
+| `@cipherstash/stack/identity` | `LockContext` class and identity types |
+| `@cipherstash/stack/secrets` | `Secrets` class and secrets types |
+| `@cipherstash/stack/drizzle` | `encryptedType`, `extractEncryptionSchema`, `createEncryptionOperators` for Drizzle ORM |
+| `@cipherstash/stack/supabase` | `encryptedSupabase` wrapper for Supabase |
+| `@cipherstash/stack/dynamodb` | `encryptedDynamoDB` helper for DynamoDB |
+| `@cipherstash/stack/encryption` | `EncryptionClient` class, `Encryption` function |
+| `@cipherstash/stack/errors` | `EncryptionErrorTypes`, `StackError`, error subtypes, `getErrorMessage` |
+| `@cipherstash/stack/client` | Client-safe exports: schema builders, schema types, `EncryptionClient` type (no native FFI) |
+| `@cipherstash/stack/types` | All TypeScript types |
+
 ## Keysets
 
 [Key Sets](/stack/kms/keysets) are a ZeroKMS primitive for cryptographic isolation.

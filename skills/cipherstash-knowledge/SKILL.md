@@ -40,6 +40,25 @@ Field-level encryption with searchable queries using `@cipherstash/stack`.
 | Error handling | `/docs/stack/encryption/error-handling` | The `Result` pattern used across the SDK |
 | Migration guide | `/docs/stack/encryption/migration` | Migrating from `@cipherstash/protect` to `@cipherstash/stack` |
 
+### CipherStash Forge (`/docs/stack/encryption/forge`)
+
+Dev-time CLI (`@cipherstash/stack-forge`) for database setup, EQL installation, and schema management. Installed as a devDependency.
+
+| Page | URL | Use when |
+|------|-----|----------|
+| Overview | `/docs/stack/encryption/forge` | Understanding Forge and its role alongside `@cipherstash/stack` |
+| Interactive setup (init) | `/docs/stack/encryption/forge/init` | Using `npx @cipherstash/stack init` to generate schemas and client |
+| Setup, install, and upgrade | `/docs/stack/encryption/forge/install` | Using `npx stash-forge setup` (interactive) or `npx stash-forge install` (non-interactive) to install EQL |
+| Schema validation | `/docs/stack/encryption/forge/validate` | Checking encryption schemas for misconfigurations |
+| Push and status | `/docs/stack/encryption/forge/push` | Pushing schemas to the database (CipherStash Proxy only) |
+| Programmatic API | `/docs/stack/encryption/forge/api` | Using `EQLInstaller`, `loadStashConfig`, `loadBundledEqlSql` as a library |
+| Troubleshooting | `/docs/stack/encryption/forge/troubleshooting` | Diagnosing common Forge and EQL errors |
+
+**Two-step setup flow:**
+
+1. `npx @cipherstash/stack init` — Chooses DB connection method, builds encryption schema, generates client file, installs `@cipherstash/stack-forge`
+2. `npx stash-forge setup` — Auto-detects client, asks for DB URL, generates `stash.config.ts`, detects Postgres provider (Supabase/Neon/AWS RDS/etc.), installs EQL
+
 ### Secrets (`/docs/stack/secrets`)
 
 End-to-end encrypted secret storage and management.
@@ -141,6 +160,8 @@ Auto-generated API reference documentation.
 | Task | Start here |
 |------|------------|
 | **First time using CipherStash** | `/docs/stack/encryption/getting-started` |
+| **Initialize a new project** | `/docs/stack/encryption/forge/init` (`npx @cipherstash/stack init`) |
+| **Set up database and install EQL** | `/docs/stack/encryption/forge/install` (`npx stash-forge setup`) |
 | **Add encryption to an existing app** | `/docs/stack/encryption/getting-started` then `/docs/stack/encryption/schema` |
 | **Query encrypted data** | `/docs/stack/encryption/searchable-encryption` |
 | **Use with Drizzle ORM** | `/docs/stack/encryption/drizzle` |
@@ -165,14 +186,15 @@ Auto-generated API reference documentation.
 
 ### By product
 
-| Product | Package | Docs |
-|---------|---------|------|
+| Product | Package / CLI | Docs |
+|---------|---------------|------|
 | Encryption SDK | `@cipherstash/stack` | `/docs/stack/encryption` |
+| CipherStash Forge | `@cipherstash/stack-forge` (`stash-forge` CLI) | `/docs/stack/encryption/forge` |
+| Stash CLI (init, secrets) | `@cipherstash/stack` (`stash` CLI) | `/docs/stack/encryption/forge/init`, `/docs/stack/secrets/cli` |
 | Drizzle integration | `@cipherstash/stack/drizzle` | `/docs/stack/encryption/drizzle` |
 | Supabase integration | `@cipherstash/stack/supabase` | `/docs/stack/encryption/supabase` |
 | DynamoDB integration | `@cipherstash/stack/dynamodb` | `/docs/stack/encryption/dynamodb` |
-| Secrets SDK | `@cipherstash/stack` | `/docs/stack/secrets` |
-| Secrets CLI | `stash` CLI | `/docs/stack/secrets/cli` |
+| Secrets SDK | `@cipherstash/stack/secrets` | `/docs/stack/secrets` |
 | ZeroKMS | Key management service | `/docs/stack/kms` |
 | CipherStash Proxy | PostgreSQL proxy | `/docs/stack/proxy` |
 | EQL | PostgreSQL extension | `/docs/stack/platform/eql`, `/docs/stack/reference/eql` |

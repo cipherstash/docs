@@ -20,8 +20,8 @@ Every value is encrypted with its own unique key via [ZeroKMS](/stack/kms), back
 
 ## How it works
 
-1. **Define a schema:** Declare which columns to encrypt and what queries to support.
-2. **Initialize a client:** The SDK connects to ZeroKMS to manage encryption keys.
+1. **Initialize your project:** Run `npx @cipherstash/stack init` to generate your encryption schema and client.
+2. **Set up your database:** Run `npx stash-forge setup` to set up searchable encryption in PostgreSQL.
 3. **Encrypt and store:** Encrypt values before writing to your database.
 4. **Query encrypted data:** Encrypt query terms and run them against your encrypted columns.
 5. **Decrypt on read:** Decrypt values when reading from the database.
@@ -35,7 +35,7 @@ All key management (key generation, derivation, and isolation) is handled by [Ze
 | | Encryption SDK | CipherStash Proxy |
 |---|---|---|
 | **Best for** | Teams who want fine-grained control over data encryption directly in their application | DevOps teams who want to add encryption to existing PostgreSQL apps with little to no code changes |
-| **Setup** | `npm install @cipherstash/stack`, define schemas, integrate into app | Docker container, configure environment variables |
+| **Setup** | `npx @cipherstash/stack init` | Docker container, configure environment variables |
 | **Database** | PostgreSQL (full searchable encryption) | PostgreSQL (transparent proxy) |
 
 ## Performance
@@ -44,10 +44,28 @@ All key management (key generation, derivation, and isolation) is handled by [Ze
 - **Throughput**: Scales with your application performance
 - **Setup time**: Running in local dev in < 1 hour, production in < 3 days
 
+## CipherStash Forge
+
+[CipherStash Forge](/stack/encryption/forge) is the dev-time CLI for setting up your database. It handles installing the EQL extension, validating schemas, and managing the encryption lifecycle. Think of it like Drizzle Kit or Prisma CLI: a companion tool that sets up the database while `@cipherstash/stack` handles runtime encryption.
+
+The `init` wizard lives in `@cipherstash/stack`. It generates your encryption schema, client file, and installs `@cipherstash/stack-forge` as a devDependency. Then run `stash-forge setup` to configure your database.
+
+```bash
+npx @cipherstash/stack init        # Interactive project setup
+npx stash-forge setup              # Interactive database and EQL setup
+npx stash-forge validate           # Check schema for misconfigurations
+npx stash-forge status             # Show EQL installation state
+```
+
+<Cards>
+  <Card title="Get started with Forge" href="/stack/encryption/forge" description="Install EQL, validate schemas, and manage your database setup." />
+  <Card title="Interactive setup" href="/stack/encryption/forge/init" description="Set up Forge in your project with the interactive init wizard." />
+</Cards>
+
 ## Next steps
 
 <Cards>
-  <Card title="Getting started" href="/stack/encryption/getting-started" description="Install the SDK and encrypt your first value in under 5 minutes." />
+  <Card title="Getting started" href="/stack/encryption/getting-started" description="Go from zero to encrypted in under 5 minutes with the interactive setup wizard." />
   <Card title="Schema definition" href="/stack/encryption/schema" description="Define which columns to encrypt and what queries to support." />
   <Card title="Searchable encryption" href="/stack/encryption/searchable-encryption" description="Run queries on encrypted data in PostgreSQL." />
   <Card title="CipherStash Proxy" href="/stack/proxy" description="Transparent encryption proxy. No code changes required." />

@@ -1,0 +1,275 @@
+---
+title: Searchable JSON functions and operators
+description: JSONB functions and operators supported by CipherStash Proxy for querying encrypted data.
+---
+
+CipherStash Proxy supports a subset of PostgreSQL's JSONB functions and operators for use with encrypted columns. This page covers the supported operators, functions, and configuration required to enable searchable JSON.
+
+## Setup
+
+### Schema
+
+Create a table with an `eql_v2_encrypted` column to store encrypted JSONB data:
+
+```sql
+CREATE TABLE cipherstash (
+  id SERIAL PRIMARY KEY,
+  encrypted_jsonb eql_v2_encrypted
+);
+```
+
+### Encrypted column configuration
+
+Add a `ste_vec` search index to the encrypted column:
+
+```sql
+SELECT eql_v2.add_search_config(
+  'cipherstash',
+  'encrypted_jsonb',
+  'ste_vec',
+  'jsonb',
+  '{"prefix": "cipherstash/encrypted_jsonb"}'
+);
+```
+
+JSONB literals in `INSERT` and `UPDATE` statements work directly without explicit `::jsonb` type casts. The proxy infers the JSONB type from the target column.
+
+### Configuration options
+
+The `ste_vec` index configuration accepts the following options:
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `prefix` | string | (required) | Unique prefix for the index, typically `table/column` |
+| `term_filters` | array | `[]` | Filters applied to indexed terms (e.g., `[{"kind": "downcase"}]`) |
+| `array_index_mode` | string or object | `"all"` | Controls which array selectors are generated during indexing |
+
+### Array index mode
+
+The `array_index_mode` option controls which array selectors are generated during indexing.
+
+Preset string values:
+
+- `"all"` (default): Generates all selector types. Backwards compatible.
+- `"none"`: Disables array indexing entirely.
+
+Use the object form for fine-grained control:
+
+```json
+{
+  "item": true,
+  "wildcard": true,
+  "position": false
+}
+```
+
+| Selector | JSONPath | Description |
+|---|---|---|
+| `item` | `[@]` | EQL array element selector for functions like `jsonb_array_length` |
+| `wildcard` | `[*]` | Standard JSONPath wildcard for iterating array elements |
+| `position` | `[0]`, `[1]`, etc. | Positional access to specific array indices |
+
+Enable all array selectors:
+
+```sql
+SELECT eql_v2.add_search_config(
+  'cipherstash',
+  'encrypted_jsonb',
+  'ste_vec',
+  'jsonb',
+  '{"prefix": "cipherstash/encrypted_jsonb", "array_index_mode": "all"}'
+);
+```
+
+Disable positional indexing while keeping wildcard and item selectors:
+
+```sql
+SELECT eql_v2.add_search_config(
+  'events',
+  'payload',
+  'ste_vec',
+  'jsonb',
+  '{"prefix": "events/payload", "array_index_mode": {"item": true, "wildcard": true, "position": false}}'
+);
+```
+
+## Limitations
+
+<Callout type="warn">
+  Encrypted literals cannot be passed as arguments to SQL functions. Encrypted columns can only be passed to SQL functions if the value has an encrypted search index that supports that specific function. For example, `AVG()` cannot be used on encrypted numeric values, `LOWER()` cannot be used on encrypted text, and `MIN()`/`MAX()` require an ORE index.
+</Callout>
+
+<Callout type="warn">
+  `CAST` operations cannot work on encrypted data. Casting requires decryption within the database, which the proxy does not support.
+</Callout>
+
+<Callout type="warn">
+  The `->` operator cannot be chained on `ste_vec` encrypted columns. Use `jsonb_path_query_first()` for deep nested access instead.
+</Callout>
+
+<Callout type="info">
+  A selector path to an array field (`$.array`) returns the decrypted array as a JSON literal. To access an encrypted array as a set of encrypted values (for use with functions like `jsonb_array_length`), use the EQL array element selector `[@]`.
+</Callout>
+
+## Operators
+
+### `->` (Field access)
+
+Extracts a JSON object field by key.
+
+```sql
+SELECT encrypted_jsonb -> 'number' FROM cipherstash;
+-- Returns: 1
+
+SELECT encrypted_jsonb -> 'object' FROM cipherstash;
+-- Returns: { "string": "world", "number": 99 }
+
+SELECT encrypted_jsonb -> 'string_array' FROM cipherstash;
+-- Returns: ["hello","world"]
+```
+
+### `->>` (Field access as text)
+
+Currently an alias for `->`. The data is returned as the decrypted JSON literal rather than a text string (unlike the standard PostgreSQL operator). The returned value can be cast to any valid type in the client.
+
+```sql
+SELECT encrypted_jsonb ->> 'number' FROM cipherstash;
+-- Returns: 1
+```
+
+### `@>` (Contains)
+
+Tests whether the left value contains the right path/value entries at the top level. Supports string fields, numeric fields, complete arrays, and nested objects.
+
+```sql
+SELECT encrypted_jsonb @> '{"number": 1}' FROM cipherstash;
+-- Returns: t
+
+SELECT encrypted_jsonb @> '{"number": 99}' FROM cipherstash;
+-- Returns: f
+
+SELECT encrypted_jsonb @> '{"object": {"string": "world", "number": 99}}' FROM cipherstash;
+-- Returns: t
+```
+
+### `<@` (Contained by)
+
+Tests whether the left value is contained in the right value.
+
+```sql
+SELECT '{"number": 1}' <@ encrypted_jsonb FROM cipherstash;
+-- Returns: t
+```
+
+## Functions
+
+### `jsonb_path_query(target, path)`
+
+Returns all JSON items matched by the JSON path. Returns `setof eql_v2_encrypted` decrypted as `jsonb`.
+
+```sql
+SELECT jsonb_path_query(encrypted_jsonb, '$.number') FROM cipherstash;
+-- Returns: 1
+
+SELECT jsonb_path_query(encrypted_jsonb, '$.object') FROM cipherstash;
+-- Returns: { "string": "world", "number": 99 }
+
+SELECT jsonb_path_query(encrypted_jsonb, '$.object.string') FROM cipherstash;
+-- Returns: "world"
+
+SELECT jsonb_path_query(encrypted_jsonb, '$.string_array') FROM cipherstash;
+-- Returns: ["hello","world"]
+```
+
+### `jsonb_path_query_first(target, path)`
+
+Returns the first JSON item matched by the JSON path.
+
+```sql
+SELECT jsonb_path_query_first(encrypted_jsonb, '$.string_array[*]') FROM cipherstash;
+-- Returns: "hello"
+
+SELECT jsonb_path_query_first(encrypted_jsonb, '$.numeric_array[*]') FROM cipherstash;
+-- Returns: 1
+```
+
+### `jsonb_path_exists(target, path)`
+
+Checks whether the JSON path returns any item. Returns a boolean.
+
+```sql
+SELECT jsonb_path_exists(encrypted_jsonb, '$.number') FROM cipherstash;
+-- Returns: t
+
+SELECT jsonb_path_exists(encrypted_jsonb, '$.unknown') FROM cipherstash;
+-- Returns: f
+```
+
+### `jsonb_array_elements(target)`
+
+Expands the top-level JSON array into a set of values. Requires the EQL array element selector `[@]`.
+
+```sql
+SELECT jsonb_array_elements(jsonb_path_query(encrypted_jsonb, '$.string_array[@]')) FROM cipherstash;
+-- Returns: "hello", "world" (2 rows)
+
+SELECT jsonb_array_elements(jsonb_path_query(encrypted_jsonb, '$.numeric_array[@]')) FROM cipherstash;
+-- Returns: 1, 2, 3, 4 (4 rows)
+```
+
+### `jsonb_array_length(target)`
+
+Returns the number of elements in the top-level JSON array. Requires the EQL array element selector `[@]`.
+
+```sql
+SELECT jsonb_array_length(jsonb_path_query(encrypted_jsonb, '$.string_array[@]')) FROM cipherstash;
+-- Returns: 2
+
+SELECT jsonb_array_length(jsonb_path_query(encrypted_jsonb, '$.numeric_array[@]')) FROM cipherstash;
+-- Returns: 4
+```
+
+## Comparison operators in WHERE clauses
+
+All standard comparison operators work with JSON field extraction:
+
+```sql
+-- Equality
+SELECT encrypted_jsonb FROM cipherstash WHERE encrypted_jsonb -> 'string' = 'B';
+SELECT encrypted_jsonb FROM cipherstash WHERE jsonb_path_query_first(encrypted_jsonb, '$.string') = 'B';
+
+-- Greater than
+SELECT encrypted_jsonb FROM cipherstash WHERE encrypted_jsonb -> 'number' > 4;
+
+-- Less than
+SELECT encrypted_jsonb FROM cipherstash WHERE encrypted_jsonb -> 'number' < 3;
+
+-- Greater than or equal
+SELECT encrypted_jsonb FROM cipherstash WHERE encrypted_jsonb -> 'number' >= 4;
+
+-- Less than or equal
+SELECT encrypted_jsonb FROM cipherstash WHERE encrypted_jsonb -> 'number' <= 3;
+```
+
+## JSONPath syntax
+
+| Syntax | Description |
+|---|---|
+| `$.field` | Access a top-level field |
+| `$.nested.field` | Access a nested field |
+| `$.array[*]` | Wildcard selector for all array elements |
+| `$.array[@]` | EQL array element selector for use with processing functions |
+
+## Parameterized queries
+
+All functions and operators support parameterized queries:
+
+```sql
+SELECT encrypted_jsonb -> $1 FROM cipherstash;
+SELECT jsonb_path_query(encrypted_jsonb, $1) FROM cipherstash;
+SELECT encrypted_jsonb @> $1 FROM cipherstash;
+```
+
+## Supported data types
+
+The `ste_vec` index supports strings, numbers, booleans, arrays, objects, and nested structures.

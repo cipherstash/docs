@@ -89,10 +89,9 @@ If the stored ciphertext has been modified, decryption fails. AES-GCM-SIV provid
 
 Searchable encryption requires the [EQL PostgreSQL extension](/stack/platform/eql). Without it, queries against encrypted columns won't work.
 
-**Fix**: Install EQL using [CipherStash Forge](/stack/encryption/stash-forge):
+**Fix**: Install EQL using [CipherStash Forge](/stack/encryption/forge):
 
 ```bash
-npm install -D @cipherstash/stack-forge
 npx stash-forge install
 ```
 

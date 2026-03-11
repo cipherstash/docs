@@ -1,0 +1,247 @@
+---
+title: Error reference
+description: A complete reference for errors returned by CipherStash Proxy, with causes and fixes.
+---
+
+This page covers every error CipherStash Proxy can return, grouped by category, with steps to diagnose and resolve each one.
+
+## Authentication errors
+
+### Database authentication failed
+
+**Error:** `Database authentication failed. Check username and password`
+
+The proxy could not authenticate with the upstream PostgreSQL database.
+
+1. Check that the configured username and password are correct and can connect to the database.
+2. Check that the database uses a supported authentication method. Supported methods: `password`, `md5`, `scram-sha-256`. See [PostgreSQL password authentication](https://www.postgresql.org/docs/17/auth-password.html).
+
+### Client authentication failed
+
+**Error:** `Client authentication failed. Check username and password.`
+
+The proxy rejected the client connection because the credentials were incorrect.
+
+Check that the username and password your application sends match the values configured in the proxy.
+
+### ZeroKMS authentication failed
+
+**Error:** `ZeroKMS authentication failed. Check the configured credentials.`
+
+The proxy could not authenticate with CipherStash ZeroKMS.
+
+1. Check that the configured `client` credentials are correct.
+2. Check that the active `keyset_name` or `keyset_id` is associated with a keyset in the configured workspace.
+
+---
+
+## Mapping errors
+
+### Invalid parameter
+
+**Error:** `Invalid parameter for column 'column_name' of type 'cast' in table 'table_name'. (OID 'oid')`
+
+Each encrypted column definition includes a target `cast` type. When encrypting a parameter or literal, the proxy decodes and casts the data into that type. This error means the passed data cannot be decoded and cast to the expected type.
+
+In some cases, parameter types are automatically converted. For example, PostgreSQL `INT2`, `INT4`, and `INT8` are converted to the corresponding encrypted integer types.
+
+Check that the parameter or literal matches the type configured for the encrypted column.
+
+### Invalid SQL statement
+
+**Error:** `sql parser error: Expected: SELECT, VALUES, or a subquery in the query body` (varies)
+
+The proxy could not parse the SQL statement.
+
+Check that the statement is valid PostgreSQL SQL. If you believe the statement is correct and the parser is wrong, contact [CipherStash support](https://cipherstash.com/support).
+
+### Unsupported parameter type
+
+**Error:** `Encryption of PostgreSQL {name} (OID {oid}) types is not currently supported.`
+
+The data type of the parameter is not supported for encryption.
+
+Check the supported types for encrypted columns.
+
+### Statement could not be type checked
+
+**Error:** `Statement could not be type checked: '{type-check-error-message}'`
+
+The proxy checks SQL statements against the database schema to transparently encrypt and decrypt data. The behavior when a type check fails depends on the `mapping_errors_enabled` configuration:
+
+- When `mapping_errors_enabled` is `false` (default): the error is logged and the statement passes through to the database.
+- When `mapping_errors_enabled` is `true`: the error is raised and statement execution halts.
+
+The default behavior passes statements through because most production systems have a small number of encrypted columns, and blocking on false negatives causes more harm. When a statement does pass through, the database's EQL column constraints catch invalid data and return an error like:
+
+```sql
+ERROR:  Encrypted column missing version (v) field: 34234
+CONTEXT:  PL/pgSQL function _cs_encrypted_check_v(jsonb) line 6 at RAISE
+SQL function "cs_check_encrypted_v1" statement 1
+```
+
+Check that you are running the latest version of CipherStash Proxy. Contact [CipherStash support](https://cipherstash.com/support) if the error persists.
+
+### Internal mapper error
+
+**Error:** `Statement encountered an internal error. This may be a bug in the statement mapping module of CipherStash Proxy.`
+
+An unexpected error occurred in the statement mapping module.
+
+Update to the latest version. Contact [CipherStash support](https://cipherstash.com/support) if the error persists.
+
+---
+
+## Encrypt errors
+
+### Column could not be encrypted
+
+**Error:** `Column 'column_name' in table 'table_name' could not be encrypted.`
+
+The proxy uses CipherStash ZeroKMS for encryption operations. The most likely cause is a network issue reaching the ZeroKMS service.
+
+1. Check that CipherStash ZeroKMS is available at the [status page](https://status.cipherstash.com/).
+2. Check that the proxy has network access to ZeroKMS in the appropriate region.
+3. Check that the encrypted configuration `cast` matches the expected type.
+
+### KeysetId could not be parsed
+
+**Error:** `KeysetId '{id}' could not be parsed using 'SET CIPHERSTASH.KEYSET_ID'. KeysetId should be a valid UUID.`
+
+The value passed to `SET CIPHERSTASH.KEYSET_ID` is not a valid UUID.
+
+Check that the `KeysetId` is a valid UUID. The correct syntax is:
+
+```sql
+SET [SESSION] CIPHERSTASH.KEYSET_ID { TO | = } '{KeysetId}'
+```
+
+### KeysetId could not be set
+
+**Error:** `Keyset Id could not be set using 'SET CIPHERSTASH.KEYSET_ID'`
+
+1. Check the syntax: the `keyset_id` value must be in single quotes.
+2. Check that the `keyset_id` is a valid UUID.
+3. Check that the value is a literal. PostgreSQL `SET` does not support parameterised queries.
+
+### KeysetName could not be set
+
+**Error:** `Keyset Name could not be set using 'SET CIPHERSTASH.KEYSET_NAME'`
+
+1. Check the syntax: the `keyset_name` value must be in single quotes.
+2. Check that the value is a literal. PostgreSQL `SET` does not support parameterised queries.
+
+### Unknown keyset identifier
+
+**Error:** `Unknown keyset name or id '{keyset}'`
+
+The proxy could not find a keyset matching the name or ID.
+
+1. Check that the active `keyset_name` or `keyset_id` is associated with a keyset in the configured workspace.
+2. Check that the configured `client` has been granted access to the keyset in the dashboard.
+3. Keyset names are case-sensitive. Check for an exact match.
+4. Check that the configured `client` credentials are correct.
+
+### Could not decrypt data for keyset
+
+**Error:** `Could not decrypt data for keyset '{keyset_id}'`
+
+The active `keyset_id` does not match the `keyset_id` of the data being decrypted. Each encrypted record belongs to a keyset with a unique identifier. The proxy encrypts data using the currently active keyset. If the record's `keyset_id` does not match the active `keyset_id`, the data cannot be decrypted.
+
+You can set a default keyset in the proxy configuration, or use `SET CIPHERSTASH.KEYSET_ID` to set the active keyset at runtime.
+
+1. Check that the `keyset_id` in the configuration matches the `keyset_id` of the encrypted records.
+2. If using `SET CIPHERSTASH.KEYSET_ID`, check that the value matches the encrypted records.
+3. Check that the configured `client` has been granted access to the `keyset_id`.
+
+### Plaintext could not be encoded
+
+**Error:** `Decrypted column could not be encoded as the expected type.`
+
+Each encrypted column definition includes a target `cast` type. When the proxy decrypts data, it casts and encodes the result as the PostgreSQL representation of that type. Changing the encrypted column definition after data has been written can cause this error.
+
+1. Check that the encrypted configuration has the correct type.
+2. Check that the column configuration has not changed since the data was written.
+
+### Unknown column
+
+**Error:** `Column 'column_name' in table 'table_name' has no Encrypt configuration`
+
+The column has an encrypted type (`eql_v2_encrypted`) but no encryption configuration has been defined.
+
+Define the encrypted configuration using EQL:
+
+```sql
+SELECT cs_add_column_v1('users', 'email');
+```
+
+### Unknown table
+
+**Error:** `Table 'table_name' has no Encrypt configuration`
+
+The table has one or more encrypted columns but no encryption configuration has been defined.
+
+Define the encrypted configuration using EQL:
+
+```sql
+SELECT cs_add_column_v1('users', 'email');
+```
+
+### Unknown index term
+
+**Error:** `Unknown Index Term for column '{column_name}' in table '{table_name}'.`
+
+The encrypted column has an unrecognised index configuration. EQL validates indexes when they are added, but direct database changes can misconfigure the setup.
+
+Check the Encrypt configuration for the column and redefine it if necessary.
+
+### Column configuration mismatch
+
+**Error:** `Column configuration for column '{column_name}' in table '{table_name}' does not match the encrypted column.`
+
+The proxy validates that encrypted columns match their configuration before decrypting. This check prevents confused deputy attacks and should not appear during normal operation. Contact [CipherStash support](https://cipherstash.com/support) if it persists.
+
+---
+
+## Decrypt errors
+
+### Column could not be deserialised
+
+**Error:** `Column 'column_name' in table 'table_name' could not be deserialised.`
+
+The proxy stores encrypted data and search terms as `jsonb`. This error indicates an internal issue deserialising and extracting the ciphertext for decryption. It may occur if the encrypted data has been altered by another process.
+
+Check that the data in the encrypted column is in the correct EQL format. Contact [CipherStash support](https://cipherstash.com/support) if the error persists.
+
+---
+
+## Configuration errors
+
+### Missing or invalid TLS configuration
+
+**Errors:**
+
+```
+Invalid Transport Layer Security (TLS) certificate.
+Invalid Transport Layer Security (TLS) private key.
+Missing Transport Layer Security (TLS) certificate at path: {path}.
+Missing Transport Layer Security (TLS) private key at path: {path}.
+```
+
+For path-based configuration, check that the certificate and key exist at the specified paths and are valid. For PEM-based configuration, check that the certificate and key values are valid.
+
+### Network configuration change requires restart
+
+**Error:** `Network configuration change requires restart`
+
+When the proxy receives a `SIGHUP` signal, it reloads application-level configuration without disrupting active connections. However, the following network settings require a full restart:
+
+- `server.host`
+- `server.port`
+- `server.require_tls`
+- `server.worker_threads`
+- `tls` (any TLS configuration)
+
+Application-level settings (`database`, `auth`, `encrypt`, `log`, `prometheus`, `development`) can be reloaded without a restart using `SIGHUP`.
+
+Stop the proxy, update the configuration, then restart the proxy.

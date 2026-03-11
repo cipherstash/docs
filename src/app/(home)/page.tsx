@@ -185,7 +185,7 @@ export default function HomePage() {
               <ArrowRight className="ml-auto size-4 shrink-0 text-fd-muted-foreground transition-colors group-hover:text-fd-primary" />
             </Link>
             <Link
-              href="/stack/platform/searchable-encryption"
+              href="/stack/encryption/forge"
               className="group flex items-center gap-4 rounded-lg border border-fd-border bg-fd-card p-4 transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
             >
               <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-fd-primary/10 text-fd-primary">

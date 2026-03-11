@@ -1,0 +1,100 @@
+---
+title: Multitenant operation
+description: Scope CipherStash Proxy connections to tenant-specific keysets and manage encrypted mapping at runtime.
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+
+## Multitenant operation
+
+CipherStash Proxy supports multitenant applications using ZeroKMS keysets to provide strong cryptographic separation between tenants.
+
+In multitenant operation, each tenant is associated with a keyset. Data is protected by separate encryption keys. You can scope a proxy connection to a specific keyset at runtime using the `SET CIPHERSTASH.KEYSET` SQL commands:
+
+- `SET CIPHERSTASH.KEYSET_ID`
+- `SET CIPHERSTASH.KEYSET_NAME`
+
+Once a keyset is set for a connection, all subsequent operations are scoped to that keyset. Data can only be decrypted by the same keyset that encrypted it.
+
+A keyset `name` is unique to a workspace and functions as an alias. Using a keyset name lets you associate a keyset with an arbitrary identifier such as an internal `TenantId`.
+
+The proxy must be configured without a `DEFAULT_KEYSET_ID` to enable multitenant operation and use of the `SET KEYSET` commands.
+
+## Keyset commands
+
+### SET CIPHERSTASH.KEYSET_ID
+
+Sets the active keyset for the current connection using a keyset UUID.
+
+```sql
+SET CIPHERSTASH.KEYSET_ID = '<keyset-uuid>';
+```
+
+Example:
+
+```sql
+SET CIPHERSTASH.KEYSET_ID = '2cace9db-3a2a-4b46-a184-ba412b3e0730';
+```
+
+### SET CIPHERSTASH.KEYSET_NAME
+
+Sets the active keyset for the current connection using a keyset name.
+
+```sql
+SET CIPHERSTASH.KEYSET_NAME = '<keyset-name>';
+```
+
+Example:
+
+```sql
+SET CIPHERSTASH.KEYSET_NAME = 'tenant-1';
+```
+
+### Usage notes
+
+- Execute `SET CIPHERSTASH.KEYSET` before performing any encryption operations.
+- The keyset remains active for the duration of the connection, or until a subsequent `SET CIPHERSTASH.KEYSET` command.
+- If a default keyset is configured in the proxy, these commands return an error.
+- The active keyset is connection-scoped and does not affect other connections.
+
+---
+
+## Disabling encrypted mapping
+
+CipherStash Proxy transforms the plaintext SQL statements your application issues into statements on EQL columns. This process is called encrypted mapping.
+
+In some circumstances you may need to disable encrypted mapping for one or more SQL statements. For example, performing a data transformation with complex logic directly in the database using `plpgsql`.
+
+Use the `SET` command to change the `CIPHERSTASH.UNSAFE_DISABLE_MAPPING` configuration parameter. The parameter is always scoped to the connection session.
+
+<Callout type="warn">
+  If mapping is disabled, sensitive data may not be encrypted and may appear in
+  logs.
+</Callout>
+
+CipherStash Proxy and EQL provide some protection against writing or reading plaintext from encrypted columns. Always use `eql_v2.add_encrypted_constraint(table, column)` when defining encrypted columns to prevent plaintext data from being written. Unmapped `SELECT` statements return the encrypted payload. If the constraint is applied, unmapped `INSERT` and `UPDATE` statements return a PostgreSQL type error.
+
+### Disable mapping
+
+```sql
+SET CIPHERSTASH.UNSAFE_DISABLE_MAPPING = true;
+```
+
+### Enable mapping
+
+```sql
+SET CIPHERSTASH.UNSAFE_DISABLE_MAPPING = false;
+```
+
+## Prepared statements and mapping
+
+CipherStash Proxy only decrypts data from SQL statements it has explicitly checked and mapped.
+
+If mapping is disabled, any subsequent `PREPARE` skips the mapping process. If mapping is re-enabled later, returned data from those prepared statements is not decrypted.
+
+To enable mapping, encryption, and decryption of prepared statements, either:
+
+- Open a new connection, or
+- Prepare the statement again after re-enabling mapping.
+
+This behaviour is expected. When a client prepares a statement, it sends the SQL in a `parse` message. Once prepared, the client refers to the statement by name and skips the `parse` step. If mapping is disabled during `parse`, the proxy does not map the statement. Data returned from subsequent executions is never decrypted, even if mapping is re-enabled later.

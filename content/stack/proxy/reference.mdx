@@ -1,0 +1,255 @@
+---
+title: Reference
+description: Complete configuration reference for CipherStash Proxy, including all TOML and environment variable options, CLI flags, Prometheus metrics, and per-target log levels.
+---
+
+## Configuration loading order
+
+Proxy accepts configuration from a TOML file, environment variables, or both.
+
+1. If `cipherstash-proxy.toml` exists in the current working directory, Proxy reads it first.
+2. Proxy then reads any environment variables that are set.
+3. When both are present, environment variables override values from the TOML file.
+
+## Config options
+
+### `[server]`
+
+| Option | Env variable | Default | Description |
+|---|---|---|---|
+| `host` | `CS_SERVER__HOST` | `0.0.0.0` | Proxy listen address |
+| `port` | `CS_SERVER__PORT` | `6432` | Proxy listen port |
+| `require_tls` | `CS_SERVER__REQUIRE_TLS` | `false` | Enforce TLS for client-to-proxy connections |
+| `shutdown_timeout` | `CS_SERVER__SHUTDOWN_TIMEOUT` | `2000` | Milliseconds to wait for connections to drain on shutdown |
+| `worker_threads` | `CS_SERVER__WORKER_THREADS` | `NUMBER_OF_CORES/2` or `4` | Number of server worker threads |
+| `thread_stack_size` | `CS_SERVER__THREAD_STACK_SIZE` | `2097152` (2 MiB) | Thread stack size in bytes. Automatically set to 4 MiB when log level is `debug` or `trace` |
+| `cipher_cache_size` | `CS_SERVER__CIPHER_CACHE_SIZE` | `64` | Maximum number of encryption/decryption operations to cache |
+| `cipher_cache_ttl_seconds` | `CS_SERVER__CIPHER_CACHE_TTL_SECONDS` | `3600` | Seconds before cached cipher operations expire |
+
+### `[database]`
+
+| Option | Env variable | Default | Description |
+|---|---|---|---|
+| `host` | `CS_DATABASE__HOST` | `0.0.0.0` | Database host address |
+| `port` | `CS_DATABASE__PORT` | `5432` | Database port |
+| `name` | `CS_DATABASE__NAME` | (required) | Database name |
+| `username` | `CS_DATABASE__USERNAME` | (required) | Database username |
+| `password` | `CS_DATABASE__PASSWORD` | (required) | Database password |
+| `connection_timeout` | `CS_DATABASE__CONNECTION_TIMEOUT` | none | Milliseconds to hold an idle connection open. In production, set this higher than your application's connection pool idle timeout |
+| `with_tls_verification` | `CS_DATABASE__WITH_TLS_VERIFICATION` | `false` | Enable TLS verification between Proxy and the database |
+| `config_reload_interval` | `CS_DATABASE__CONFIG_RELOAD_INTERVAL` | `60` | Seconds between encrypted index configuration reloads |
+| `schema_reload_interval` | `CS_DATABASE__SCHEMA_RELOAD_INTERVAL` | `60` | Seconds between database schema reloads |
+
+### `[tls]`
+
+Configure TLS for client-to-proxy connections. Provide either file paths or inline PEM strings.
+
+| Option | Env variable | Description |
+|---|---|---|
+| `certificate_path` | `CS_TLS__CERTIFICATE_PATH` | Path to the public certificate `.crt` file |
+| `private_key_path` | `CS_TLS__PRIVATE_KEY_PATH` | Path to the private key file |
+| `certificate_pem` | `CS_TLS__CERTIFICATE_PEM` | Public certificate as a PEM string |
+| `private_key_pem` | `CS_TLS__PRIVATE_KEY_PEM` | Private key as a PEM string |
+
+### `[auth]`
+
+| Option | Env variable | Description |
+|---|---|---|
+| `workspace_crn` | `CS_WORKSPACE_CRN` | CipherStash Workspace CRN |
+| `client_access_key` | `CS_CLIENT_ACCESS_KEY` | CipherStash Client Access Key |
+
+### `[encrypt]`
+
+| Option | Env variable | Description |
+|---|---|---|
+| `default_keyset_id` | `CS_DEFAULT_KEYSET_ID` | CipherStash Dataset ID |
+| `client_id` | `CS_CLIENT_ID` | CipherStash Client ID |
+| `client_key` | `CS_CLIENT_KEY` | CipherStash Client Key |
+
+### `[log]`
+
+| Option | Env variable | Default | Description |
+|---|---|---|---|
+| `level` | `CS_LOG__LEVEL` | `info` | Global log level. Valid values: `error`, `warn`, `info`, `debug`, `trace` |
+| `format` | `CS_LOG__FORMAT` | `pretty` (terminal), `structured` (non-terminal) | Log format. Valid values: `pretty`, `text`, `structured` (JSON) |
+| `output` | `CS_LOG__OUTPUT` | `stdout` | Log output destination. Valid values: `stdout`, `stderr` |
+| `ansi_enabled` | `CS_LOG__ANSI_ENABLED` | `true` (terminal), `false` (non-terminal) | Enable colored output |
+| `slow_statements` | `CS_LOG__SLOW_STATEMENTS` | `false` | Enable slow statement logging |
+| `slow_statement_min_duration_ms` | `CS_LOG__SLOW_STATEMENT_MIN_DURATION_MS` | `2000` | Minimum duration in milliseconds for a statement to be considered slow |
+| `slow_db_response_min_duration_ms` | `CS_LOG__SLOW_DB_RESPONSE_MIN_DURATION_MS` | `100` | Minimum duration in milliseconds for a database response to be considered slow |
+
+### `[prometheus]`
+
+| Option | Env variable | Default | Description |
+|---|---|---|---|
+| `enabled` | `CS_PROMETHEUS__ENABLED` | `false` | Enable the Prometheus metrics exporter |
+| `port` | `CS_PROMETHEUS__PORT` | `9930` | Port for the Prometheus exporter |
+
+## Full TOML example
+
+```toml filename="cipherstash-proxy.toml"
+[server]
+host = "0.0.0.0"
+port = "6432"
+require_tls = "false"
+shutdown_timeout = "2000"
+worker_threads = "4"
+thread_stack_size = "2097152"
+cipher_cache_size = "64"
+cipher_cache_ttl_seconds = "3600"
+
+[database]
+host = "0.0.0.0"
+port = "5432"
+name = "database"
+username = "username"
+password = "password"
+connection_timeout = "300000"
+with_tls_verification = "false"
+config_reload_interval = "60"
+schema_reload_interval = "60"
+
+[tls]
+certificate_path = "./server.crt"
+private_key_path = "./server.key"
+
+[auth]
+workspace_crn = "cipherstash-workspace-crn"
+client_access_key = "cipherstash-client-access-key"
+
+[encrypt]
+default_keyset_id = "cipherstash-dataset-id"
+client_id = "cipherstash-client-id"
+client_key = "cipherstash-client-key"
+
+[log]
+level = "info"
+format = "pretty"
+output = "stdout"
+ansi_enabled = "true"
+slow_statements = "false"
+slow_statement_min_duration_ms = "2000"
+slow_db_response_min_duration_ms = "100"
+
+[prometheus]
+enabled = "false"
+port = "9930"
+```
+
+## Development settings
+
+Default settings are tuned for production. When running Proxy locally, override these for a better development experience.
+
+Enable colored, human-readable logs:
+
+```bash
+CS_LOG__FORMAT="pretty"
+CS_LOG__ANSI_ENABLED="true"
+```
+
+Reduce reload intervals when iterating on your schema:
+
+```bash
+CS_DATABASE__CONFIG_RELOAD_INTERVAL="10"
+CS_DATABASE__SCHEMA_RELOAD_INTERVAL="10"
+```
+
+## Docker-specific options
+
+These environment variables are only available in the Docker container image and are not present in the binary.
+
+| Env variable | Description |
+|---|---|
+| `CS_DATABASE__INSTALL_EQL` | Install EQL on container startup |
+| `CS_DATABASE__INSTALL_EXAMPLE_SCHEMA` | Load the example schema on container startup |
+| `CS_DATABASE__INSTALL_AWS_RDS_CERT_BUNDLE` | Add the AWS RDS certificate bundle for TLS verification |
+
+<Callout type="warn">
+`CS_DATABASE__INSTALL_EQL` and `CS_DATABASE__INSTALL_EXAMPLE_SCHEMA` are for development use only. Install EQL using the [installation script](https://github.com/cipherstash/encrypt-query-language/releases) as a database migration in production.
+</Callout>
+
+## Per-target log levels
+
+Override the log level for specific internal components using the pattern `CS_LOG__{TARGET}_LEVEL`. These environment variables accept the same values as `CS_LOG__LEVEL`.
+
+| Env variable | Target | Description |
+|---|---|---|
+| `CS_LOG__DEVELOPMENT_LEVEL` | `DEVELOPMENT` | General development logging |
+| `CS_LOG__AUTHENTICATION_LEVEL` | `AUTHENTICATION` | Client authentication and SASL |
+| `CS_LOG__CONFIG_LEVEL` | `CONFIG` | Configuration loading |
+| `CS_LOG__CONTEXT_LEVEL` | `CONTEXT` | Connection context |
+| `CS_LOG__ENCODING_LEVEL` | `ENCODING` | Data encoding and decoding |
+| `CS_LOG__ENCRYPT_LEVEL` | `ENCRYPT` | Encryption operations |
+| `CS_LOG__DECRYPT_LEVEL` | `DECRYPT` | Decryption operations |
+| `CS_LOG__ENCRYPT_CONFIG_LEVEL` | `ENCRYPT_CONFIG` | Encryption configuration loading |
+| `CS_LOG__ZEROKMS_LEVEL` | `ZEROKMS` | ZeroKMS cipher initialization, cache, and connectivity |
+| `CS_LOG__MIGRATE_LEVEL` | `MIGRATE` | Schema migration |
+| `CS_LOG__PROTOCOL_LEVEL` | `PROTOCOL` | PostgreSQL wire protocol |
+| `CS_LOG__MAPPER_LEVEL` | `MAPPER` | SQL statement mapping and transformation |
+| `CS_LOG__SCHEMA_LEVEL` | `SCHEMA` | Database schema analysis |
+| `CS_LOG__SLOW_STATEMENTS_LEVEL` | `SLOW_STATEMENTS` | Slow statement detection |
+
+## CLI reference
+
+```bash
+cipherstash-proxy [OPTIONS] [DBNAME] [COMMAND]
+```
+
+### Commands
+
+| Command | Description |
+|---|---|
+| `encrypt` | Encrypt existing plaintext data in the database |
+| `help` | Print help information |
+
+### Arguments and options
+
+| Flag | Default | Description |
+|---|---|---|
+| `DBNAME` | | Database name (positional, optional) |
+| `-H, --db-host <DB_HOST>` | `127.0.0.1` | Database host |
+| `-u, --db-user <DB_USER>` | `postgres` | Database user |
+| `-p, --config-file-path <CONFIG_FILE_PATH>` | `cipherstash-proxy.toml` | Path to the TOML config file |
+| `-l, --log-level <LOG_LEVEL>` | `info` | Log level |
+| `-f, --log-format <LOG_FORMAT>` | `pretty` (terminal), `structured` (non-terminal) | Log format |
+
+## Prometheus metrics
+
+Enable the Prometheus exporter by setting `CS_PROMETHEUS__ENABLED=true`. Metrics are exposed on port `9930` by default.
+
+| Metric | Type | Description |
+|---|---|---|
+| `cipherstash_proxy_keyset_cipher_cache_hits_total` | Counter | Keyset-scoped cipher cache hits |
+| `cipherstash_proxy_keyset_cipher_cache_miss_total` | Counter | Cipher cache misses requiring initialization |
+| `cipherstash_proxy_keyset_cipher_init_total` | Counter | New keyset-scoped cipher initializations |
+| `cipherstash_proxy_keyset_cipher_init_duration_seconds` | Histogram | Duration of cipher initialization, including ZeroKMS network call |
+| `cipherstash_proxy_clients_active_connections` | Gauge | Current active client connections |
+| `cipherstash_proxy_clients_bytes_received_total` | Counter | Bytes received from clients |
+| `cipherstash_proxy_clients_bytes_sent_total` | Counter | Bytes sent to clients |
+| `cipherstash_proxy_decrypted_values_total` | Counter | Individual values decrypted |
+| `cipherstash_proxy_decryption_duration_seconds` | Histogram | Time spent performing decryption |
+| `cipherstash_proxy_decryption_duration_seconds_count` | Counter | Number of decryption timing observations |
+| `cipherstash_proxy_decryption_duration_seconds_sum` | Counter | Total cumulative decryption time |
+| `cipherstash_proxy_decryption_error_total` | Counter | Unsuccessful decryption operations |
+| `cipherstash_proxy_decryption_requests_total` | Counter | ZeroKMS decrypt requests |
+| `cipherstash_proxy_encrypted_values_total` | Counter | Individual values encrypted |
+| `cipherstash_proxy_encryption_duration_seconds` | Histogram | Time spent performing encryption |
+| `cipherstash_proxy_encryption_duration_seconds_count` | Counter | Number of encryption timing observations |
+| `cipherstash_proxy_encryption_duration_seconds_sum` | Counter | Total cumulative encryption time |
+| `cipherstash_proxy_encryption_error_total` | Counter | Unsuccessful encryption operations |
+| `cipherstash_proxy_encryption_requests_total` | Counter | ZeroKMS encrypt requests |
+| `cipherstash_proxy_rows_encrypted_total` | Counter | Encrypted rows returned to clients |
+| `cipherstash_proxy_rows_passthrough_total` | Counter | Non-encrypted rows returned to clients |
+| `cipherstash_proxy_rows_total` | Counter | Total rows returned to clients |
+| `cipherstash_proxy_server_bytes_received_total` | Counter | Bytes received from the PostgreSQL server |
+| `cipherstash_proxy_server_bytes_sent_total` | Counter | Bytes sent to the PostgreSQL server |
+| `cipherstash_proxy_statements_execution_duration_seconds` | Histogram | Database SQL execution time |
+| `cipherstash_proxy_statements_session_duration_seconds` | Histogram | Total statement processing time (encrypt + execute + decrypt) |
+| `cipherstash_proxy_statements_encrypted_total` | Counter | Statements requiring encryption |
+| `cipherstash_proxy_statements_passthrough_total` | Counter | Statements not requiring encryption |
+| `cipherstash_proxy_statements_total` | Counter | Total statements processed |
+| `cipherstash_proxy_statements_unmappable_total` | Counter | Statements that could not be mapped |
+
+## Supported architectures
+
+CipherStash Proxy is available as a Docker container image for `linux/arm64` architectures.

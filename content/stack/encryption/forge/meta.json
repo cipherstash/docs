@@ -1,0 +1,12 @@
+{
+  "title": "CipherStash Forge",
+  "pages": [
+    "index",
+    "init",
+    "install",
+    "validate",
+    "push",
+    "api",
+    "troubleshooting"
+  ]
+}

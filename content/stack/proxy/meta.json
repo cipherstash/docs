@@ -3,5 +3,20 @@
   "description": "Transparent PostgreSQL encryption proxy",
   "icon": "Database",
   "root": true,
-  "pages": ["index", "getting-started", "configuration", "aws-ecs", "audit"]
+  "pages": [
+    "index",
+    "getting-started",
+    "configuration",
+    "---Guides---",
+    "multitenant",
+    "searchable-json",
+    "encrypt-tool",
+    "audit",
+    "---Deployment---",
+    "aws-ecs",
+    "---Reference---",
+    "reference",
+    "errors",
+    "troubleshooting"
+  ]
 }

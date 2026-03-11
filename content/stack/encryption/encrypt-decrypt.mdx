@@ -188,3 +188,22 @@ const bulkDecrypted = await client
   .bulkDecryptModels(encryptedUsers)
   .withLockContext(lockContext)
 ```
+
+## Audit logging
+
+All operations support `.audit()` for attaching metadata to the ZeroKMS audit trail. Pass any structured metadata you want recorded alongside the operation.
+
+```typescript filename="audit.ts"
+const result = await client
+  .encrypt(plaintext, { column: users.email, table: users })
+  .audit({ metadata: { action: "create" } })
+```
+
+Chain `.audit()` with `.withLockContext()` on the same operation:
+
+```typescript filename="audit-model.ts"
+const result = await client
+  .encryptModel(user, users)
+  .withLockContext(lockContext)
+  .audit({ metadata: { action: "user-signup", requestId: "abc-123" } })
+```

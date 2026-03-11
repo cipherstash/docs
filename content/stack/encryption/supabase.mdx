@@ -8,11 +8,10 @@ description: Encrypt and search data with the Supabase SDK using the encryptedSu
 The `encryptedSupabase` wrapper makes encrypted queries look nearly identical to normal Supabase queries. It automatically handles encryption, decryption, `::jsonb` casts, and search term formatting.
 
 <Callout type="info">
-  Install [EQL](/stack/platform/eql) in your Supabase database using [CipherStash Forge](/stack/encryption/stash-forge) so encrypted columns can use the `eql_v2_encrypted` type.
+  Install [EQL](/stack/platform/eql) in your Supabase database using [CipherStash Forge](/stack/encryption/forge) so encrypted columns can use the `eql_v2_encrypted` type.
 </Callout>
 
 ```bash
-npm install -D @cipherstash/stack-forge
 npx stash-forge install --supabase
 ```
 
@@ -419,7 +418,7 @@ If you installed EQL with `npx stash-forge install --supabase`, the role grants 
 Go to [API settings](https://supabase.com/dashboard/project/_/settings/api) and add `eql_v2` to **Exposed schemas**.
 
 <Callout type="info">
-  If you installed EQL manually (without `--supabase`), you also need to grant permissions. See [CipherStash Forge — Install for Supabase](/stack/encryption/stash-forge#install-for-supabase) for the required grants.
+  If you installed EQL manually (without `--supabase`), you also need to grant permissions. See [CipherStash Forge — Supabase install](/stack/encryption/forge/install#supabase-install) for the required grants.
 </Callout>
 
 ## How it works

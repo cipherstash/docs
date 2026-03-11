@@ -1,0 +1,109 @@
+---
+title: Programmatic API
+description: Use CipherStash Forge as a library for custom tooling and CI scripts
+---
+
+# Programmatic API
+
+Import `@cipherstash/stack-forge` directly for custom tooling or CI scripts.
+
+## EQLInstaller
+
+```typescript filename="scripts/setup-db.ts"
+import { EQLInstaller, loadStashConfig } from '@cipherstash/stack-forge'
+
+const config = await loadStashConfig()
+
+const installer = new EQLInstaller({
+  databaseUrl: config.databaseUrl,
+})
+
+const permissions = await installer.checkPermissions()
+if (!permissions.ok) {
+  console.error('Missing permissions:', permissions.missing)
+  process.exit(1)
+}
+
+if (await installer.isInstalled()) {
+  console.log('EQL is already installed')
+} else {
+  await installer.install()
+}
+```
+
+### Methods
+
+| Method | Returns | Description |
+|---|---|---|
+| `checkPermissions()` | `Promise<PermissionCheckResult>` | Check if the database role has required permissions |
+| `isInstalled()` | `Promise<boolean>` | Check if the `eql_v2` schema exists |
+| `getInstalledVersion()` | `Promise<string \| null>` | Get the installed EQL version (or `null`) |
+| `install(options?)` | `Promise<void>` | Execute the EQL install SQL in a transaction |
+
+### Install options
+
+```typescript filename="scripts/setup-db.ts"
+await installer.install({
+  excludeOperatorFamily: true, // Skip CREATE OPERATOR FAMILY
+  supabase: true,              // Supabase mode (implies excludeOperatorFamily + grants roles)
+  latest: true,                // Fetch latest from GitHub instead of bundled
+})
+```
+
+### PermissionCheckResult
+
+```typescript filename="types.ts"
+interface PermissionCheckResult {
+  ok: boolean
+  missing: string[]  // Human-readable descriptions of missing permissions
+}
+```
+
+## loadBundledEqlSql
+
+Load the bundled EQL install SQL as a string for custom install workflows:
+
+```typescript filename="scripts/custom-install.ts"
+import { loadBundledEqlSql } from '@cipherstash/stack-forge'
+
+const sql = loadBundledEqlSql()                                // standard
+const sql = loadBundledEqlSql({ supabase: true })              // supabase variant
+const sql = loadBundledEqlSql({ excludeOperatorFamily: true }) // no operator family
+```
+
+## downloadEqlSql
+
+Download the latest EQL install SQL from GitHub:
+
+```typescript filename="scripts/custom-install.ts"
+import { downloadEqlSql } from '@cipherstash/stack-forge'
+
+const sql = await downloadEqlSql()       // standard
+const sql = await downloadEqlSql(true)   // no operator family variant
+```
+
+## defineConfig
+
+Type-safe identity function for `stash.config.ts`. Provides autocompletion and type checking without runtime overhead:
+
+```typescript filename="stash.config.ts"
+import { defineConfig } from '@cipherstash/stack-forge'
+
+export default defineConfig({
+  databaseUrl: process.env.DATABASE_URL!,
+})
+```
+
+## loadStashConfig
+
+Finds and loads the nearest `stash.config.ts`, validates it with Zod, applies defaults, and returns the typed config:
+
+```typescript filename="scripts/setup-db.ts"
+import { loadStashConfig } from '@cipherstash/stack-forge'
+
+const config = await loadStashConfig()
+// config.databaseUrl — guaranteed to be a non-empty string
+// config.client — path to encryption client (default: './src/encryption/index.ts')
+```
+
+Exits with a helpful error if the config file is not found or fails validation.

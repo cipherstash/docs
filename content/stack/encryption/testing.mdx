@@ -63,7 +63,7 @@ export function createMockClient() {
 
 For integration tests that verify searchable encryption queries, you need:
 
-1. A PostgreSQL database with [EQL](/stack/platform/eql) installed (see [CipherStash Forge](/stack/encryption/stash-forge))
+1. A PostgreSQL database with [EQL](/stack/platform/eql) installed (see [CipherStash Forge](/stack/encryption/forge))
 2. A test CipherStash workspace
 3. Your schema definitions
 
@@ -79,8 +79,8 @@ beforeAll(async () => {
   pool = new Pool({ connectionString: process.env.TEST_DATABASE_URL })
 
   // EQL must be installed before running tests.
-  // Run `npx stash-forge install` against your test database first.
-  // See: /stack/encryption/stash-forge
+  // Run `npx stash-forge setup` (or `npx stash-forge install`) against your test database first.
+  // See: /stack/encryption/forge
 
   // Initialize encryption client with test credentials
   // Encryption() throws on failure, so wrap in try/catch

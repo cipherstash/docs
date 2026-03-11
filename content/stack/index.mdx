@@ -9,7 +9,7 @@ CipherStash is the new standard for data security that feels invisible.
 Encrypt, control, and audit access to sensitive data directly in your TypeScript applications.
 
 ```bash
-npm install @cipherstash/stack
+npx @cipherstash/stack init
 ```
 
 ## Choose your integration
@@ -21,7 +21,7 @@ CipherStash offers a few ways to leverage the data security stack:
 | **How it works** | Encryption and Secrets SDK and CLI available as an NPM package | Postgres Encryption - Postgres wire protocol Proxy built on top of the Encryption SDK to transparently encrypt data in Postgres |
 | **Best for** | Teams moving quickly and building TypeScript apps |  More complex app architectures or non TypeScript applications using Postgres |
 | **Language** | TypeScript / JavaScript (Node.js, Deno, Bun) | Any language (connects via PostgreSQL wire protocol) |
-| **Setup** | `npm install @cipherstash/stack` | Docker container or binary |
+| **Setup** | `npx @cipherstash/stack init` | Docker container or binary |
 
 Most teams start with the **SDK** for the best developer experience.
 

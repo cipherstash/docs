@@ -1,0 +1,149 @@
+---
+title: Setup, install, and upgrade EQL
+description: Set up your database interactively, or install and upgrade EQL directly
+---
+
+## setup
+
+Interactive database setup. Run this after `npx @cipherstash/stack init` has generated your encryption schema.
+
+```bash
+npx stash-forge setup [options]
+```
+
+The wizard will:
+
+1. **Auto-detect your encryption client file** by scanning common locations (`./src/encryption/index.ts`, etc.), then confirm with you or ask for the path if not found
+2. **Ask for your database URL** (pre-fills from `DATABASE_URL` env var)
+3. **Generate `stash.config.ts`** with the database URL and client path
+4. **Ask which Postgres provider you're using** to determine the right install flags:
+   - **Supabase** — uses `--supabase` (no operator families + Supabase role grants)
+   - **Neon, Vercel Postgres, PlanetScale, Prisma Postgres** — uses `--exclude-operator-family`
+   - **AWS RDS, Other / Self-hosted** — standard install
+5. **Install EQL extensions** in your database
+
+If `--supabase` is passed as a flag, the provider selection is skipped.
+
+| Option | Description |
+|---|---|
+| `--force` | Overwrite existing `stash.config.ts` and reinstall EQL |
+| `--dry-run` | Show what would happen without making changes |
+| `--supabase` | Skip provider selection and use Supabase-compatible install |
+| `--drizzle` | Generate a Drizzle migration instead of direct install |
+| `--exclude-operator-family` | Skip operator family creation |
+| `--latest` | Fetch the latest EQL from GitHub instead of using the bundled version |
+
+For non-interactive or CI environments, use the [`install`](#install) command directly with the appropriate flags.
+
+---
+
+## install
+
+Install the CipherStash EQL extensions into your database. Uses bundled SQL by default for offline, deterministic installs.
+
+```bash
+npx stash-forge install [options]
+```
+
+| Option | Description |
+|---|---|
+| `--dry-run` | Show what would happen without making changes |
+| `--force` | Reinstall even if EQL is already installed |
+| `--supabase` | Use Supabase-compatible install (excludes operator families and grants Supabase roles) |
+| `--exclude-operator-family` | Skip operator family creation (for non-superuser database roles) |
+| `--drizzle` | Generate a Drizzle migration instead of direct install |
+| `--latest` | Fetch the latest EQL from GitHub instead of using the bundled version |
+| `--name <value>` | Migration name when using `--drizzle` (default: `install-eql`) |
+| `--out <value>` | Drizzle output directory when using `--drizzle` (default: `drizzle`) |
+
+Standard install:
+
+```bash
+npx stash-forge install
+```
+
+Dry run to preview changes:
+
+```bash
+npx stash-forge install --dry-run
+```
+
+Fetch the latest EQL from GitHub:
+
+```bash
+npx stash-forge install --latest
+```
+
+### Supabase install
+
+```bash
+npx stash-forge install --supabase
+```
+
+The `--supabase` flag uses the Supabase-specific SQL variant. It omits `CREATE OPERATOR FAMILY` and grants `USAGE`, table, routine, and sequence permissions on the `eql_v2` schema to `anon`, `authenticated`, and `service_role`.
+
+<Callout type="warn">
+  Without operator families, `ORDER BY` on encrypted columns is not supported, regardless of the client or ORM used. Sort application-side after decrypting results as a workaround. This limitation also applies when using `--exclude-operator-family` on any database.
+</Callout>
+
+### Drizzle migrations
+
+If you use Drizzle ORM and want EQL installation as part of your migration history, use `--drizzle`:
+
+```bash
+npx stash-forge install --drizzle
+npx drizzle-kit migrate
+```
+
+This process:
+
+1. Runs `drizzle-kit generate --custom --name=<name>` to create an empty migration.
+2. Loads the bundled EQL install SQL (or downloads from GitHub with `--latest`).
+3. Writes the EQL SQL into the generated migration file.
+
+To customize the migration name and output directory:
+
+```bash
+npx stash-forge install --drizzle --name setup-eql --out ./migrations
+```
+
+`drizzle-kit` must be installed. The `--out` value must match your Drizzle config.
+
+### Permission pre-checks
+
+Before installing, the CLI verifies you have the following permissions:
+
+- `CREATE` on the database (for `CREATE SCHEMA` and `CREATE EXTENSION`)
+- `CREATE` on the `public` schema (for `CREATE TYPE public.eql_v2_encrypted`)
+- `SUPERUSER` or extension owner (for `CREATE EXTENSION pgcrypto`, if not already installed)
+
+If permissions are insufficient, the CLI exits with a message listing what is missing.
+
+## upgrade
+
+Upgrade an existing EQL installation to the version bundled with the package, or to the latest version from GitHub.
+
+```bash
+npx stash-forge upgrade [options]
+```
+
+| Option | Description |
+|---|---|
+| `--dry-run` | Show what would happen without making changes |
+| `--supabase` | Use Supabase-compatible upgrade |
+| `--exclude-operator-family` | Skip operator family creation |
+| `--latest` | Fetch the latest EQL from GitHub instead of using the bundled version |
+
+The EQL install SQL is idempotent and safe to re-run. The CLI checks the current version, re-runs the install SQL, and reports the new version. If EQL is not installed, the CLI suggests running `stash-forge install` instead.
+
+## Bundled EQL SQL
+
+The EQL install SQL is bundled with the package for offline, deterministic installs. The bundled version is pinned to the package version. Use `--latest` to fetch the newest version from GitHub.
+
+Three SQL variants are included:
+
+| File | Used when |
+|---|---|
+| `cipherstash-encrypt.sql` | Default install |
+| `cipherstash-encrypt-supabase.sql` | `--supabase` flag |
+| `cipherstash-encrypt-no-operator-family.sql` | `--exclude-operator-family` flag |

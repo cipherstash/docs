@@ -1,177 +1,126 @@
 ---
 title: Getting started
-description: Install the SDK and encrypt your first value in under 5 minutes
+description: Go from zero to encrypted in under 5 minutes with the interactive setup wizard
 ---
 
 # Getting started
 
-This guide walks you through installing CipherStash Encryption, defining a schema, and encrypting your first value.
+This guide takes you from zero to encrypting data in under 5 minutes.
 
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) >= 18
-- [TypeScript](https://www.typescriptlang.org/)
 - A CipherStash account. [Sign up here](https://cipherstash.com/signup).
-- [PostgreSQL](https://www.postgresql.org/) (optional, needed to store encrypted data in Step 7)
 
-## Project structure
+## Quick start
 
-If you're starting from scratch, here's the recommended file structure:
+<Steps>
+  <Step>
+    ### Initialize your project
 
-```
-project-root/
-├── src/
-│   ├── encryption/
-│   │   ├── index.ts      # Encryption client
-│   │   └── schema.ts     # Table definitions
-│   └── index.ts          # Your app
-├── .env
-├── package.json
-└── tsconfig.json
-```
+    Run the init wizard:
 
-Create the structure:
+    ```bash
+    npx @cipherstash/stack init
+    ```
 
-```bash
-mkdir -p my-app/src/encryption
-cd my-app
-npm init -y
-```
+    The wizard will:
+    - Ask which database connection method you're using (Drizzle ORM, Supabase JS, Prisma, or Raw SQL)
+    - Let you build an encryption schema interactively or use a placeholder
+    - Generate your encryption client file (default: `src/encryption/index.ts`)
+    - Install `@cipherstash/stack-forge` as a devDependency for database tooling
+  </Step>
 
-## Step 1: Install
+  <Step>
+    ### Add your credentials
 
-```bash
-npm install @cipherstash/stack
-```
+    Sign up at [cipherstash.com/signup](https://cipherstash.com/signup) and follow the onboarding to get your credentials. Save them to `.env`:
 
-Or with your preferred package manager:
+    ```bash filename=".env"
+    CS_WORKSPACE_CRN=    # The workspace identifier
+    CS_CLIENT_ID=        # The client identifier
+    CS_CLIENT_KEY=       # Key material used with ZeroKMS
+    CS_CLIENT_ACCESS_KEY= # API key for CipherStash API
+    ```
 
-```bash
-yarn add @cipherstash/stack
-pnpm add @cipherstash/stack
-```
+    See [Configuration](/stack/encryption/configuration) for all options.
+  </Step>
 
-<Callout type="warn">
-  `@cipherstash/stack` includes a native FFI module written in Rust. You must opt out of bundling in tools like Webpack, esbuild, or Next.js. See [Bundling](/stack/encryption/bundling) or [SST setup](/stack/encryption/sst) for details.
-</Callout>
+  <Step>
+    ### Set up your database
 
-## Step 2: Set up credentials
+    Run the interactive setup to install EQL in your PostgreSQL database:
 
-Sign up at [cipherstash.com/signup](https://cipherstash.com/signup) and follow the onboarding to get your credentials.
+    ```bash
+    npx stash-forge setup
+    ```
 
-Save them to a `.env` file:
+    Or use `stash-forge install` directly for non-interactive setup with flags like `--drizzle` or `--supabase`. See [Install and upgrade EQL](/stack/encryption/forge/install) for all options.
+  </Step>
 
-```bash
-CS_WORKSPACE_CRN=   # The workspace identifier
-CS_CLIENT_ID=        # The client identifier
-CS_CLIENT_KEY=       # Key material used with ZeroKMS
-CS_CLIENT_ACCESS_KEY= # API key for CipherStash API
-```
+  <Step>
+    ### Encrypt your first value
 
-See [Configuration](/stack/encryption/configuration) for all configuration options including programmatic config.
+    The init wizard generated your schema and client. Now use them to encrypt data:
 
-## Step 3: Define your schema
+    ```typescript filename="src/index.ts"
+    import { users } from "./encryption/schema"
+    import { client } from "./encryption"
 
-Schemas declare which columns to encrypt and what queries to support.
+    const encryptResult = await client.encrypt("secret@squirrel.example", {
+      column: users.email,
+      table: users,
+    })
 
-Create `src/encryption/schema.ts`:
+    if (encryptResult.failure) {
+      console.error(encryptResult.failure.type, encryptResult.failure.message)
+    } else {
+      console.log("Encrypted:", encryptResult.data)
+    }
+    ```
 
-```typescript filename="schema.ts"
-import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
+    Run it:
 
-export const users = encryptedTable("users", {
-  email: encryptedColumn("email"),
-})
+    ```bash
+    npx tsx src/index.ts
+    ```
 
-export const orders = encryptedTable("orders", {
-  address: encryptedColumn("address"),
-})
-```
+    The result is a JSON payload (called a CipherCell) ready for database storage:
 
-To enable searchable encryption, chain index methods on your columns:
+    ```typescript
+    // Success
+    { data: { c: '\\x61202020202020472aaf602219d48c4a...' } }
 
-```typescript filename="schema.ts"
-export const users = encryptedTable("users", {
-  email: encryptedColumn("email")
-    .equality()        // exact match queries
-    .freeTextSearch()  // full-text search
-    .orderAndRange(),  // sorting and range queries
-})
-```
+    // Failure
+    { failure: { type: 'EncryptionError', message: '...' } }
+    ```
+  </Step>
 
-See [Schema definition](/stack/encryption/schema) for all index types.
+  <Step>
+    ### Decrypt data
 
-## Step 4: Initialize the client
+    ```typescript filename="src/index.ts"
+    const decryptResult = await client.decrypt(encryptResult.data)
 
-Create `src/encryption/index.ts`:
-
-```typescript filename="encryption/index.ts"
-import { Encryption } from "@cipherstash/stack"
-import { users, orders } from "./schema"
-
-export const client = await Encryption({ schemas: [users, orders] })
-```
-
-The client reads `CS_*` environment variables automatically.
-
-## Step 5: Encrypt data
-
-Create `src/index.ts`:
-
-```typescript filename="index.ts"
-import { users } from "./encryption/schema"
-import { client } from "./encryption"
-
-const encryptResult = await client.encrypt("secret@squirrel.example", {
-  column: users.email,
-  table: users,
-})
-
-if (encryptResult.failure) {
-  console.error(encryptResult.failure.type, encryptResult.failure.message)
-} else {
-  console.log("Encrypted:", encryptResult.data)
-}
-```
-
-Run it:
-
-```bash
-npx tsx src/index.ts
-```
-
-The result is a JSON payload ready for database storage:
-
-```typescript
-// Success
-{ data: { c: '\\x61202020202020472aaf602219d48c4a...' } }
-
-// Failure
-{ failure: { type: 'EncryptionError', message: '...' } }
-```
-
-## Step 6: Decrypt data
-
-```typescript filename="index.ts"
-const decryptResult = await client.decrypt(encryptResult.data)
-
-if (decryptResult.failure) {
-  console.error(decryptResult.failure.message)
-} else {
-  console.log("Plaintext:", decryptResult.data) // "secret@squirrel.example"
-}
-```
+    if (decryptResult.failure) {
+      console.error(decryptResult.failure.message)
+    } else {
+      console.log("Plaintext:", decryptResult.data) // "secret@squirrel.example"
+    }
+    ```
+  </Step>
+</Steps>
 
 <Callout type="info">
   For encrypting and decrypting multiple values or entire objects, see [Encrypt and decrypt](/stack/encryption/encrypt-decrypt) for bulk operations like `bulkEncryptModels` and `bulkDecryptModels`.
 </Callout>
 
-## Step 7: Store in a database
+## Store in a database
 
-Store encrypted data in any database that supports JSONB. For PostgreSQL, specify the column type as `jsonb`:
+Store encrypted data in any database that supports JSONB:
 
 <Callout type="info">
-  For searchable encryption in PostgreSQL, install [EQL](/stack/platform/eql) using [CipherStash Forge](/stack/encryption/stash-forge) and use the `eql_v2_encrypted` column type instead. See [Searchable encryption](/stack/encryption/searchable-encryption) for details.
+  For searchable encryption in PostgreSQL, use the `eql_v2_encrypted` column type (installed by EQL in Step 3). See [Searchable encryption](/stack/encryption/searchable-encryption) for details.
 </Callout>
 
 ```sql
@@ -181,12 +130,64 @@ CREATE TABLE users (
 );
 ```
 
+## Manual setup
+
+If you prefer not to use the init wizard, you can set up manually:
+
+<Steps>
+  <Step>
+    ### Install the SDK
+
+    ```bash
+    npm install @cipherstash/stack
+    ```
+  </Step>
+
+  <Step>
+    ### Define your schema
+
+    Create `src/encryption/schema.ts`:
+
+    ```typescript filename="src/encryption/schema.ts"
+    import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
+
+    export const users = encryptedTable("users", {
+      email: encryptedColumn("email")
+        .equality()
+        .freeTextSearch()
+        .orderAndRange(),
+    })
+    ```
+
+    See [Schema definition](/stack/encryption/schema) for all index types.
+  </Step>
+
+  <Step>
+    ### Initialize the client
+
+    Create `src/encryption/index.ts`:
+
+    ```typescript filename="src/encryption/index.ts"
+    import { Encryption } from "@cipherstash/stack"
+    import { users } from "./schema"
+
+    export const client = await Encryption({ schemas: [users] })
+    ```
+  </Step>
+</Steps>
+
+Then continue from Step 2 (credentials) above.
+
+<Callout type="warn">
+  `@cipherstash/stack` includes a native FFI module. You must exclude it from bundlers like Webpack, esbuild, or Next.js. See [Bundling](/stack/encryption/bundling) for details.
+</Callout>
+
 ## Next steps
 
 <Cards>
-  <Card title="CipherStash Forge" href="/stack/encryption/stash-forge" description="Install EQL and manage encryption schemas." />
   <Card title="Schema definition" href="/stack/encryption/schema" description="Index types, data types, and nested objects." />
   <Card title="Encrypt and decrypt" href="/stack/encryption/encrypt-decrypt" description="Single values, models, and bulk operations." />
   <Card title="Drizzle ORM" href="/stack/encryption/drizzle" description="Encrypted queries with Drizzle ORM." />
   <Card title="Supabase" href="/stack/encryption/supabase" description="Encrypted queries with the Supabase SDK." />
+  <Card title="CipherStash Forge" href="/stack/encryption/forge" description="All Forge commands and programmatic API." />
 </Cards>

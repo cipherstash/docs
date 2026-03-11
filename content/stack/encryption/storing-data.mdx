@@ -20,7 +20,7 @@ The Encryption SDK works with any database that supports JSON or JSONB column ty
 | Azure Database for PostgreSQL | Yes | Yes |
 | OCI Database Service for PostgreSQL | Yes | Yes |
 | DynamoDB | Yes | Yes |
-| Supabase | Yes | Coming soon |
+| Supabase | Yes | Yes |
 | Neon Postgres | Yes | — |
 | MySQL | Yes | — |
 | CockroachDB | Yes | — |
@@ -29,10 +29,9 @@ The Encryption SDK works with any database that supports JSON or JSONB column ty
 
 ### Install EQL (optional)
 
-To enable searchable encryption in PostgreSQL, install [EQL](/stack/platform/eql) using [CipherStash Forge](/stack/encryption/stash-forge) so you can use the `eql_v2_encrypted` data type. If you don't need searchable encryption, use `jsonb` instead (you can migrate to EQL later).
+To enable searchable encryption in PostgreSQL, install [EQL](/stack/platform/eql) using [CipherStash Forge](/stack/encryption/forge) so you can use the `eql_v2_encrypted` data type. If you don't need searchable encryption, use `jsonb` instead (you can migrate to EQL later).
 
 ```bash
-npm install -D @cipherstash/stack-forge
 npx stash-forge install
 ```
 

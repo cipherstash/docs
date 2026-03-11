@@ -19,11 +19,10 @@ The Drizzle integration is included in `@cipherstash/stack` and imports from `@c
 
 ### Install EQL via Drizzle migrations
 
-Use [CipherStash Forge](/stack/encryption/stash-forge) to generate a Drizzle migration that installs the [EQL](/stack/platform/eql) extension:
+Use [CipherStash Forge](/stack/encryption/forge) to generate a Drizzle migration that installs the [EQL](/stack/platform/eql) extension:
 
 ```bash
-npm install -D @cipherstash/stack-forge
-npx stash-forge drizzle generate
+npx stash-forge install --drizzle
 npx drizzle-kit migrate
 ```
 
@@ -31,6 +30,8 @@ npx drizzle-kit migrate
 |---|---|---|
 | `--name <value>` | `install-eql` | Migration name |
 | `--out <value>` | `drizzle` | Output directory (must match your Drizzle config) |
+
+See [CipherStash Forge — Drizzle migrations](/stack/encryption/forge/install#drizzle-migrations) for details.
 
 ### Column storage
 
