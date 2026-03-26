@@ -1,0 +1,93 @@
+---
+title: Team onboarding
+description: Invite team members and set up per-developer device-based access to CipherStash
+---
+
+# Team onboarding
+
+Every developer on your team gets their own device and client when they initialize CipherStash.
+This means every encrypt, decrypt, and secret access operation is traceable to a specific developer.
+
+## How team access works
+
+When a developer runs `npx @cipherstash/stack init`, CipherStash creates:
+
+- A **device** tied to that developer's user account and machine
+- A **client** associated with the device, used for cryptographic operations
+- Automatic access to the **default keyset** in your workspace
+
+No credentials are shared between developers.
+Each person has their own identity, and access can be granted or revoked individually.
+
+## Adding a team member
+
+<Steps>
+  <Step>
+    ### Invite them to your organization
+
+    In the [CipherStash Dashboard](https://dashboard.cipherstash.com), navigate to **Members** in the organization sidebar.
+
+    Add the new team member's email address.
+    They will receive an invitation to create a CipherStash account (or join with an existing one).
+  </Step>
+
+  <Step>
+    ### Grant workspace access
+
+    Once they accept the invitation, grant them access to the relevant workspace(s) in **Settings** for your workspace.
+  </Step>
+
+  <Step>
+    ### Developer runs init
+
+    The new team member runs the init command on their machine:
+
+    ```bash
+    npx @cipherstash/stack init
+    ```
+
+    This authenticates them via the browser, creates their unique device and client, and grants access to the default keyset.
+
+    They are now ready to develop locally with full CipherStash functionality — no environment variables needed.
+  </Step>
+</Steps>
+
+## Managing team access
+
+### Viewing active clients
+
+Navigate to **Clients** in the Dashboard to see all active clients, including device-backed clients created by `npx @cipherstash/stack init`.
+Each client shows which developer and device it belongs to.
+
+### Revoking a developer's access
+
+To remove a developer's access:
+
+1. Remove their client from keyset access in the Dashboard
+2. Remove them from the workspace
+3. Optionally, remove them from the organization
+
+Revoked clients can no longer perform encrypt, decrypt, or secret operations.
+
+### Multiple machines
+
+If a developer works on more than one machine (e.g., a laptop and a desktop), they run `npx @cipherstash/stack init` on each machine.
+Each machine gets its own device and client.
+This is by design — you can revoke access per device without affecting their other machines.
+
+## Relationship to production
+
+Team devices are for **local development only**.
+Production environments use separate [machine clients](/stack/guides/going-to-production) configured with environment variables.
+
+This separation ensures that:
+- Developer credentials never appear in production infrastructure
+- Production access is controlled independently from developer access
+- Revoking a developer's device does not affect production systems
+
+## Next steps
+
+- [Getting started](/stack/guides/getting-started) — The init guide to share with new team members
+- [Going to production](/stack/guides/going-to-production) — Set up machine clients for deployment
+- [Access keys](/stack/kms/access-keys) — Understand access key roles
+- [Clients](/stack/kms/clients) — Learn more about device-backed and machine clients

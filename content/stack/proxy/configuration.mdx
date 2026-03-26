@@ -54,6 +54,13 @@ Prometheus metrics are exposed on port 9930. Read more about them in the [refere
 
 ## Configuring Proxy
 
+<Callout type="info">
+Unlike the Encryption SDK and Secrets SDK, CipherStash Proxy **always requires environment variables** because it runs as a separate process or container — it cannot use the host's device-based authentication.
+
+For local development, create a client and access key in the [Dashboard](https://dashboard.cipherstash.com) and set them in your `.env.proxy.docker` file.
+For production, see [Going to production](/stack/guides/going-to-production) to set up machine client credentials.
+</Callout>
+
 To run, CipherStash Proxy needs to know:
 
 - What port to run on

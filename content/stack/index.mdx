@@ -12,6 +12,9 @@ Encrypt, control, and audit access to sensitive data directly in your TypeScript
 npx @cipherstash/stack init
 ```
 
+Run `npx @cipherstash/stack init` to set up device-based authentication — no environment variables needed for local development.
+Each developer gets a unique identity tied to their machine. See the [Getting started](/stack/guides/getting-started) guide to begin.
+
 ## Choose your integration
 
 CipherStash offers a few ways to leverage the data security stack:
@@ -28,17 +31,34 @@ Most teams start with the **SDK** for the best developer experience.
 ## Get started
 
 <Cards>
-  <Card title="Encryption SDK" href="/stack/encryption" description="Field-level encryption with searchable queries. Encrypt in your application code with full TypeScript support." />
-  <Card title="CipherStash Proxy" href="/stack/proxy" description="Drop-in SQL proxy for PostgreSQL. Encrypt data with zero code changes." />
-  <Card title="Secrets" href="/stack/secrets" description="End-to-end encrypted secret storage with SDK and CLI." />
-  <Card title="KMS" href="/stack/kms" description="Key management and Key Sets, the foundational layer that powers Encryption and Secrets." />
+  <Card title="Getting started" href="/stack/guides/getting-started" description="Authenticate, set up your project, and start encrypting in under 5 minutes." />
+  <Card title="Encryption SDK" href="/stack/encryption/getting-started" description="Field-level encryption with searchable queries in your TypeScript application." />
+  <Card title="CipherStash Proxy" href="/stack/proxy/getting-started" description="Drop-in SQL proxy for PostgreSQL. Encrypt data with zero code changes." />
+  <Card title="Secrets" href="/stack/secrets/getting-started" description="Store and retrieve end-to-end encrypted secrets via SDK or CLI." />
+</Cards>
+
+## Products
+
+<Cards>
+  <Card title="Encryption SDK" href="/stack/encryption" description="Schema definition, encrypt/decrypt, searchable encryption, Drizzle, Supabase, and DynamoDB integrations." />
+  <Card title="CipherStash Proxy" href="/stack/proxy" description="Transparent PostgreSQL encryption proxy with zero application code changes." />
+  <Card title="Secrets" href="/stack/secrets" description="End-to-end encrypted secret storage with environment isolation." />
+  <Card title="ZeroKMS" href="/stack/kms" description="Key management, keysets, clients, and access keys — the foundation that powers everything." />
+</Cards>
+
+## Operations
+
+<Cards>
+  <Card title="Going to production" href="/stack/guides/going-to-production" description="Transition from device-based auth to environment variables for CI/CD and hosting." />
+  <Card title="Team onboarding" href="/stack/guides/team-onboarding" description="Invite developers with per-person device-based access." />
+  <Card title="Planning guide" href="/stack/guides/planning-guide" description="Evaluate your security posture and choose an integration path." />
 </Cards>
 
 ## How it fits together
 
 Every CipherStash product builds on [ZeroKMS](/stack/kms) and its core primitive, [Key Sets](/stack/kms/keysets):
 
-- **[Encryption](/stack/encryption)** uses Key Sets for [multi-tenant isolation](/stack/encryption/configuration#keysets). Each tenant gets its own cryptographic boundary.
+- **[Encryption](/stack/encryption)** uses Key Sets for [tenant isolation](/stack/encryption/configuration#keysets). Each tenant gets its own cryptographic boundary.
 - **[Secrets](/stack/secrets)** uses Key Sets for [environment isolation](/stack/secrets/concepts#environments). Production, staging, and development secrets are cryptographically separated.
 - **[Proxy](/stack/proxy)** encrypts data transparently via PostgreSQL, backed by the same ZeroKMS key hierarchy.
 

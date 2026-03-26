@@ -82,6 +82,20 @@ The Encryption SDK integrates with popular ORMs:
 - **Audit logging**: Complete visibility into key usage and access patterns
 - **Disaster recovery**: Multi-region key replication with [automated failover](/stack/kms/disaster-recovery)
 
+## Development to production journey
+
+| Stage | Auth model | Setup |
+|---|---|---|
+| Local development | Device-based | `npx @cipherstash/stack init` per developer — no env vars needed |
+| Staging / CI | Environment variables | Machine client + `CS_*` env vars |
+| Production | Environment variables | Machine client + `CS_*` env vars (member role) |
+
+Local development uses device-based auth for zero-config setup and per-developer identity.
+Each developer is uniquely identified via their device, providing audit trails and individual access control.
+Staging and production use environment variables because there is no interactive device.
+
+See [Going to production](/stack/guides/going-to-production) for the full transition guide and [Team onboarding](/stack/guides/team-onboarding) for setting up your development team.
+
 ## Enterprise features
 
 ### Lock contexts
@@ -98,7 +112,7 @@ Cryptographic tenant isolation ensures complete separation between tenants. Each
 
 ## Next steps
 
-1. **Choose your integration path**: [Encryption SDK](/stack/encryption/getting-started) or [CipherStash Proxy](/stack/proxy/getting-started)
-2. **Set up credentials**: Create a workspace in the [CipherStash Dashboard](https://dashboard.cipherstash.com/)
-3. **Define your schema**: Declare which columns to encrypt and what queries to support
-4. **Deploy to production**: See [supported solutions](/stack/supported-solutions) for deployment options
+1. **Get started**: Run `npx @cipherstash/stack init` to set up [device-based auth](/stack/guides/getting-started)
+2. **Choose your integration path**: [Encryption SDK](/stack/encryption/getting-started) or [CipherStash Proxy](/stack/proxy/getting-started)
+3. **Build locally**: Device auth handles credentials automatically — focus on your integration
+4. **Go to production**: Set up [machine clients and env vars](/stack/guides/going-to-production) for deployment

@@ -5,11 +5,20 @@ description: Configure the SDK with environment variables or programmatically
 
 # Configuration
 
-The SDK supports two configuration methods: environment variables and programmatic config. Environment variables take precedence over programmatic config.
+## Local development (recommended)
 
-## Environment variables
+If you have run `npx @cipherstash/stack init`, no configuration is needed for local development.
+The SDK automatically uses device-based authentication to access your workspace and default keyset.
 
-Set these in a `.env` file or your hosting platform:
+See [Getting started](/stack/guides/getting-started) for setup instructions.
+
+## Production and CI/CD configuration
+
+In production environments where device-based auth is not available, the SDK supports two configuration methods: environment variables and programmatic config. Environment variables take precedence over programmatic config.
+
+### Environment variables
+
+Set these in your hosting platform or CI/CD system:
 
 | Variable | Description | Required |
 |---|---|---|
@@ -20,11 +29,17 @@ Set these in a `.env` file or your hosting platform:
 | `CS_CONFIG_PATH` | Temporary path for client configuration | No (default: `/home/{username}/.cipherstash`) |
 | `STASH_STACK_LOG` | Log level (`debug`, `info`, `error`) | No (default: `error`) |
 
-Sign up at [cipherstash.com/signup](https://dashboard.cipherstash.com/sign-up) and follow the onboarding to generate credentials.
+See [Going to production](/stack/guides/going-to-production) for a step-by-step guide to generating production credentials.
 
-## Programmatic config
+<Callout type="warn">
+Avoid setting `CS_*` environment variables for local development.
+Device-based auth provides per-developer identity, no shared secrets, and automatic session management.
+See [Getting started](/stack/guides/getting-started) to set up device auth.
+</Callout>
 
-Pass config directly when initializing the client. Use this approach when loading credentials from a secret manager:
+### Programmatic config
+
+Pass config directly when initializing the client. Use this approach in production when loading credentials from a secret manager:
 
 ```typescript filename="encryption/index.ts"
 import { Encryption, type EncryptionClientConfig } from "@cipherstash/stack"
@@ -118,6 +133,8 @@ STASH_STACK_LOG=error  # debug | info | error (default: error)
 The SDK never logs plaintext data.
 
 ## Deploying to production
+
+For a complete guide to transitioning from local device-based auth to production environment variables, see [Going to production](/stack/guides/going-to-production).
 
 ### File system write permissions
 

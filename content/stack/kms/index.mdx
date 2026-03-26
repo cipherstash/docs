@@ -25,22 +25,17 @@ CipherStash's ZeroKMS uses **Zero Trust Key Management (ZTKM)**: key management 
 - **Bulk operations:** ZeroKMS supports bulk encryption and decryption operations, enabling a unique data key per record without sacrificing performance.
 - **Multi-region:** ZeroKMS is highly available and deployed in [multiple cloud regions globally](/stack/kms/regions). It can also be deployed within your own cloud account or on-prem.
 
-## What Key Sets power
+## Key Sets
 
 [Key Sets](/stack/kms/keysets) are ZeroKMS's core primitive for cryptographic isolation.
-Every product in the CipherStash stack builds on them:
+A keyset is an independent cryptographic boundary — data encrypted under one keyset cannot be decrypted with another.
 
-- **Encryption: multi-tenant isolation.**
-  Each tenant, customer, or business unit gets its own Key Set.
-  Data encrypted under one Key Set cannot be decrypted with another, giving you per-tenant cryptographic boundaries with zero key management overhead.
-  See [Encryption configuration](/stack/encryption/configuration#keysets) for setup details.
+Keysets are managed in the CipherStash Dashboard as a cloud primitive. How you use them is up to your architecture:
 
-- **Secrets: environment isolation.**
-  Each Secrets environment (production, staging, development) maps to its own Key Set.
-  A secret encrypted in staging can never be decrypted with production keys, and vice versa.
-  See [Secrets concepts](/stack/secrets/concepts#environments) for more detail.
-
-Key Sets are a general-purpose primitive. Use them to create any cryptographic boundary your application needs: per-tenant, per-environment, per-region, or any other isolation requirement.
+- **Tenant isolation** — one keyset per customer or business unit, giving per-tenant cryptographic boundaries with zero key management overhead. See [Encryption configuration](/stack/encryption/configuration#keysets).
+- **Environment isolation** — separate keysets for production, staging, and development. The Secrets SDK maps its `environment` parameter to a keyset automatically. See [Secrets concepts](/stack/secrets/concepts#environments).
+- **Regional or compliance boundaries** — isolate data by jurisdiction or regulatory requirement.
+- **Any boundary your application needs** — keysets are general-purpose. Combine them however your architecture requires.
 
 ## Read the whitepaper
 

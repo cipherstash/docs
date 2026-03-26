@@ -1,15 +1,11 @@
 {
   "pages": [
+    "guides",
     "encryption",
     "secrets",
     "kms",
     "proxy",
     "platform",
-    "reference",
-    "---Resources---",
-    "glossary",
-    "use-cases",
-    "supported-solutions",
-    "planning-guide"
+    "reference"
   ]
 }

@@ -7,6 +7,12 @@ description: Create and manage access keys for programmatic access to CipherStas
 
 Access keys are used to authenticate programmatic access to CipherStash [CTS](/stack/kms/cts) and [ZeroKMS](/stack/kms).
 
+<Callout type="info">
+Access keys are primarily needed for **production and CI/CD** environments.
+For local development, device-based authentication handles access automatically — no access keys required.
+See [Getting started](/stack/guides/getting-started) to set up device auth.
+</Callout>
+
 ## Creating an access key
 
 In the [CipherStash Dashboard](https://dashboard.cipherstash.com), you can create an access key by clicking the **Create access key** button in the [Access Keys](https://dashboard.cipherstash.com/workspaces/_/access-keys) section for your workspace.

@@ -100,15 +100,15 @@ const resources = [
     icon: Code,
   },
   {
-    title: "CLI",
-    description: "Manage secrets from the terminal",
+    title: "Secrets CLI",
+    description: "Manage secrets from the terminal with the stash CLI",
     href: "/stack/secrets/cli",
     icon: Terminal,
   },
   {
     title: "Use Cases",
     description: "Common patterns and real-world examples",
-    href: "/stack/use-cases",
+    href: "/stack/platform/use-cases",
     icon: BookOpen,
   },
 ];
@@ -131,7 +131,7 @@ export default function HomePage() {
           {/* Getting started cards */}
           <div className="mt-10 grid gap-3 sm:grid-cols-2">
             <Link
-              href="/stack/encryption"
+              href="/stack/guides/getting-started"
               className="group flex items-center gap-4 rounded-lg border border-fd-border bg-fd-card p-4 transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
             >
               <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-fd-primary/10 text-fd-primary">

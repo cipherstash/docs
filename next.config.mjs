@@ -21,7 +21,8 @@ const config = {
       },
       // Old nested supported-queries paths
       {
-        source: "/stack/platform/searchable-encryption/supported-queries/:path*",
+        source:
+          "/stack/platform/searchable-encryption/supported-queries/:path*",
         destination: "/stack/platform/supported-queries",
         permanent: false,
       },

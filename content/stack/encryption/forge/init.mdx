@@ -5,7 +5,7 @@ description: Set up your CipherStash project with the interactive init wizard, p
 
 # Interactive setup
 
-The `init` command is part of `@cipherstash/stack`. It generates your encryption schema and installs `@cipherstash/stack-forge` as a devDependency.
+The `init` command is part of `@cipherstash/stack`. It authenticates you, generates your encryption schema, and installs dependencies.
 
 ```bash
 npx @cipherstash/stack init
@@ -13,15 +13,17 @@ npx @cipherstash/stack init
 
 ## What the wizard does
 
-The wizard walks through these steps:
+The wizard walks through five steps:
 
-1. **Chooses your database connection method**: Drizzle ORM, Supabase JS, Prisma, or Raw SQL.
-2. **Builds your encryption schema**: Two options:
+1. **Authenticates with CipherStash**: Opens your browser for device-based authentication. Your token is saved to `~/.cipherstash/auth.json`.
+2. **Chooses your database connection method**: Drizzle ORM, Supabase JS Client, Prisma, or Raw SQL.
+3. **Builds your encryption schema**: Two options:
    - **Build interactively:** Asks for table name, column names, data types, and search operations for each column.
    - **Use a placeholder:** Generates an example `users` table with `email` and `name` columns.
-3. **Generates the encryption client file** (default: `./src/encryption/index.ts`).
-4. **Installs `@cipherstash/stack-forge`**: Adds it as a devDependency for database tooling. Detects your package manager (npm, pnpm, yarn, bun) automatically.
-5. **Prints next steps**: Shows what to do next, with links to the [CipherStash dashboard](https://dashboard.cipherstash.com/sign-up) for credentials.
+4. **Generates the encryption client file** (default: `./src/encryption/index.ts`).
+5. **Installs dependencies**: Adds `@cipherstash/stack` and `@cipherstash/stack-forge` (as a devDependency). Detects your package manager (npm, pnpm, yarn, bun) automatically.
+
+After completion, the CLI shows next steps: run `npx stash-forge setup` to set up your database, and edit your encryption schema.
 
 | Flag | Description |
 |---|---|
@@ -63,4 +65,4 @@ npx stash-forge install --drizzle  # Generate a Drizzle migration instead
 npx stash-forge install --supabase # Supabase-compatible install
 ```
 
-Then set up your CipherStash credentials. See [Configuration](/stack/encryption/configuration) for the required environment variables.
+Authentication is handled automatically by device-based auth from the init step. For production deployments, see [Going to production](/stack/guides/going-to-production).

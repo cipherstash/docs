@@ -5,18 +5,25 @@ description: Configure ZeroKMS credentials and options
 
 # KMS configuration
 
-ZeroKMS is configured through the same credentials used by the Encryption SDK. The `CS_WORKSPACE_CRN` identifies your workspace in CRN format (e.g., `crn:ap-southeast-2.aws:your-workspace-id`).
+## Local development
+
+For local development, ZeroKMS credentials are handled automatically by device-based authentication.
+Run `npx @cipherstash/stack init` to set up your device — see [Getting started](/stack/guides/getting-started).
+
+## Production credentials
+
+In production and CI/CD environments, ZeroKMS is configured through the same credentials used by the Encryption SDK. The `CS_WORKSPACE_CRN` identifies your workspace in CRN format (e.g., `crn:ap-southeast-2.aws:your-workspace-id`).
 
 For the full configuration reference (environment variables, programmatic config, and logging), see [Encryption SDK configuration](/stack/encryption/configuration).
 
-## Getting credentials
-
-Sign up at [cipherstash.com/signup](https://dashboard.cipherstash.com/sign-up) and follow the onboarding to generate your workspace credentials. You'll receive:
+The following credentials are required for production:
 
 - **Workspace CRN:** identifies your workspace and region
-- **Client ID:** identifies your application client
+- **Client ID:** identifies your machine client
 - **Client key:** your half of the [dual-party key split](/stack/platform/security-architecture#key-hierarchy)
 - **Access key:** API key for authenticating with CipherStash
+
+See [Going to production](/stack/guides/going-to-production) for a step-by-step guide to generating these credentials.
 
 ## Keysets
 

@@ -7,6 +7,29 @@ description: Create and manage clients used by SDKs and Proxy
 
 A Client is an instance of [CipherStash Proxy](/stack/proxy) or an application using an SDK like the [Encryption SDK](/stack/encryption) that you want to assign encryption or decryption privileges. Each client gets a unique ID and key, so you can revoke its access at any time.
 
+## Types of clients
+
+CipherStash has two types of clients:
+
+### Device-backed clients
+
+Device-backed clients are created automatically when a developer runs `npx @cipherstash/stack init`. They are tied to a specific developer's user account and machine (device).
+
+- Created automatically during initialization — no manual setup required
+- Each developer gets their own unique client
+- Used for **local development only**
+- Access can be revoked per developer without affecting other team members
+
+### Machine clients
+
+Machine clients are created manually in the Dashboard for production, CI/CD, and other non-interactive environments.
+
+- No device attached — identified solely by `CS_CLIENT_ID` and `CS_CLIENT_KEY`
+- Used for **production and CI/CD** where there is no interactive login
+- Credentials are set via environment variables
+
+See [Going to production](/stack/guides/going-to-production) for a guide to creating machine clients.
+
 ## Clients and keysets
 
 When created, each client is associated with a [keyset](/stack/kms/keysets). This allows the client to perform encryption and decryption operations within the keyset.
@@ -21,4 +44,10 @@ At any time, you can revoke access to a client by removing the association with 
 
 ## Creating a client
 
-In the [CipherStash Dashboard](https://dashboard.cipherstash.com), you can create a client by clicking the **Create a new client** button in the [Clients](https://dashboard.cipherstash.com/workspaces/_/clients) page.
+### Automatic (local development)
+
+Run `npx @cipherstash/stack init` to create a device-backed client automatically. See [Getting started](/stack/guides/getting-started).
+
+### Manual (production)
+
+In the [CipherStash Dashboard](https://dashboard.cipherstash.com), you can create a machine client by clicking the **Create a new client** button in the [Clients](https://dashboard.cipherstash.com/workspaces/_/clients) page.

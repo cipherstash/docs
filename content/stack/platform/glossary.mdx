@@ -41,7 +41,13 @@ See [CipherStash Proxy](/stack/proxy) for details.
 
 ### Client
 
-A programmatic access point to a [keyset](#keyset). A client can have many keysets, and a keyset can also be shared by multiple clients. To access a keyset, you need a [client key](#client-key) and a [client ID](#client-id).
+A programmatic access point to a [keyset](#keyset). A client can have many keysets, and a keyset can also be shared by multiple clients.
+
+There are two types of clients:
+- **Device-backed clients** are created automatically by `npx @cipherstash/stack init` and tied to a developer's [device](#device). Used for local development.
+- **Machine clients** are created in the Dashboard for production and CI/CD. Identified by a [client ID](#client-id) and [client key](#client-key) set via environment variables.
+
+See [Clients](/stack/kms/clients) for details.
 
 ### Client ID
 
@@ -61,8 +67,17 @@ See [CTS](/stack/kms/cts) for details.
 
 ### Dashboard
 
-The web interface for configuring and using CipherStash services.
+The web interface for managing CipherStash Cloud primitives — workspaces, clients, keysets, access keys, devices, and members.
 Available at [dashboard.cipherstash.com](https://dashboard.cipherstash.com/).
+The Dashboard manages cloud infrastructure; product-specific configuration (encryption schemas, secrets, proxy rules) is handled by the SDKs and CLI.
+
+### Device
+
+A unique identity tied to a developer's machine and user account, created by `npx @cipherstash/stack init`.
+Each device has an associated [client](#client) that is automatically granted access to the default [keyset](#keyset).
+Devices are used for local development authentication — no environment variables required.
+Production environments use machine [clients](#client) with environment variables instead.
+See [Getting started](/stack/guides/getting-started) for setup.
 
 ### Data access event
 
@@ -101,10 +116,11 @@ They are digitally signed to ensure the integrity and authenticity of the inform
 
 ### Keyset
 
-A keyset is used to generate data keys, and is managed by [ZeroKMS](#zerokms).
-It includes configuration for encrypted columns and queryable indexes.
-Use keysets to group data for a specific purpose or project.
-A [client](#client) can have many keysets, and a keyset can also be shared by multiple clients.
+A core CipherStash Cloud primitive for cryptographic isolation, managed by [ZeroKMS](#zerokms).
+Each keyset maintains its own set of data encryption keys — data encrypted under one keyset cannot be decrypted with another.
+Use keysets for tenant isolation, environment separation, regional compliance, or any cryptographic boundary your architecture requires.
+A [client](#client) can access many keysets, and a keyset can be shared by multiple clients.
+In the Secrets SDK, [environments](#environment) map directly to keysets.
 See [Keysets](/stack/kms/keysets) for details.
 
 ## O

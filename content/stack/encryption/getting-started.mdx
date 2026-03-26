@@ -10,7 +10,7 @@ This guide takes you from zero to encrypting data in under 5 minutes.
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) >= 18
-- A CipherStash account. [Sign up here](https://dashboard.cipherstash.com/sign-up).
+- CipherStash initialized — complete the [Getting started](/stack/guides/getting-started) guide first
 
 ## Quick start
 
@@ -25,25 +25,11 @@ This guide takes you from zero to encrypting data in under 5 minutes.
     ```
 
     The wizard will:
+    - Authenticate you via browser-based device login (if not already authenticated)
     - Ask which database connection method you're using (Drizzle ORM, Supabase JS, Prisma, or Raw SQL)
     - Let you build an encryption schema interactively or use a placeholder
     - Generate your encryption client file (default: `src/encryption/index.ts`)
-    - Install `@cipherstash/stack-forge` as a devDependency for database tooling
-  </Step>
-
-  <Step>
-    ### Add your credentials
-
-    Sign up at [cipherstash.com/signup](https://dashboard.cipherstash.com/sign-up) and follow the onboarding to get your credentials. Save them to `.env`:
-
-    ```bash filename=".env"
-    CS_WORKSPACE_CRN=    # The workspace identifier
-    CS_CLIENT_ID=        # The client identifier
-    CS_CLIENT_KEY=       # Key material used with ZeroKMS
-    CS_CLIENT_ACCESS_KEY= # API key for CipherStash API
-    ```
-
-    See [Configuration](/stack/encryption/configuration) for all options.
+    - Install `@cipherstash/stack` and `@cipherstash/stack-forge` as dependencies
   </Step>
 
   <Step>
@@ -178,7 +164,7 @@ If you prefer not to use the init wizard, you can set up manually:
   </Step>
 </Steps>
 
-Then continue from Step 2 (credentials) above.
+Authentication is handled automatically by device-based auth. Make sure you have run `npx @cipherstash/stack init` first — see [Getting started](/stack/guides/getting-started).
 
 <Callout type="warn">
   `@cipherstash/stack` includes a native FFI module. You must exclude it from bundlers like Webpack, esbuild, or Next.js. See [Bundling](/stack/encryption/bundling) for details.

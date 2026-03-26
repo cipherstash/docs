@@ -11,23 +11,31 @@ The CipherStash platform consists of three core components that work together to
 
 ### Workspaces
 
-**What**: Isolated environments for your applications and configurations.
+**What**: Isolated containers for your cloud resources.
 
-**Contains**: Regional deployments, access keys, OIDC providers.
+**Contains**: Clients, keysets, access keys, devices, OIDC providers.
 
-**Purpose**: Environment isolation and configuration management.
+**Purpose**: Resource isolation and configuration management per project or team.
 
 ### ZeroKMS
 
 **What**: Zero-trust key management service.
 
-**Contains**: Client keys, key sets, cryptographic operations.
+**Contains**: Keysets, cryptographic operations, key derivation.
 
 **Purpose**: Secure key generation and management without key exposure.
 
+### Clients and Devices
+
+**What**: Identity primitives for accessing keysets.
+
+**Contains**: Device-backed clients (developers via `npx @cipherstash/stack init`), machine clients (production/CI via env vars).
+
+**Purpose**: Per-identity cryptographic access with individual auditability.
+
 ### Organizations
 
-**What**: Multi-tenant management layer.
+**What**: Management layer for teams and billing.
 
 **Contains**: Members, billing, cross-workspace policies.
 
@@ -47,7 +55,7 @@ The CipherStash platform consists of three core components that work together to
 
 ## Quick Start
 
-Create an account and generate your credentials and keys in the [Dashboard](https://dashboard.cipherstash.com).
+Create an account in the [Dashboard](https://dashboard.cipherstash.com), then run `npx @cipherstash/stack init` to connect your machine. See [Getting started](/stack/guides/getting-started).
 
 ## Next steps
 

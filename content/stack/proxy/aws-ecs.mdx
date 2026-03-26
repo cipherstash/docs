@@ -15,23 +15,18 @@ description: Step-by-step guide for deploying CipherStash Proxy to AWS ECS with 
 
 <Steps>
 
-### Sign up to CipherStash
+### Set up CipherStash credentials
 
-Create a CipherStash account and generate credentials:
+You need CipherStash credentials for your production Proxy deployment. Create a machine client and access key in the Dashboard — see [Going to production](/stack/guides/going-to-production) for the full guide.
 
-```bash
-# Install the CipherStash CLI
-## macOS
-brew install cipherstash/tap/stash
-## Linux
-## Download from https://github.com/cipherstash/cli-releases/releases/latest
+You will need:
 
-# Setup your CipherStash configuration
-stash setup --proxy
-# Outputs credentials to .env.proxy.docker
-```
+- `CS_WORKSPACE_CRN` — your workspace identifier
+- `CS_CLIENT_ID` — machine client ID
+- `CS_CLIENT_KEY` — machine client key
+- `CS_CLIENT_ACCESS_KEY` — access key with the **member** role
 
-Note the credentials. You need them in later steps.
+Note these credentials. You need them in later steps.
 
 ### Prepare your Docker image
 

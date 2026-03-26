@@ -1,6 +1,6 @@
 ---
 title: Keysets
-description: Isolate encryption keys per tenant with multi-tenant keysets
+description: Cryptographic isolation for tenants, environments, and custom boundaries
 ---
 
 # Keysets
@@ -15,6 +15,8 @@ Key Sets are the foundational primitive that powers [multi-tenant encryption](/s
 Each workspace has a default keyset, which is used to derive data keys for all records in the workspace and meets the needs for most use cases.
 The default keyset is created automatically when you create a workspace.
 You can create additional keysets to meet your specific needs.
+
+When a developer runs `npx @cipherstash/stack init`, their device-backed client is automatically granted access to the default keyset. This means no additional configuration is needed for local development.
 
 ## Create a client with a keyset
 
@@ -45,7 +47,11 @@ const client = await Encryption({
 
 ### In Secrets (via environments)
 
-Secrets environments map directly to Key Sets. When you specify an `environment`, the Secrets SDK automatically uses the corresponding Key Set for encryption and decryption. See [Secrets concepts](/stack/secrets/concepts#environments) for more detail.
+Secrets environments map directly to keysets. When you specify an `environment`, the Secrets SDK automatically uses the corresponding keyset for encryption and decryption.
+
+In the CipherStash Dashboard, the **Vault > Environments** section manages these mappings. Creating an environment either creates a new keyset automatically or lets you select an existing one. Each environment row shows its associated keyset ID.
+
+See [Secrets concepts](/stack/secrets/concepts#environments) for more detail.
 
 ```typescript
 import { Secrets } from "@cipherstash/stack/secrets"
@@ -68,7 +74,7 @@ This means:
 ## Use cases
 
 - **Multi-tenant SaaS:** Give each customer their own keyset so their data is cryptographically separated. See [Encryption configuration](/stack/encryption/configuration#keysets).
-- **Environment isolation:** Use different keysets for production, staging, and development. See [Secrets concepts](/stack/secrets/concepts#environments).
+- **Environment isolation:** Use different keysets for production, staging, and development. In the Dashboard, manage these under **Vault > Environments**. See [Secrets concepts](/stack/secrets/concepts#environments).
 - **Compliance boundaries:** Isolate data by jurisdiction or regulatory requirement.
 - **Custom isolation boundaries:** Key Sets are a general-purpose primitive. Use them for any cryptographic boundary your application needs: per-region, per-department, or per-feature.
 
@@ -79,7 +85,7 @@ Keysets can be associated with any number of clients to grant that client access
 ### Granting access to a client
 
 When creating a new keyset, you must choose which clients will be granted access to the keyset.
-You can manage this by clicking **Manage** on a particular keyset in the [Keysets](https://dashboard.cipherstash.com/workspaces/_/encryption/keysets) page of the [CipherStash Dashboard](https://dashboard.cipherstash.com).
+You can manage this by clicking **Manage** on a particular keyset in the [Keysets](https://dashboard.cipherstash.com/workspaces/_/keysets) page of the [CipherStash Dashboard](https://dashboard.cipherstash.com).
 
 ### Revoking access to a keyset
 
@@ -90,7 +96,7 @@ You can manage this by clicking **Manage** on a particular client in the [Client
 
 ### Via the Dashboard
 
-In the [CipherStash Dashboard](https://dashboard.cipherstash.com), you can create a keyset by clicking the **Create Keyset** button in the [Keysets](https://dashboard.cipherstash.com/workspaces/_/encryption/keysets) page.
+In the [CipherStash Dashboard](https://dashboard.cipherstash.com), you can create a keyset by clicking the **Create Keyset** button in the [Keysets](https://dashboard.cipherstash.com/workspaces/_/keysets) page.
 
 ### Via the API
 
