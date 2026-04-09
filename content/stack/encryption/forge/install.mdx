@@ -5,10 +5,10 @@ description: Set up your database interactively, or install and upgrade EQL dire
 
 ## setup
 
-Interactive database setup. Run this after `npx @cipherstash/stack init` has generated your encryption schema.
+Interactive database setup. Run this after `npx @cipherstash/cli init` has generated your encryption schema.
 
 ```bash
-npx stash-forge setup [options]
+npx @cipherstash/cli db setup [options]
 ```
 
 The wizard will:
@@ -42,7 +42,7 @@ For non-interactive or CI environments, use the [`install`](#install) command di
 Install the CipherStash EQL extensions into your database. Uses bundled SQL by default for offline, deterministic installs.
 
 ```bash
-npx stash-forge install [options]
+npx @cipherstash/cli db install [options]
 ```
 
 | Option | Description |
@@ -59,25 +59,25 @@ npx stash-forge install [options]
 Standard install:
 
 ```bash
-npx stash-forge install
+npx @cipherstash/cli db install
 ```
 
 Dry run to preview changes:
 
 ```bash
-npx stash-forge install --dry-run
+npx @cipherstash/cli db install --dry-run
 ```
 
 Fetch the latest EQL from GitHub:
 
 ```bash
-npx stash-forge install --latest
+npx @cipherstash/cli db install --latest
 ```
 
 ### Supabase install
 
 ```bash
-npx stash-forge install --supabase
+npx @cipherstash/cli db install --supabase
 ```
 
 The `--supabase` flag uses the Supabase-specific SQL variant. It omits `CREATE OPERATOR FAMILY` and grants `USAGE`, table, routine, and sequence permissions on the `eql_v2` schema to `anon`, `authenticated`, and `service_role`.
@@ -91,7 +91,7 @@ The `--supabase` flag uses the Supabase-specific SQL variant. It omits `CREATE O
 If you use Drizzle ORM and want EQL installation as part of your migration history, use `--drizzle`:
 
 ```bash
-npx stash-forge install --drizzle
+npx @cipherstash/cli db install --drizzle
 npx drizzle-kit migrate
 ```
 
@@ -104,7 +104,7 @@ This process:
 To customize the migration name and output directory:
 
 ```bash
-npx stash-forge install --drizzle --name setup-eql --out ./migrations
+npx @cipherstash/cli db install --drizzle --name setup-eql --out ./migrations
 ```
 
 `drizzle-kit` must be installed. The `--out` value must match your Drizzle config.
@@ -124,7 +124,7 @@ If permissions are insufficient, the CLI exits with a message listing what is mi
 Upgrade an existing EQL installation to the version bundled with the package, or to the latest version from GitHub.
 
 ```bash
-npx stash-forge upgrade [options]
+npx @cipherstash/cli db upgrade [options]
 ```
 
 | Option | Description |
@@ -134,7 +134,7 @@ npx stash-forge upgrade [options]
 | `--exclude-operator-family` | Skip operator family creation |
 | `--latest` | Fetch the latest EQL from GitHub instead of using the bundled version |
 
-The EQL install SQL is idempotent and safe to re-run. The CLI checks the current version, re-runs the install SQL, and reports the new version. If EQL is not installed, the CLI suggests running `stash-forge install` instead.
+The EQL install SQL is idempotent and safe to re-run. The CLI checks the current version, re-runs the install SQL, and reports the new version. If EQL is not installed, the CLI suggests running `npx @cipherstash/cli db install` instead.
 
 ## Bundled EQL SQL
 

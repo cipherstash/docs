@@ -32,7 +32,7 @@ The Encryption SDK works with any database that supports JSON or JSONB column ty
 To enable searchable encryption in PostgreSQL, install [EQL](/stack/platform/eql) using [CipherStash Forge](/stack/encryption/forge) so you can use the `eql_v2_encrypted` data type. If you don't need searchable encryption, use `jsonb` instead (you can migrate to EQL later).
 
 ```bash
-npx stash-forge install
+npx @cipherstash/cli db install
 ```
 
 <Callout type="info" title="Choosing the column type">

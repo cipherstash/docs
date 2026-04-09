@@ -5,16 +5,16 @@ description: Dev-time CLI for managing EQL installation, encryption schemas, and
 
 # CipherStash Forge
 
-`@cipherstash/stack-forge` is a dev-time CLI and library for managing CipherStash EQL (Encrypted Query Language) in PostgreSQL.
+`@cipherstash/cli` is a dev-time CLI and library for managing CipherStash EQL (Encrypted Query Language) in PostgreSQL.
 
-`@cipherstash/stack` is the runtime encryption SDK. It stays lean with no heavy dependencies like `pg`. `@cipherstash/stack-forge` is a devDependency that handles database tooling: installing EQL extensions, checking permissions, validating schemas, and managing schema lifecycle.
+`@cipherstash/stack` is the runtime encryption SDK. It stays lean with no heavy dependencies like `pg`. `@cipherstash/cli` is a devDependency that handles database tooling: installing EQL extensions, checking permissions, validating schemas, and managing schema lifecycle.
 
 Think of it like Prisma CLI or Drizzle Kit. It sets up the database while the main SDK handles runtime operations.
 
 | Package | Role | Install as |
 |---|---|---|
 | `@cipherstash/stack` | Runtime encryption and decryption | dependency |
-| `@cipherstash/stack-forge` | Database setup and schema management | devDependency |
+| `@cipherstash/cli` | Database setup and schema management | devDependency |
 
 ## Quick start
 
@@ -24,10 +24,10 @@ Think of it like Prisma CLI or Drizzle Kit. It sets up the database while the ma
   <Step>
     ### Run the init wizard
 
-    The wizard lives in `@cipherstash/stack`. It asks which database connection method you're using, lets you build an encryption schema interactively or use a placeholder, generates your encryption client file, and installs `@cipherstash/stack-forge` as a devDependency.
+    The `npx @cipherstash/cli init` command authenticates you, generates your encryption schema, and installs dependencies.
 
     ```bash
-    npx @cipherstash/stack init
+    npx @cipherstash/cli init
     ```
   </Step>
 
@@ -37,10 +37,20 @@ Think of it like Prisma CLI or Drizzle Kit. It sets up the database while the ma
     Run the interactive setup to install EQL and configure your database:
 
     ```bash
-    npx stash-forge setup
+    npx @cipherstash/cli db setup
     ```
 
     EQL is now installed and your encryption schema is ready.
+  </Step>
+
+  <Step>
+    ### Build your schema with AI (optional)
+
+    Use the AI-powered wizard to generate an encryption schema from your database:
+
+    ```bash
+    npx @cipherstash/cli wizard
+    ```
   </Step>
 </Steps>
 
@@ -48,10 +58,10 @@ Think of it like Prisma CLI or Drizzle Kit. It sets up the database while the ma
 
 <Steps>
   <Step>
-    ### Install Forge
+    ### Install the CLI
 
     ```bash
-    npm install -D @cipherstash/stack-forge
+    npm install -D @cipherstash/cli
     ```
   </Step>
 
@@ -61,7 +71,7 @@ Think of it like Prisma CLI or Drizzle Kit. It sets up the database while the ma
     Create `stash.config.ts` in your project root:
 
     ```typescript filename="stash.config.ts"
-    import { defineConfig } from '@cipherstash/stack-forge'
+    import { defineConfig } from '@cipherstash/cli'
 
     export default defineConfig({
       databaseUrl: process.env.DATABASE_URL!,
@@ -81,13 +91,13 @@ Think of it like Prisma CLI or Drizzle Kit. It sets up the database while the ma
     ### Set up your database
 
     ```bash
-    npx stash-forge setup
+    npx @cipherstash/cli db setup
     ```
   </Step>
 </Steps>
 
 <Callout type="info">
-**Good to know**: Using Drizzle? You can also run `npx stash-forge install --drizzle` to generate a migration directly, then `npx drizzle-kit migrate` to apply it.
+**Good to know**: Using Drizzle? Run `npx @cipherstash/cli db install --drizzle` to generate a migration directly, then `npx drizzle-kit migrate` to apply it.
 </Callout>
 
 ## Configuration
@@ -95,7 +105,7 @@ Think of it like Prisma CLI or Drizzle Kit. It sets up the database while the ma
 The `stash.config.ts` file is the single source of truth for Forge. Use `defineConfig` for type safety.
 
 ```typescript filename="stash.config.ts"
-import { defineConfig } from '@cipherstash/stack-forge'
+import { defineConfig } from '@cipherstash/cli'
 
 export default defineConfig({
   databaseUrl: process.env.DATABASE_URL!,

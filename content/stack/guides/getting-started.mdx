@@ -8,15 +8,10 @@ description: Set up CipherStash in under 2 minutes with device-based authenticat
 CipherStash uses device-based authentication for local development.
 Each developer on your team gets a unique identity — no shared secrets, no environment variables.
 
-## Prerequisites
-
-- [Node.js](https://nodejs.org/) version 18 or later
-- A CipherStash account — [sign up at the Dashboard](https://dashboard.cipherstash.com/sign-up)
-
 ## Initialize CipherStash
 
 ```bash
-npx @cipherstash/stack init
+npx @cipherstash/cli init
 ```
 
 The init command walks you through a complete setup:
@@ -43,7 +38,7 @@ The init command walks you through a complete setup:
     - **Prisma**
     - **Raw SQL / pg**
 
-    For Supabase projects, run `npx @cipherstash/stack init --supabase` to get Supabase-optimized defaults.
+    For Supabase projects, run `npx @cipherstash/cli init --supabase` to get Supabase-optimized defaults.
   </Step>
 
   <Step>
@@ -62,7 +57,7 @@ The init command walks you through a complete setup:
     The CLI detects your package manager (npm, pnpm, yarn, or bun) and installs:
 
     - `@cipherstash/stack` — the encryption and secrets SDK
-    - `@cipherstash/stack-forge` — database tooling (as a devDependency)
+    - `@cipherstash/cli` — database tooling and CLI (as a devDependency)
   </Step>
 
   <Step>
@@ -70,21 +65,22 @@ The init command walks you through a complete setup:
 
     The CLI shows what to do next:
 
-    1. Set up your database: `npx stash-forge setup`
-    2. Edit your encryption schema
-    3. Read the docs
+    1. Set up your database: `npx @cipherstash/cli db setup`
+    2. Run the AI-powered setup wizard: `npx @cipherstash/cli wizard`
+    3. Edit your encryption schema
+    4. Read the docs
   </Step>
 </Steps>
 
 ## What just happened?
 
-The `stash init` command set up three things:
+The `npx @cipherstash/cli init` command set up three things:
 
 - **Device** — A unique identity for this machine, tied to your user account. Each machine you develop on gets its own device.
 - **Client** — The programmatic identity created for your device, used to access encryption keys and secrets.
 - **Keyset** — The default set of encryption keys your client can now access. Keysets provide cryptographic isolation between tenants or environments.
 
-Every developer on your team will get their own device and client when they run `npx @cipherstash/stack init`.
+Every developer on your team will get their own device and client when they run `npx @cipherstash/cli init`.
 This means every operation is traceable to a specific developer.
 
 ## Re-authenticating
@@ -92,7 +88,7 @@ This means every operation is traceable to a specific developer.
 If your session expires or you need to re-authenticate without running the full init again:
 
 ```bash
-npx @cipherstash/stack auth login
+npx @cipherstash/cli auth login
 ```
 
 This opens your browser, polls for authorization, and saves the refreshed token to `~/.cipherstash/auth.json`. Your project configuration is unchanged.

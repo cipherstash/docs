@@ -9,7 +9,7 @@ description: Common errors and fixes for CipherStash Forge
 
 | Error | Cause | Fix |
 |---|---|---|
-| `Could not find stash.config.ts` | No config file in cwd or parent dirs | Run `npx stash-forge setup` to generate it, or create `stash.config.ts` manually |
+| `Could not find stash.config.ts` | No config file in cwd or parent dirs | Run `npx @cipherstash/cli db setup` to generate it, or create `stash.config.ts` manually |
 | `databaseUrl is required` | Config missing `databaseUrl` | Add `databaseUrl` to config and check `.env` is loaded |
 | `must be superuser to create an operator family` | Standard SQL requires superuser | Use `--supabase` or `--exclude-operator-family` |
 | `Insufficient database permissions` | Role lacks `CREATE` privileges | Connect as superuser or grant permissions |
@@ -21,8 +21,8 @@ description: Common errors and fixes for CipherStash Forge
 
 The `install` command checks database permissions before running. If it reports insufficient permissions:
 
-1. Run `npx stash-forge test-connection` to verify your database URL is correct
-2. Run `npx stash-forge status` to check the current EQL state
+1. Run `npx @cipherstash/cli db test-connection` to verify your database URL is correct
+2. Run `npx @cipherstash/cli db status` to check the current EQL state
 3. Ensure the connected role has `CREATE` privileges on the database and `public` schema
 4. For `pgcrypto` extension, the role needs `SUPERUSER` or extension owner privileges
 

@@ -44,7 +44,7 @@ See [CipherStash Proxy](/stack/proxy) for details.
 A programmatic access point to a [keyset](#keyset). A client can have many keysets, and a keyset can also be shared by multiple clients.
 
 There are two types of clients:
-- **Device-backed clients** are created automatically by `npx @cipherstash/stack init` and tied to a developer's [device](#device). Used for local development.
+- **Device-backed clients** are created automatically by `npx @cipherstash/cli init` and tied to a developer's [device](#device). Used for local development.
 - **Machine clients** are created in the Dashboard for production and CI/CD. Identified by a [client ID](#client-id) and [client key](#client-key) set via environment variables.
 
 See [Clients](/stack/kms/clients) for details.
@@ -73,7 +73,7 @@ The Dashboard manages cloud infrastructure; product-specific configuration (encr
 
 ### Device
 
-A unique identity tied to a developer's machine and user account, created by `npx @cipherstash/stack init`.
+A unique identity tied to a developer's machine and user account, created by `npx @cipherstash/cli init`.
 Each device has an associated [client](#client) that is automatically granted access to the default [keyset](#keyset).
 Devices are used for local development authentication — no environment variables required.
 Production environments use machine [clients](#client) with environment variables instead.

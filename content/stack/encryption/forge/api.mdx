@@ -5,12 +5,12 @@ description: Use CipherStash Forge as a library for custom tooling and CI script
 
 # Programmatic API
 
-Import `@cipherstash/stack-forge` directly for custom tooling or CI scripts.
+Import `@cipherstash/cli` directly for custom tooling or CI scripts.
 
 ## EQLInstaller
 
 ```typescript filename="scripts/setup-db.ts"
-import { EQLInstaller, loadStashConfig } from '@cipherstash/stack-forge'
+import { EQLInstaller, loadStashConfig } from '@cipherstash/cli'
 
 const config = await loadStashConfig()
 
@@ -64,7 +64,7 @@ interface PermissionCheckResult {
 Load the bundled EQL install SQL as a string for custom install workflows:
 
 ```typescript filename="scripts/custom-install.ts"
-import { loadBundledEqlSql } from '@cipherstash/stack-forge'
+import { loadBundledEqlSql } from '@cipherstash/cli'
 
 const sql = loadBundledEqlSql()                                // standard
 const sql = loadBundledEqlSql({ supabase: true })              // supabase variant
@@ -76,7 +76,7 @@ const sql = loadBundledEqlSql({ excludeOperatorFamily: true }) // no operator fa
 Download the latest EQL install SQL from GitHub:
 
 ```typescript filename="scripts/custom-install.ts"
-import { downloadEqlSql } from '@cipherstash/stack-forge'
+import { downloadEqlSql } from '@cipherstash/cli'
 
 const sql = await downloadEqlSql()       // standard
 const sql = await downloadEqlSql(true)   // no operator family variant
@@ -87,7 +87,7 @@ const sql = await downloadEqlSql(true)   // no operator family variant
 Type-safe identity function for `stash.config.ts`. Provides autocompletion and type checking without runtime overhead:
 
 ```typescript filename="stash.config.ts"
-import { defineConfig } from '@cipherstash/stack-forge'
+import { defineConfig } from '@cipherstash/cli'
 
 export default defineConfig({
   databaseUrl: process.env.DATABASE_URL!,
@@ -99,7 +99,7 @@ export default defineConfig({
 Finds and loads the nearest `stash.config.ts`, validates it with Zod, applies defaults, and returns the typed config:
 
 ```typescript filename="scripts/setup-db.ts"
-import { loadStashConfig } from '@cipherstash/stack-forge'
+import { loadStashConfig } from '@cipherstash/cli'
 
 const config = await loadStashConfig()
 // config.databaseUrl — guaranteed to be a non-empty string

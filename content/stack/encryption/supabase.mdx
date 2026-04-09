@@ -12,7 +12,7 @@ The `encryptedSupabase` wrapper makes encrypted queries look nearly identical to
 </Callout>
 
 ```bash
-npx stash-forge install --supabase
+npx @cipherstash/cli db install --supabase
 ```
 
 The `--supabase` flag installs a Supabase-compatible version of EQL and grants the required permissions on the `eql_v2` schema to `anon`, `authenticated`, and `service_role`.
@@ -413,7 +413,7 @@ type EncryptedSupabaseError = {
 
 ## Exposing EQL schema for Supabase
 
-If you installed EQL with `npx stash-forge install --supabase`, the role grants are already applied. You still need to expose the schema in the Supabase dashboard:
+If you installed EQL with `npx @cipherstash/cli db install --supabase`, the role grants are already applied. You still need to expose the schema in the Supabase dashboard:
 
 Go to [API settings](https://supabase.com/dashboard/project/_/settings/api) and add `eql_v2` to **Exposed schemas**.
 

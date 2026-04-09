@@ -1,14 +1,14 @@
 ---
 title: Interactive setup
-description: Set up your CipherStash project with the interactive init wizard, part of the @cipherstash/stack package
+description: Set up your CipherStash project with the interactive init wizard
 ---
 
 # Interactive setup
 
-The `init` command is part of `@cipherstash/stack`. It authenticates you, generates your encryption schema, and installs dependencies.
+The `npx @cipherstash/cli init` command authenticates you, generates your encryption schema, and installs dependencies.
 
 ```bash
-npx @cipherstash/stack init
+npx @cipherstash/cli init
 ```
 
 ## What the wizard does
@@ -21,9 +21,9 @@ The wizard walks through five steps:
    - **Build interactively:** Asks for table name, column names, data types, and search operations for each column.
    - **Use a placeholder:** Generates an example `users` table with `email` and `name` columns.
 4. **Generates the encryption client file** (default: `./src/encryption/index.ts`).
-5. **Installs dependencies**: Adds `@cipherstash/stack` and `@cipherstash/stack-forge` (as a devDependency). Detects your package manager (npm, pnpm, yarn, bun) automatically.
+5. **Installs dependencies**: Adds `@cipherstash/stack` as a dependency and `@cipherstash/cli` as a devDependency. Detects your package manager (npm, pnpm, yarn, bun) automatically.
 
-After completion, the CLI shows next steps: run `npx stash-forge setup` to set up your database, and edit your encryption schema.
+After completion, the CLI shows next steps: run `npx @cipherstash/cli db setup` to set up your database, and edit your encryption schema.
 
 | Flag | Description |
 |---|---|
@@ -52,17 +52,23 @@ export default await Encryption({ schemas: [users] })
 Once the wizard completes, set up your database:
 
 ```bash
-npx stash-forge setup
+npx @cipherstash/cli db setup
 ```
 
-This will auto-detect your encryption client, ask for your database URL, generate `stash.config.ts`, detect your Postgres provider, and install EQL. See [setup](/stack/encryption/forge/install#setup) for details.
+This auto-detects your encryption client, asks for your database URL, generates `stash.config.ts`, detects your Postgres provider, and installs EQL. See [setup](/stack/encryption/forge/install#setup) for details.
 
-Or use `stash-forge install` directly for non-interactive setup:
+To build your encryption schema with AI assistance, run the wizard after setup:
 
 ```bash
-npx stash-forge install
-npx stash-forge install --drizzle  # Generate a Drizzle migration instead
-npx stash-forge install --supabase # Supabase-compatible install
+npx @cipherstash/cli wizard
+```
+
+Or use `npx @cipherstash/cli db install` directly for non-interactive setup:
+
+```bash
+npx @cipherstash/cli db install
+npx @cipherstash/cli db install --drizzle  # Generate a Drizzle migration instead
+npx @cipherstash/cli db install --supabase # Supabase-compatible install
 ```
 
 Authentication is handled automatically by device-based auth from the init step. For production deployments, see [Going to production](/stack/guides/going-to-production).

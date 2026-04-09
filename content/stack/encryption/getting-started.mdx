@@ -7,29 +7,23 @@ description: Go from zero to encrypted in under 5 minutes with the interactive s
 
 This guide takes you from zero to encrypting data in under 5 minutes.
 
-## Prerequisites
-
-- [Node.js](https://nodejs.org/) >= 18
-- CipherStash initialized — complete the [Getting started](/stack/guides/getting-started) guide first
-
 ## Quick start
 
 <Steps>
   <Step>
     ### Initialize your project
 
-    Run the init wizard:
+    Run the init command:
 
     ```bash
-    npx @cipherstash/stack init
+    npx @cipherstash/cli init
     ```
 
-    The wizard will:
+    The CLI will:
     - Authenticate you via browser-based device login (if not already authenticated)
     - Ask which database connection method you're using (Drizzle ORM, Supabase JS, Prisma, or Raw SQL)
-    - Let you build an encryption schema interactively or use a placeholder
     - Generate your encryption client file (default: `src/encryption/index.ts`)
-    - Install `@cipherstash/stack` and `@cipherstash/stack-forge` as dependencies
+    - Install `@cipherstash/stack` and `@cipherstash/cli` as dependencies
   </Step>
 
   <Step>
@@ -38,10 +32,10 @@ This guide takes you from zero to encrypting data in under 5 minutes.
     Run the interactive setup to install EQL in your PostgreSQL database:
 
     ```bash
-    npx stash-forge setup
+    npx @cipherstash/cli db setup
     ```
 
-    Or use `stash-forge install` directly for non-interactive setup with flags like `--drizzle` or `--supabase`. See [Install and upgrade EQL](/stack/encryption/forge/install) for all options.
+    Or use `npx @cipherstash/cli db install` directly for non-interactive setup with flags like `--drizzle` or `--supabase`. See [Install and upgrade EQL](/stack/encryption/forge/install) for all options.
   </Step>
 
   <Step>
@@ -126,6 +120,7 @@ If you prefer not to use the init wizard, you can set up manually:
 
     ```bash
     npm install @cipherstash/stack
+    npm install -D @cipherstash/cli
     ```
 
     > If you're using Bun, version 1.3 or later is required.
@@ -164,7 +159,7 @@ If you prefer not to use the init wizard, you can set up manually:
   </Step>
 </Steps>
 
-Authentication is handled automatically by device-based auth. Make sure you have run `npx @cipherstash/stack init` first — see [Getting started](/stack/guides/getting-started).
+Authentication is handled automatically by device-based auth. Make sure you have run `npx @cipherstash/cli init` first — see [Getting started](/stack/guides/getting-started).
 
 <Callout type="warn">
   `@cipherstash/stack` includes a native FFI module. You must exclude it from bundlers like Webpack, esbuild, or Next.js. See [Bundling](/stack/encryption/bundling) for details.

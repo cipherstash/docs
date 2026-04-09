@@ -11,8 +11,6 @@ import {
   Search,
   Server,
   ShieldCheck,
-  Terminal,
-  WrenchIcon,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
@@ -100,10 +98,10 @@ const resources = [
     icon: Code,
   },
   {
-    title: "Secrets CLI",
-    description: "Manage secrets from the terminal with the stash CLI",
-    href: "/stack/secrets/cli",
-    icon: Terminal,
+    title: "Agent Skills",
+    description: "Install CipherStash skills for your AI coding agent",
+    href: "/stack/guides/agent-skills",
+    icon: Zap,
   },
   {
     title: "Use Cases",
@@ -185,17 +183,17 @@ export default function HomePage() {
               <ArrowRight className="ml-auto size-4 shrink-0 text-fd-muted-foreground transition-colors group-hover:text-fd-primary" />
             </Link>
             <Link
-              href="/stack/encryption/forge"
+              href="/stack/guides/agent-skills"
               className="group flex items-center gap-4 rounded-lg border border-fd-border bg-fd-card p-4 transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
             >
               <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-fd-primary/10 text-fd-primary">
-                <WrenchIcon className="size-5" />
+                <Zap className="size-5" />
               </div>
               <div className="min-w-0">
-                <p className="font-medium text-fd-foreground">Forge</p>
+                <p className="font-medium text-fd-foreground">Agent Skills</p>
                 <p className="text-sm text-fd-muted-foreground">
-                  The sidekick that sets up the database bits so searchable
-                  encryption just works.
+                  Give your AI coding agent accurate CipherStash knowledge.
+                  Works with Cursor, Copilot, Claude Code, and more.
                 </p>
               </div>
               <ArrowRight className="ml-auto size-4 shrink-0 text-fd-muted-foreground transition-colors group-hover:text-fd-primary" />

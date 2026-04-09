@@ -79,7 +79,7 @@ beforeAll(async () => {
   pool = new Pool({ connectionString: process.env.TEST_DATABASE_URL })
 
   // EQL must be installed before running tests.
-  // Run `npx stash-forge setup` (or `npx stash-forge install`) against your test database first.
+  // Run `npx @cipherstash/cli db setup` (or `npx @cipherstash/cli db install`) against your test database first.
   // See: /stack/encryption/forge
 
   // Initialize encryption client with test credentials

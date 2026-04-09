@@ -8,7 +8,7 @@ description: Validate your encryption schema for misconfigurations before pushin
 The `validate` command checks your encryption schema for common misconfigurations.
 
 ```bash
-npx stash-forge validate [options]
+npx @cipherstash/cli db validate [options]
 ```
 
 | Option | Description |
@@ -30,13 +30,13 @@ npx stash-forge validate [options]
 Basic validation:
 
 ```bash
-npx stash-forge validate
+npx @cipherstash/cli db validate
 ```
 
 Validate with Supabase context (checks for operator family issues):
 
 ```bash
-npx stash-forge validate --supabase
+npx @cipherstash/cli db validate --supabase
 ```
 
 ## How validation works

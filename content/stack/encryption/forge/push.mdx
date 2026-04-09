@@ -8,7 +8,7 @@ description: Push your encryption schema to the database and check EQL installat
 Push your encryption schema to the database.
 
 ```bash
-npx stash-forge push [options]
+npx @cipherstash/cli db push [options]
 ```
 
 | Option | Description |
@@ -21,7 +21,7 @@ npx stash-forge push [options]
 
 ### How push works
 
-When pushing, stash-forge:
+When pushing, the CLI:
 
 1. Loads the encryption client from the path in `stash.config.ts`
 2. Runs [schema validation](/stack/encryption/forge/validate) (warns but doesn't block)
@@ -48,7 +48,7 @@ The SDK uses developer-friendly type names, but EQL expects PostgreSQL-aligned t
 Show the current state of EQL in your database.
 
 ```bash
-npx stash-forge status
+npx @cipherstash/cli db status
 ```
 
 Reports:
@@ -61,7 +61,7 @@ Reports:
 Verify that the database URL in your config is valid and the database is reachable.
 
 ```bash
-npx stash-forge test-connection
+npx @cipherstash/cli db test-connection
 ```
 
 Reports the database name, connected user/role, and PostgreSQL server version. Useful for debugging connection issues before running `install` or `push`.
