@@ -1,0 +1,20 @@
+{
+  "title": "Encryption",
+  "description": "Searchable field-level encryption for Postgres",
+  "icon": "Lock",
+  "root": true,
+  "pages": [
+    "index",
+    "configuration",
+    "---Concepts---",
+    "schema",
+    "encrypt-decrypt",
+    "searchable-encryption",
+    "identity",
+    "---Integrations---",
+    "storing-data",
+    "drizzle",
+    "supabase",
+    "dynamodb"
+  ]
+}

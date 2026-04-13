@@ -1,0 +1,375 @@
+---
+title: Searchable encryption
+description: Query encrypted data without decryption. Equality, free-text search, range, ordering, and JSON queries over ciphertext in PostgreSQL.
+---
+
+# Searchable encryption
+
+Query encrypted data without decryption. Standard encryption breaks queries: encrypt a column and `WHERE`, `ORDER BY`, and `LIKE` stop working. CipherStash solves this with searchable encryption indexes that enable queries over ciphertext.
+
+## How it works
+
+Each encrypted column can have one or more searchable indexes. When you encrypt a value, CipherStash creates index terms alongside the ciphertext. These terms are themselves encrypted — they reveal nothing about the plaintext — but they allow PostgreSQL to evaluate queries without decrypting.
+
+The result: your data is encrypted at rest, in transit, and during query evaluation. CipherStash is [410,000x faster](https://github.com/cipherstash/tfhe-ore-bench) than homomorphic encryption, with sub-millisecond overhead on existing PostgreSQL indexes. Every decryption event is logged in [ZeroKMS](/stack/cipherstash/kms), giving you an audit trail for compliance with [SOC 2](https://cipherstash.com/compliance/soc2) and [BDSG](https://cipherstash.com/compliance/bdsg).
+
+## Supported query types
+
+| Query type | Index | Example |
+|---|---|---|
+| Exact match | `equality` | `WHERE email = ?` |
+| Free-text search | `freeTextSearch` | `WHERE name LIKE '%alice%'` |
+| Range / comparison | `orderAndRange` | `WHERE age > 21`, `ORDER BY created_at` |
+| JSON containment | `searchableJson` | `WHERE metadata @> '{"role": "admin"}'` |
+| Ordering | `orderAndRange` | `ORDER BY salary DESC` |
+| Grouping | `equality` | `GROUP BY department` |
+| Uniqueness | `equality` | `UNIQUE` constraints on encrypted columns |
+
+## Prerequisites
+
+1. Install [EQL](/stack/reference/eql-guide) in your PostgreSQL database using [CipherStash Forge](/stack/cipherstash/forge):
+   ```bash
+   npx @cipherstash/cli db install
+   ```
+2. Define your encryption schema with the appropriate search indexes
+
+## What is EQL?
+
+EQL (Encrypt Query Language) is a set of PostgreSQL extensions that enable searching and sorting on encrypted data. It provides custom data types, comparison functions, and index support for encrypted values.
+
+Any encrypted column must use the `eql_v2_encrypted` type:
+
+```sql
+CREATE TABLE users (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  email eql_v2_encrypted
+);
+```
+
+## The `encryptQuery` function
+
+Encrypt a query term so you can search encrypted data in PostgreSQL:
+
+```typescript filename="search.ts"
+const term = await client.encryptQuery("user@example.com", {
+  column: schema.email,
+  table: schema,
+})
+
+if (term.failure) {
+  // Handle the error
+}
+
+console.log(term.data) // encrypted query term
+```
+
+### Properties
+
+| Property | Description |
+|---|---|
+| `value` | The value to search for |
+| `column` | The column to search in |
+| `table` | The table to search in |
+| `queryType` | _(optional)_ The query type — auto-inferred from the column's indexes when omitted |
+| `returnType` | _(optional)_ The output format — `'eql'` (default), `'composite-literal'`, or `'escaped-composite-literal'` |
+
+### `returnType` options
+
+| `returnType` | Return type | Description |
+|---|---|---|
+| `'eql'` (default) | `Encrypted` object | Raw EQL JSON payload. Use with parameterized queries (`$1`) or ORMs that accept JSON objects. |
+| `'composite-literal'` | `string` | PostgreSQL composite literal format `("json")`. Use with Supabase `.eq()` or other APIs that require a string value. |
+| `'escaped-composite-literal'` | `string` | Escaped composite literal `"(\"json\")"`. Use when the query string will be embedded inside another string or JSON value. |
+
+### Batch queries
+
+Encrypt multiple query terms in a single call:
+
+```typescript filename="search.ts"
+const terms = await client.encryptQuery([
+  { value: "user@example.com", column: schema.email, table: schema },
+  { value: "18", column: schema.age, table: schema },
+])
+```
+
+## Query types
+
+### Exact matching
+
+Use `.equality()` for exact match lookups:
+
+```typescript filename="search.ts"
+const term = await client.encryptQuery("user@example.com", {
+  column: schema.email,
+  table: schema,
+})
+
+const result = await pgClient.query(
+  "SELECT * FROM users WHERE email_encrypted = $1",
+  [term.data]
+)
+```
+
+### Free-text search
+
+Use `.freeTextSearch()` for text-based searches:
+
+```typescript filename="search.ts"
+const term = await client.encryptQuery("example", {
+  column: schema.email,
+  table: schema,
+})
+
+const result = await pgClient.query(
+  "SELECT * FROM users WHERE email_encrypted LIKE $1",
+  [term.data]
+)
+```
+
+### Sorting and range queries
+
+Use `.orderAndRange()` for sorting and range operations:
+
+<Callout type="info">
+  If your PostgreSQL database does not support EQL Operator families, use the `eql_v2.ore_block_u64_8_256()` function for `ORDER BY`. Databases with Operator family support can use `ORDER BY` directly on the encrypted column name.
+</Callout>
+
+```typescript filename="search.ts"
+const result = await pgClient.query(
+  "SELECT * FROM users ORDER BY eql_v2.ore_block_u64_8_256(age_encrypted) ASC"
+)
+```
+
+## JSONB queries with `.searchableJson()`
+
+For columns storing JSON data, `.searchableJson()` is the recommended approach. It automatically infers the correct query operation from the plaintext value type.
+
+```typescript filename="schema.ts"
+const documents = encryptedTable("documents", {
+  metadata: encryptedColumn("metadata_encrypted").searchableJson(),
+})
+```
+
+### Auto-inference
+
+| Plaintext type | Inferred operation | Use case |
+|---|---|---|
+| `string` (e.g. `'$.user.email'`) | `steVecSelector` | JSONPath selector queries |
+| `object` (e.g. `{ role: 'admin' }`) | `steVecTerm` | Containment queries |
+| `array` (e.g. `['admin', 'user']`) | `steVecTerm` | Containment queries |
+| `null` | Returns `null` | Null handling |
+
+### JSONPath selector queries
+
+Pass a string to query by JSON path:
+
+```typescript filename="search.ts"
+const pathTerm = await client.encryptQuery("$.user.email", {
+  column: documents.metadata,
+  table: documents,
+})
+
+// Nested path
+const nestedTerm = await client.encryptQuery("$.user.profile.role", {
+  column: documents.metadata,
+  table: documents,
+})
+
+// Array index
+const arrayTerm = await client.encryptQuery("$.items[0].name", {
+  column: documents.metadata,
+  table: documents,
+})
+```
+
+Use the `toJsonPath` helper to convert dot-notation paths:
+
+```typescript filename="search.ts"
+import { toJsonPath } from "@cipherstash/stack"
+
+toJsonPath("user.email")     // '$.user.email'
+toJsonPath("$.user.email")   // '$.user.email' (unchanged)
+toJsonPath("name")           // '$.name'
+```
+
+### Containment queries
+
+Pass an object or array to query by containment:
+
+```typescript filename="search.ts"
+// Key-value containment
+const roleTerm = await client.encryptQuery({ role: "admin" }, {
+  column: documents.metadata,
+  table: documents,
+})
+
+// Nested object containment
+const nestedTerm = await client.encryptQuery(
+  { user: { profile: { role: "admin" } } },
+  { column: documents.metadata, table: documents }
+)
+
+// Array containment
+const tagsTerm = await client.encryptQuery(["admin", "user"], {
+  column: documents.metadata,
+  table: documents,
+})
+```
+
+<Callout type="warn">
+  Bare numbers and booleans are not supported as top-level `searchableJson` query values. For `orderAndRange` queries, bare numbers are supported directly. Wrap them in an object or array for `searchableJson`.
+</Callout>
+
+```typescript filename="search.ts"
+// Wrong for searchableJson: will fail (works for orderAndRange)
+await client.encryptQuery(42, { column: documents.metadata, table: documents })
+
+// Correct — wrap in an object
+await client.encryptQuery({ value: 42 }, { column: documents.metadata, table: documents })
+```
+
+Use the `buildNestedObject` helper to construct nested containment queries:
+
+```typescript filename="search.ts"
+import { buildNestedObject } from "@cipherstash/stack"
+
+buildNestedObject("user.role", "admin")
+// Returns: { user: { role: 'admin' } }
+```
+
+### Using JSONB queries in SQL
+
+Specify `returnType: 'composite-literal'` for direct use in SQL:
+
+```typescript filename="search.ts"
+const term = await client.encryptQuery([{
+  value: "$.user.email",
+  column: documents.metadata,
+  table: documents,
+  returnType: "composite-literal",
+}])
+
+const result = await pgClient.query(
+  "SELECT * FROM documents WHERE cs_ste_vec_v2(metadata_encrypted) @> $1",
+  [term.data[0]]
+)
+```
+
+### Batch JSONB queries
+
+Use `encryptQuery` with an array to encrypt multiple JSONB query terms in a single call. Each item can have a different plaintext type:
+
+```typescript filename="search.ts"
+const terms = await client.encryptQuery([
+  {
+    value: "$.user.email",        // string -> JSONPath selector
+    column: documents.metadata,
+    table: documents,
+  },
+  {
+    value: { role: "admin" },     // object -> containment
+    column: documents.metadata,
+    table: documents,
+  },
+  {
+    value: ["tag1", "tag2"],      // array -> containment
+    column: documents.metadata,
+    table: documents,
+  },
+])
+```
+
+### Advanced: Explicit query types
+
+For advanced use cases, you can specify the query type explicitly instead of relying on auto-inference:
+
+| Approach | `queryType` | When to use |
+|---|---|---|
+| **searchableJson** (recommended) | `'searchableJson'` or omitted | Auto-infers from plaintext type. Use for most JSONB queries. |
+| **steVecSelector** (explicit) | `'steVecSelector'` | When you want to be explicit about JSONPath selector queries. |
+| **steVecTerm** (explicit) | `'steVecTerm'` | When you want to be explicit about containment queries. |
+
+```typescript filename="search.ts"
+// Explicit steVecSelector
+const selectorTerm = await client.encryptQuery("$.user.email", {
+  column: documents.metadata,
+  table: documents,
+  queryType: "steVecSelector",
+})
+
+// Explicit steVecTerm
+const containTerm = await client.encryptQuery({ role: "admin" }, {
+  column: documents.metadata,
+  table: documents,
+  queryType: "steVecTerm",
+})
+```
+
+## Implementation example
+
+### Using the `pg` client
+
+```typescript filename="search.ts"
+import { Client } from "pg"
+import { Encryption } from "@cipherstash/stack"
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
+
+const schema = encryptedTable("users", {
+  email: encryptedColumn("email_encrypted")
+    .equality()
+    .freeTextSearch()
+    .orderAndRange(),
+})
+
+const pgClient = new Client({ connectionString: process.env.DATABASE_URL })
+const client = await Encryption({ schemas: [schema] })
+
+// Insert encrypted data
+const encryptedData = await client.encryptModel({ email: "user@example.com" }, schema)
+await pgClient.query(
+  "INSERT INTO users (email_encrypted) VALUES ($1::jsonb)",
+  [encryptedData.data.email_encrypted]
+)
+
+// Search encrypted data
+const searchTerm = await client.encryptQuery("example.com", {
+  column: schema.email,
+  table: schema,
+})
+const result = await pgClient.query(
+  "SELECT * FROM users WHERE email_encrypted LIKE $1",
+  [searchTerm.data]
+)
+
+// Decrypt results
+const decryptedData = await client.bulkDecryptModels(result.rows)
+```
+
+## Best practices
+
+### Schema design
+
+- Use `.equality()` for exact matches (most efficient)
+- Use `.freeTextSearch()` for text-based searches (more expensive)
+- Use `.orderAndRange()` for numerical data and sorting (most expensive)
+- Only enable features you need to minimize performance impact
+- Use `eql_v2_encrypted` column type in your database schema for encrypted columns
+
+### Security
+
+- Never store unencrypted sensitive data
+- Keep your CipherStash secrets secure
+- Use parameterized queries to prevent SQL injection
+
+### Performance
+
+- Index your encrypted columns appropriately
+- Use bulk operations (`bulkEncryptModels`, `bulkDecryptModels`) when working with multiple records
+- Monitor query performance and consider the impact of search operations on your database
+- Cache frequently accessed data
+
+### Error handling
+
+- Always check for failures with any `@cipherstash/stack` method
+- Handle encryption errors aggressively
+- Handle decryption errors gracefully

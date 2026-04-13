@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "prebuild": "pnpm generate-docs && pnpm generate-docs:eql && pnpm validate-links",
+    "prebuild": "bun run generate-docs && bun run generate-docs:eql && bun run validate-links",
     "build": "next build",
     "dev": "next dev -p 3001",
     "start": "next start",

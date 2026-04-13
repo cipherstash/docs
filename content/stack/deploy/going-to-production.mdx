@@ -1,0 +1,146 @@
+---
+title: Going to production
+description: Transition from local device-based auth to production environment variables for CI/CD and hosting platforms
+---
+
+# Going to production
+
+Local development uses device-based authentication — each developer is uniquely identified via `npx @cipherstash/cli init`.
+Production and CI/CD environments don't have a physical device or interactive login, so they use environment variables instead.
+
+## How auth differs between environments
+
+| Environment | Auth mechanism | How it works |
+|---|---|---|
+| Local development | Device-based | `npx @cipherstash/cli init` creates a device and client. No env vars needed. |
+| CI/CD pipelines | Environment variables | Machine client identified by `CS_CLIENT_ID` and `CS_CLIENT_KEY`. |
+| Production hosting | Environment variables | Same as CI/CD. Machine clients have keyset access without a device. |
+
+## Setting up production credentials
+
+<Steps>
+  <Step>
+    ### Create a machine client
+
+    In the [CipherStash Dashboard](https://dashboard.cipherstash.com), navigate to **Clients** and create a new client.
+
+    This is a **machine client** — it has no device attached and is identified solely by its client ID and key.
+
+    Save the **Client ID** and **Client Key**. The client key is shown only once.
+  </Step>
+
+  <Step>
+    ### Create an access key
+
+    Navigate to **Access Keys** and create a new access key.
+
+    Use the **member** role for production workloads. This follows the principle of least privilege and only allows encrypt/decrypt operations.
+
+    | Role | Use case |
+    |---|---|
+    | **Member** | Application workloads — encrypt, decrypt, list keysets |
+    | **Control** | Infrastructure automation — manage keysets and clients |
+    | **Admin** | Full access. Not recommended for production. |
+
+    Save the **access key**. It is shown only once.
+
+    See [Access keys](/stack/cipherstash/kms/access-keys) for details on roles and scopes.
+  </Step>
+
+  <Step>
+    ### Grant keyset access
+
+    Ensure the machine client has access to the appropriate keyset(s).
+
+    By default, new clients are granted access to the **default keyset**.
+    For multi-tenant deployments, grant access to specific keysets as needed.
+
+    See [Keysets](/stack/cipherstash/kms/keysets) for details on managing keyset access.
+  </Step>
+
+  <Step>
+    ### Set environment variables
+
+    In your hosting platform or CI/CD system, set the following environment variables:
+
+    ```bash
+    CS_WORKSPACE_CRN=crn:region.aws:your-workspace-id
+    CS_CLIENT_ID=your-machine-client-id
+    CS_CLIENT_KEY=your-machine-client-key
+    CS_CLIENT_ACCESS_KEY=your-access-key
+    ```
+
+    These four variables are required for all CipherStash products (Encryption SDK, Secrets, and Proxy) in production.
+  </Step>
+
+  <Step>
+    ### Set a writable config path (if needed)
+
+    In serverless or containerized environments, the default config directory may not be writable.
+    Set `CS_CONFIG_PATH` to a writable location:
+
+    ```bash
+    CS_CONFIG_PATH=/tmp/.cipherstash
+    ```
+
+    This has been tested on Vercel, AWS Lambda, and Docker containers.
+  </Step>
+</Steps>
+
+## CI/CD pipeline examples
+
+### GitHub Actions
+
+```yaml filename=".github/workflows/deploy.yml"
+env:
+  CS_WORKSPACE_CRN: ${{ secrets.CS_WORKSPACE_CRN }}
+  CS_CLIENT_ID: ${{ secrets.CS_CLIENT_ID }}
+  CS_CLIENT_KEY: ${{ secrets.CS_CLIENT_KEY }}
+  CS_CLIENT_ACCESS_KEY: ${{ secrets.CS_CLIENT_ACCESS_KEY }}
+```
+
+### Docker
+
+```bash filename=".env.production"
+CS_WORKSPACE_CRN=crn:region.aws:your-workspace-id
+CS_CLIENT_ID=your-machine-client-id
+CS_CLIENT_KEY=your-machine-client-key
+CS_CLIENT_ACCESS_KEY=your-access-key
+```
+
+```yaml filename="docker-compose.yml"
+services:
+  app:
+    env_file:
+      - .env.production
+```
+
+<Callout type="warn">
+Never commit `.env.production` or any file containing credentials to version control.
+Add it to your `.gitignore`.
+</Callout>
+
+## Avoid using environment variables locally
+
+<Callout type="warn">
+Setting `CS_*` environment variables for local development is an anti-pattern.
+
+Device-based auth provides:
+- **Per-developer identity** — audit trails show who performed each operation
+- **No shared secrets** — each developer has their own client credentials
+- **Automatic session management** — no manual credential rotation
+
+If you have `CS_*` variables in a local `.env` file, remove them and run `npx @cipherstash/cli init` instead.
+</Callout>
+
+## Bundler configuration
+
+Production deployments often require bundler configuration to ensure `@cipherstash/stack` is not bundled with your application code.
+See [Bundling](/stack/deploy/bundling) for setup instructions for Next.js, webpack, esbuild, and SST.
+
+## Next steps
+
+- [Bundling for production](/stack/deploy/bundling) — Configure your bundler for deployment
+- [Deploying Proxy to AWS ECS](/stack/deploy/aws-ecs) — Run CipherStash Proxy in production
+- [Access keys](/stack/cipherstash/kms/access-keys) — Understand access key roles and scopes
+- [Team onboarding](/stack/deploy/team-onboarding) — Set up per-developer access for your team

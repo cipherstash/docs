@@ -1,0 +1,43 @@
+---
+title: /PROXY
+description: Transparent searchable encryption for existing PostgreSQL databases. Zero application code changes.
+---
+
+# /PROXY
+
+Transparent, searchable encryption for your existing PostgreSQL database. No application code changes. Connect through the proxy. Your data is encrypted at the field level. Your queries still work.
+
+## What you get
+
+1. **Zero code changes.** Configure encryption for specific tables and columns. Your SQL stays the same.
+2. **Queries over ciphertext.** Equality, comparison, ordering, grouping over encrypted values.
+3. **Written in Rust.** High performance, strongly-typed mapping of SQL statements.
+4. **Backed by ZeroKMS.** Up to 14x the performance of AWS KMS.
+5. **Prometheus built in.** Production monitoring out of the box.
+6. **Runs in a container** or as a standalone CLI tool.
+
+CipherStash Proxy uses the [Encrypt Query Language (EQL)](/stack/reference/eql-guide) to index and search encrypted data.
+
+## When to use Proxy vs SDK
+
+| | CipherStash Proxy | Encryption SDK |
+|---|---|---|
+| **Best for** | DevOps teams adding encryption to existing PostgreSQL apps | Engineering teams building new applications |
+| **Code changes** | Zero — drop-in replacement for your database connection | Application-level integration with schema definitions |
+| **Setup** | Docker container, configure env vars | npm install, define schemas, integrate into app |
+| **Control** | Automatic, table/column configuration | Fine-grained, per-field control |
+
+## Next steps
+
+<Cards>
+  <Card title="Getting started" href="/stack/cipherstash/proxy/getting-started" description="Get up and running in local dev in under 5 minutes." />
+  <Card title="Configuration" href="/stack/cipherstash/proxy/configuration" description="Docker setup, environment variables, and EQL installation." />
+  <Card title="Multitenant operation" href="/stack/cipherstash/proxy/multitenant" description="Keyset scoping for cryptographic tenant isolation." />
+  <Card title="Searchable JSON" href="/stack/cipherstash/proxy/searchable-json" description="JSONB functions and operators for encrypted data." />
+  <Card title="Encrypt tool" href="/stack/cipherstash/proxy/encrypt-tool" description="CLI tool to encrypt existing data in your database." />
+  <Card title="Deploy to AWS ECS" href="/stack/deploy/aws-ecs" description="Step-by-step guide for deploying Proxy to AWS ECS." />
+  <Card title="Audit features" href="/stack/cipherstash/proxy/audit" description="Statement fingerprinting, redaction, and record reconciliation." />
+  <Card title="Reference" href="/stack/reference/proxy-reference" description="All config options, CLI flags, Prometheus metrics, and more." />
+  <Card title="Errors" href="/stack/reference/proxy-errors" description="Complete error reference with troubleshooting steps." />
+  <Card title="Troubleshooting" href="/stack/cipherstash/proxy/troubleshooting" description="ZeroKMS debugging, slow statement logging, and performance." />
+</Cards>

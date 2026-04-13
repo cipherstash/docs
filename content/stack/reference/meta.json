@@ -1,7 +1,33 @@
 {
   "title": "Reference",
-  "description": "Auto-generated API reference documentation",
-  "icon": "Code",
+  "description": "Architecture, API reference, and lookup material",
+  "icon": "BookOpen",
   "root": true,
-  "pages": ["index", "stack", "drizzle", "eql"]
+  "pages": [
+    "index",
+    "---Architecture---",
+    "what-is-cipherstash",
+    "security-architecture",
+    "planning-guide",
+    "compliance",
+    "---Use Cases---",
+    "use-cases",
+    "---API & SDK---",
+    "eql-guide",
+    "error-handling",
+    "migration",
+    "proxy-reference",
+    "proxy-errors",
+    "agent-skills",
+    "---Platform---",
+    "billing",
+    "members",
+    "aws-kms-comparison",
+    "supported-solutions",
+    "cipher-cell",
+    "glossary",
+    "---Auto-generated---",
+    "eql",
+    "stack"
+  ]
 }

@@ -1,0 +1,135 @@
+---
+title: Encrypt Query Language (EQL)
+description: PostgreSQL types, operators, and functions for querying encrypted data
+---
+
+# Encrypt Query Language (EQL)
+
+**Encrypt Query Language (EQL)** is a set of PostgreSQL types, operators, and functions that enable queries on encrypted data without decryption. EQL works seamlessly with the [CipherCell](/stack/reference/cipher-cell) format to provide searchable encryption capabilities directly in PostgreSQL.
+
+## What is EQL?
+
+EQL provides the database-side components needed to query encrypted data. Unlike traditional PostgreSQL extensions, EQL is implemented as a collection of types, operators, and functions, making it compatible with managed database providers like AWS RDS that restrict extension installation.
+
+When combined with the [Encryption SDK](/stack/cipherstash/encryption) or [CipherStash Proxy](/stack/cipherstash/proxy), EQL enables:
+
+- **Exact match queries** using encrypted equality operators
+- **Range queries** with order-preserving encryption
+- **Pattern matching** using encrypted Bloom filters
+- **Unique constraints** on encrypted columns
+- **JSON/JSONB operations** on encrypted structured data
+
+## Core components
+
+### The `eql_v2_encrypted` type
+
+The foundation of EQL is the `eql_v2_encrypted` data type, which stores [CipherCells](/stack/reference/cipher-cell) containing encrypted data and searchable encrypted metadata.
+
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    email eql_v2_encrypted,
+    name eql_v2_encrypted
+);
+```
+
+<Callout type="warn">
+The `eql_v2_encrypted` type is required for searchable encryption in PostgreSQL. Regular `JSON` or `JSONB` types can store CipherCells but do not support encrypted queries.
+</Callout>
+
+### Operators
+
+EQL provides PostgreSQL operators that work directly with encrypted data:
+
+```sql
+-- Exact match
+SELECT * FROM users WHERE email = 'encrypted_search_value'::eql_v2_encrypted;
+
+-- Range queries
+SELECT * FROM products WHERE price > 'encrypted_value'::eql_v2_encrypted;
+
+-- Pattern matching
+SELECT * FROM documents WHERE content LIKE '%encrypted_pattern%';
+```
+
+### Functions
+
+EQL includes functions for configuration, querying, and working with encrypted data:
+
+#### Configuration functions
+
+Functions to set up and manage encrypted columns:
+
+- `eql_v2.add_column()`: Initialize a column for encryption
+- `eql_v2.add_search_config()`: Add searchable indexes to encrypted columns
+- `eql_v2.remove_column()`: Remove column configuration
+- `eql_v2.config()`: View current configuration
+
+#### Query functions
+
+Functions for querying encrypted data (operator equivalents also available):
+
+- Equality checks: `eql_v2.encrypted_eq()`
+- Range comparisons: `eql_v2.encrypted_lt()`, `eql_v2.encrypted_gt()`, etc.
+- Pattern matching: `eql_v2.encrypted_like()`, `eql_v2.encrypted_ilike()`
+
+#### Index term extraction
+
+Functions to extract searchable terms from CipherCells:
+
+- `eql_v2.encrypted_get_hmac_256()`: Extract HMAC term for exact matches
+- `eql_v2.encrypted_get_bloom_filter()`: Extract Bloom filter for pattern matching
+- `eql_v2.encrypted_get_ore()`: Extract ORE term for range queries
+
+## Index types
+
+EQL supports multiple searchable encryption index types. Each index type enables different query patterns:
+
+### `unique`: Exact match
+
+Enables exact equality queries and unique constraints using HMAC-SHA256.
+
+[Learn more about exact indexes](/stack/cipherstash/encryption/searchable-encryption#exact-match)
+
+### `ore`: Range queries
+
+Enables range comparisons (`<`, `>`, `BETWEEN`) and ordering (`ORDER BY`) using Order Revealing Encryption.
+
+[Learn more about range indexes](/stack/cipherstash/encryption/searchable-encryption#range--order)
+
+### `match`: Pattern matching
+
+Enables substring and full-text search (`LIKE`, `ILIKE`) using encrypted Bloom filters with trigrams.
+
+[Learn more about match indexes](/stack/cipherstash/encryption/searchable-encryption#match-pattern)
+
+### `ste_vec`: Structured data
+
+Enables containment queries and JSON-style operations on encrypted arrays and JSONB data.
+
+## How it works
+
+EQL leverages PostgreSQL's native indexing capabilities to enable efficient queries on encrypted data. The searchable encrypted metadata within [CipherCells](/stack/reference/cipher-cell) is indexed using standard PostgreSQL index types (B-tree for exact/range, GIN for pattern matching).
+
+When a query is executed:
+
+1. **Client-side**: The application encrypts the search value using the same encryption scheme, producing a CipherCell with the appropriate searchable encrypted metadata
+2. **Database-side**: EQL operators extract and compare the searchable encrypted metadata from both the stored CipherCells and the search CipherCell
+3. **Result**: Matching rows are returned without ever decrypting the data in the database
+
+## Compatibility
+
+EQL is designed to work with:
+
+- **PostgreSQL 14+**: Full support for all EQL features
+- **Managed databases**: Works with AWS RDS, Azure Database, Google Cloud SQL, and other managed PostgreSQL providers
+- **CipherStash SDKs**: Integrates with all CipherStash SDKs as well as CipherStash Proxy
+
+<Callout type="info">
+Unlike PostgreSQL extensions that require `CREATE EXTENSION`, EQL types and functions are installed directly into your database schema, making it compatible with managed database environments that restrict extension installation.
+</Callout>
+
+## Related documentation
+
+- [CipherCell format](/stack/reference/cipher-cell): The data structure used by EQL
+- [Supported queries](/stack/cipherstash/encryption/searchable-encryption): Available searchable encryption schemes

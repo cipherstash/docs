@@ -1,0 +1,132 @@
+---
+title: Quickstart
+description: Encrypt your first fields in 15 minutes. Works with any Postgres.
+---
+
+# Quickstart
+
+CipherStash encrypts your data at the field level. Every value gets its own key, bound to an identity. A breach, a compromised agent, a curious insider — they all see ciphertext with no key.
+
+Here's how to set it up. Works with any Postgres — Supabase, Neon, RDS, a Docker container, whatever.
+
+## Install
+
+```bash
+npm install @cipherstash/stack
+npm install -D @cipherstash/cli
+```
+
+## Authenticate and set up your workspace
+
+```bash
+npx @cipherstash/cli init
+```
+
+This opens a browser for device-based authentication. No shared secrets, no environment variables for local dev. The wizard will:
+
+1. Authenticate your device
+2. Create a workspace (or connect to an existing one)
+3. Generate a client with access to your default keyset
+
+## Set up your database
+
+```bash
+npx @cipherstash/cli db setup
+```
+
+Auto-detects your Postgres provider and installs the EQL extension for searchable encryption.
+
+## Define your encryption schema
+
+The CLI generates a schema file. Open it and define which columns to encrypt:
+
+```typescript filename="encryption/schema.ts"
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack"
+
+export const users = encryptedTable("users", {
+  email: encryptedColumn("email")
+    .equality()      // WHERE email = ?
+    .freeTextSearch() // WHERE email LIKE '%alice%'
+})
+```
+
+Each column gets its own encryption key. The index methods (`.equality()`, `.freeTextSearch()`, `.orderAndRange()`) define what queries work on the encrypted data.
+
+## Encrypt a value
+
+```typescript filename="src/encrypt.ts"
+import { Encryption } from "@cipherstash/stack"
+import { users } from "./encryption/schema"
+
+const enc = await Encryption({ schemas: [users] })
+
+const encrypted = await enc.encrypt("alice@example.com", {
+  column: users.email,
+  table: users,
+})
+
+// encrypted.data is ciphertext — store it in your database
+```
+
+## Store it
+
+Use any database client, ORM, or raw SQL:
+
+```sql
+INSERT INTO users (email) VALUES ($1)
+-- $1 is encrypted.data (ciphertext)
+```
+
+## Query encrypted data
+
+Encrypt your search term, then query as usual:
+
+```typescript filename="src/query.ts"
+const query = await enc.encryptQuery("alice@example.com", {
+  column: users.email,
+  table: users,
+})
+
+// Use query.data in a WHERE clause — Postgres searches ciphertext
+```
+
+```sql
+SELECT * FROM users WHERE cs_match_v1(email) = $1
+-- $1 is query.data
+```
+
+The database never sees plaintext. The query runs over encrypted indexes.
+
+## Decrypt
+
+```typescript filename="src/decrypt.ts"
+const result = await enc.decrypt(row.email, {
+  column: users.email,
+  table: users,
+})
+
+console.log(result.data) // "alice@example.com"
+```
+
+## What you just built
+
+You encrypted a field, stored it, queried it without decrypting, and got the plaintext back. Here's what happened under the hood:
+
+- **ZeroKMS** derived a unique encryption key for the value. The key was created on your machine and never stored anywhere.
+- **Your client** — the unit of identity — is the only thing that can decrypt it. Another client, a stolen credential, an AI agent running on application credentials — none of them have the key.
+- **Your keyset** — the unit of isolation — defines the cryptographic boundary. Data encrypted under one keyset cannot be decrypted with another. Use keysets to isolate tenants, environments, or services.
+- **The encrypted index** lets Postgres evaluate queries without decrypting. The index terms are themselves encrypted — they reveal nothing about the plaintext.
+
+This is Data Level Access Control. The rules aren't configured in a policy file. They're enforced in the cryptography.
+
+## Next steps
+
+**Using Drizzle ORM?** The [Drizzle integration](/stack/cipherstash/encryption/drizzle) adds encrypted column types and query operators so your Drizzle code looks normal.
+
+**Using the Supabase JS SDK?** The [Supabase integration](/stack/cipherstash/encryption/supabase) wraps the Supabase client with automatic encryption.
+
+**Want to manage secrets?** [Secrets](/stack/cipherstash/secrets) gives you end-to-end encrypted config without .env files.
+
+**Ready to deploy?** [Going to production](/stack/deploy/going-to-production) covers the switch from device auth to environment variables.
+
+**Manage your workspace.** [Open the dashboard](https://dashboard.cipherstash.com/workspaces) to view keysets, create clients, manage access keys, and check usage.

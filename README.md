@@ -5,18 +5,18 @@ Documentation for [CipherStash](https://cipherstash.com) — searchable encrypti
 ## Development
 
 ```bash
-pnpm install
-pnpm dev
+bun install
+bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the docs.
 
 ## Commands
 
-- `pnpm dev` — Start the dev server
-- `pnpm build` — Production build
-- `pnpm lint` — Run Biome lint check
-- `pnpm format` — Run Biome format
+- `bun dev` — Start the dev server
+- `bun run build` — Production build
+- `bun run lint` — Run Biome lint check
+- `bun run format` — Run Biome format
 
 ## Contributing
 

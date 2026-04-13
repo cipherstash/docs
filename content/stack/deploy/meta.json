@@ -1,0 +1,16 @@
+{
+  "title": "Deploy",
+  "description": "Go from local dev to production",
+  "icon": "Rocket",
+  "root": true,
+  "pages": [
+    "index",
+    "going-to-production",
+    "team-onboarding",
+    "bundling",
+    "sst",
+    "testing",
+    "aws-ecs",
+    "troubleshooting"
+  ]
+}

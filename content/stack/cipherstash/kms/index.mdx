@@ -1,0 +1,46 @@
+---
+title: /KEY-MANAGEMENT
+description: 100x faster key management. Unique key per value, derived on demand, never stored. Backed by AWS KMS.
+---
+
+# /KEY-MANAGEMENT
+
+ZeroKMS is the key management layer that powers [Encryption](/stack/cipherstash/encryption) and [Secrets](/stack/cipherstash/secrets). Every encrypted value gets its own unique key. Keys derived on demand, never stored. Identity and policy baked into every key.
+
+100x faster than AWS KMS.
+
+## Zero-knowledge by design
+
+Existing key management solutions reveal either data or keys to intermediaries. ZeroKMS uses proxy symmetric re-encryption (patent pending). Key seeds are returned to the client. The client creates data keys locally. Data keys are never seen by third parties. Never sent across the network.
+
+## How it works
+
+- **Unique key per value:** Each encrypted field uses a distinct data encryption key, not a shared table-level key.
+- **AWS KMS backed:** Root keys are stored in AWS KMS. ZeroKMS handles key derivation and wrapping.
+- **Zero-knowledge:** CipherStash never sees your plaintext data or unwrapped keys. When a data key is requested, ZeroKMS generates and returns key seeds to the client to create the data key locally. Data keys are never seen by third parties and are never sent across the network.
+- **Multi-tenant isolation:** Use keysets to isolate encryption keys per tenant, customer, or business unit.
+- **Bulk operations:** ZeroKMS supports bulk encryption and decryption operations, enabling a unique data key per record without sacrificing performance.
+- **Multi-region:** ZeroKMS is highly available and deployed in [multiple cloud regions globally](/stack/cipherstash/kms/regions). It can also be deployed within your own cloud account or on-prem.
+
+## Key Sets
+
+[Key Sets](/stack/cipherstash/kms/keysets) are ZeroKMS's core primitive for cryptographic isolation. A keyset is the unit of isolation. Data encrypted under one keyset cannot be decrypted with another.
+
+Keysets are managed in the CipherStash Dashboard as a cloud primitive. How you use them is up to your architecture:
+
+- **Tenant isolation**: one keyset per customer or business unit, giving per-tenant cryptographic boundaries with zero key management overhead. See [Encryption configuration](/stack/cipherstash/encryption/configuration#keysets).
+- **Environment isolation**: separate keysets for production, staging, and development. The Secrets SDK maps its `environment` parameter to a keyset automatically. See [Secrets concepts](/stack/cipherstash/secrets/concepts#environments).
+- **Regional or compliance boundaries**: isolate data by jurisdiction or regulatory requirement.
+- **Any boundary your application needs**: keysets are general-purpose. Combine them however your architecture requires.
+
+## Read the whitepaper
+
+If you'd like to learn more about ZeroKMS, read the whitepaper on the [Trust Center](https://trust.cipherstash.com/resources).
+
+## Next steps
+
+<Cards>
+  <Card title="Keysets" href="/stack/cipherstash/kms/keysets" description="The foundational primitive for cryptographic isolation across Encryption and Secrets." />
+  <Card title="Configuration" href="/stack/cipherstash/kms/configuration" description="Configure ZeroKMS credentials and options." />
+  <Card title="Disaster recovery" href="/stack/cipherstash/kms/disaster-recovery" description="Key recovery, zero data loss, and outage behavior." />
+</Cards>

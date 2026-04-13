@@ -187,7 +187,7 @@ export async function generateDocsForTag(
     execSync("rm -rf node_modules", { cwd: workingDir, stdio: "inherit" });
 
     console.log("Installing dependencies...");
-    execSync("pnpm install --frozen-lockfile", {
+    execSync("bun install --frozen-lockfile", {
       cwd: workingDir,
       stdio: "inherit",
     });
@@ -321,7 +321,7 @@ export async function generateDocs(config: DocsConfig): Promise<void> {
       workingDir = tempDir;
 
       console.log("Installing dependencies...");
-      execSync("pnpm install --frozen-lockfile", {
+      execSync("bun install --frozen-lockfile", {
         cwd: workingDir,
         stdio: "inherit",
       });

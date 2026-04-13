@@ -1,0 +1,17 @@
+{
+  "title": "Proxy",
+  "description": "Transparent PostgreSQL encryption proxy",
+  "icon": "Database",
+  "root": true,
+  "pages": [
+    "index",
+    "getting-started",
+    "configuration",
+    "---Guides---",
+    "multitenant",
+    "searchable-json",
+    "encrypt-tool",
+    "audit",
+    "troubleshooting"
+  ]
+}

@@ -1,0 +1,68 @@
+---
+title: What is CipherStash?
+description: "Data Level Access Control. Searchable field-level encryption, identity-bound keys, and cryptographic audit trails for Postgres."
+---
+
+# What is CipherStash?
+
+CipherStash is Data Level Access Control for Postgres. Encrypt fields at the application layer, query ciphertext without decryption, bind keys to identities, and audit every access event cryptographically.
+
+A breach yields ciphertext, nothing useful.
+
+## The problem
+
+For thirty years, the database has been readable to anyone who reached it. Encrypting a column meant losing the query. Traditional security assumes a human is watching. AI agents ship code at machine speed. The credentials they run on are application credentials. Prompt injection is a one-step exfiltration attack.
+
+## The stack
+
+CipherStash solves this with four primitives:
+
+### /ENCRYPTION
+Searchable field-level encryption. Range queries, exact match, and free-text fuzzy search over ciphertext with sub-millisecond overhead. Works with any managed Postgres provider. [Read more](/stack/cipherstash/encryption).
+
+### /KEY-MANAGEMENT
+ZeroKMS. 100x faster than AWS KMS. Unique key per value, derived on demand, never stored. Identity and policy baked into every key. [Read more](/stack/cipherstash/kms).
+
+### /SECRETS
+Secrets without the .env. Every secret encrypted at the field level. Cryptographically isolated environments. Identity-bound access. [Read more](/stack/cipherstash/secrets).
+
+### /PROXY
+Transparent searchable encryption for existing PostgreSQL databases. Zero application code changes. [Read more](/stack/cipherstash/proxy).
+
+## How it works
+
+Zero-knowledge architecture. The platform never sees data keys.
+
+1. Every sensitive value is encrypted with a unique key.
+2. Keys are derived on demand via ZeroKMS and never stored.
+3. Identity and policy are baked into the key itself.
+4. Decryption is enforced at the moment of access, wherever the data ends up.
+5. Every decryption event is recorded: who, what, when, from where.
+
+Attackers, over-permissioned agents, and curious insiders all see the same thing: ciphertext with no key.
+
+## Threat model
+
+**Database breach.** Encrypted data remains ciphertext. Zero-knowledge architecture means compromised credentials yield nothing useful.
+
+**Insider threats.** Identity-bound keys enforce per-value access control. Full audit trail for every decryption.
+
+**Supply chain attacks.** Instant access revocation. No waiting on vendors.
+
+**AI agent exfiltration.** Prompt injection reaches the database but decrypts nothing. The agent's credentials are not the user's keys.
+
+## Performance
+
+- **< 1ms** query overhead
+- **100x** faster than AWS KMS
+- **100,000x** faster than fully homomorphic encryption
+- **Quantum safe**
+
+## Compliance
+
+HIPAA, SOC 2, GDPR. Continuous assurance, not point-in-time snapshots. Cryptographic audit trails provide proof, not just logs.
+
+## Integration paths
+
+- **[Encryption SDK](/stack/cipherstash/encryption)** for TypeScript applications with fine-grained control.
+- **[CipherStash Proxy](/stack/cipherstash/proxy)** for existing PostgreSQL apps with zero code changes.

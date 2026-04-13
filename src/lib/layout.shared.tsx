@@ -1,5 +1,4 @@
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
-import Image from "next/image";
 
 export const gitConfig = {
   user: "cipherstash",
@@ -9,14 +8,17 @@ export const gitConfig = {
 
 function Logo() {
   return (
-    <div className="flex items-center gap-2">
-      <Image
-        src="/docs/images/logo.png"
+    <div className="flex items-center gap-3">
+      <img
+        src="/docs/images/cipherstash-logo.svg"
         alt="CipherStash"
-        width={24}
-        height={24}
+        className="h-5 w-5"
       />
-      <span className="text-base font-medium text-fd-foreground">Docs</span>
+      <span className="text-[11px] font-medium tracking-[0.1em] uppercase text-fd-muted-foreground"
+        style={{ fontFamily: "var(--font-fira-code), ui-monospace, monospace" }}
+      >
+        Docs
+      </span>
     </div>
   );
 }

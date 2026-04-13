@@ -21,38 +21,39 @@ import {
   SupabaseLogo,
 } from "@/components/integration-logos";
 
+const monoClass =
+  "font-[family-name:var(--font-fira-code)] tracking-[-0.02em]";
+const eyebrowClass =
+  "font-[family-name:var(--font-fira-code)] text-[10px] font-medium tracking-[0.16em] uppercase text-fd-primary";
+
 const products = [
   {
     title: "Encryption",
     description:
-      "Field-level encryption with searchable queries. Encrypt data at the application level while preserving the ability to search, sort, and filter.",
-    href: "/stack/encryption",
+      "Searchable field-level encryption. Range queries, exact match, and free-text search over ciphertext. Sub-millisecond overhead.",
+    href: "/stack/cipherstash/encryption",
     icon: Lock,
-    image: "/images/encryption.svg",
   },
   {
     title: "Secrets",
     description:
-      "End-to-end encrypted secret storage and management. Store API keys, credentials, and sensitive configuration securely.",
-    href: "/stack/secrets",
+      "Secrets without the .env. Field-level encryption, identity-bound access, cryptographically isolated environments.",
+    href: "/stack/cipherstash/secrets",
     icon: Server,
-    image: "/images/secrets.svg",
   },
   {
     title: "ZeroKMS",
     description:
-      "Key management backed by AWS KMS. Manage encryption keysets with zero-knowledge architecture.",
-    href: "/stack/kms",
+      "The key management layer. Unique key per value, derived on demand, never stored. 100x faster than AWS KMS.",
+    href: "/stack/cipherstash/kms",
     icon: KeyRound,
-    image: "/images/zerokms.svg",
   },
   {
     title: "Proxy",
     description:
-      "Transparent, searchable encryption for your existing PostgreSQL database. No application code changes required.",
-    href: "/stack/proxy",
+      "Transparent searchable encryption for existing PostgreSQL databases. Zero application code changes.",
+    href: "/stack/cipherstash/proxy",
     icon: Database,
-    image: "/images/proxy.svg",
   },
 ];
 
@@ -65,21 +66,21 @@ const integrations: {
   {
     title: "Drizzle ORM",
     description: "Encrypted column types and query operators for Drizzle.",
-    href: "/stack/encryption/drizzle",
+    href: "/stack/cipherstash/encryption/drizzle",
     logo: DrizzleLogo,
   },
   {
     title: "Supabase",
     description:
       "Transparent encryption for your Supabase project using the Supabase JS SDK.",
-    href: "/stack/encryption/supabase",
+    href: "/stack/cipherstash/encryption/supabase",
     logo: SupabaseLogo,
   },
   {
     title: "DynamoDB",
     description:
       "Encrypted DynamoDB attributes with searchable equality lookups.",
-    href: "/stack/encryption/dynamodb",
+    href: "/stack/cipherstash/encryption/dynamodb",
     logo: DynamoDBLogo,
   },
 ];
@@ -88,7 +89,7 @@ const resources = [
   {
     title: "Platform",
     description: "Organizations, compliance, and billing",
-    href: "/stack/platform",
+    href: "/stack/reference",
     icon: LayoutDashboard,
   },
   {
@@ -100,13 +101,13 @@ const resources = [
   {
     title: "Agent Skills",
     description: "Install CipherStash skills for your AI coding agent",
-    href: "/stack/guides/agent-skills",
+    href: "/stack/reference/agent-skills",
     icon: Zap,
   },
   {
     title: "Use Cases",
     description: "Common patterns and real-world examples",
-    href: "/stack/platform/use-cases",
+    href: "/stack/reference/use-cases",
     icon: BookOpen,
   },
 ];
@@ -117,116 +118,97 @@ export default function HomePage() {
       {/* Hero */}
       <section className="border-b border-fd-border">
         <div className="mx-auto w-full max-w-[1200px] px-6 pt-24 pb-16 md:px-12 md:pt-32 md:pb-20">
-          <h1 className="text-3xl font-bold tracking-tight text-fd-foreground md:text-5xl">
+          <p className={eyebrowClass}>DLAC / DATA LEVEL ACCESS CONTROL</p>
+          <h1
+            className={`mt-4 text-3xl font-medium text-fd-foreground md:text-5xl ${monoClass}`}
+          >
             CipherStash Docs
           </h1>
-          <p className="mt-4 max-w-2xl text-lg text-fd-muted-foreground">
-            Field-level encryption, query over encrypted data, type-safe APIs,
-            and zero-knowledge by design. CipherStash isn't just a generic
-            security tool, it's your data's guard dog.
+          <p className="mt-4 max-w-2xl text-[17px] leading-relaxed text-fd-muted-foreground">
+            Searchable field-level encryption. Identity-bound keys. Cryptographic audit trails. Built into your existing Postgres stack.
           </p>
 
           {/* Getting started cards */}
-          <div className="mt-10 grid gap-3 sm:grid-cols-2">
-            <Link
-              href="/stack/guides/getting-started"
-              className="group flex items-center gap-4 rounded-lg border border-fd-border bg-fd-card p-4 transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
-            >
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-fd-primary/10 text-fd-primary">
-                <Zap className="size-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="font-medium text-fd-foreground">
-                  Getting Started
-                </p>
-                <p className="text-sm text-fd-muted-foreground">
-                  Install the SDK and encrypt your first value in under 5
-                  minutes.
-                </p>
-              </div>
-              <ArrowRight className="ml-auto size-4 shrink-0 text-fd-muted-foreground transition-colors group-hover:text-fd-primary" />
-            </Link>
-            <Link
-              href="/stack/platform"
-              className="group flex items-center gap-4 rounded-lg border border-fd-border bg-fd-card p-4 transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
-            >
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-fd-primary/10 text-fd-primary">
-                <ShieldCheck className="size-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="font-medium text-fd-foreground">
-                  Platform Overview
-                </p>
-                <p className="text-sm text-fd-muted-foreground">
-                  Understand zero-knowledge architecture and how the platform
-                  works.
-                </p>
-              </div>
-              <ArrowRight className="ml-auto size-4 shrink-0 text-fd-muted-foreground transition-colors group-hover:text-fd-primary" />
-            </Link>
-            <Link
-              href="/stack/platform/searchable-encryption"
-              className="group flex items-center gap-4 rounded-lg border border-fd-border bg-fd-card p-4 transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
-            >
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-fd-primary/10 text-fd-primary">
-                <Search className="size-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="font-medium text-fd-foreground">
-                  Searchable encryption
-                </p>
-                <p className="text-sm text-fd-muted-foreground">
-                  Equality, free text, range, ordering, and JSON queries. Your
-                  usual PostgreSQL ops, but the data's encrypted.
-                </p>
-              </div>
-              <ArrowRight className="ml-auto size-4 shrink-0 text-fd-muted-foreground transition-colors group-hover:text-fd-primary" />
-            </Link>
-            <Link
-              href="/stack/guides/agent-skills"
-              className="group flex items-center gap-4 rounded-lg border border-fd-border bg-fd-card p-4 transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
-            >
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-fd-primary/10 text-fd-primary">
-                <Zap className="size-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="font-medium text-fd-foreground">Agent Skills</p>
-                <p className="text-sm text-fd-muted-foreground">
-                  Give your AI coding agent accurate CipherStash knowledge.
-                  Works with Cursor, Copilot, Claude Code, and more.
-                </p>
-              </div>
-              <ArrowRight className="ml-auto size-4 shrink-0 text-fd-muted-foreground transition-colors group-hover:text-fd-primary" />
-            </Link>
+          <div className="mt-10 grid gap-px bg-fd-border sm:grid-cols-2 border border-fd-border rounded-[2px] overflow-hidden">
+            {[
+              {
+                href: "/stack/quickstart",
+                icon: Zap,
+                title: "Getting Started",
+                desc: "Encrypt your first fields in 15 minutes.",
+              },
+              {
+                href: "/stack/reference",
+                icon: ShieldCheck,
+                title: "Platform Overview",
+                desc: "Zero-knowledge architecture. How the trust model works.",
+              },
+              {
+                href: "/stack/cipherstash/encryption/searchable-encryption",
+                icon: Search,
+                title: "Searchable encryption",
+                desc: "Equality, free text, range, ordering, and JSON queries over ciphertext.",
+              },
+              {
+                href: "/stack/reference/agent-skills",
+                icon: Zap,
+                title: "Agent Skills",
+                desc: "CipherStash knowledge for your AI coding agent. Cursor, Copilot, Claude Code.",
+              },
+            ].map((card) => (
+              <Link
+                key={card.href}
+                href={card.href}
+                className="group flex items-center gap-4 bg-fd-background p-5 transition-colors hover:bg-fd-accent/50"
+              >
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-[2px] bg-fd-primary/10 text-fd-primary">
+                  <card.icon className="size-5" />
+                </div>
+                <div className="min-w-0">
+                  <p
+                    className={`font-medium text-fd-foreground text-[15px] ${monoClass}`}
+                  >
+                    {card.title}
+                  </p>
+                  <p className="text-sm text-fd-muted-foreground">
+                    {card.desc}
+                  </p>
+                </div>
+                <ArrowRight className="ml-auto size-4 shrink-0 text-fd-muted-foreground transition-colors group-hover:text-fd-primary" />
+              </Link>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Products */}
       <section className="mx-auto w-full max-w-[1200px] px-6 py-16 md:px-12 md:py-24">
-        <h2 className="text-xl font-semibold tracking-tight text-fd-foreground md:text-2xl">
+        <p className={eyebrowClass}>§ 01 / THE STACK</p>
+        <h2
+          className={`mt-3 text-xl font-medium text-fd-foreground md:text-2xl ${monoClass}`}
+        >
           The Stack
         </h2>
         <p className="mt-2 text-fd-muted-foreground">
-          Everything you need to encrypt, stash secrets, and keep keys in check,
-          no duct tape required.
+          Four primitives. Encryption, secrets, key management, and proxy.
         </p>
 
-        <div className="mt-8 grid gap-5 sm:grid-cols-2">
+        <div className="mt-8 grid gap-px bg-fd-border sm:grid-cols-2 border border-fd-border rounded-[2px] overflow-hidden">
           {products.map((product) => (
             <Link
               key={product.title}
               href={product.href}
-              className="group relative flex flex-col overflow-hidden rounded-xl border border-fd-border bg-fd-card transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
+              className="group relative flex flex-col overflow-hidden bg-fd-background transition-colors hover:bg-fd-accent/50"
             >
-              {/* Image placeholder */}
-              <div className="flex h-36 items-center justify-center border-b border-fd-border bg-fd-muted/30">
-                <product.icon className="size-12 text-fd-muted-foreground/40" />
+              <div className="flex h-32 items-center justify-center border-b border-fd-border bg-fd-muted/20">
+                <product.icon className="size-10 text-fd-muted-foreground/30" />
               </div>
               <div className="flex flex-1 flex-col p-5">
                 <div className="flex items-center gap-2">
                   <product.icon className="size-4 text-fd-primary" />
-                  <h3 className="font-semibold text-fd-foreground">
+                  <h3
+                    className={`font-medium text-fd-foreground ${monoClass}`}
+                  >
                     {product.title}
                   </h3>
                 </div>
@@ -242,24 +224,29 @@ export default function HomePage() {
       {/* Integrations */}
       <section className="border-t border-fd-border">
         <div className="mx-auto w-full max-w-[1200px] px-6 py-16 md:px-12 md:py-24">
-          <h2 className="text-xl font-semibold tracking-tight text-fd-foreground md:text-2xl">
+          <p className={eyebrowClass}>§ 02 / INTEGRATIONS</p>
+          <h2
+            className={`mt-3 text-xl font-medium text-fd-foreground md:text-2xl ${monoClass}`}
+          >
             Integrations
           </h2>
           <p className="mt-2 text-fd-muted-foreground">
             Drop-in encryption for the databases and ORMs you already use.
           </p>
 
-          <div className="mt-8 grid gap-5 sm:grid-cols-3">
+          <div className="mt-8 grid gap-px bg-fd-border sm:grid-cols-3 border border-fd-border rounded-[2px] overflow-hidden">
             {integrations.map((integration) => (
               <Link
                 key={integration.title}
                 href={integration.href}
-                className="group flex flex-col items-center rounded-xl border border-fd-border bg-fd-card p-6 text-center transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
+                className="group flex flex-col items-center bg-fd-background p-6 text-center transition-colors hover:bg-fd-accent/50"
               >
                 <div className="flex size-24 items-center justify-center">
                   <integration.logo className="h-12 w-auto" />
                 </div>
-                <h3 className="mt-4 font-semibold text-fd-foreground">
+                <h3
+                  className={`mt-4 font-medium text-fd-foreground ${monoClass}`}
+                >
                   {integration.title}
                 </h3>
                 <p className="mt-1 text-sm text-fd-muted-foreground">
@@ -274,20 +261,25 @@ export default function HomePage() {
       {/* Additional Resources */}
       <section className="border-t border-fd-border">
         <div className="mx-auto w-full max-w-[1200px] px-6 py-16 md:px-12 md:py-24">
-          <h2 className="text-xl font-semibold tracking-tight text-fd-foreground md:text-2xl">
+          <p className={eyebrowClass}>§ 03 / RESOURCES</p>
+          <h2
+            className={`mt-3 text-xl font-medium text-fd-foreground md:text-2xl ${monoClass}`}
+          >
             Additional Resources
           </h2>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-8 grid gap-px bg-fd-border sm:grid-cols-2 lg:grid-cols-4 border border-fd-border rounded-[2px] overflow-hidden">
             {resources.map((resource) => (
               <Link
                 key={resource.title}
                 href={resource.href}
-                className="group flex items-start gap-3 rounded-lg border border-fd-border bg-fd-card p-4 transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
+                className="group flex items-start gap-3 bg-fd-background p-4 transition-colors hover:bg-fd-accent/50"
               >
                 <resource.icon className="mt-0.5 size-5 shrink-0 text-fd-muted-foreground group-hover:text-fd-primary" />
                 <div>
-                  <p className="font-medium text-fd-foreground">
+                  <p
+                    className={`font-medium text-fd-foreground text-[14px] ${monoClass}`}
+                  >
                     {resource.title}
                   </p>
                   <p className="mt-0.5 text-sm text-fd-muted-foreground">
@@ -303,27 +295,28 @@ export default function HomePage() {
       {/* AI/LLM + CTA footer */}
       <section className="border-t border-fd-border bg-fd-card/50">
         <div className="mx-auto flex w-full max-w-[1200px] flex-col items-center px-6 py-16 text-center md:px-12 md:py-20">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-fd-primary/10 text-fd-primary">
+          <div className="flex size-10 items-center justify-center rounded-[2px] bg-fd-primary/10 text-fd-primary">
             <FileText className="size-5" />
           </div>
-          <h2 className="mt-4 text-xl font-semibold tracking-tight text-fd-foreground md:text-2xl">
+          <h2
+            className={`mt-4 text-xl font-medium text-fd-foreground md:text-2xl ${monoClass}`}
+          >
             AI-ready documentation
           </h2>
           <p className="mx-auto mt-2 max-w-lg text-sm text-fd-muted-foreground">
-            Every page is clean markdown. Feed it to ChatGPT, Claude, Cursor, or
-            your favorite LLM, they'll feel right at home.
+            Every page is clean markdown. Feed it to your LLM.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link
               href="/llms.txt"
-              className="inline-flex items-center gap-2 rounded-lg border border-fd-border px-4 py-2 text-sm font-medium text-fd-foreground transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
+              className="inline-flex items-center gap-2 rounded-[2px] border border-fd-border px-4 py-2 text-sm font-medium text-fd-foreground transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
             >
               <FileText className="size-4" />
               llms.txt
             </Link>
             <Link
               href="/llms-full.txt"
-              className="inline-flex items-center gap-2 rounded-lg border border-fd-border px-4 py-2 text-sm font-medium text-fd-foreground transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
+              className="inline-flex items-center gap-2 rounded-[2px] border border-fd-border px-4 py-2 text-sm font-medium text-fd-foreground transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
             >
               <FileText className="size-4" />
               llms-full.txt
@@ -332,7 +325,7 @@ export default function HomePage() {
               href="https://github.com/cipherstash/stack"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg border border-fd-border px-4 py-2 text-sm font-medium text-fd-foreground transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
+              className="inline-flex items-center gap-2 rounded-[2px] border border-fd-border px-4 py-2 text-sm font-medium text-fd-foreground transition-colors hover:border-fd-primary/40 hover:bg-fd-accent/50"
             >
               <ExternalLinkIcon className="size-4" />
               GitHub

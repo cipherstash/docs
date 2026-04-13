@@ -1,0 +1,127 @@
+---
+title: Supabase
+description: Field-level encryption for your Supabase project. Works with any Postgres client, the Supabase JS SDK, or Drizzle ORM.
+icon: Supabase
+---
+
+# Supabase
+
+CipherStash is an official Supabase security partner. Field-level encryption that works with your Supabase project out of the box.
+
+CipherStash works with any Postgres. Supabase is Postgres. That means searchable field-level encryption, identity-bound keys, and cryptographic audit trails work with your Supabase project today.
+
+## Setup
+
+Install the SDK and configure your Supabase project:
+
+```bash
+npm install @cipherstash/stack
+npm install -D @cipherstash/cli
+```
+
+```bash
+npx @cipherstash/cli init --supabase
+```
+
+```bash
+npx @cipherstash/cli db setup --supabase
+```
+
+This installs the EQL extension with Supabase-compatible permissions and configures searchable encryption for your database.
+
+## Choose your integration
+
+Three paths. Same encryption, same key management, same searchable queries. Pick the one that fits your stack.
+
+### Encryption SDK (any Postgres client)
+
+Works with any client that connects to your Supabase Postgres database. Define a schema, encrypt fields, store and query with raw SQL or any library.
+
+```typescript
+import { Encryption, encryptedTable, encryptedColumn } from "@cipherstash/stack"
+
+const users = encryptedTable("users", {
+  email: encryptedColumn("email").equality().freeTextSearch(),
+})
+
+const enc = await Encryption({ schemas: [users] })
+
+// Encrypt
+const encrypted = await enc.encrypt("alice@example.com", {
+  column: users.email, table: users,
+})
+
+// Store with any client
+await sql`INSERT INTO users (email) VALUES (${encrypted.data})`
+
+// Query — search ciphertext without decrypting
+const query = await enc.encryptQuery("alice@example.com", {
+  column: users.email, table: users,
+})
+```
+
+This is the universal approach. It works regardless of which client library you use to connect to Supabase.
+
+Full reference: [Storing encrypted data](/stack/cipherstash/encryption/storing-data)
+
+### Supabase JS SDK
+
+If you're using the Supabase JavaScript client, the `encryptedSupabase` wrapper gives you automatic encryption with the same API you already know.
+
+```typescript
+import { encryptedSupabase } from "@cipherstash/stack/supabase"
+
+const eSupabase = await encryptedSupabase(supabaseUrl, supabaseKey)
+
+// Insert — automatically encrypted
+await eSupabase.from("users").insert({
+  email: "alice@example.com",
+})
+
+// Query — automatically encrypts the search term
+const { data } = await eSupabase
+  .from("users")
+  .select()
+  .eq("email", "alice@example.com")
+```
+
+The wrapper handles encryption, decryption, type casting, and search term formatting. Your queries look identical to standard Supabase queries.
+
+Full reference: [Supabase JS SDK integration](/stack/cipherstash/encryption/supabase)
+
+### Drizzle ORM
+
+If you're using Drizzle ORM with Supabase, define encrypted columns directly in your Drizzle schema.
+
+```typescript
+import { encryptedType } from "@cipherstash/stack/drizzle"
+
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  email: encryptedType<string>("email"),
+})
+```
+
+Encrypted query operators work like standard Drizzle operators.
+
+Full reference: [Drizzle ORM integration](/stack/cipherstash/encryption/drizzle)
+
+## What you get
+
+1. **Searchable encryption.** Equality, free-text search, range, ordering, and JSON queries over ciphertext. Your Postgres indexes work on encrypted data.
+2. **Works alongside Row Level Security.** CipherStash encryption and Supabase RLS are complementary. RLS controls who can access rows. CipherStash controls who can decrypt values. Defense in depth.
+3. **Schema-first.** Define encrypted columns once. Type-safe across your entire application.
+4. **Identity-bound keys.** Tie encryption to a user's identity. Only that user can decrypt their data.
+5. **Zero-knowledge.** CipherStash never sees your plaintext data. Keys are derived on your machine and never stored.
+
+## Going to production
+
+Local development uses device-based authentication. Production uses environment variables. See [Going to production](/stack/deploy/going-to-production).
+
+## Next steps
+
+- [Quickstart](/stack/quickstart) — Encrypt your first fields in 15 minutes
+- [Supabase JS SDK reference](/stack/cipherstash/encryption/supabase) — Full API for the encryptedSupabase wrapper
+- [Drizzle ORM reference](/stack/cipherstash/encryption/drizzle) — Encrypted column types and operators
+- [Searchable encryption](/stack/cipherstash/encryption/searchable-encryption) — How queries over ciphertext work
+- [Dashboard](https://dashboard.cipherstash.com/workspaces) — Manage keysets, clients, and access keys

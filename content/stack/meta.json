@@ -1,11 +1,8 @@
 {
   "pages": [
-    "guides",
-    "encryption",
-    "secrets",
-    "kms",
-    "proxy",
-    "platform",
+    "quickstart",
+    "cipherstash",
+    "deploy",
     "reference"
   ]
 }

@@ -21,7 +21,7 @@ function collectMdxFiles(dir: string): string[] {
 
 /**
  * Convert a file path to its corresponding URL.
- * content/stack/encryption/getting-started.mdx → /stack/encryption/getting-started
+ * content/stack/cipherstash/encryption/getting-started.mdx → /stack/cipherstash/encryption/getting-started
  * content/stack/reference/stack/latest/schema/index.mdx → /stack/reference/stack/latest/schema
  */
 function filePathToUrl(filePath: string): string {
