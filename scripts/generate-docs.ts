@@ -14,7 +14,7 @@ import { type DocsConfig, generateDocs } from "./lib/docs-generator.js";
 
 const stackConfig: DocsConfig = {
   packageName: "@cipherstash/stack",
-  repoUrl: "https://github.com/cipherstash/protectjs.git",
+  repoUrl: "https://github.com/cipherstash/stack.git",
   tempDirName: ".tmp-stack",
   baseOutputDir: path.join(process.cwd(), "content/stack/reference/stack"),
   entryPoints: [
