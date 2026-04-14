@@ -1,0 +1,63 @@
+---
+title: Billing
+description: Manage workspace billing, plans, and usage limits
+---
+
+# Billing
+
+CipherStash uses a **per-workspace billing model**. Each workspace has its own plan and usage limits. Organizations and team members are always free and unlimited.
+
+## Plans
+
+| | Free | Pro ($99/mo) | Business ($870/mo) | Enterprise |
+|---|---|---|---|---|
+| Protect ops/month | 10,000 | 50,000 | 500,000 | Unlimited |
+| Secrets | 100 | 500 | 2,000 | Unlimited |
+| Keysets | 2 | 10 | 25 | Unlimited |
+| Clients | 2 | 10 | 50 | Unlimited |
+| OIDC providers | 0 | 0 | 5 | Unlimited |
+| Keyset isolation | No | Yes | Yes | Yes |
+| Lock contexts | No | No | Yes | Yes |
+| Workspace members | 1 | 5 | 25 | Unlimited |
+| Workspace type | Dev only | Dev + Prod | Dev + Prod | Dev + Prod |
+
+### Free plan
+
+The Free plan is designed for non-commercial personal projects and experimentation. Free workspaces are limited to development environments only.
+
+### Pro plan
+
+The Pro plan is for teams and production applications. It includes development and production workspace support with higher limits.
+
+### Business plan
+
+The Business plan offers predictable pricing for demanding workloads with multi-tenant encryption and [Lock Contexts](/stack/cipherstash/encryption/identity) support.
+
+### Enterprise plan
+
+Enterprise is an organization-level plan with custom pricing, unlimited limits across all workspaces, and dedicated support. Enterprise organizations bypass per-workspace billing entirely. Contact [sales@cipherstash.com](mailto:sales@cipherstash.com) for details.
+
+## Managing workspace billing
+
+Each workspace has a dedicated billing page accessible from the workspace sidebar. From there you can:
+
+- View your current plan and usage metrics
+- Upgrade or downgrade your plan
+- Cancel your subscription
+- Access the Stripe billing portal for payment methods and invoices
+
+## How billing works
+
+- **One Stripe customer per organization**: All workspaces in your organization share the same Stripe customer for billing.
+- **One subscription per workspace**: Each workspace has its own Stripe subscription tied to its plan.
+- **Proration on upgrades**: When upgrading mid-cycle, you're charged a prorated amount for the remainder of the billing period.
+- **Downgrades at period end**: When downgrading, the change takes effect at the end of your current billing period.
+- **Cancellation**: Canceling a subscription keeps the plan active until the end of the billing period, then reverts to Free.
+
+## Enterprise and AWS Marketplace
+
+Organizations on Enterprise plans or subscribed through AWS Marketplace have billing managed at the organization level. All workspaces in these organizations have unlimited access to all features. Visit the Organization Profile to manage enterprise billing.
+
+## Need help?
+
+Contact [support@cipherstash.com](mailto:support@cipherstash.com) for billing questions.

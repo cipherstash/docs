@@ -4,41 +4,133 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ── Brand tokens: CipherStash ── */
+
 :root {
-  --color-fd-primary: hsl(269, 70%, 45%);
-  --color-fd-primary-gradient-from: hsl(269, 70%, 55%);
-  --color-fd-primary-foreground: hsl(0, 0%, 100%);
-  --color-fd-ring: hsl(269, 70%, 45%);
+  --color-fd-primary: hsl(73, 89%, 38%);
+  --color-fd-primary-gradient-from: hsl(73, 89%, 48%);
+  --color-fd-primary-foreground: hsl(0, 0%, 2%);
+  --color-fd-ring: hsl(73, 89%, 38%);
 }
 
 .dark {
-  --color-fd-background: hsl(0, 0%, 0%);
-  --color-fd-foreground: hsl(0, 0%, 100%);
-  --color-fd-muted: hsl(0, 0%, 10%);
-  --color-fd-muted-foreground: hsl(0, 0%, 65%);
-  --color-fd-popover: hsl(0, 0%, 5%);
-  --color-fd-popover-foreground: hsl(0, 0%, 100%);
-  --color-fd-card: hsl(0, 0%, 5%);
-  --color-fd-card-foreground: hsl(0, 0%, 100%);
-  --color-fd-border: hsl(0, 0%, 15%);
-  --color-fd-primary: hsl(269, 70%, 55%);
-  --color-fd-primary-gradient-from: hsl(269, 70%, 65%);
-  --color-fd-primary-foreground: hsl(0, 0%, 100%);
-  --color-fd-secondary: hsl(0, 0%, 10%);
-  --color-fd-secondary-foreground: hsl(0, 0%, 100%);
-  --color-fd-accent: hsl(0, 0%, 12%);
-  --color-fd-accent-foreground: hsl(0, 0%, 100%);
-  --color-fd-ring: hsl(269, 70%, 55%);
+  --color-fd-background: hsl(0, 0%, 2%);
+  --color-fd-foreground: hsl(42, 18%, 92%);
+  --color-fd-muted: hsl(0, 0%, 7%);
+  --color-fd-muted-foreground: hsl(42, 8%, 55%);
+  --color-fd-popover: hsl(0, 0%, 4%);
+  --color-fd-popover-foreground: hsl(42, 18%, 92%);
+  --color-fd-card: hsl(0, 0%, 4%);
+  --color-fd-card-foreground: hsl(42, 18%, 92%);
+  --color-fd-border: hsl(42, 6%, 14%);
+  --color-fd-primary: hsl(73, 89%, 57%);
+  --color-fd-primary-gradient-from: hsl(73, 89%, 65%);
+  --color-fd-primary-foreground: hsl(0, 0%, 2%);
+  --color-fd-secondary: hsl(0, 0%, 7%);
+  --color-fd-secondary-foreground: hsl(42, 18%, 92%);
+  --color-fd-accent: hsl(0, 0%, 8%);
+  --color-fd-accent-foreground: hsl(42, 18%, 92%);
+  --color-fd-ring: hsl(73, 89%, 57%);
 }
+
+/* ── Selection ── */
 
 @layer base {
   ::selection {
-    background-color: hsl(269 70% 50%);
-    color: hsl(0 0% 100%);
+    background-color: hsl(73 89% 57%);
+    color: hsl(0 0% 2%);
   }
 
   ::-moz-selection {
-    background-color: hsl(269 70% 50%);
-    color: hsl(0 0% 100%);
+    background-color: hsl(73 89% 57%);
+    color: hsl(0 0% 2%);
   }
+}
+
+/* ── Typography: Fira Code for headings, labels, code ── */
+
+@layer base {
+  h1, h2, h3, h4 {
+    font-family: var(--font-fira-code), ui-monospace, monospace !important;
+    letter-spacing: -0.02em;
+  }
+
+  code, pre, kbd {
+    font-family: var(--font-fira-code), ui-monospace, monospace !important;
+  }
+}
+
+/* ── Fumadocs component overrides ── */
+
+@layer components {
+  /* Navigation bar: sharper, branded */
+  [data-nav] {
+    border-bottom: 1px solid var(--color-fd-border) !important;
+  }
+
+  /* Sidebar active item uses acid underline instead of bg fill */
+  [data-active="true"][role="treeitem"] {
+    color: var(--color-fd-primary) !important;
+  }
+
+  /* Card hover borders: sharper corners */
+  .fd-card, [class*="rounded-xl"] {
+    border-radius: 2px !important;
+  }
+
+  [class*="rounded-lg"]:not(input):not(textarea):not(select):not([role="dialog"]):not([data-radix-popper-content-wrapper] *) {
+    border-radius: 2px !important;
+  }
+
+  /* TOC active link */
+  [data-active="true"][data-toc-item] {
+    color: var(--color-fd-primary) !important;
+    border-left-color: var(--color-fd-primary) !important;
+  }
+
+  /* Search dialog input focus ring */
+  [cmdk-input]:focus {
+    --tw-ring-color: var(--color-fd-primary) !important;
+  }
+
+  /* Code block header: mono-caps treatment */
+  [data-codeblock] figcaption,
+  .fd-codeblock figcaption {
+    font-family: var(--font-fira-code), ui-monospace, monospace !important;
+    font-size: 11px !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+  }
+
+  /* Shiki code block styling */
+  .shiki {
+    font-family: var(--font-fira-code), ui-monospace, monospace !important;
+  }
+
+  /* Callout/admonition border colors */
+  [data-callout] {
+    border-radius: 2px !important;
+  }
+
+  /* Tabs */
+  [role="tablist"] button[role="tab"][data-state="active"] {
+    color: var(--color-fd-primary) !important;
+    border-color: var(--color-fd-primary) !important;
+  }
+}
+
+/* ── Scrollbar (dark mode) ── */
+
+.dark ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: hsl(42, 6%, 20%);
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: transparent;
 }

@@ -1,0 +1,53 @@
+---
+title: Clients
+description: Create and manage clients used by SDKs and Proxy
+---
+
+# Clients
+
+A Client is an instance of [CipherStash Proxy](/stack/cipherstash/proxy) or an application using an SDK like the [Encryption SDK](/stack/cipherstash/encryption) that you want to assign encryption or decryption privileges. Each client gets a unique ID and key, so you can revoke its access at any time.
+
+## Types of clients
+
+CipherStash has two types of clients:
+
+### Device-backed clients
+
+Device-backed clients are created automatically when a developer runs `npx @cipherstash/cli init`. They are tied to a specific developer's user account and machine (device).
+
+- Created automatically during initialization — no manual setup required
+- Each developer gets their own unique client
+- Used for **local development only**
+- Access can be revoked per developer without affecting other team members
+
+### Machine clients
+
+Machine clients are created manually in the Dashboard for production, CI/CD, and other non-interactive environments.
+
+- No device attached — identified solely by `CS_CLIENT_ID` and `CS_CLIENT_KEY`
+- Used for **production and CI/CD** where there is no interactive login
+- Credentials are set via environment variables
+
+See [Going to production](/stack/deploy/going-to-production) for a guide to creating machine clients.
+
+## Clients and keysets
+
+When created, each client is associated with a [keyset](/stack/cipherstash/kms/keysets). This allows the client to perform encryption and decryption operations within the keyset.
+
+### Granting access to additional keysets
+
+When creating a new client, you can associate it with one or more keysets to grant access to the encrypted data in those keysets.
+
+### Revoking access to a client
+
+At any time, you can revoke access to a client by removing the association with the keysets which will prohibit that client from accessing the encrypted data in those keysets.
+
+## Creating a client
+
+### Automatic (local development)
+
+Run `npx @cipherstash/cli init` to create a device-backed client automatically. See [Getting started](/stack/quickstart).
+
+### Manual (production)
+
+In the [CipherStash Dashboard](https://dashboard.cipherstash.com), you can create a machine client by clicking the **Create a new client** button in the [Clients](https://dashboard.cipherstash.com/workspaces/_/clients) page.

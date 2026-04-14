@@ -1,0 +1,156 @@
+---
+title: Provable access control
+description: Cryptographic proof-based access control with Lock Contexts for identity-aware encryption and audit logging
+---
+
+# Provable access control
+
+Traditional access control relies on application logic. If a bug or misconfiguration exposes data, there is no way to prove access was unauthorized. CipherStash provides **cryptographic proof-based access control** through Lock Contexts, where access to data is mathematically bound to authenticated identities.
+
+## How it works
+
+CipherStash [Lock Contexts](/stack/cipherstash/encryption/identity) bind encryption and decryption operations to an authenticated identity (typically a JWT from your identity provider). The identity token becomes part of the key derivation process. Without a valid token, the data keys cannot be derived and the data cannot be decrypted.
+
+This creates a provable access boundary:
+
+- If data was decrypted, the identity token **must** have been present
+- ZeroKMS logs the identity associated with every key derivation
+- The audit trail is cryptographically verifiable; it cannot be falsified
+
+## Identity-aware encryption
+
+### Bind encryption to an identity
+
+```typescript filename="identity-encrypt.ts"
+import { Encryption } from "@cipherstash/stack"
+import { patients } from "./schema"
+
+const client = await Encryption({ schemas: [patients] })
+
+// The JWT identifies the healthcare provider performing the action
+async function encryptPatientRecord(
+  record: { diagnosis: string },
+  providerJWT: string
+) {
+  const result = await client
+    .withLockContext({ identityToken: providerJWT })
+    .encrypt(record.diagnosis, {
+      column: patients.diagnosis,
+      table: patients,
+    })
+
+  if (result.failure) {
+    throw new Error(`Encryption failed: ${result.failure.message}`)
+  }
+
+  return result.data
+}
+```
+
+### Decrypt with identity verification
+
+```typescript filename="identity-decrypt.ts"
+async function decryptPatientRecord(
+  encryptedDiagnosis: unknown,
+  providerJWT: string
+) {
+  const result = await client
+    .withLockContext({ identityToken: providerJWT })
+    .decrypt(encryptedDiagnosis)
+
+  if (result.failure) {
+    // Decryption fails if the identity doesn't have access
+    throw new Error(`Access denied: ${result.failure.message}`)
+  }
+
+  return result.data
+}
+```
+
+## Audit logging
+
+Every encryption and decryption operation through ZeroKMS produces an audit event containing:
+
+| Field | Description |
+|---|---|
+| **Identity** | The authenticated user or service (from the Lock Context JWT) |
+| **Operation** | Encrypt or decrypt |
+| **Timestamp** | When the operation occurred |
+| **Keyset** | Which keyset was used |
+| **Client** | Which client application performed the operation |
+
+### Combining with Proxy audit
+
+When using [CipherStash Proxy](/stack/cipherstash/proxy), additional audit capabilities are available:
+
+- **[Statement fingerprinting](/stack/cipherstash/proxy/audit)**: identify unique SQL query patterns accessing encrypted data
+- **[SQL redaction](/stack/cipherstash/proxy/audit)**: strip sensitive values from logged queries
+- **[Primary key injection](/stack/cipherstash/proxy/audit)**: track which specific records were accessed
+- **[Record reconciliation](/stack/cipherstash/proxy/audit)**: map data access events to specific table records
+
+Together, these provide an end-to-end audit trail: **who** accessed **what data**, **when**, and using **which query**.
+
+## Use cases
+
+### Healthcare: HIPAA audit requirements
+
+HIPAA requires audit controls that record who accessed Protected Health Information (PHI). With Lock Contexts, every access to patient data is cryptographically tied to the authenticated provider:
+
+```typescript filename="hipaa-audit.ts"
+// Each access is provably tied to the authenticated provider
+const diagnosis = await client
+  .withLockContext({ identityToken: drSmithJWT })
+  .decrypt(patient.encryptedDiagnosis)
+
+// ZeroKMS audit log shows:
+// - Identity: dr.smith@hospital.example (from JWT)
+// - Operation: decrypt
+// - Keyset: patients-production
+// - Timestamp: 2025-01-15T09:30:00Z
+```
+
+### Financial services: Segregation of duties
+
+Ensure that only authorized roles can access specific data categories:
+
+```typescript filename="segregation.ts"
+// Compliance team can decrypt audit records
+const auditData = await client
+  .withLockContext({ identityToken: complianceTeamJWT })
+  .decrypt(encryptedAuditRecord)
+
+// Trading team uses a different Lock Context — cannot decrypt audit records
+// The key derivation will fail because the identity doesn't match
+```
+
+### Multi-tenant SaaS: Tenant isolation
+
+Bind encryption to tenant identity to provide cryptographic tenant isolation:
+
+```typescript filename="tenant-isolation.ts"
+// Encrypt data with tenant-scoped identity
+const encrypted = await client
+  .withLockContext({ identityToken: tenantAJWT })
+  .encrypt(sensitiveData, {
+    column: tenants.data,
+    table: tenants,
+  })
+
+// Only Tenant A's identity can decrypt this data
+// Tenant B's JWT will fail key derivation
+```
+
+## Benefits over traditional access control
+
+| Aspect | Traditional (application logic) | Provable (CipherStash Lock Contexts) |
+|---|---|---|
+| **Enforcement** | Software checks that can be bypassed | Cryptographic: mathematically impossible to bypass |
+| **Audit trail** | Application logs that can be modified | ZeroKMS audit logs that are cryptographically verifiable |
+| **Proof of access** | Circumstantial (log entries) | Deterministic (key derivation requires identity) |
+| **Blast radius of bugs** | Data exposed if access check is bypassed | Data remains encrypted even if application logic fails |
+
+## Next steps
+
+- [Set up identity-aware encryption](/stack/cipherstash/encryption/identity) with Lock Contexts
+- [Configure audit logging](/stack/cipherstash/proxy/audit) with CipherStash Proxy
+- [Review compliance patterns](/stack/reference/use-cases/compliance) for GDPR, HIPAA, and PCI-DSS

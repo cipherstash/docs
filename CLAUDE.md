@@ -9,11 +9,11 @@ CipherStash documentation site (docs-v2). A Next.js 16 app using [Fumadocs](http
 ## Commands
 
 ```bash
-pnpm dev              # Start dev server (http://localhost:3000)
-pnpm build            # Production build
-pnpm lint             # Biome lint check
-pnpm format           # Biome format (auto-fix)
-pnpm types:check      # Generate MDX types + TypeScript check
+bun dev               # Start dev server (http://localhost:3000)
+bun run build         # Production build
+bun run lint          # Biome lint check
+bun run format        # Biome format (auto-fix)
+bun run types:check   # Generate MDX types + TypeScript check
 ```
 
 There are no tests in this project.
@@ -79,7 +79,7 @@ Fumadocs UI theme with custom purple primary color (`hsl(269, 70%, 45%)`). Dark 
 
 ## Formatting
 
-Biome handles both linting and formatting. 2-space indentation. Biome organizes imports automatically. Run `pnpm format` before committing.
+Biome handles both linting and formatting. 2-space indentation. Biome organizes imports automatically. Run `bun run format` before committing.
 
 ## Required Skills
 
@@ -110,7 +110,7 @@ The `update-docs` skill enforces the following workflow:
 1. **Analyze changes** — Diff the branch to identify affected files
 2. **Map to docs** — Use the code-to-docs mapping to find which MDX files need updates
 3. **Review each doc** — Walk through updates with user confirmation before editing
-4. **Validate** — Run `pnpm lint` to check formatting
+4. **Validate** — Run `bun run lint` to check formatting
 5. **Commit** — Stage documentation changes
 
 #### Documentation Validation Checklist
@@ -122,4 +122,4 @@ Before committing documentation changes, verify:
 - TypeScript examples come first, with `switcher` and a JS variant where appropriate
 - Props/options tables are properly formatted
 - Notes use the `> **Good to know**:` callout pattern
-- `pnpm lint` passes
+- `bun run lint` passes

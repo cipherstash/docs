@@ -1,0 +1,20 @@
+{
+  "title": "CipherStash",
+  "description": "Data Level Access Control for Postgres",
+  "icon": "Shield",
+  "root": true,
+  "pages": [
+    "index",
+    "supabase",
+    "---Encryption---",
+    "encryption",
+    "---Secrets---",
+    "secrets",
+    "---Proxy---",
+    "proxy",
+    "---ZeroKMS---",
+    "kms",
+    "---Forge---",
+    "forge"
+  ]
+}

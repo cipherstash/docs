@@ -1,0 +1,74 @@
+---
+title: /ENCRYPTION
+description: Searchable field-level encryption. Range queries, exact match, and free-text search over ciphertext with sub-millisecond overhead.
+---
+
+# /ENCRYPTION
+
+Searchable field-level encryption for Postgres. Every value encrypted with its own unique key via [ZeroKMS](/stack/cipherstash/kms). Range queries, exact match, free-text fuzzy search, and JSON queries over ciphertext. Sub-millisecond overhead on existing indexes.
+
+This is the primitive everything else depends on.
+
+## What you get
+
+1. **Unique key per value.** Not a shared table key. Each field gets its own data encryption key, derived via ZeroKMS.
+2. **Searchable encryption.** Exact match, free-text search, range queries, and ordering over ciphertext in PostgreSQL.
+3. **Encrypted JSONB.** Query encrypted JSON fields using JSONPath selectors and containment operators.
+4. **Bulk operations.** Encrypt or decrypt thousands of values in a single ZeroKMS call.
+5. **Identity-aware encryption.** Tie encryption to a user's JWT. Only that user decrypts their data.
+6. **Tenant isolation via keysets.** One [keyset](/stack/cipherstash/kms/keysets) per customer. Provable cryptographic separation, not policy enforcement.
+7. **TypeScript-first.** Strongly typed schemas, results, and model operations.
+
+## How it works
+
+1. **Initialize your project:** Run `npx @cipherstash/cli init` to generate your encryption schema and client.
+2. **Set up your database:** Run `npx @cipherstash/cli db setup` to set up searchable encryption in PostgreSQL.
+3. **Encrypt and store:** Encrypt values before writing to your database.
+4. **Query encrypted data:** Encrypt query terms and run them against your encrypted columns.
+5. **Decrypt on read:** Decrypt values when reading from the database.
+
+<Callout type="info">
+All key management (key generation, derivation, and isolation) is handled by [ZeroKMS](/stack/cipherstash/kms). Encryption keys are organized into [Key Sets](/stack/cipherstash/kms/keysets), the same primitive that powers [Secrets environment isolation](/stack/cipherstash/secrets/concepts#environments).
+</Callout>
+
+## Integration paths
+
+| | Encryption SDK | CipherStash Proxy |
+|---|---|---|
+| **Best for** | Teams who want fine-grained control over data encryption directly in their application | DevOps teams who want to add encryption to existing PostgreSQL apps with little to no code changes |
+| **Setup** | `npx @cipherstash/cli init` | Docker container, configure environment variables |
+| **Database** | PostgreSQL (full searchable encryption) | PostgreSQL (transparent proxy) |
+
+## Performance
+
+- **Latency**: < 5ms overhead for most operations ([benchmarks](https://app.artillery.io/share/sh_75edb9d22a060633bfdce04777ffd60d1bcfc88989393dc38d3a4924b83fc6cd))
+- **Throughput**: Scales with your application performance
+- **Setup time**: Running in local dev in < 1 hour, production in < 3 days
+
+## CipherStash Forge
+
+[CipherStash Forge](/stack/cipherstash/forge) is the dev-time CLI for setting up your database. It handles installing the EQL extension, validating schemas, and managing the encryption lifecycle. Think of it like Drizzle Kit or Prisma CLI: a companion tool that sets up the database while `@cipherstash/stack` handles runtime encryption.
+
+The `init` wizard lives in `@cipherstash/cli`. It generates your encryption schema, client file, and installs `@cipherstash/cli` as a devDependency. Then run `npx @cipherstash/cli db setup` to configure your database.
+
+```bash
+npx @cipherstash/cli init             # Interactive project setup
+npx @cipherstash/cli db setup         # Interactive database and EQL setup
+npx @cipherstash/cli db validate      # Check schema for misconfigurations
+npx @cipherstash/cli db status        # Show EQL installation state
+npx @cipherstash/cli wizard           # AI-powered encryption setup
+```
+
+<Cards>
+  <Card title="Get started with Forge" href="/stack/cipherstash/forge" description="Install EQL, validate schemas, and manage your database setup." />
+  <Card title="Interactive setup" href="/stack/cipherstash/forge/init" description="Set up Forge in your project with the interactive init wizard." />
+</Cards>
+
+## Next steps
+
+<Cards>
+  <Card title="Getting started" href="/stack/quickstart" description="Go from zero to encrypted in under 5 minutes with the interactive setup wizard." />
+  <Card title="Schema definition" href="/stack/cipherstash/encryption/schema" description="Define which columns to encrypt and what queries to support." />
+  <Card title="Searchable encryption" href="/stack/cipherstash/encryption/searchable-encryption" description="Run queries on encrypted data in PostgreSQL." />
+  <Card title="CipherStash Proxy" href="/stack/cipherstash/proxy" description="Transparent encryption proxy. No code changes required." />
+</Cards>

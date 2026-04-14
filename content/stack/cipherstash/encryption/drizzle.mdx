@@ -1,0 +1,562 @@
+---
+title: Drizzle ORM
+description: Query encrypted data with Drizzle ORM using type-safe encrypted column definitions and operators
+---
+
+# Drizzle ORM
+
+CipherStash provides first-class Drizzle ORM integration through `@cipherstash/stack/drizzle`. Define encrypted columns directly in your Drizzle table schema, and use auto-encrypting operators that make encrypted queries look like standard Drizzle code.
+
+## Installation
+
+```bash
+npm install @cipherstash/stack drizzle-orm
+```
+
+<Callout type="info">
+If you're using Bun, version 1.3 or later is required.
+</Callout>
+
+The Drizzle integration is included in `@cipherstash/stack` and imports from `@cipherstash/stack/drizzle`.
+
+## Database setup
+
+### Install EQL via Drizzle migrations
+
+Use [CipherStash Forge](/stack/cipherstash/forge) to generate a Drizzle migration that installs the [EQL](/stack/reference/eql-guide) extension:
+
+```bash
+npx @cipherstash/cli db install --drizzle
+npx drizzle-kit migrate
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--name <value>` | `install-eql` | Migration name |
+| `--out <value>` | `drizzle` | Output directory (must match your Drizzle config) |
+
+See [CipherStash Forge — Drizzle migrations](/stack/cipherstash/forge/install#drizzle-migrations) for details.
+
+### Column storage
+
+Encrypted columns use the `eql_v2_encrypted` PostgreSQL type (installed by EQL). If not using EQL directly, use JSONB:
+
+```sql filename="create-table.sql"
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email eql_v2_encrypted,    -- with EQL extension
+  name jsonb NOT NULL,       -- or use jsonb
+  age INTEGER                -- non-encrypted columns are normal types
+);
+```
+
+## Schema definition
+
+Use `encryptedType<T>()` to define encrypted columns directly in your Drizzle table schema. TypeScript property names in camelCase map to their corresponding snake_case database column names (e.g., `createdAt` in TypeScript maps to `created_at` in the database).
+
+```typescript filename="schema.ts"
+import { pgTable, integer, timestamp, varchar } from "drizzle-orm/pg-core"
+import { encryptedType } from "@cipherstash/stack/drizzle"
+
+const usersTable = pgTable("users", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+
+  // Encrypted string with search capabilities
+  email: encryptedType<string>("email", {
+    equality: true,        // enables: eq, ne, inArray
+    freeTextSearch: true,  // enables: like, ilike
+    orderAndRange: true,   // enables: gt, gte, lt, lte, between, asc, desc
+  }),
+
+  // Encrypted number
+  age: encryptedType<number>("age", {
+    dataType: "number",
+    equality: true,
+    orderAndRange: true,
+  }),
+
+  // Encrypted JSON object with searchable JSONB queries
+  profile: encryptedType<{ name: string; bio: string }>("profile", {
+    dataType: "json",
+    searchableJson: true,
+  }),
+
+  // Non-encrypted columns
+  role: varchar("role", { length: 50 }),
+  createdAt: timestamp("created_at").defaultNow(),
+})
+```
+
+### `encryptedType<TData>(name, config?)`
+
+| Config Option | Type | Description |
+|---|---|---|
+| `dataType` | `"string"` \| `"number"` \| `"json"` \| `"boolean"` \| `"bigint"` \| `"date"` | Plaintext data type (default: `"string"`) |
+| `equality` | `boolean` \| `TokenFilter[]` | Enable equality index |
+| `freeTextSearch` | `boolean` \| `MatchIndexOpts` | Enable free-text search index |
+| `orderAndRange` | `boolean` | Enable ORE index for sorting and range queries |
+| `searchableJson` | `boolean` | Enable JSONB path queries (requires `dataType: "json"`) |
+
+The generic type parameter `<TData>` sets the TypeScript type for the decrypted value.
+
+## Initialization
+
+### 1. Extract schema from Drizzle table
+
+```typescript filename="init.ts"
+import {
+  extractEncryptionSchema,
+  createEncryptionOperators,
+} from "@cipherstash/stack/drizzle"
+import { Encryption } from "@cipherstash/stack"
+
+// Convert Drizzle table definition to CipherStash schema
+const usersSchema = extractEncryptionSchema(usersTable)
+```
+
+### 2. Initialize encryption client
+
+```typescript filename="init.ts"
+const encryptionClient = await Encryption({
+  schemas: [usersSchema],
+})
+```
+
+### 3. Create query operators
+
+```typescript filename="init.ts"
+const encryptionOps = createEncryptionOperators(encryptionClient)
+```
+
+### 4. Create Drizzle instance
+
+```typescript filename="init.ts"
+import { drizzle } from "drizzle-orm/postgres-js"
+import postgres from "postgres"
+
+const db = drizzle({ client: postgres(process.env.DATABASE_URL!) })
+```
+
+<Callout type="info">
+  For fine-grained control over encryption timing (e.g., caching encrypted values, debugging, or building custom abstractions), you can use the manual `encryptionClient.encrypt()` pattern instead of the auto-encrypting operators. See [Encrypt and decrypt](/stack/cipherstash/encryption/encrypt-decrypt) for the low-level API.
+</Callout>
+
+## Insert encrypted data
+
+Encrypt models before inserting:
+
+```typescript filename="insert.ts"
+// Single insert
+const encrypted = await encryptionClient.encryptModel(
+  { email: "alice@example.com", age: 30, role: "admin" },
+  usersSchema,
+)
+if (!encrypted.failure) {
+  await db.insert(usersTable).values(encrypted.data)
+}
+
+// Bulk insert
+const encrypted = await encryptionClient.bulkEncryptModels(
+  [
+    { email: "alice@example.com", age: 30, role: "admin" },
+    { email: "bob@example.com", age: 25, role: "user" },
+  ],
+  usersSchema,
+)
+if (!encrypted.failure) {
+  await db.insert(usersTable).values(encrypted.data)
+}
+```
+
+## Query encrypted data
+
+### Equality
+
+```typescript filename="query-equality.ts"
+// Exact match — await the operator
+const results = await db
+  .select()
+  .from(usersTable)
+  .where(await encryptionOps.eq(usersTable.email, "alice@example.com"))
+```
+
+### Text search
+
+```typescript filename="query-text-search.ts"
+// Case-insensitive search
+const results = await db
+  .select()
+  .from(usersTable)
+  .where(await encryptionOps.ilike(usersTable.email, "%alice%"))
+
+// Case-sensitive search
+const results = await db
+  .select()
+  .from(usersTable)
+  .where(await encryptionOps.like(usersTable.email, "%@example.com"))
+```
+
+### Range queries
+
+```typescript filename="query-range.ts"
+// Greater than or equal
+const results = await db
+  .select()
+  .from(usersTable)
+  .where(await encryptionOps.gte(usersTable.age, 18))
+
+// Between (inclusive)
+const results = await db
+  .select()
+  .from(usersTable)
+  .where(await encryptionOps.between(usersTable.age, 18, 65))
+```
+
+### Array operators
+
+```typescript filename="query-array.ts"
+const results = await db
+  .select()
+  .from(usersTable)
+  .where(await encryptionOps.inArray(usersTable.email, [
+    "alice@example.com",
+    "bob@example.com",
+  ]))
+```
+
+### Sorting
+
+Sort operators are synchronous — no `await` needed:
+
+```typescript filename="query-sort.ts"
+// Sort by encrypted column ascending
+const results = await db
+  .select()
+  .from(usersTable)
+  .orderBy(encryptionOps.asc(usersTable.age))
+
+// Sort descending
+const results = await db
+  .select()
+  .from(usersTable)
+  .orderBy(encryptionOps.desc(usersTable.age))
+```
+
+### Select specific columns
+
+```typescript filename="query-select.ts"
+const results = await db.select({
+  id: usersTable.id,
+  email: usersTable.email,
+  createdAt: usersTable.createdAt,
+}).from(usersTable)
+```
+
+### Pagination
+
+```typescript filename="query-pagination.ts"
+// First page
+const results = await db.select().from(usersTable).limit(10)
+
+// Second page
+const results = await db.select().from(usersTable).limit(10).offset(10)
+```
+
+### Aggregation
+
+```typescript filename="query-aggregation.ts"
+import { sql } from "drizzle-orm"
+
+// Total count
+const result = await db.select({ count: sql`count(*)` }).from(usersTable)
+
+// Count with condition
+const result = await db
+  .select({ count: sql`count(*)` })
+  .from(usersTable)
+  .where(await encryptionOps.gte(usersTable.age, 18))
+```
+
+### Date and timestamp queries
+
+```typescript filename="date-query.ts"
+const now = new Date()
+const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
+
+const results = await db
+  .select()
+  .from(usersTable)
+  .where(
+    await encryptionOps.and(
+      encryptionOps.gte(usersTable.createdAt, twoWeeksAgo),
+      encryptionOps.lte(usersTable.createdAt, now),
+    ),
+  )
+```
+
+## JSONB queries
+
+Query encrypted JSON columns using JSONB operators. These require `searchableJson: true` and `dataType: "json"` in the column's `encryptedType` config.
+
+### Check path existence
+
+```typescript filename="query-jsonb.ts"
+// Check if a JSONB path exists in an encrypted column
+const results = await db
+  .select()
+  .from(usersTable)
+  .where(await encryptionOps.jsonbPathExists(usersTable.profile, "$.bio"))
+```
+
+### Extract value at path
+
+```typescript filename="query-jsonb-extract.ts"
+// Extract the first matching value at a JSONB path
+const result = await encryptionOps.jsonbPathQueryFirst(usersTable.profile, "$.name")
+```
+
+### Get value with `->` operator
+
+```typescript filename="query-jsonb-get.ts"
+// Get a value using the JSONB -> operator
+const result = await encryptionOps.jsonbGet(usersTable.profile, "$.name")
+```
+
+<Callout type="info">
+  `jsonbPathExists` returns a boolean and can be used in `WHERE` clauses. `jsonbPathQueryFirst` and `jsonbGet` return encrypted values — use them in `SELECT` expressions.
+</Callout>
+
+## Batched conditions (and / or)
+
+Use `encryptionOps.and()` and `encryptionOps.or()` to batch multiple encrypted conditions into a single ZeroKMS call. This is more efficient than awaiting each operator individually.
+
+```typescript filename="query-batched.ts"
+// Batched AND — all encryptions happen in one call
+const results = await db
+  .select()
+  .from(usersTable)
+  .where(
+    await encryptionOps.and(
+      encryptionOps.gte(usersTable.age, 18),       // no await — lazy operator
+      encryptionOps.lte(usersTable.age, 65),       // no await — lazy operator
+      encryptionOps.ilike(usersTable.email, "%example.com"),
+      eq(usersTable.role, "admin"),                 // mix with regular Drizzle ops
+    ),
+  )
+
+// Batched OR
+const results = await db
+  .select()
+  .from(usersTable)
+  .where(
+    await encryptionOps.or(
+      encryptionOps.eq(usersTable.email, "alice@example.com"),
+      encryptionOps.eq(usersTable.email, "bob@example.com"),
+    ),
+  )
+```
+
+Pass lazy operators (no `await`) to `and()`/`or()`, then `await` the outer call. This batches all encryption into a single operation.
+
+## Decrypt results
+
+```typescript filename="decrypt.ts"
+// Single model
+const decrypted = await encryptionClient.decryptModel(results[0])
+if (!decrypted.failure) {
+  console.log(decrypted.data.email) // "alice@example.com"
+}
+
+// Bulk decrypt
+const decrypted = await encryptionClient.bulkDecryptModels(results)
+if (!decrypted.failure) {
+  for (const user of decrypted.data) {
+    console.log(user.email)
+  }
+}
+```
+
+## Non-encrypted column fallback
+
+All operators automatically detect whether a column is encrypted. If the column is a regular Drizzle column, the operator falls back to the standard Drizzle operator:
+
+```typescript filename="fallback.ts"
+// This works for both encrypted and non-encrypted columns
+await encryptionOps.eq(usersTable.email, "alice@example.com") // encrypted
+await encryptionOps.eq(usersTable.role, "admin")              // falls back to drizzle eq()
+```
+
+## Operator reference
+
+### Encrypted operators (async)
+
+| Operator | Usage | Required Index |
+|---|---|---|
+| `eq(col, value)` | Equality | `equality` or `orderAndRange` |
+| `ne(col, value)` | Not equal | `equality` or `orderAndRange` |
+| `gt(col, value)` | Greater than | `orderAndRange` |
+| `gte(col, value)` | Greater than or equal | `orderAndRange` |
+| `lt(col, value)` | Less than | `orderAndRange` |
+| `lte(col, value)` | Less than or equal | `orderAndRange` |
+| `between(col, min, max)` | Between (inclusive) | `orderAndRange` |
+| `notBetween(col, min, max)` | Not between | `orderAndRange` |
+| `like(col, pattern)` | LIKE pattern match | `freeTextSearch` |
+| `ilike(col, pattern)` | ILIKE case-insensitive | `freeTextSearch` |
+| `notIlike(col, pattern)` | NOT ILIKE | `freeTextSearch` |
+| `inArray(col, values)` | IN array | `equality` |
+| `notInArray(col, values)` | NOT IN array | `equality` |
+| `jsonbPathQueryFirst(col, selector)` | Extract first value at JSONB path | `searchableJson` |
+| `jsonbGet(col, selector)` | Get value using JSONB `->` operator | `searchableJson` |
+| `jsonbPathExists(col, selector)` | Check if JSONB path exists | `searchableJson` |
+
+### Sort operators (sync)
+
+| Operator | Usage | Required Index |
+|---|---|---|
+| `asc(col)` | Ascending sort | `orderAndRange` |
+| `desc(col)` | Descending sort | `orderAndRange` |
+
+### Logical operators (async, batched)
+
+| Operator | Usage | Description |
+|---|---|---|
+| `and(...conditions)` | Combine with AND | Batches encryption |
+| `or(...conditions)` | Combine with OR | Batches encryption |
+
+Both `and()` and `or()` accept `undefined` conditions, which are filtered out. This is useful for conditional query building:
+
+```typescript filename="conditional-query.ts"
+const results = await db
+  .select()
+  .from(usersTable)
+  .where(
+    await encryptionOps.and(
+      maybeCond ? encryptionOps.eq(usersTable.email, value) : undefined,
+      encryptionOps.gte(usersTable.age, 18),
+    ),
+  )
+```
+
+### Passthrough operators (sync, no encryption)
+
+`exists`, `notExists`, `isNull`, `isNotNull`, `not`, `arrayContains`, `arrayContained`, `arrayOverlaps`
+
+These are re-exported from Drizzle and work identically.
+
+## Complete example: Express API
+
+```typescript filename="server.ts"
+import "dotenv/config"
+import express from "express"
+import { eq } from "drizzle-orm"
+import { drizzle } from "drizzle-orm/postgres-js"
+import postgres from "postgres"
+import { pgTable, integer, timestamp, varchar } from "drizzle-orm/pg-core"
+import {
+  encryptedType,
+  extractEncryptionSchema,
+  createEncryptionOperators,
+  EncryptionOperatorError,
+  EncryptionConfigError,
+} from "@cipherstash/stack/drizzle"
+import { Encryption } from "@cipherstash/stack"
+
+// Schema
+const usersTable = pgTable("users", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  email: encryptedType<string>("email", {
+    equality: true,
+    freeTextSearch: true,
+  }),
+  age: encryptedType<number>("age", {
+    dataType: "number",
+    orderAndRange: true,
+  }),
+  role: varchar("role", { length: 50 }),
+  createdAt: timestamp("created_at").defaultNow(),
+})
+
+// Init
+const usersSchema = extractEncryptionSchema(usersTable)
+const encryptionClient = await Encryption({ schemas: [usersSchema] })
+const encryptionOps = createEncryptionOperators(encryptionClient)
+const db = drizzle({ client: postgres(process.env.DATABASE_URL!) })
+
+const app = express()
+app.use(express.json())
+
+// Create user
+app.post("/users", async (req, res) => {
+  const encrypted = await encryptionClient.encryptModel(req.body, usersSchema)
+  if (encrypted.failure) {
+    return res.status(500).json({ error: encrypted.failure.message })
+  }
+
+  const [user] = await db.insert(usersTable).values(encrypted.data).returning()
+  res.json(user)
+})
+
+// Search users
+app.get("/users", async (req, res) => {
+  const conditions = []
+
+  if (req.query.email) {
+    conditions.push(
+      encryptionOps.ilike(usersTable.email, `%${req.query.email}%`),
+    )
+  }
+  if (req.query.minAge) {
+    conditions.push(
+      encryptionOps.gte(usersTable.age, Number(req.query.minAge)),
+    )
+  }
+  if (req.query.role) {
+    conditions.push(eq(usersTable.role, req.query.role as string))
+  }
+
+  let query = db.select().from(usersTable)
+  if (conditions.length > 0) {
+    query = query.where(
+      await encryptionOps.and(...conditions),
+    ) as typeof query
+  }
+
+  const results = await query
+  const decrypted = await encryptionClient.bulkDecryptModels(results)
+  if (decrypted.failure) {
+    return res.status(500).json({ error: decrypted.failure.message })
+  }
+
+  res.json(decrypted.data)
+})
+
+app.listen(3000)
+```
+
+## Error handling
+
+Individual operators (e.g., `eq()`, `gte()`, `like()`) throw when called with invalid configuration or missing indexes:
+
+- **`EncryptionOperatorError`**: thrown for operator-level issues (e.g., invalid arguments, unsupported operations).
+- **`EncryptionConfigError`**: thrown for configuration issues (e.g., using `like` on a column without `freeTextSearch: true`).
+
+```typescript filename="error-handling.ts"
+import {
+  createEncryptionOperators,
+  EncryptionOperatorError,
+  EncryptionConfigError,
+} from "@cipherstash/stack/drizzle"
+
+try {
+  const result = await encryptionOps.like(usersTable.age, "%foo%")
+} catch (err) {
+  if (err instanceof EncryptionConfigError) {
+    // Column does not have freeTextSearch enabled
+    console.error("Config error:", err.message, err.context)
+  } else if (err instanceof EncryptionOperatorError) {
+    console.error("Operator error:", err.message, err.context)
+  }
+}
+```
+
+Encryption client operations return `Result` objects with `data` or `failure`. See [Error handling](/stack/reference/error-handling) for details.

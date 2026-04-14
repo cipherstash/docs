@@ -1,0 +1,209 @@
+---
+title: Encrypt and decrypt
+description: Encrypt and decrypt single values, models, and bulk operations
+---
+
+# Encrypt and decrypt
+
+All operations return a `Result` object with either a `data` key (success) or a `failure` key (error).
+See [Error handling](/stack/reference/error-handling) for details.
+
+## Single values
+
+### Encrypt
+
+```typescript filename="encrypt.ts"
+const encrypted = await client.encrypt("user@example.com", {
+  column: users.email,
+  table: users,
+})
+
+if (encrypted.failure) {
+  console.error(encrypted.failure.type, encrypted.failure.message)
+} else {
+  console.log(encrypted.data)
+}
+```
+
+### Decrypt
+
+```typescript filename="decrypt.ts"
+const decrypted = await client.decrypt(encrypted.data)
+
+if (decrypted.failure) {
+  console.error(decrypted.failure.message)
+} else {
+  console.log(decrypted.data) // "user@example.com"
+}
+```
+
+## Model operations
+
+Encrypt or decrypt an entire object. Only fields matching your schema are encrypted. Other fields pass through unchanged.
+
+### Encrypt a model
+
+```typescript filename="encrypt-model.ts"
+const user = {
+  id: "1",
+  email: "user@example.com",   // defined in schema -> encrypted
+  address: "123 Main St",      // defined in schema -> encrypted
+  createdAt: new Date(),        // not in schema -> unchanged
+  metadata: { role: "admin" },  // not in schema -> unchanged
+}
+
+const encryptedResult = await client.encryptModel(user, users)
+
+if (encryptedResult.failure) {
+  console.error("Encryption failed:", encryptedResult.failure.message)
+  return
+}
+
+const encryptedUser = encryptedResult.data
+// {
+//   id: '1',
+//   email: { c: 'encrypted_data...' },
+//   address: { c: 'encrypted_data...' },
+//   createdAt: Date,
+//   metadata: { role: 'admin' }
+// }
+```
+
+### Decrypt a model
+
+`decryptModel` automatically detects and decrypts any encrypted fields:
+
+```typescript filename="decrypt-model.ts"
+const decryptedResult = await client.decryptModel(encryptedUser)
+
+if (decryptedResult.failure) {
+  console.error("Decryption failed:", decryptedResult.failure.message)
+  return
+}
+
+const decryptedUser = decryptedResult.data
+```
+
+### Schema-aware return types
+
+The return type of `encryptModel` is schema-aware: fields matching the table schema are typed as `Encrypted`, while other fields retain their original types. Let TypeScript infer the type parameters from the arguments:
+
+```typescript filename="encrypt-model.ts"
+const result = await client.encryptModel(user, users)
+// result.data.email is typed as Encrypted
+// result.data.id is typed as string
+// result.data.createdAt is typed as Date
+```
+
+Passing an explicit type parameter (e.g., `client.encryptModel<User>(...)`) is supported for backward compatibility. The return type degrades to `User`:
+
+```typescript filename="encrypt-model.ts"
+type User = {
+  id: string
+  email: string | null
+  address: string | null
+  createdAt: Date
+}
+
+const result = await client.encryptModel<User>(user, users)
+const back = await client.decryptModel<User>(encryptedUser)
+```
+
+For full schema-aware types with explicit parameters, provide both the model type and the schema type:
+
+```typescript filename="encrypt-model.ts"
+const result = await client.encryptModel<User, typeof users>(user, users)
+```
+
+## Bulk operations
+
+All bulk methods make a single call to ZeroKMS regardless of the number of records, while still using a unique key per value.
+
+### Bulk encrypt and decrypt values
+
+```typescript filename="bulk-encrypt.ts"
+const plaintexts = [
+  { id: "u1", plaintext: "alice@example.com" },
+  { id: "u2", plaintext: "bob@example.com" },
+  { id: "u3", plaintext: null },  // null values are preserved
+]
+
+const encrypted = await client.bulkEncrypt(plaintexts, {
+  column: users.email,
+  table: users,
+})
+```
+
+```typescript filename="bulk-decrypt.ts"
+const decrypted = await client.bulkDecrypt(encrypted.data)
+
+for (const item of decrypted.data) {
+  if ("data" in item) {
+    console.log(`${item.id}: ${item.data}`)
+  } else {
+    console.error(`${item.id} failed: ${item.error}`)
+  }
+}
+```
+
+### Bulk encrypt and decrypt models
+
+```typescript filename="bulk-encrypt-models.ts"
+const userModels = [
+  { id: "1", email: "alice@example.com", address: "123 Main St" },
+  { id: "2", email: "bob@example.com", address: "456 Oak Ave" },
+]
+
+const encrypted = await client.bulkEncryptModels(userModels, users)
+const decrypted = await client.bulkDecryptModels(encrypted.data)
+```
+
+Bulk model operations also support type parameters:
+
+```typescript filename="bulk-encrypt-models.ts"
+const result = await client.bulkEncryptModels<User>(userModels, users)
+const back = await client.bulkDecryptModels<User>(encrypted.data)
+```
+
+## Identity-aware operations
+
+Any encrypt or decrypt operation can be scoped to a specific user with a lock context.
+See [Identity-aware encryption](/stack/cipherstash/encryption/identity) for details.
+
+```typescript filename="identity-encrypt.ts"
+const encrypted = await client
+  .encryptModel(user, users)
+  .withLockContext(lockContext)
+
+const decrypted = await client
+  .decryptModel(encryptedUser)
+  .withLockContext(lockContext)
+
+// Also works with bulk operations
+const bulkEncrypted = await client
+  .bulkEncryptModels(userModels, users)
+  .withLockContext(lockContext)
+
+const bulkDecrypted = await client
+  .bulkDecryptModels(encryptedUsers)
+  .withLockContext(lockContext)
+```
+
+## Audit logging
+
+All operations support `.audit()` for attaching metadata to the ZeroKMS audit trail. Pass any structured metadata you want recorded alongside the operation.
+
+```typescript filename="audit.ts"
+const result = await client
+  .encrypt(plaintext, { column: users.email, table: users })
+  .audit({ metadata: { action: "create" } })
+```
+
+Chain `.audit()` with `.withLockContext()` on the same operation:
+
+```typescript filename="audit-model.ts"
+const result = await client
+  .encryptModel(user, users)
+  .withLockContext(lockContext)
+  .audit({ metadata: { action: "user-signup", requestId: "abc-123" } })
+```
