@@ -19,8 +19,7 @@ import {
   SupabaseLogo,
 } from "@/components/integration-logos";
 
-const monoClass =
-  "font-[family-name:var(--font-fira-code)] tracking-[-0.02em]";
+const monoClass = "font-[family-name:var(--font-fira-code)] tracking-[-0.02em]";
 const eyebrowClass =
   "font-[family-name:var(--font-fira-code)] text-[10px] font-medium tracking-[0.16em] uppercase text-fd-primary";
 
@@ -56,8 +55,7 @@ const integrations: {
 }[] = [
   {
     title: "Supabase",
-    description:
-      "Official security partner. Field-level encryption for your Supabase project.",
+    description: "Field-level encryption for your Supabase project.",
     href: "/stack/cipherstash/supabase",
     logo: SupabaseLogo,
   },
@@ -133,7 +131,7 @@ export default function HomePage() {
                 href: "/stack/cipherstash/supabase",
                 icon: Database,
                 title: "Supabase",
-                desc: "Official security partner. Field-level encryption for Supabase.",
+                desc: "Field-level encryption for Supabase.",
               },
               {
                 href: "/stack/cipherstash/encryption/searchable-encryption",
@@ -198,9 +196,7 @@ export default function HomePage() {
               <div className="flex flex-1 flex-col p-5">
                 <div className="flex items-center gap-2">
                   <product.icon className="size-4 text-fd-primary" />
-                  <h3
-                    className={`font-medium text-fd-foreground ${monoClass}`}
-                  >
+                  <h3 className={`font-medium text-fd-foreground ${monoClass}`}>
                     {product.title}
                   </h3>
                 </div>
