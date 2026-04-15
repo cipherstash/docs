@@ -8,8 +8,6 @@
     "supabase",
     "---Encryption---",
     "encryption",
-    "---Secrets---",
-    "secrets",
     "---Proxy---",
     "proxy",
     "---ZeroKMS---",

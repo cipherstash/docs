@@ -8,7 +8,7 @@ description: Cryptographic isolation for tenants, environments, and custom bound
 Keysets are used, in combination with ZeroKMS key material, to derive unique data keys per record.
 Each keyset maintains its own set of data encryption keys, so data encrypted under one keyset cannot be decrypted with another.
 
-Key Sets are the foundational primitive that powers [multi-tenant encryption](/stack/cipherstash/encryption/configuration#keysets) in the Encryption SDK and [environment isolation](/stack/cipherstash/secrets/concepts#environments) in Secrets.
+Key Sets are the foundational primitive that powers [multi-tenant encryption](/stack/cipherstash/encryption/configuration#keysets) in the Encryption SDK and environment isolation in Secrets (coming soon).
 
 ## Default keyset
 
@@ -45,22 +45,9 @@ const client = await Encryption({
 })
 ```
 
-### In Secrets (via environments)
+### In Secrets (coming soon)
 
 Secrets environments map directly to keysets. When you specify an `environment`, the Secrets SDK automatically uses the corresponding keyset for encryption and decryption.
-
-In the CipherStash Dashboard, the **Vault > Environments** section manages these mappings. Creating an environment either creates a new keyset automatically or lets you select an existing one. Each environment row shows its associated keyset ID.
-
-See [Secrets concepts](/stack/cipherstash/secrets/concepts#environments) for more detail.
-
-```typescript
-import { Secrets } from "@cipherstash/stack/secrets"
-
-const secrets = new Secrets({
-  // ...credentials
-  environment: "production", // maps to a Key Set
-})
-```
 
 ## How it works
 
@@ -74,7 +61,7 @@ This means:
 ## Use cases
 
 - **Multi-tenant SaaS:** Give each customer their own keyset so their data is cryptographically separated. See [Encryption configuration](/stack/cipherstash/encryption/configuration#keysets).
-- **Environment isolation:** Use different keysets for production, staging, and development. In the Dashboard, manage these under **Vault > Environments**. See [Secrets concepts](/stack/cipherstash/secrets/concepts#environments).
+- **Environment isolation:** Use different keysets for production, staging, and development. Secrets (coming soon) will manage these mappings automatically.
 - **Compliance boundaries:** Isolate data by jurisdiction or regulatory requirement.
 - **Custom isolation boundaries:** Key Sets are a general-purpose primitive. Use them for any cryptographic boundary your application needs: per-region, per-department, or per-feature.
 

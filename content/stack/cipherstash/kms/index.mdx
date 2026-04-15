@@ -5,7 +5,7 @@ description: 100x faster key management. Unique key per value, derived on demand
 
 # /KEY-MANAGEMENT
 
-ZeroKMS is the key management layer that powers [Encryption](/stack/cipherstash/encryption) and [Secrets](/stack/cipherstash/secrets). Every encrypted value gets its own unique key. Keys derived on demand, never stored. Identity and policy baked into every key.
+ZeroKMS is the key management layer that powers [Encryption](/stack/cipherstash/encryption) and Secrets (coming soon). Every encrypted value gets its own unique key. Keys derived on demand, never stored. Identity and policy baked into every key.
 
 100x faster than AWS KMS.
 
@@ -29,7 +29,7 @@ Existing key management solutions reveal either data or keys to intermediaries. 
 Keysets are managed in the CipherStash Dashboard as a cloud primitive. How you use them is up to your architecture:
 
 - **Tenant isolation**: one keyset per customer or business unit, giving per-tenant cryptographic boundaries with zero key management overhead. See [Encryption configuration](/stack/cipherstash/encryption/configuration#keysets).
-- **Environment isolation**: separate keysets for production, staging, and development. The Secrets SDK maps its `environment` parameter to a keyset automatically. See [Secrets concepts](/stack/cipherstash/secrets/concepts#environments).
+- **Environment isolation**: separate keysets for production, staging, and development. Secrets (coming soon) maps its `environment` parameter to a keyset automatically.
 - **Regional or compliance boundaries**: isolate data by jurisdiction or regulatory requirement.
 - **Any boundary your application needs**: keysets are general-purpose. Combine them however your architecture requires.
 

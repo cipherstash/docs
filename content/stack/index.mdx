@@ -19,7 +19,7 @@ Two integration paths. Same key hierarchy, same encryption, same audit trail.
 
 | | TypeScript SDK | CipherStash Proxy |
 |---|---|---|
-| **How it works** | Encryption and Secrets SDK and CLI available as an NPM package | Postgres Encryption - Postgres wire protocol Proxy built on top of the Encryption SDK to transparently encrypt data in Postgres |
+| **How it works** | Encryption SDK and CLI available as an NPM package | Postgres Encryption - Postgres wire protocol Proxy built on top of the Encryption SDK to transparently encrypt data in Postgres |
 | **Best for** | Teams moving quickly and building TypeScript apps |  More complex app architectures or non TypeScript applications using Postgres |
 | **Language** | TypeScript / JavaScript (Node.js, Deno, Bun) | Any language (connects via PostgreSQL wire protocol) |
 | **Setup** | `npx @cipherstash/cli init` | Docker container or binary |
@@ -32,7 +32,7 @@ Most teams start with the **SDK** for the best developer experience.
   <Card title="Getting started" href="/stack/quickstart" description="Authenticate, set up your project, and start encrypting in under 5 minutes." />
   <Card title="Encryption SDK" href="/stack/quickstart" description="Field-level encryption with searchable queries in your TypeScript application." />
   <Card title="CipherStash Proxy" href="/stack/cipherstash/proxy/getting-started" description="Drop-in SQL proxy for PostgreSQL. Encrypt data with zero code changes." />
-  <Card title="Secrets" href="/stack/cipherstash/secrets/getting-started" description="Store and retrieve end-to-end encrypted secrets via SDK or CLI." />
+  <Card title="Secrets (coming soon)" href="https://cipherstash.com/stack/secrets" description="Store and retrieve end-to-end encrypted secrets via SDK or CLI." />
 </Cards>
 
 ## Products
@@ -40,7 +40,7 @@ Most teams start with the **SDK** for the best developer experience.
 <Cards>
   <Card title="Encryption SDK" href="/stack/cipherstash/encryption" description="Schema definition, encrypt/decrypt, searchable encryption, Drizzle, Supabase, and DynamoDB integrations." />
   <Card title="CipherStash Proxy" href="/stack/cipherstash/proxy" description="Transparent PostgreSQL encryption proxy with zero application code changes." />
-  <Card title="Secrets" href="/stack/cipherstash/secrets" description="End-to-end encrypted secret storage with environment isolation." />
+  <Card title="Secrets (coming soon)" href="https://cipherstash.com/stack/secrets" description="End-to-end encrypted secret storage with environment isolation." />
   <Card title="ZeroKMS" href="/stack/cipherstash/kms" description="Key management, keysets, clients, and access keys — the foundation that powers everything." />
 </Cards>
 
@@ -57,7 +57,7 @@ Most teams start with the **SDK** for the best developer experience.
 Everything builds on [ZeroKMS](/stack/cipherstash/kms) and its core primitive, the [Keyset](/stack/cipherstash/kms/keysets). A keyset is the unit of isolation.
 
 - **[Encryption](/stack/cipherstash/encryption)** uses keysets for [tenant isolation](/stack/cipherstash/encryption/configuration#keysets). One keyset per customer. Provable cryptographic separation.
-- **[Secrets](/stack/cipherstash/secrets)** uses keysets for [environment isolation](/stack/cipherstash/secrets/concepts#environments). Production, staging, and development secrets can never cross boundaries.
+- **Secrets (coming soon)** uses keysets for environment isolation. Production, staging, and development secrets can never cross boundaries.
 - **[Proxy](/stack/cipherstash/proxy)** encrypts data transparently via PostgreSQL, backed by the same ZeroKMS key hierarchy.
 
 ## Understand the architecture
