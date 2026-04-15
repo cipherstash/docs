@@ -6,10 +6,8 @@ import {
   ExternalLinkIcon,
   FileText,
   KeyRound,
-  LayoutDashboard,
   Lock,
   Search,
-  Server,
   ShieldCheck,
   Zap,
 } from "lucide-react";
@@ -35,13 +33,6 @@ const products = [
     icon: Lock,
   },
   {
-    title: "Secrets",
-    description:
-      "Secrets without the .env. Field-level encryption, identity-bound access, cryptographically isolated environments.",
-    href: "/stack/cipherstash/secrets",
-    icon: Server,
-  },
-  {
     title: "ZeroKMS",
     description:
       "The key management layer. Unique key per value, derived on demand, never stored. 100x faster than AWS KMS.",
@@ -64,17 +55,17 @@ const integrations: {
   logo: ComponentType<{ className?: string }>;
 }[] = [
   {
+    title: "Supabase",
+    description:
+      "Official security partner. Field-level encryption for your Supabase project.",
+    href: "/stack/cipherstash/supabase",
+    logo: SupabaseLogo,
+  },
+  {
     title: "Drizzle ORM",
     description: "Encrypted column types and query operators for Drizzle.",
     href: "/stack/cipherstash/encryption/drizzle",
     logo: DrizzleLogo,
-  },
-  {
-    title: "Supabase",
-    description:
-      "Transparent encryption for your Supabase project using the Supabase JS SDK.",
-    href: "/stack/cipherstash/encryption/supabase",
-    logo: SupabaseLogo,
   },
   {
     title: "DynamoDB",
@@ -87,26 +78,26 @@ const integrations: {
 
 const resources = [
   {
-    title: "Platform",
-    description: "Organizations, compliance, and billing",
-    href: "/stack/reference",
-    icon: LayoutDashboard,
+    title: "What is CipherStash?",
+    description: "DLAC, threat model, how it works",
+    href: "/stack/reference/what-is-cipherstash",
+    icon: ShieldCheck,
   },
   {
     title: "API Reference",
-    description: "Full SDK and API reference docs",
+    description: "SDK and API reference docs",
     href: "/stack/reference",
     icon: Code,
   },
   {
     title: "Agent Skills",
-    description: "Install CipherStash skills for your AI coding agent",
+    description: "CipherStash knowledge for your AI coding agent",
     href: "/stack/reference/agent-skills",
     icon: Zap,
   },
   {
     title: "Use Cases",
-    description: "Common patterns and real-world examples",
+    description: "AI/RAG, compliance, data residency",
     href: "/stack/reference/use-cases",
     icon: BookOpen,
   },
@@ -125,7 +116,8 @@ export default function HomePage() {
             CipherStash Docs
           </h1>
           <p className="mt-4 max-w-2xl text-[17px] leading-relaxed text-fd-muted-foreground">
-            Searchable field-level encryption. Identity-bound keys. Cryptographic audit trails. Built into your existing Postgres stack.
+            Searchable field-level encryption. Identity-bound keys.
+            Cryptographic audit trails. Built into your existing Postgres stack.
           </p>
 
           {/* Getting started cards */}
@@ -134,14 +126,14 @@ export default function HomePage() {
               {
                 href: "/stack/quickstart",
                 icon: Zap,
-                title: "Getting Started",
+                title: "Quickstart",
                 desc: "Encrypt your first fields in 15 minutes.",
               },
               {
-                href: "/stack/reference",
-                icon: ShieldCheck,
-                title: "Platform Overview",
-                desc: "Zero-knowledge architecture. How the trust model works.",
+                href: "/stack/cipherstash/supabase",
+                icon: Database,
+                title: "Supabase",
+                desc: "Official security partner. Field-level encryption for Supabase.",
               },
               {
                 href: "/stack/cipherstash/encryption/searchable-encryption",
@@ -153,7 +145,7 @@ export default function HomePage() {
                 href: "/stack/reference/agent-skills",
                 icon: Zap,
                 title: "Agent Skills",
-                desc: "CipherStash knowledge for your AI coding agent. Cursor, Copilot, Claude Code.",
+                desc: "CipherStash knowledge for Cursor, Copilot, Claude Code.",
               },
             ].map((card) => (
               <Link
@@ -190,10 +182,10 @@ export default function HomePage() {
           The Stack
         </h2>
         <p className="mt-2 text-fd-muted-foreground">
-          Four primitives. Encryption, secrets, key management, and proxy.
+          Encryption, key management, and proxy.
         </p>
 
-        <div className="mt-8 grid gap-px bg-fd-border sm:grid-cols-2 border border-fd-border rounded-[2px] overflow-hidden">
+        <div className="mt-8 grid gap-px bg-fd-border sm:grid-cols-3 border border-fd-border rounded-[2px] overflow-hidden">
           {products.map((product) => (
             <Link
               key={product.title}
@@ -258,14 +250,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Additional Resources */}
+      {/* Resources */}
       <section className="border-t border-fd-border">
         <div className="mx-auto w-full max-w-[1200px] px-6 py-16 md:px-12 md:py-24">
           <p className={eyebrowClass}>§ 03 / RESOURCES</p>
           <h2
             className={`mt-3 text-xl font-medium text-fd-foreground md:text-2xl ${monoClass}`}
           >
-            Additional Resources
+            Resources
           </h2>
 
           <div className="mt-8 grid gap-px bg-fd-border sm:grid-cols-2 lg:grid-cols-4 border border-fd-border rounded-[2px] overflow-hidden">
