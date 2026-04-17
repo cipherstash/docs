@@ -19,6 +19,14 @@ npx skills add cipherstash/stack
 
 This installs all six CipherStash skills into your project. Your AI coding agent will automatically activate the relevant skill based on what you are working on.
 
+### Install via the wizard
+
+The `wizard` command prompts you to install integration-appropriate skills after its post-agent steps. It offers to copy skills into `./.claude/skills/` based on your integration:
+
+- **Drizzle**: `stash-encryption`, `stash-drizzle`, `stash-cli`
+- **Supabase**: `stash-encryption`, `stash-supabase`, `stash-cli`
+- **Prisma / generic**: `stash-encryption`, `stash-cli`
+
 ## Available skills
 
 The `cipherstash/stack` skill pack includes six skills. Each one covers a specific area of the CipherStash platform.
@@ -49,19 +57,20 @@ The CipherStash CLI (`@cipherstash/cli`) for database setup, schema management, 
 **Covers:**
 
 - `stash.config.ts` configuration
-- Database commands: `db setup`, `db install`, `db upgrade`, `db push`, `db validate`, `db status`, `db test-connection`
+- Database commands: `db install`, `db upgrade`, `db push`, `db validate`, `db status`, `db test-connection`
 - Project initialization with `init`
 - The AI-powered `wizard` command
 - Schema building with `schema build`
 - Authentication with `auth login`
-- Secrets management via `secrets` subcommands
 - Programmatic API (`EQLInstaller`, `loadStashConfig`, `defineConfig`, `loadBundledEqlSql`)
 - Drizzle migration mode (`--drizzle`)
 - Supabase-compatible installs (`--supabase`)
+- Automatic Supabase and Drizzle detection
+- Automatic OPE fallback on managed databases
 
 **When it activates:** Your agent loads this skill when you are working with `stash.config.ts`, running CLI commands, or setting up EQL in a database.
 
-**Related docs:** [CipherStash Forge](/stack/cipherstash/forge)
+**Related docs:** [CipherStash CLI](/stack/cipherstash/cli)
 
 ### stash-drizzle
 
@@ -128,7 +137,6 @@ Encrypted secrets management with `@cipherstash/stack`.
 **Covers:**
 
 - `Secrets` class API: `set`, `get`, `getMany`, `list`, `delete`
-- CLI commands: `secrets set`, `secrets get`, `secrets get-many`, `secrets list`, `secrets delete`
 - Environment-based isolation with per-environment encryption keysets
 - Bulk secret retrieval with `getMany` (2 to 100 secrets per call)
 - Error types: `ApiError`, `NetworkError`, `ClientError`, `EncryptionError`, `DecryptionError`
@@ -156,7 +164,7 @@ After installing skills, your AI coding agent can assist with the full CipherSta
 
 1. **Initialize your project:** Ask your agent to set up CipherStash and it will run `npx @cipherstash/cli init`.
 2. **Define your schema:** Describe which columns to encrypt and the agent will generate the correct `encryptedTable` and `encryptedColumn` definitions.
-3. **Set up the database:** The agent will guide you through `npx @cipherstash/cli db setup` with the right flags for your provider.
+3. **Set up the database:** The agent will guide you through `npx @cipherstash/cli db install`. The CLI auto-detects Supabase and Drizzle from your project.
 4. **Write integration code:** Ask the agent to add encryption to your queries. It will use the correct operators for your ORM (Drizzle, Supabase, DynamoDB, or raw SQL).
 5. **Handle edge cases:** The agent knows about searchable encryption constraints, operator family limitations, identity-aware encryption, and multi-tenant keysets.
 

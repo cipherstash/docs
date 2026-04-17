@@ -24,10 +24,10 @@ npx @cipherstash/cli init --supabase
 ```
 
 ```bash
-npx @cipherstash/cli db setup --supabase
+npx @cipherstash/cli db install
 ```
 
-This installs the EQL extension with Supabase-compatible permissions and configures searchable encryption for your database.
+The CLI auto-detects Supabase from your `DATABASE_URL` host and uses the Supabase-compatible install automatically. This installs the EQL extension with Supabase-compatible permissions and configures searchable encryption for your database. You can also pass `--supabase` explicitly if needed.
 
 ## Choose your integration
 

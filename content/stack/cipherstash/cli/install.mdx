@@ -1,40 +1,6 @@
 ---
-title: Setup, install, and upgrade EQL
-description: Set up your database interactively, or install and upgrade EQL directly
----
-
-## setup
-
-Interactive database setup. Run this after `npx @cipherstash/cli init` has generated your encryption schema.
-
-```bash
-npx @cipherstash/cli db setup [options]
-```
-
-The wizard will:
-
-1. **Auto-detect your encryption client file** by scanning common locations (`./src/encryption/index.ts`, etc.), then confirm with you or ask for the path if not found
-2. **Ask for your database URL** (pre-fills from `DATABASE_URL` env var)
-3. **Generate `stash.config.ts`** with the database URL and client path
-4. **Ask which Postgres provider you're using** to determine the right install flags:
-   - **Supabase** — uses `--supabase` (no operator families + Supabase role grants)
-   - **Neon, Vercel Postgres, PlanetScale, Prisma Postgres** — uses `--exclude-operator-family`
-   - **AWS RDS, Other / Self-hosted** — standard install
-5. **Install EQL extensions** in your database
-
-If `--supabase` is passed as a flag, the provider selection is skipped.
-
-| Option | Description |
-|---|---|
-| `--force` | Overwrite existing `stash.config.ts` and reinstall EQL |
-| `--dry-run` | Show what would happen without making changes |
-| `--supabase` | Skip provider selection and use Supabase-compatible install |
-| `--drizzle` | Generate a Drizzle migration instead of direct install |
-| `--exclude-operator-family` | Skip operator family creation |
-| `--latest` | Fetch the latest EQL from GitHub instead of using the bundled version |
-
-For non-interactive or CI environments, use the [`install`](#install) command directly with the appropriate flags.
-
+title: Install and upgrade EQL
+description: Install or upgrade EQL in your database, with automatic provider detection and permission fallback
 ---
 
 ## install
@@ -44,6 +10,15 @@ Install the CipherStash EQL extensions into your database. Uses bundled SQL by d
 ```bash
 npx @cipherstash/cli db install [options]
 ```
+
+`db install` now also scaffolds `stash.config.ts` if it is missing. The command:
+
+1. **Auto-detects your encryption client file** by scanning common locations, then confirms with you or asks for the path if not found.
+2. **Writes `stash.config.ts`** with the database URL and client path (if the file does not already exist).
+3. **Checks permissions** and auto-selects the right SQL variant based on your database role.
+4. **Installs EQL extensions** in your database.
+
+After a successful install, the CLI prints a next-steps block pointing you to the wizard, direct `Encryption`/`encryptModel` usage, and relevant docs.
 
 | Option | Description |
 |---|---|
@@ -73,6 +48,17 @@ Fetch the latest EQL from GitHub:
 ```bash
 npx @cipherstash/cli db install --latest
 ```
+
+### Auto-detection
+
+`db install` auto-detects two things before prompting you:
+
+- **Supabase**: If `DATABASE_URL` contains a `*.supabase.co`, `*.supabase.com`, or `*.pooler.supabase.com` host, the CLI uses the Supabase-compatible install automatically. You can still pass `--supabase` explicitly to override.
+- **Drizzle**: If a `drizzle.config.*` file exists or `drizzle-orm`/`drizzle-kit` appears in `package.json`, the CLI generates a Drizzle migration automatically. You can still pass `--drizzle` explicitly.
+
+### Automatic OPE fallback
+
+On managed databases (Supabase, Neon, RDS), the connected role is often not a superuser. `db install` detects this and automatically uses the no-operator-family (OPE) install variant, logging a line to inform you. You do not need to pass `--exclude-operator-family` manually on these hosts.
 
 ### Supabase install
 
@@ -109,15 +95,31 @@ npx @cipherstash/cli db install --drizzle --name setup-eql --out ./migrations
 
 `drizzle-kit` must be installed. The `--out` value must match your Drizzle config.
 
+You can combine `--drizzle` and `--supabase`:
+
+```bash
+npx @cipherstash/cli db install --drizzle --supabase
+```
+
+This generates a Supabase-compatible EQL migration file.
+
+### Encrypting existing columns
+
+When you add `encryptedType` to a Drizzle column that already has data, `drizzle-kit generate` emits an `ALTER TABLE ... ALTER COLUMN ... SET DATA TYPE eql_v2_encrypted` statement. Postgres cannot cast existing data to `eql_v2_encrypted` implicitly, so this migration would fail.
+
+`db install --drizzle` automatically rewrites those statements into a safe `ADD COLUMN / DROP COLUMN / RENAME COLUMN` sequence. The rewrite adds a comment in the migration to remind you to backfill the new column with `encryptModel` before dropping the old one. You are responsible for writing and running that backfill in your application code before applying the DROP step.
+
 ### Permission pre-checks
 
 Before installing, the CLI verifies you have the following permissions:
 
 - `CREATE` on the database (for `CREATE SCHEMA` and `CREATE EXTENSION`)
-- `CREATE` on the `public` schema (for `CREATE TYPE public.eql_v2_encrypted`)
+- `CREATE` on the `public` schema (for `CREATE TYPE "public"."eql_v2_encrypted"`)
 - `SUPERUSER` or extension owner (for `CREATE EXTENSION pgcrypto`, if not already installed)
 
-If permissions are insufficient, the CLI exits with a message listing what is missing.
+If the role is not a superuser, the CLI falls back automatically to the OPE (no-operator-family) variant instead of exiting with an error.
+
+---
 
 ## upgrade
 
@@ -146,4 +148,4 @@ Three SQL variants are included:
 |---|---|
 | `cipherstash-encrypt.sql` | Default install |
 | `cipherstash-encrypt-supabase.sql` | `--supabase` flag |
-| `cipherstash-encrypt-no-operator-family.sql` | `--exclude-operator-family` flag |
+| `cipherstash-encrypt-no-operator-family.sql` | `--exclude-operator-family` flag or automatic OPE fallback |

@@ -1,0 +1,48 @@
+---
+title: Troubleshooting
+description: Common errors and fixes for the CipherStash CLI
+---
+
+# Troubleshooting
+
+## Common errors
+
+| Error | Cause | Fix |
+|---|---|---|
+| `Could not find stash.config.ts` | No config file in cwd or parent dirs | Run `npx @cipherstash/cli db install` to generate it, or create `stash.config.ts` manually |
+| `databaseUrl is required` | Config missing `databaseUrl` | Add `databaseUrl` to config and check `.env` is loaded |
+| `must be superuser to create an operator family` | Standard SQL requires superuser | The CLI falls back to OPE mode automatically on managed databases. Pass `--exclude-operator-family` if you see this on self-hosted Postgres. |
+| `Insufficient database permissions` | Role lacks `CREATE` privileges | Connect as superuser or grant permissions |
+| `EQL is already installed` | `eql_v2` schema exists | Use `--force` to reinstall |
+| `Encrypt client file not found` | `push`/`validate` can't find the file at `config.client` | Set `client` in `stash.config.ts` to the correct path |
+| `drizzle-kit generate failed` | drizzle-kit not installed or wrong output dir | Install `drizzle-kit` and set `--out` to match your Drizzle config |
+
+## Permission issues
+
+The `install` command checks database permissions before running. On managed databases (Supabase, Neon, RDS), the CLI detects a non-superuser role and automatically uses the no-operator-family (OPE) install variant.
+
+If you still see permission errors:
+
+1. Run `npx @cipherstash/cli db test-connection` to verify your database URL is correct.
+2. Run `npx @cipherstash/cli db status` to check the current EQL state.
+3. Ensure the connected role has `CREATE` privileges on the database and `public` schema.
+4. For the `pgcrypto` extension, the role needs `SUPERUSER` or extension owner privileges.
+
+## Supabase-specific issues
+
+When using `--supabase` or the automatic Supabase detection:
+
+- `ORDER BY` on encrypted columns is not supported. Sort application-side after decrypting.
+- The `anon`, `authenticated`, and `service_role` roles are Supabase-specific. Don't use `--supabase` on standard PostgreSQL.
+
+## Drizzle migration issues
+
+If `--drizzle` fails:
+
+1. Ensure `drizzle-kit` is installed: `npm install -D drizzle-kit`
+2. Ensure the `--out` directory matches your `drizzle.config.ts` output directory.
+3. Check that your Drizzle config is valid by running `npx drizzle-kit generate` manually.
+
+## Encrypting existing columns
+
+When adding `encryptedType` to a column that already has data, the CLI rewrites `ALTER COLUMN ... SET DATA TYPE eql_v2_encrypted` statements into a safe `ADD COLUMN / DROP COLUMN / RENAME COLUMN` sequence. You must backfill the new column with `encryptModel` in your application code before applying the DROP step on non-empty tables.

@@ -21,9 +21,9 @@ The wizard walks through five steps:
    - **Build interactively:** Asks for table name, column names, data types, and search operations for each column.
    - **Use a placeholder:** Generates an example `users` table with `email` and `name` columns.
 4. **Generates the encryption client file** (default: `./src/encryption/index.ts`).
-5. **Installs dependencies**: Adds `@cipherstash/stack` as a dependency and `@cipherstash/cli` as a devDependency. Detects your package manager (npm, pnpm, yarn, bun) automatically.
+5. **Installs dependencies**: Adds `@cipherstash/stack` as a dependency and `@cipherstash/cli` as a devDependency. Detects your package manager (npm, pnpm, yarn, bun) automatically. You will see real-time install output as packages are downloaded.
 
-After completion, the CLI shows next steps: run `npx @cipherstash/cli db setup` to set up your database, and edit your encryption schema.
+After completion, the CLI shows next steps: run `npx @cipherstash/cli db install` to set up your database, and edit your encryption schema.
 
 | Flag | Description |
 |---|---|
@@ -49,26 +49,28 @@ export default await Encryption({ schemas: [users] })
 
 ## After init
 
-Once the wizard completes, set up your database:
+Once the wizard completes, install EQL in your database:
 
 ```bash
-npx @cipherstash/cli db setup
+npx @cipherstash/cli db install
 ```
 
-This auto-detects your encryption client, asks for your database URL, generates `stash.config.ts`, detects your Postgres provider, and installs EQL. See [setup](/stack/cipherstash/forge/install#setup) for details.
+This auto-detects your encryption client, scaffolds `stash.config.ts` if it is missing, detects your Postgres provider, and installs EQL. See [install](/stack/cipherstash/cli/install#install) for details.
 
-To build your encryption schema with AI assistance, run the wizard after setup:
+To build your encryption schema with AI assistance, run the wizard after install:
 
 ```bash
 npx @cipherstash/cli wizard
 ```
 
-Or use `npx @cipherstash/cli db install` directly for non-interactive setup:
+Or use `npx @cipherstash/cli db install` directly with flags for non-interactive setup:
 
 ```bash
 npx @cipherstash/cli db install
 npx @cipherstash/cli db install --drizzle  # Generate a Drizzle migration instead
 npx @cipherstash/cli db install --supabase # Supabase-compatible install
 ```
+
+> **Good to know**: You can pass `--drizzle` and `--supabase` together. The CLI combines both behaviors: Supabase-compatible SQL output as a Drizzle migration.
 
 Authentication is handled automatically by device-based auth from the init step. For production deployments, see [Going to production](/stack/deploy/going-to-production).

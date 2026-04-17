@@ -1,0 +1,170 @@
+---
+title: CipherStash CLI
+description: Dev-time CLI for managing EQL installation, encryption schemas, and database setup
+---
+
+# CipherStash CLI
+
+`@cipherstash/cli` is a dev-time CLI and library for managing CipherStash EQL (Encrypted Query Language) in PostgreSQL.
+
+`@cipherstash/stack` is the runtime encryption SDK. It stays lean with no heavy dependencies like `pg`. `@cipherstash/cli` is a devDependency that handles database tooling: installing EQL extensions, checking permissions, validating schemas, and managing the schema lifecycle.
+
+Think of it like Prisma CLI or Drizzle Kit. It sets up the database while the main SDK handles runtime operations.
+
+| Package | Role | Install as |
+|---|---|---|
+| `@cipherstash/stack` | Runtime encryption and decryption | dependency |
+| `@cipherstash/cli` | Database setup and schema management | devDependency |
+
+## Quick start
+
+### Interactive (recommended)
+
+<Steps>
+  <Step>
+    ### Run the init wizard
+
+    The `npx @cipherstash/cli init` command authenticates you, generates your encryption schema, and installs dependencies.
+
+    ```bash
+    npx @cipherstash/cli init
+    ```
+  </Step>
+
+  <Step>
+    ### Install EQL in your database
+
+    Run `db install` to write `stash.config.ts` (if missing), check permissions, and install EQL:
+
+    ```bash
+    npx @cipherstash/cli db install
+    ```
+
+    The CLI auto-detects your Postgres provider and selects the right install variant. EQL is now installed and your encryption schema is ready.
+
+    After install, the CLI prints a next-steps block pointing you to the wizard, direct SDK usage, and docs.
+  </Step>
+
+  <Step>
+    ### Build your schema with AI (optional)
+
+    Use the AI-powered wizard to generate an encryption schema from your database:
+
+    ```bash
+    npx @cipherstash/cli wizard
+    ```
+  </Step>
+</Steps>
+
+### Manual setup
+
+<Steps>
+  <Step>
+    ### Install the CLI
+
+    ```bash
+    npm install -D @cipherstash/cli
+    ```
+  </Step>
+
+  <Step>
+    ### Create stash.config.ts
+
+    Create `stash.config.ts` in your project root:
+
+    ```typescript filename="stash.config.ts"
+    import { defineConfig } from '@cipherstash/cli'
+
+    export default defineConfig({
+      databaseUrl: process.env.DATABASE_URL!,
+    })
+    ```
+  </Step>
+
+  <Step>
+    ### Add your database URL
+
+    ```bash filename=".env"
+    DATABASE_URL=postgresql://user:password@localhost:5432/mydb
+    ```
+  </Step>
+
+  <Step>
+    ### Install EQL
+
+    ```bash
+    npx @cipherstash/cli db install
+    ```
+  </Step>
+</Steps>
+
+> **Good to know**: Using Drizzle? The CLI auto-detects a `drizzle.config.*` file or `drizzle-orm`/`drizzle-kit` in `package.json` and generates a migration automatically. You can also pass `--drizzle` explicitly. Run `npx drizzle-kit migrate` after to apply it.
+
+## Configuration
+
+The `stash.config.ts` file is the single source of truth for the CLI. Use `defineConfig` for type safety.
+
+```typescript filename="stash.config.ts"
+import { defineConfig } from '@cipherstash/cli'
+
+export default defineConfig({
+  databaseUrl: process.env.DATABASE_URL!,
+  client: './src/encryption/index.ts',
+})
+```
+
+| Option | Required | Default | Description |
+|---|---|---|---|
+| `databaseUrl` | Yes | | PostgreSQL connection string |
+| `client` | No | `./src/encryption/index.ts` | Path to your encryption client file. Used by `push` and `validate`. |
+
+The CLI loads `.env.local`, `.env.development.local`, `.env.development`, then `.env` (first-win, Next.js precedence) before evaluating the config, so `process.env` references work without any extra setup. The config file is resolved by walking up from the current working directory, similar to how `tsconfig.json` resolution works.
+
+## Wizard
+
+The `wizard` command uses AI to generate an encryption schema from your existing database schema.
+
+```bash
+npx @cipherstash/cli wizard
+```
+
+### What the wizard does
+
+The wizard:
+
+1. Reads your existing database schema and application code.
+2. Proposes which columns to encrypt and which search indexes to add.
+3. Generates or updates your encryption client file.
+4. Scans your source code for Drizzle/Supabase insert, update, and select patterns on encrypted tables. It prints a summary of call sites that need `encryptModel`/`decryptModel` wrappers. The wizard reports these locations but does not edit your application code.
+5. Prompts you to install integration-appropriate [agent skills](/stack/reference/agent-skills) into `./.claude/skills/` for your AI coding assistant.
+
+### Wizard log
+
+Each run appends a timestamped log to `.cipherstash/wizard-log.md` in your project root. The log records phases, decisions, and touched files. Review it to understand what the wizard changed and why.
+
+### Backfilling existing data
+
+When the wizard adds `encryptedType` to columns that already have data, you must backfill the existing rows with `encryptModel` before dropping the old column. The wizard prints a reminder with the recommended pattern. You are responsible for writing and running this backfill.
+
+## Experimental commands
+
+### env
+
+The `env` command prints a `.env.production.local` block with your CipherStash credentials. Pass `--write` to write it to disk.
+
+```bash
+STASH_EXPERIMENTAL_ENV_CMD=1 npx @cipherstash/cli env
+STASH_EXPERIMENTAL_ENV_CMD=1 npx @cipherstash/cli env --write
+```
+
+This command is experimental and gated behind the `STASH_EXPERIMENTAL_ENV_CMD=1` environment variable. It is not ready for production use.
+
+## Next steps
+
+<Cards>
+  <Card title="Init wizard" href="/stack/cipherstash/cli/init" description="Use the interactive wizard to set up the CLI in your project." />
+  <Card title="Install and upgrade" href="/stack/cipherstash/cli/install" description="Install or upgrade EQL in your database." />
+  <Card title="Schema validation" href="/stack/cipherstash/cli/validate" description="Validate your encryption schema for common misconfigurations." />
+  <Card title="Push to database" href="/stack/cipherstash/cli/push" description="Push your encryption schema to the database for use with CipherStash Proxy." />
+  <Card title="Programmatic API" href="/stack/cipherstash/cli/api" description="Use the CLI as a library in your own scripts and tooling." />
+</Cards>

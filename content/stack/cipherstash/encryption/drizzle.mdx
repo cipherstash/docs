@@ -23,7 +23,7 @@ The Drizzle integration is included in `@cipherstash/stack` and imports from `@c
 
 ### Install EQL via Drizzle migrations
 
-Use [CipherStash Forge](/stack/cipherstash/forge) to generate a Drizzle migration that installs the [EQL](/stack/reference/eql-guide) extension:
+Use the [CipherStash CLI](/stack/cipherstash/cli) to generate a Drizzle migration that installs the [EQL](/stack/reference/eql-guide) extension:
 
 ```bash
 npx @cipherstash/cli db install --drizzle
@@ -35,7 +35,7 @@ npx drizzle-kit migrate
 | `--name <value>` | `install-eql` | Migration name |
 | `--out <value>` | `drizzle` | Output directory (must match your Drizzle config) |
 
-See [CipherStash Forge — Drizzle migrations](/stack/cipherstash/forge/install#drizzle-migrations) for details.
+See [CipherStash CLI — Drizzle migrations](/stack/cipherstash/cli/install#drizzle-migrations) for details.
 
 ### Column storage
 

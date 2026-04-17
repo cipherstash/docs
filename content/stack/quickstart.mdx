@@ -31,10 +31,10 @@ This opens a browser for device-based authentication. No shared secrets, no envi
 ## Set up your database
 
 ```bash
-npx @cipherstash/cli db setup
+npx @cipherstash/cli db install
 ```
 
-Auto-detects your Postgres provider and installs the EQL extension for searchable encryption.
+Auto-detects your Postgres provider and installs the EQL extension for searchable encryption. On managed databases (Supabase, Neon, RDS), the CLI detects your role and selects the right install variant automatically.
 
 ## Define your encryption schema
 

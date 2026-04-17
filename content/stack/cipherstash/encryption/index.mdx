@@ -22,7 +22,7 @@ This is the primitive everything else depends on.
 ## How it works
 
 1. **Initialize your project:** Run `npx @cipherstash/cli init` to generate your encryption schema and client.
-2. **Set up your database:** Run `npx @cipherstash/cli db setup` to set up searchable encryption in PostgreSQL.
+2. **Set up your database:** Run `npx @cipherstash/cli db install` to set up searchable encryption in PostgreSQL.
 3. **Encrypt and store:** Encrypt values before writing to your database.
 4. **Query encrypted data:** Encrypt query terms and run them against your encrypted columns.
 5. **Decrypt on read:** Decrypt values when reading from the database.
@@ -45,23 +45,23 @@ All key management (key generation, derivation, and isolation) is handled by [Ze
 - **Throughput**: Scales with your application performance
 - **Setup time**: Running in local dev in < 1 hour, production in < 3 days
 
-## CipherStash Forge
+## CipherStash CLI
 
-[CipherStash Forge](/stack/cipherstash/forge) is the dev-time CLI for setting up your database. It handles installing the EQL extension, validating schemas, and managing the encryption lifecycle. Think of it like Drizzle Kit or Prisma CLI: a companion tool that sets up the database while `@cipherstash/stack` handles runtime encryption.
+[CipherStash CLI](/stack/cipherstash/cli) (`@cipherstash/cli`) is the dev-time CLI for setting up your database. It handles installing the EQL extension, validating schemas, and managing the encryption lifecycle. Think of it like Drizzle Kit or Prisma CLI: a companion tool that sets up the database while `@cipherstash/stack` handles runtime encryption.
 
-The `init` wizard lives in `@cipherstash/cli`. It generates your encryption schema, client file, and installs `@cipherstash/cli` as a devDependency. Then run `npx @cipherstash/cli db setup` to configure your database.
+The `init` wizard generates your encryption schema, client file, and installs `@cipherstash/cli` as a devDependency. Then run `npx @cipherstash/cli db install` to configure your database.
 
 ```bash
 npx @cipherstash/cli init             # Interactive project setup
-npx @cipherstash/cli db setup         # Interactive database and EQL setup
+npx @cipherstash/cli db install       # Install EQL and scaffold stash.config.ts
 npx @cipherstash/cli db validate      # Check schema for misconfigurations
 npx @cipherstash/cli db status        # Show EQL installation state
 npx @cipherstash/cli wizard           # AI-powered encryption setup
 ```
 
 <Cards>
-  <Card title="Get started with Forge" href="/stack/cipherstash/forge" description="Install EQL, validate schemas, and manage your database setup." />
-  <Card title="Interactive setup" href="/stack/cipherstash/forge/init" description="Set up Forge in your project with the interactive init wizard." />
+  <Card title="Get started with the CLI" href="/stack/cipherstash/cli" description="Install EQL, validate schemas, and manage your database setup." />
+  <Card title="Interactive setup" href="/stack/cipherstash/cli/init" description="Set up the CLI in your project with the interactive init wizard." />
 </Cards>
 
 ## Next steps

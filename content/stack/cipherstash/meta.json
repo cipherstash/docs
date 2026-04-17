@@ -12,7 +12,7 @@
     "proxy",
     "---ZeroKMS---",
     "kms",
-    "---Forge---",
-    "forge"
+    "---CLI---",
+    "cli"
   ]
 }

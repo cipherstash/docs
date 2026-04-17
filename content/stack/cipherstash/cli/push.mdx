@@ -24,7 +24,7 @@ npx @cipherstash/cli db push [options]
 When pushing, the CLI:
 
 1. Loads the encryption client from the path in `stash.config.ts`
-2. Runs [schema validation](/stack/cipherstash/forge/validate) (warns but doesn't block)
+2. Runs [schema validation](/stack/cipherstash/cli/validate) (warns but doesn't block)
 3. Transforms SDK data types to EQL-compatible `cast_as` values
 4. Connects to Postgres and marks existing `eql_v2_configuration` rows as `inactive`
 5. Inserts the new config as an `active` row
