@@ -25,6 +25,9 @@ After a successful install, the CLI prints a next-steps block pointing you to th
 | `--dry-run` | Show what would happen without making changes |
 | `--force` | Reinstall even if EQL is already installed |
 | `--supabase` | Use Supabase-compatible install (excludes operator families and grants Supabase roles) |
+| `--migration` | Write EQL into a Supabase migration file instead of pushing directly. Requires `--supabase`. |
+| `--direct` | Push EQL directly to the database, skipping the migration-file prompt. Requires `--supabase`. |
+| `--migrations-dir <path>` | Override the Supabase migrations directory (default: `supabase/migrations/`). Requires `--supabase`. |
 | `--exclude-operator-family` | Skip operator family creation (for non-superuser database roles) |
 | `--drizzle` | Generate a Drizzle migration instead of direct install |
 | `--latest` | Fetch the latest EQL from GitHub instead of using the bundled version |
@@ -67,6 +70,35 @@ npx @cipherstash/cli db install --supabase
 ```
 
 The `--supabase` flag uses the Supabase-specific SQL variant. It omits `CREATE OPERATOR FAMILY` and grants `USAGE`, table, routine, and sequence permissions on the `eql_v2` schema to `anon`, `authenticated`, and `service_role`.
+
+When `--supabase` is passed and a `supabase/migrations/` directory is detected, the CLI prompts:
+
+```
+How should EQL be installed?
+  > Create a Supabase migration file (recommended)
+    Push directly to the database
+```
+
+The migration-file path writes EQL SQL into `supabase/migrations/00000000000000_cipherstash_eql.sql`. The all-zero timestamp prefix ensures it runs before any user migrations that reference `eql_v2_encrypted`. Use `--migration` to skip the prompt and always create the file, or `--direct` to skip the prompt and always push directly.
+
+```bash
+# Write EQL as a migration file
+npx @cipherstash/cli db install --supabase --migration
+
+# Push EQL directly to the database
+npx @cipherstash/cli db install --supabase --direct
+
+# Override the migrations directory
+npx @cipherstash/cli db install --supabase --migration --migrations-dir ./db/migrations
+```
+
+<Callout type="info">
+  `--migration`, `--direct`, and `--migrations-dir` all require `--supabase` to be passed explicitly. Passing them without `--supabase` will error. `--latest` is not compatible with `--migration`.
+</Callout>
+
+<Callout type="warn">
+  EQL installed via direct push does not survive `supabase db reset`. The reset command drops the database and reruns only files in `supabase/migrations/`. If you use `supabase db reset`, install EQL as a migration file instead. See [Supabase db reset removes EQL](/stack/cipherstash/cli/troubleshooting#supabase-db-reset).
+</Callout>
 
 <Callout type="warn">
   Without operator families, `ORDER BY` on encrypted columns is not supported, regardless of the client or ORM used. Sort application-side after decrypting results as a workaround. This limitation also applies when using `--exclude-operator-family` on any database.

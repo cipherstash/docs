@@ -8,26 +8,122 @@ icon: Supabase
 
 Field-level encryption that works with your Supabase project out of the box.
 
-CipherStash works with any Postgres. Supabase is Postgres. That means searchable field-level encryption, identity-bound keys, and cryptographic audit trails work with your Supabase project today.
+## How this works
+
+### What is EQL?
+
+EQL (Encrypted Query Language) is a Postgres extension CipherStash installs into your database. It provides the `eql_v2_encrypted` column type and the internal functions that make encrypted search possible. You don't write EQL directly. The SDK handles it.
+
+### Why your columns must be `eql_v2_encrypted`
+
+Encrypted values aren't strings or plain JSONB. They're structured ciphertext objects that hold the ciphertext plus optional search indexes. Postgres needs the column type so the SDK and Postgres agree on which functions handle inserts and queries.
+
+### What the CLI installs on Supabase
+
+`db install --supabase` uses a Supabase-compatible EQL variant. It omits `CREATE OPERATOR FAMILY` (which requires superuser), and grants `USAGE`, table, routine, and sequence permissions on the `eql_v2` schema to `anon`, `authenticated`, and `service_role`.
+
+## Packages
+
+CipherStash splits its functionality across two packages: a runtime SDK that your application imports, and a CLI for setup and schema management.
+
+| Package | Role | Install as |
+|---|---|---|
+| `@cipherstash/stack` | Runtime encryption and decryption. Your application imports this to encrypt values before they're written to Supabase and decrypt them on the way back. | dependency |
+| `@cipherstash/cli` | Setup and schema management. Installs EQL into your database, scaffolds your encryption client, and generates migrations when your encryption schema changes. Comparable to Prisma CLI or Drizzle Kit. | devDependency |
 
 ## Setup
 
-Install the SDK and configure your Supabase project:
+<Steps>
+  <Step>
+    ### Install the packages
 
-```bash
-npm install @cipherstash/stack
-npm install -D @cipherstash/cli
+    Install the runtime SDK as a dependency and the CLI as a dev dependency.
+
+    ```bash
+    npm install @cipherstash/stack
+    npm install -D @cipherstash/cli
+    ```
+  </Step>
+
+  <Step>
+    ### Run `init --supabase`
+
+    This walks you through a guided setup:
+
+    - Authenticates you with CipherStash via your browser.
+    - Asks how your application connects to Supabase (JS SDK, Drizzle, Prisma, or raw SQL).
+    - Generates an encryption client at `./src/encryption/index.ts` that your code imports.
+    - Installs `@cipherstash/forge` and `@cipherstash/stack` if they aren't already present.
+
+    The `--supabase` flag selects the Supabase JS SDK setup flow.
+
+    ```bash
+    npx @cipherstash/cli init --supabase
+    ```
+  </Step>
+
+  <Step>
+    ### Install EQL in your database
+
+    The CLI prompts you to choose how EQL is installed. If a `supabase/migrations/` directory is detected, the migration-file option is pre-selected.
+
+    <Tabs items={["As a migration (recommended)", "Direct push"]}>
+      <Tab value="As a migration (recommended)">
+        Pass `--migration` to write the EQL SQL into a Supabase migration file, or choose "Create a Supabase migration file" at the prompt.
+
+        ```bash
+        npx @cipherstash/cli db install --supabase --migration
+        ```
+
+        The CLI writes the EQL SQL to:
+
+        ```
+        supabase/migrations/00000000000000_cipherstash_eql.sql
+        ```
+
+        The all-zero timestamp prefix ensures this migration runs before any user migrations that reference `eql_v2_encrypted`. Run `supabase db reset` or `supabase migration up` to apply it.
+
+        To write the migration file to a different directory, use `--migrations-dir`:
+
+        ```bash
+        npx @cipherstash/cli db install --supabase --migration --migrations-dir ./db/migrations
+        ```
+
+        <Callout type="info">
+          `--migration`, `--direct`, and `--migrations-dir` all require `--supabase` to be passed explicitly. Passing them without `--supabase` will error.
+        </Callout>
+      </Tab>
+
+      <Tab value="Direct push">
+        Pass `--direct` to push EQL directly to the database without creating a migration file.
+
+        ```bash
+        npx @cipherstash/cli db install --supabase --direct
+        ```
+
+        <Callout type="warn">
+          Direct-push installs do not survive `supabase db reset`. The reset command drops the database and reruns only files in `supabase/migrations/`. EQL installed directly is not in migrations and will be wiped. Use the migration-file path for projects that use `supabase db reset`. See [Supabase db reset removes EQL](/stack/cipherstash/cli/troubleshooting#supabase-db-reset).
+        </Callout>
+      </Tab>
+    </Tabs>
+  </Step>
+</Steps>
+
+<Callout type="info">
+  If you hit issues with `supabase db reset` wiping EQL, see [Supabase db reset removes EQL](/stack/cipherstash/cli/troubleshooting#supabase-db-reset).
+</Callout>
+
+## Database schema
+
+Encrypted columns must use the `eql_v2_encrypted` type. Define them in your Supabase SQL editor or a migration file.
+
+```sql filename="supabase/migrations/20240101000001_create_users.sql"
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email eql_v2_encrypted NOT NULL,
+  name eql_v2_encrypted NOT NULL
+);
 ```
-
-```bash
-npx @cipherstash/cli init --supabase
-```
-
-```bash
-npx @cipherstash/cli db install
-```
-
-The CLI auto-detects Supabase from your `DATABASE_URL` host and uses the Supabase-compatible install automatically. This installs the EQL extension with Supabase-compatible permissions and configures searchable encryption for your database. You can also pass `--supabase` explicitly if needed.
 
 ## Choose your integration
 
@@ -124,4 +220,5 @@ Local development uses device-based authentication. Production uses environment 
 - [Supabase JS SDK reference](/stack/cipherstash/encryption/supabase) — Full API for the encryptedSupabase wrapper
 - [Drizzle ORM reference](/stack/cipherstash/encryption/drizzle) — Encrypted column types and operators
 - [Searchable encryption](/stack/cipherstash/encryption/searchable-encryption) — How queries over ciphertext work
+- [Supabase db reset removes EQL](/stack/cipherstash/cli/troubleshooting#supabase-db-reset) — Fix for direct-push installs
 - [Dashboard](https://dashboard.cipherstash.com/workspaces) — Manage keysets, clients, and access keys
