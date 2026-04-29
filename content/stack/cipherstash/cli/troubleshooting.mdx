@@ -48,7 +48,7 @@ If `--drizzle` fails:
 
 When adding `encryptedType` to a column that already has data, the CLI rewrites `ALTER COLUMN ... SET DATA TYPE eql_v2_encrypted` statements into a safe `ADD COLUMN / DROP COLUMN / RENAME COLUMN` sequence. You must backfill the new column with `encryptModel` in your application code before applying the DROP step on non-empty tables.
 
-## Supabase db reset removes EQL {#supabase-db-reset}
+## Supabase db reset
 
 ### Why it happens
 

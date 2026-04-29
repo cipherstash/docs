@@ -2,7 +2,7 @@
 title: EQL API Reference
 description: Complete API reference for the Encrypt Query Language (EQL) PostgreSQL extension.
 ---
-> **Latest Version:** 2.2.1
+> **Latest Version:** 2.3.0-pre.2
 
 Complete API reference for the Encrypt Query Language (EQL) PostgreSQL extension.
 
@@ -40,8 +40,8 @@ Complete API reference for the Encrypt Query Language (EQL) PostgreSQL extension
 - [`has_ore_cllw_var_8(jsonb)`](#has_ore_cllw_var_8jsonb) - Check if JSONB payload contains variable-width CLLW ORE index term.
 - [`hmac_256(eql_v2_encrypted)`](#hmac_256eql_v2_encrypted) - Extract HMAC-SHA256 index term from encrypted column value.
 - [`ilike(eql_v2_encrypted, eql_v2_encrypted)`](#ilikeeql_v2_encrypted-eql_v2_encrypted) - Case-insensitive pattern matching helper.
-- [`is_ste_vec_array(jsonb)`](#is_ste_vec_arrayjsonb) - Check if JSONB payload is marked as an STE vector array.
 - [`is_ste_vec_array()`](#is_ste_vec_array) - Check if encrypted column value is marked as an STE vector array.
+- [`is_ste_vec_array(jsonb)`](#is_ste_vec_arrayjsonb) - Check if JSONB payload is marked as an STE vector array.
 - [`is_ste_vec_value(jsonb)`](#is_ste_vec_valuejsonb) - Check if JSONB payload is a single-element STE vector.
 - [`jsonb_array(jsonb)`](#jsonb_arrayjsonb) - Extract deterministic fields as array for GIN indexing.
 - [`jsonb_array_elements(jsonb)`](#jsonb_array_elementsjsonb) - Extract elements from encrypted JSONB array.
@@ -73,7 +73,6 @@ Complete API reference for the Encrypt Query Language (EQL) PostgreSQL extension
 - [`ste_vec(eql_v2_encrypted)`](#ste_veceql_v2_encrypted) - Extract STE vector index from encrypted column value.
 - [`ste_vec_contains(eql_v2_encrypted, eql_v2_encrypted)`](#ste_vec_containseql_v2_encrypted-eql_v2_encrypted) - Check if encrypted value 'a' contains all elements of encrypted value 'b'.
 - [`ste_vec_contains(public.eql_v2_encrypted, eql_v2_encrypted)`](#ste_vec_containspubliceql_v2_encrypted-eql_v2_encrypted) - Check if STE vector array contains a specific encrypted element.
-- [`to_encrypted(text)`](#to_encryptedtext) - Convert text to encrypted type.
 - [`to_jsonb(eql_v2_encrypted)`](#to_jsonbeql_v2_encrypted) - Convert encrypted type to JSONB.
 - [`to_ste_vec_value(jsonb)`](#to_ste_vec_valuejsonb) - Convert single-element STE vector to regular encrypted value.
 
@@ -668,6 +667,30 @@ Case-insensitive pattern matching helper.
 
 ---
 
+### `is_ste_vec_array()`
+
+Check if encrypted column value is marked as an STE vector array.
+
+Tests whether an encrypted column value has the array flag set by checking its underlying JSONB data field.
+
+#### Parameters
+
+| Name | Type | Description |
+|------|------|-------------|
+| `val` |  |  |
+
+#### Returns
+
+**Type:** `BEGIN IF NOT eql_v2`
+
+Boolean True if value is marked as an STE vector array
+
+#### Variants
+
+- [`is_ste_vec_array(jsonb)`](#is_ste_vec_arrayjsonb)
+
+---
+
 ### `is_ste_vec_array(jsonb)`
 
 Check if JSONB payload is marked as an STE vector array.
@@ -685,30 +708,6 @@ Tests whether the encrypted data payload has the 'a' (array) flag set to true, i
 #### Returns
 
 **Type:** `boolean`
-
-Boolean True if value is marked as an STE vector array
-
-#### Variants
-
-- [`is_ste_vec_array(jsonb)`](#is_ste_vec_arrayjsonb)
-
----
-
-### `is_ste_vec_array()`
-
-Check if encrypted column value is marked as an STE vector array.
-
-Tests whether an encrypted column value has the array flag set by checking its underlying JSONB data field.
-
-#### Parameters
-
-| Name | Type | Description |
-|------|------|-------------|
-| `val` |  |  |
-
-#### Returns
-
-**Type:** `BEGIN IF NOT eql_v2`
 
 Boolean True if value is marked as an STE vector array
 
@@ -1460,34 +1459,6 @@ Compares both selector and encrypted value for match
 #### Variants
 
 - [`ste_vec_contains(eql_v2_encrypted, eql_v2_encrypted)`](#ste_vec_containseql_v2_encrypted-eql_v2_encrypted)
-
----
-
-### `to_encrypted(text)`
-
-Convert text to encrypted type.
-
-Parses a text representation of encrypted JSONB payload and wraps it in the eql_v2_encrypted composite type.
-
-#### Parameters
-
-| Name | Type | Description |
-|------|------|-------------|
-| `data` | `text` | representation of JSONB encrypted payload |
-
-#### Returns
-
-**Type:** `public.eql_v2_encrypted`
-
-eql_v2_encrypted Encrypted value wrapped in composite type
-
-#### Note
-
-Delegates to eql_v2.to_encrypted(jsonb) after parsing text as JSON
-
-#### Variants
-
-- `to_encrypted(jsonb)`
 
 ---
 

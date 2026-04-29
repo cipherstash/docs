@@ -67,45 +67,43 @@ CipherStash splits its functionality across two packages: a runtime SDK that you
 
     The CLI prompts you to choose how EQL is installed. If a `supabase/migrations/` directory is detected, the migration-file option is pre-selected.
 
-    <Tabs items={["As a migration (recommended)", "Direct push"]}>
-      <Tab value="As a migration (recommended)">
-        Pass `--migration` to write the EQL SQL into a Supabase migration file, or choose "Create a Supabase migration file" at the prompt.
+    #### As a migration (recommended)
 
-        ```bash
-        npx @cipherstash/cli db install --supabase --migration
-        ```
+    Pass `--migration` to write the EQL SQL into a Supabase migration file, or choose "Create a Supabase migration file" at the prompt.
 
-        The CLI writes the EQL SQL to:
+    ```bash
+    npx @cipherstash/cli db install --supabase --migration
+    ```
 
-        ```
-        supabase/migrations/00000000000000_cipherstash_eql.sql
-        ```
+    The CLI writes the EQL SQL to:
 
-        The all-zero timestamp prefix ensures this migration runs before any user migrations that reference `eql_v2_encrypted`. Run `supabase db reset` or `supabase migration up` to apply it.
+    ```
+    supabase/migrations/00000000000000_cipherstash_eql.sql
+    ```
 
-        To write the migration file to a different directory, use `--migrations-dir`:
+    The all-zero timestamp prefix ensures this migration runs before any user migrations that reference `eql_v2_encrypted`. Run `supabase db reset` or `supabase migration up` to apply it.
 
-        ```bash
-        npx @cipherstash/cli db install --supabase --migration --migrations-dir ./db/migrations
-        ```
+    To write the migration file to a different directory, use `--migrations-dir`:
 
-        <Callout type="info">
-          `--migration`, `--direct`, and `--migrations-dir` all require `--supabase` to be passed explicitly. Passing them without `--supabase` will error.
-        </Callout>
-      </Tab>
+    ```bash
+    npx @cipherstash/cli db install --supabase --migration --migrations-dir ./db/migrations
+    ```
 
-      <Tab value="Direct push">
-        Pass `--direct` to push EQL directly to the database without creating a migration file.
+    <Callout type="info">
+      `--migration`, `--direct`, and `--migrations-dir` all require `--supabase` to be passed explicitly. Passing them without `--supabase` will error.
+    </Callout>
 
-        ```bash
-        npx @cipherstash/cli db install --supabase --direct
-        ```
+    #### Direct push
 
-        <Callout type="warn">
-          Direct-push installs do not survive `supabase db reset`. The reset command drops the database and reruns only files in `supabase/migrations/`. EQL installed directly is not in migrations and will be wiped. Use the migration-file path for projects that use `supabase db reset`. See [Supabase db reset removes EQL](/stack/cipherstash/cli/troubleshooting#supabase-db-reset).
-        </Callout>
-      </Tab>
-    </Tabs>
+    Pass `--direct` to push EQL directly to the database without creating a migration file.
+
+    ```bash
+    npx @cipherstash/cli db install --supabase --direct
+    ```
+
+    <Callout type="warn">
+      Direct-push installs do not survive `supabase db reset`. The reset command drops the database and reruns only files in `supabase/migrations/`. EQL installed directly is not in migrations and will be wiped. Use the migration-file path for projects that use `supabase db reset`. See [Supabase db reset](/stack/cipherstash/cli/troubleshooting#supabase-db-reset).
+    </Callout>
   </Step>
 </Steps>
 
