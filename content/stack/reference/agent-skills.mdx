@@ -21,7 +21,7 @@ This installs all six CipherStash skills into your project. Your AI coding agent
 
 ### Install via the wizard
 
-The `wizard` command prompts you to install integration-appropriate skills after its post-agent steps. It offers to copy skills into `./.claude/skills/` based on your integration:
+`@cipherstash/wizard` prompts you to install integration-appropriate skills after its post-agent steps. It offers to copy skills into `./.claude/skills/` based on your integration:
 
 - **Drizzle**: `stash-encryption`, `stash-drizzle`, `stash-cli`
 - **Supabase**: `stash-encryption`, `stash-supabase`, `stash-cli`
@@ -52,14 +52,13 @@ Core field-level encryption with `@cipherstash/stack`. This is the foundational 
 
 ### stash-cli
 
-The CipherStash CLI (`@cipherstash/cli`) for database setup, schema management, and the AI-powered wizard.
+The CipherStash CLI (`@cipherstash/cli`) for database setup, schema management, and project initialization.
 
 **Covers:**
 
 - `stash.config.ts` configuration
 - Database commands: `db install`, `db upgrade`, `db push`, `db validate`, `db status`, `db test-connection`
 - Project initialization with `init`
-- The AI-powered `wizard` command
 - Schema building with `schema build`
 - Authentication with `auth login`
 - Programmatic API (`EQLInstaller`, `loadStashConfig`, `defineConfig`, `loadBundledEqlSql`)
@@ -165,7 +164,7 @@ After installing skills, your AI coding agent can assist with the full CipherSta
 1. **Initialize your project:** Ask your agent to set up CipherStash and it will run `npx @cipherstash/cli init`.
 2. **Define your schema:** Describe which columns to encrypt and the agent will generate the correct `encryptedTable` and `encryptedColumn` definitions.
 3. **Set up the database:** The agent will guide you through `npx @cipherstash/cli db install`. The CLI auto-detects Supabase and Drizzle from your project.
-4. **Write integration code:** Ask the agent to add encryption to your queries. It will use the correct operators for your ORM (Drizzle, Supabase, DynamoDB, or raw SQL).
+4. **Wire up encryption automatically:** Run `npx @cipherstash/wizard` to let the AI edit your schema and call sites. Or ask your coding agent to wire up `encryptModel`/`decryptModel` directly using the installed skills.
 5. **Handle edge cases:** The agent knows about searchable encryption constraints, operator family limitations, identity-aware encryption, and multi-tenant keysets.
 
 ## Requirements

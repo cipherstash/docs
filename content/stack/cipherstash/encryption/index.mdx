@@ -49,25 +49,25 @@ All key management (key generation, derivation, and isolation) is handled by [Ze
 
 [CipherStash CLI](/stack/cipherstash/cli) (`@cipherstash/cli`) is the dev-time CLI for setting up your database. It handles installing the EQL extension, validating schemas, and managing the encryption lifecycle. Think of it like Drizzle Kit or Prisma CLI: a companion tool that sets up the database while `@cipherstash/stack` handles runtime encryption.
 
-The `init` wizard generates your encryption schema, client file, and installs `@cipherstash/cli` as a devDependency. Then run `npx @cipherstash/cli db install` to configure your database.
+`init` generates your encryption schema, client file, and installs `@cipherstash/cli` as a devDependency. Then run `npx @cipherstash/cli db install` to configure your database.
 
 ```bash
 npx @cipherstash/cli init             # Interactive project setup
 npx @cipherstash/cli db install       # Install EQL and scaffold stash.config.ts
 npx @cipherstash/cli db validate      # Check schema for misconfigurations
 npx @cipherstash/cli db status        # Show EQL installation state
-npx @cipherstash/cli wizard           # AI-powered encryption setup
+npx @cipherstash/wizard               # AI-powered encryption setup (separate package)
 ```
 
 <Cards>
   <Card title="Get started with the CLI" href="/stack/cipherstash/cli" description="Install EQL, validate schemas, and manage your database setup." />
-  <Card title="Interactive setup" href="/stack/cipherstash/cli/init" description="Set up the CLI in your project with the interactive init wizard." />
+  <Card title="Interactive setup" href="/stack/cipherstash/cli/init" description="Set up the CLI in your project with the interactive init command." />
 </Cards>
 
 ## Next steps
 
 <Cards>
-  <Card title="Getting started" href="/stack/quickstart" description="Go from zero to encrypted in under 5 minutes with the interactive setup wizard." />
+  <Card title="Getting started" href="/stack/quickstart" description="Go from zero to encrypted in under 5 minutes." />
   <Card title="Schema definition" href="/stack/cipherstash/encryption/schema" description="Define which columns to encrypt and what queries to support." />
   <Card title="Searchable encryption" href="/stack/cipherstash/encryption/searchable-encryption" description="Run queries on encrypted data in PostgreSQL." />
   <Card title="CipherStash Proxy" href="/stack/cipherstash/proxy" description="Transparent encryption proxy. No code changes required." />

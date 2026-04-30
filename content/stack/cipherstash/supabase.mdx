@@ -48,14 +48,13 @@ CipherStash splits its functionality across two packages: a runtime SDK that you
   <Step>
     ### Run `init --supabase`
 
-    This walks you through a guided setup:
+    Init runs nearly silently, with prompts only when it can't make a sensible default choice:
 
-    - Authenticates you with CipherStash via your browser.
-    - Asks how your application connects to Supabase (JS SDK, Drizzle, Prisma, or raw SQL).
-    - Generates an encryption client at `./src/encryption/index.ts` that your code imports.
-    - Installs `@cipherstash/forge` and `@cipherstash/stack` if they aren't already present.
+    - Authenticates you with CipherStash via your browser (only when you aren't already logged in).
+    - Generates an encryption client at `./src/encryption/index.ts`. Only prompts you if a file already exists at that path.
+    - Installs `@cipherstash/stack` and `@cipherstash/cli` if either is missing — one combined prompt, skipped entirely when both are already present.
 
-    The `--supabase` flag selects the Supabase JS SDK setup flow.
+    The `--supabase` flag tailors the next-steps output to Supabase users.
 
     ```bash
     npx @cipherstash/cli init --supabase

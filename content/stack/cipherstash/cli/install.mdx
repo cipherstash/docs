@@ -11,14 +11,14 @@ Install the CipherStash EQL extensions into your database. Uses bundled SQL by d
 npx @cipherstash/cli db install [options]
 ```
 
-`db install` now also scaffolds `stash.config.ts` if it is missing. The command:
+`db install` scaffolds `stash.config.ts` if it is missing. The command:
 
-1. **Auto-detects your encryption client file** by scanning common locations, then confirms with you or asks for the path if not found.
-2. **Writes `stash.config.ts`** with the database URL and client path (if the file does not already exist).
+1. **Scaffolds `stash.config.ts`** with the database URL and client path (if the file does not already exist).
+2. **Scaffolds the encryption client file** at the path referenced in `stash.config.ts` if the file does not exist. Uses the same auto-detected integration template as `init` (Drizzle, Supabase, or generic Postgres). Silent, no prompt.
 3. **Checks permissions** and auto-selects the right SQL variant based on your database role.
 4. **Installs EQL extensions** in your database.
 
-After a successful install, the CLI prints a next-steps block pointing you to the wizard, direct `Encryption`/`encryptModel` usage, and relevant docs.
+After a successful install, the CLI prints a next-steps block with two paths: run `npx @cipherstash/wizard` for AI-guided setup, or use `@cipherstash/stack` directly with `Encryption`/`encryptModel`.
 
 | Option | Description |
 |---|---|
