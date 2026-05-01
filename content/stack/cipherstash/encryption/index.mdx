@@ -21,8 +21,8 @@ This is the primitive everything else depends on.
 
 ## How it works
 
-1. **Initialize your project:** Run `npx @cipherstash/cli init` to generate your encryption schema and client.
-2. **Set up your database:** Run `npx @cipherstash/cli db install` to set up searchable encryption in PostgreSQL.
+1. **Initialize your project:** Run `npx stash init` to generate your encryption schema and client.
+2. **Set up your database:** Run `npx stash db install` to set up searchable encryption in PostgreSQL.
 3. **Encrypt and store:** Encrypt values before writing to your database.
 4. **Query encrypted data:** Encrypt query terms and run them against your encrypted columns.
 5. **Decrypt on read:** Decrypt values when reading from the database.
@@ -36,7 +36,7 @@ All key management (key generation, derivation, and isolation) is handled by [Ze
 | | Encryption SDK | CipherStash Proxy |
 |---|---|---|
 | **Best for** | Teams who want fine-grained control over data encryption directly in their application | DevOps teams who want to add encryption to existing PostgreSQL apps with little to no code changes |
-| **Setup** | `npx @cipherstash/cli init` | Docker container, configure environment variables |
+| **Setup** | `npx stash init` | Docker container, configure environment variables |
 | **Database** | PostgreSQL (full searchable encryption) | PostgreSQL (transparent proxy) |
 
 ## Performance
@@ -47,15 +47,15 @@ All key management (key generation, derivation, and isolation) is handled by [Ze
 
 ## CipherStash CLI
 
-[CipherStash CLI](/stack/cipherstash/cli) (`@cipherstash/cli`) is the dev-time CLI for setting up your database. It handles installing the EQL extension, validating schemas, and managing the encryption lifecycle. Think of it like Drizzle Kit or Prisma CLI: a companion tool that sets up the database while `@cipherstash/stack` handles runtime encryption.
+[CipherStash CLI](/stack/cipherstash/cli) (`stash`) is the dev-time CLI for setting up your database. It handles installing the EQL extension, validating schemas, and managing the encryption lifecycle. Think of it like Drizzle Kit or Prisma CLI: a companion tool that sets up the database while `@cipherstash/stack` handles runtime encryption.
 
-`init` generates your encryption schema, client file, and installs `@cipherstash/cli` as a devDependency. Then run `npx @cipherstash/cli db install` to configure your database.
+`init` generates your encryption schema, client file, and installs `stash` as a devDependency. Then run `npx stash db install` to configure your database.
 
 ```bash
-npx @cipherstash/cli init             # Interactive project setup
-npx @cipherstash/cli db install       # Install EQL and scaffold stash.config.ts
-npx @cipherstash/cli db validate      # Check schema for misconfigurations
-npx @cipherstash/cli db status        # Show EQL installation state
+npx stash init             # Interactive project setup
+npx stash db install       # Install EQL and scaffold stash.config.ts
+npx stash db validate      # Check schema for misconfigurations
+npx stash db status        # Show EQL installation state
 npx @cipherstash/wizard               # AI-powered encryption setup (separate package)
 ```
 

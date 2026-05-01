@@ -79,7 +79,7 @@ beforeAll(async () => {
   pool = new Pool({ connectionString: process.env.TEST_DATABASE_URL })
 
   // EQL must be installed before running tests.
-  // Run `npx @cipherstash/cli db install` against your test database first.
+  // Run `npx stash db install` against your test database first.
   // See: /stack/cipherstash/cli
 
   // Initialize encryption client with test credentials

@@ -13,13 +13,13 @@ Here's how to set it up. Works with any Postgres — Supabase, Neon, RDS, a Dock
 
 ```bash
 npm install @cipherstash/stack
-npm install -D @cipherstash/cli
+npm install -D stash
 ```
 
 ## Authenticate and set up your workspace
 
 ```bash
-npx @cipherstash/cli init
+npx stash init
 ```
 
 This opens a browser for device-based authentication. No shared secrets, no environment variables for local dev. Init will:
@@ -31,7 +31,7 @@ This opens a browser for device-based authentication. No shared secrets, no envi
 ## Set up your database
 
 ```bash
-npx @cipherstash/cli db install
+npx stash db install
 ```
 
 Auto-detects your Postgres provider and installs the EQL extension for searchable encryption. On managed databases (Supabase, Neon, RDS), the CLI detects your role and selects the right install variant automatically.

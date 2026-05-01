@@ -5,10 +5,10 @@ description: Set up your CipherStash project with the init command
 
 # Interactive setup
 
-The `npx @cipherstash/cli init` command authenticates you, generates your encryption schema, and installs dependencies.
+The `npx stash init` command authenticates you, generates your encryption schema, and installs dependencies.
 
 ```bash
-npx @cipherstash/cli init
+npx stash init
 ```
 
 ## What init does
@@ -17,7 +17,7 @@ Init runs four steps with minimal prompts:
 
 1. **Authenticates with CipherStash**: If you are already authenticated, it logs `Using workspace <id> (region)` and moves on. No prompt. If you are not authenticated, it opens your browser for device-based authentication. Your token is saved to `~/.cipherstash/auth.json`.
 2. **Generates the encryption client file**: Auto-detects your integration (Drizzle from `drizzle.config.*` or `drizzle-orm`/`drizzle-kit` in `package.json`, Supabase from the `DATABASE_URL` host, or generic Postgres). Writes a placeholder client to `./src/encryption/index.ts` silently. If that file already exists, it prompts you to keep it or overwrite it.
-3. **Installs dependencies**: Checks whether `@cipherstash/stack` and `@cipherstash/cli` are already in `node_modules`. If both are present, skips silently. If either is missing, shows a single combined install prompt. Detects your package manager (npm, pnpm, yarn, bun) automatically.
+3. **Installs dependencies**: Checks whether `@cipherstash/stack` and `stash` are already in `node_modules`. If both are present, skips silently. If either is missing, shows a single combined install prompt. Detects your package manager (npm, pnpm, yarn, bun) automatically.
 4. **Shows next steps**: Prints a note with the recommended commands to complete setup.
 
 Best case: 0 prompts (already authenticated, both packages installed, no existing client file). Worst case: 2 prompts (region selection for first-time login, install confirmation for missing packages).
@@ -50,7 +50,7 @@ Edit this file to define the tables and columns you want to encrypt. Or run `npx
 Install EQL in your database:
 
 ```bash
-npx @cipherstash/cli db install
+npx stash db install
 ```
 
 This scaffolds `stash.config.ts` if it is missing, detects your Postgres provider, and installs EQL. See [install](/stack/cipherstash/cli/install#install) for details.
@@ -64,9 +64,9 @@ npx @cipherstash/wizard   # AI-guided: edits your schema and call sites automati
 Or edit `./src/encryption/index.ts` directly and add `encryptModel`/`decryptModel` calls where needed.
 
 ```bash
-npx @cipherstash/cli db install
-npx @cipherstash/cli db install --drizzle  # Generate a Drizzle migration instead
-npx @cipherstash/cli db install --supabase # Supabase-compatible install
+npx stash db install
+npx stash db install --drizzle  # Generate a Drizzle migration instead
+npx stash db install --supabase # Supabase-compatible install
 ```
 
 > **Good to know**: You can pass `--drizzle` and `--supabase` together. The CLI combines both behaviors: Supabase-compatible SQL output as a Drizzle migration.

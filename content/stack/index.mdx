@@ -8,7 +8,7 @@ description: Data Level Access Control for Postgres. Searchable field-level encr
 CipherStash is Data Level Access Control for Postgres. Encrypt fields, query ciphertext, bind keys to identities, and audit every access. Zero-knowledge by design.
 
 ```bash
-npx @cipherstash/cli init
+npx stash init
 ```
 
 One command. Device-based authentication, no environment variables for local dev. See the [Getting started](/stack/quickstart) guide.
@@ -22,7 +22,7 @@ Two integration paths. Same key hierarchy, same encryption, same audit trail.
 | **How it works** | Encryption SDK and CLI available as an NPM package | Postgres Encryption - Postgres wire protocol Proxy built on top of the Encryption SDK to transparently encrypt data in Postgres |
 | **Best for** | Teams moving quickly and building TypeScript apps |  More complex app architectures or non TypeScript applications using Postgres |
 | **Language** | TypeScript / JavaScript (Node.js, Deno, Bun) | Any language (connects via PostgreSQL wire protocol) |
-| **Setup** | `npx @cipherstash/cli init` | Docker container or binary |
+| **Setup** | `npx stash init` | Docker container or binary |
 
 Most teams start with the **SDK** for the best developer experience.
 

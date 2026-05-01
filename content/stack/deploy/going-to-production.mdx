@@ -5,14 +5,14 @@ description: Transition from local device-based auth to production environment v
 
 # Going to production
 
-Local development uses device-based authentication — each developer is uniquely identified via `npx @cipherstash/cli init`.
+Local development uses device-based authentication — each developer is uniquely identified via `npx stash init`.
 Production and CI/CD environments don't have a physical device or interactive login, so they use environment variables instead.
 
 ## How auth differs between environments
 
 | Environment | Auth mechanism | How it works |
 |---|---|---|
-| Local development | Device-based | `npx @cipherstash/cli init` creates a device and client. No env vars needed. |
+| Local development | Device-based | `npx stash init` creates a device and client. No env vars needed. |
 | CI/CD pipelines | Environment variables | Machine client identified by `CS_CLIENT_ID` and `CS_CLIENT_KEY`. |
 | Production hosting | Environment variables | Same as CI/CD. Machine clients have keyset access without a device. |
 
@@ -130,7 +130,7 @@ Device-based auth provides:
 - **No shared secrets** — each developer has their own client credentials
 - **Automatic session management** — no manual credential rotation
 
-If you have `CS_*` variables in a local `.env` file, remove them and run `npx @cipherstash/cli init` instead.
+If you have `CS_*` variables in a local `.env` file, remove them and run `npx stash init` instead.
 </Callout>
 
 ## Bundler configuration

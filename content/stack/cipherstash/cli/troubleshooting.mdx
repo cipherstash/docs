@@ -9,7 +9,7 @@ description: Common errors and fixes for the CipherStash CLI
 
 | Error | Cause | Fix |
 |---|---|---|
-| `Could not find stash.config.ts` | No config file in cwd or parent dirs | Run `npx @cipherstash/cli db install` to generate it, or create `stash.config.ts` manually |
+| `Could not find stash.config.ts` | No config file in cwd or parent dirs | Run `npx stash db install` to generate it, or create `stash.config.ts` manually |
 | `databaseUrl is required` | Config missing `databaseUrl` | Add `databaseUrl` to config and check `.env` is loaded |
 | `must be superuser to create an operator family` | Standard SQL requires superuser | The CLI falls back to OPE mode automatically on managed databases. Pass `--exclude-operator-family` if you see this on self-hosted Postgres. |
 | `Insufficient database permissions` | Role lacks `CREATE` privileges | Connect as superuser or grant permissions |
@@ -24,8 +24,8 @@ The `install` command checks database permissions before running. On managed dat
 
 If you still see permission errors:
 
-1. Run `npx @cipherstash/cli db test-connection` to verify your database URL is correct.
-2. Run `npx @cipherstash/cli db status` to check the current EQL state.
+1. Run `npx stash db test-connection` to verify your database URL is correct.
+2. Run `npx stash db status` to check the current EQL state.
 3. Ensure the connected role has `CREATE` privileges on the database and `public` schema.
 4. For the `pgcrypto` extension, the role needs `SUPERUSER` or extension owner privileges.
 
@@ -59,7 +59,7 @@ When adding `encryptedType` to a column that already has data, the CLI rewrites 
 Re-run `db install` and choose the migration-file path:
 
 ```bash
-npx @cipherstash/cli db install --supabase --migration
+npx stash db install --supabase --migration
 ```
 
 The CLI writes EQL SQL to `supabase/migrations/00000000000000_cipherstash_eql.sql`. The all-zero timestamp prefix ensures it runs before any user migrations that reference `eql_v2_encrypted`. After the file is created, `supabase db reset` will reinstall EQL automatically on every reset.
@@ -69,7 +69,7 @@ The CLI writes EQL SQL to `supabase/migrations/00000000000000_cipherstash_eql.sq
 If you already ran a direct-push install and your live database is working, your existing install is not broken. To get a migration file going forward without disrupting the live database, run:
 
 ```bash
-npx @cipherstash/cli db install --supabase --migration --force
+npx stash db install --supabase --migration --force
 ```
 
 The EQL SQL is idempotent. The `--force` flag regenerates the install even though EQL is already present. Your live install is unaffected. After this, `supabase db reset` reinstalls EQL from the migration file.

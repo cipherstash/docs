@@ -10,7 +10,7 @@ This means every encrypt, decrypt, and secret access operation is traceable to a
 
 ## How team access works
 
-When a developer runs `npx @cipherstash/cli init`, CipherStash creates:
+When a developer runs `npx stash init`, CipherStash creates:
 
 - A **device** tied to that developer's user account and machine
 - A **client** associated with the device, used for cryptographic operations
@@ -43,7 +43,7 @@ Each person has their own identity, and access can be granted or revoked individ
     The new team member runs the init command on their machine:
 
     ```bash
-    npx @cipherstash/cli init
+    npx stash init
     ```
 
     This authenticates them via the browser, creates their unique device and client, and grants access to the default keyset.
@@ -56,7 +56,7 @@ Each person has their own identity, and access can be granted or revoked individ
 
 ### Viewing active clients
 
-Navigate to **Clients** in the Dashboard to see all active clients, including device-backed clients created by `npx @cipherstash/cli init`.
+Navigate to **Clients** in the Dashboard to see all active clients, including device-backed clients created by `npx stash init`.
 Each client shows which developer and device it belongs to.
 
 ### Revoking a developer's access
@@ -71,7 +71,7 @@ Revoked clients can no longer perform encrypt, decrypt, or secret operations.
 
 ### Multiple machines
 
-If a developer works on more than one machine (e.g., a laptop and a desktop), they run `npx @cipherstash/cli init` on each machine.
+If a developer works on more than one machine (e.g., a laptop and a desktop), they run `npx stash init` on each machine.
 Each machine gets its own device and client.
 This is by design — you can revoke access per device without affecting their other machines.
 

@@ -52,7 +52,7 @@ Core field-level encryption with `@cipherstash/stack`. This is the foundational 
 
 ### stash-cli
 
-The CipherStash CLI (`@cipherstash/cli`) for database setup, schema management, and project initialization.
+The CipherStash CLI (`stash`) for database setup, schema management, and project initialization.
 
 **Covers:**
 
@@ -161,9 +161,9 @@ This means your agent can write accurate CipherStash code on the first try, rath
 
 After installing skills, your AI coding agent can assist with the full CipherStash setup:
 
-1. **Initialize your project:** Ask your agent to set up CipherStash and it will run `npx @cipherstash/cli init`.
+1. **Initialize your project:** Ask your agent to set up CipherStash and it will run `npx stash init`.
 2. **Define your schema:** Describe which columns to encrypt and the agent will generate the correct `encryptedTable` and `encryptedColumn` definitions.
-3. **Set up the database:** The agent will guide you through `npx @cipherstash/cli db install`. The CLI auto-detects Supabase and Drizzle from your project.
+3. **Set up the database:** The agent will guide you through `npx stash db install`. The CLI auto-detects Supabase and Drizzle from your project.
 4. **Wire up encryption automatically:** Run `npx @cipherstash/wizard` to let the AI edit your schema and call sites. Or ask your coding agent to wire up `encryptModel`/`decryptModel` directly using the installed skills.
 5. **Handle edge cases:** The agent knows about searchable encryption constraints, operator family limitations, identity-aware encryption, and multi-tenant keysets.
 

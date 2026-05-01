@@ -8,7 +8,7 @@ description: Push your encryption schema to the database and check EQL installat
 Push your encryption schema to the database.
 
 ```bash
-npx @cipherstash/cli db push [options]
+npx stash db push [options]
 ```
 
 | Option | Description |
@@ -48,7 +48,7 @@ The SDK uses developer-friendly type names, but EQL expects PostgreSQL-aligned t
 Show the current state of EQL in your database.
 
 ```bash
-npx @cipherstash/cli db status
+npx stash db status
 ```
 
 Reports:
@@ -61,7 +61,7 @@ Reports:
 Verify that the database URL in your config is valid and the database is reachable.
 
 ```bash
-npx @cipherstash/cli db test-connection
+npx stash db test-connection
 ```
 
 Reports the database name, connected user/role, and PostgreSQL server version. Useful for debugging connection issues before running `install` or `push`.

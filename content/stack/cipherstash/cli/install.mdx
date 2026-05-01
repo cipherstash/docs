@@ -8,7 +8,7 @@ description: Install or upgrade EQL in your database, with automatic provider de
 Install the CipherStash EQL extensions into your database. Uses bundled SQL by default for offline, deterministic installs.
 
 ```bash
-npx @cipherstash/cli db install [options]
+npx stash db install [options]
 ```
 
 `db install` scaffolds `stash.config.ts` if it is missing. The command:
@@ -37,19 +37,19 @@ After a successful install, the CLI prints a next-steps block with two paths: ru
 Standard install:
 
 ```bash
-npx @cipherstash/cli db install
+npx stash db install
 ```
 
 Dry run to preview changes:
 
 ```bash
-npx @cipherstash/cli db install --dry-run
+npx stash db install --dry-run
 ```
 
 Fetch the latest EQL from GitHub:
 
 ```bash
-npx @cipherstash/cli db install --latest
+npx stash db install --latest
 ```
 
 ### Auto-detection
@@ -66,7 +66,7 @@ On managed databases (Supabase, Neon, RDS), the connected role is often not a su
 ### Supabase install
 
 ```bash
-npx @cipherstash/cli db install --supabase
+npx stash db install --supabase
 ```
 
 The `--supabase` flag uses the Supabase-specific SQL variant. It omits `CREATE OPERATOR FAMILY` and grants `USAGE`, table, routine, and sequence permissions on the `eql_v2` schema to `anon`, `authenticated`, and `service_role`.
@@ -83,13 +83,13 @@ The migration-file path writes EQL SQL into `supabase/migrations/00000000000000_
 
 ```bash
 # Write EQL as a migration file
-npx @cipherstash/cli db install --supabase --migration
+npx stash db install --supabase --migration
 
 # Push EQL directly to the database
-npx @cipherstash/cli db install --supabase --direct
+npx stash db install --supabase --direct
 
 # Override the migrations directory
-npx @cipherstash/cli db install --supabase --migration --migrations-dir ./db/migrations
+npx stash db install --supabase --migration --migrations-dir ./db/migrations
 ```
 
 <Callout type="info">
@@ -109,7 +109,7 @@ npx @cipherstash/cli db install --supabase --migration --migrations-dir ./db/mig
 If you use Drizzle ORM and want EQL installation as part of your migration history, use `--drizzle`:
 
 ```bash
-npx @cipherstash/cli db install --drizzle
+npx stash db install --drizzle
 npx drizzle-kit migrate
 ```
 
@@ -122,7 +122,7 @@ This process:
 To customize the migration name and output directory:
 
 ```bash
-npx @cipherstash/cli db install --drizzle --name setup-eql --out ./migrations
+npx stash db install --drizzle --name setup-eql --out ./migrations
 ```
 
 `drizzle-kit` must be installed. The `--out` value must match your Drizzle config.
@@ -130,7 +130,7 @@ npx @cipherstash/cli db install --drizzle --name setup-eql --out ./migrations
 You can combine `--drizzle` and `--supabase`:
 
 ```bash
-npx @cipherstash/cli db install --drizzle --supabase
+npx stash db install --drizzle --supabase
 ```
 
 This generates a Supabase-compatible EQL migration file.
@@ -158,7 +158,7 @@ If the role is not a superuser, the CLI falls back automatically to the OPE (no-
 Upgrade an existing EQL installation to the version bundled with the package, or to the latest version from GitHub.
 
 ```bash
-npx @cipherstash/cli db upgrade [options]
+npx stash db upgrade [options]
 ```
 
 | Option | Description |
@@ -168,7 +168,7 @@ npx @cipherstash/cli db upgrade [options]
 | `--exclude-operator-family` | Skip operator family creation |
 | `--latest` | Fetch the latest EQL from GitHub instead of using the bundled version |
 
-The EQL install SQL is idempotent and safe to re-run. The CLI checks the current version, re-runs the install SQL, and reports the new version. If EQL is not installed, the CLI suggests running `npx @cipherstash/cli db install` instead.
+The EQL install SQL is idempotent and safe to re-run. The CLI checks the current version, re-runs the install SQL, and reports the new version. If EQL is not installed, the CLI suggests running `npx stash db install` instead.
 
 ## Bundled EQL SQL
 

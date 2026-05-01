@@ -29,7 +29,7 @@ CipherStash splits its functionality across two packages: a runtime SDK that you
 | Package | Role | Install as |
 |---|---|---|
 | `@cipherstash/stack` | Runtime encryption and decryption. Your application imports this to encrypt values before they're written to Supabase and decrypt them on the way back. | dependency |
-| `@cipherstash/cli` | Setup and schema management. Installs EQL into your database, scaffolds your encryption client, and generates migrations when your encryption schema changes. Comparable to Prisma CLI or Drizzle Kit. | devDependency |
+| `stash` | Setup and schema management. Installs EQL into your database, scaffolds your encryption client, and generates migrations when your encryption schema changes. Comparable to Prisma CLI or Drizzle Kit. | devDependency |
 
 ## Setup
 
@@ -41,7 +41,7 @@ CipherStash splits its functionality across two packages: a runtime SDK that you
 
     ```bash
     npm install @cipherstash/stack
-    npm install -D @cipherstash/cli
+    npm install -D stash
     ```
   </Step>
 
@@ -52,12 +52,12 @@ CipherStash splits its functionality across two packages: a runtime SDK that you
 
     - Authenticates you with CipherStash via your browser (only when you aren't already logged in).
     - Generates an encryption client at `./src/encryption/index.ts`. Only prompts you if a file already exists at that path.
-    - Installs `@cipherstash/stack` and `@cipherstash/cli` if either is missing — one combined prompt, skipped entirely when both are already present.
+    - Installs `@cipherstash/stack` and `stash` if either is missing — one combined prompt, skipped entirely when both are already present.
 
     The `--supabase` flag tailors the next-steps output to Supabase users.
 
     ```bash
-    npx @cipherstash/cli init --supabase
+    npx stash init --supabase
     ```
   </Step>
 
@@ -71,7 +71,7 @@ CipherStash splits its functionality across two packages: a runtime SDK that you
     Pass `--migration` to write the EQL SQL into a Supabase migration file, or choose "Create a Supabase migration file" at the prompt.
 
     ```bash
-    npx @cipherstash/cli db install --supabase --migration
+    npx stash db install --supabase --migration
     ```
 
     The CLI writes the EQL SQL to:
@@ -85,7 +85,7 @@ CipherStash splits its functionality across two packages: a runtime SDK that you
     To write the migration file to a different directory, use `--migrations-dir`:
 
     ```bash
-    npx @cipherstash/cli db install --supabase --migration --migrations-dir ./db/migrations
+    npx stash db install --supabase --migration --migrations-dir ./db/migrations
     ```
 
     <Callout type="info">
@@ -97,7 +97,7 @@ CipherStash splits its functionality across two packages: a runtime SDK that you
     Pass `--direct` to push EQL directly to the database without creating a migration file.
 
     ```bash
-    npx @cipherstash/cli db install --supabase --direct
+    npx stash db install --supabase --direct
     ```
 
     <Callout type="warn">
