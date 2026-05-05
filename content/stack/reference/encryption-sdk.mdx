@@ -1,0 +1,116 @@
+---
+title: Encryption SDK reference
+description: Public entry points, supported data types, and configuration highlights for @cipherstash/stack field-level encryption.
+---
+
+`@cipherstash/stack` is CipherStash's field-level encryption SDK for TypeScript. It encrypts individual column values client-side using per-value keys derived from ZeroKMS (backed by AWS KMS), before data leaves the application. This page summarises the public surface, data type rules, and configuration options. Full type signatures live in the [auto-generated API reference](/stack/reference/stack/latest/packages/stack/src/encryption).
+
+## Public entry points
+
+| Export | Import path | Purpose |
+|---|---|---|
+| `Encryption(config)` | `@cipherstash/stack` | Factory function. Returns a `Promise<EncryptionClient>`. [Reference](/stack/reference/stack/latest/packages/stack/src/encryption/functions/Encryption) |
+| `EncryptionClient` | `@cipherstash/stack/encryption` | Class with all encrypt/decrypt methods. Obtain via `Encryption()`, not `new`. [Reference](/stack/reference/stack/latest/packages/stack/src/encryption/classes/EncryptionClient) |
+| `encryptedTable` / `encryptedColumn` / `encryptedField` | `@cipherstash/stack/schema` | Schema builders. Define which tables and columns to encrypt, and which search indexes to create. [Reference](/stack/reference/stack/latest/packages/stack/src/schema) |
+| `LockContext` | `@cipherstash/stack/identity` | Identity-aware encryption. Ties an encrypted value to a specific JWT identity. [Reference](/stack/reference/stack/latest/packages/stack/src/identity) |
+| `Secrets` | `@cipherstash/stack/secrets` | End-to-end encrypted secret storage. Separate from field-level encryption. [Reference](/stack/reference/stack/latest/packages/stack/src/types-public) |
+| Error types | `@cipherstash/stack/errors` | `StackError`, `EncryptionErrorTypes`, `getErrorMessage`. [Reference](/stack/reference/stack/latest/packages/stack/src/types-public) |
+
+## Adapter packages
+
+| Adapter | Import path | Guide |
+|---|---|---|
+| Drizzle ORM | `@cipherstash/stack/drizzle` | [Drizzle guide](/stack/cipherstash/encryption/drizzle) |
+| DynamoDB | `@cipherstash/stack/dynamodb` | [DynamoDB guide](/stack/cipherstash/encryption/dynamodb) |
+| Supabase | `@cipherstash/stack/supabase` | [Supabase guide](/stack/cipherstash/encryption/supabase) |
+
+## Supported data types
+
+Each encrypted column has a declared `dataType`. This tells the SDK how to serialise the value before encryption and how to deserialise it after decryption.
+
+| Data type | `dataType()` value | Cast required? |
+|---|---|---|
+| String | `"string"` (default) | No |
+| Text (alias) | `"text"` | No |
+| Number | `"number"` | Yes |
+| Bigint | `"bigint"` | Yes |
+| Boolean | `"boolean"` | Yes |
+| Date | `"date"` | Yes |
+| JSON | `"json"` | Yes |
+
+**Why casting is required for non-string types.** The schema describes the shape of a column but not the runtime value. When you encrypt a `number`, the SDK serialises it as a number so that ORE (Order-Revealing Encryption) indexes preserve ordering. Without an explicit `dataType`, the SDK defaults to string serialisation. Mixing declared types and actual values produces decryption errors, so always set `dataType` when the column holds a non-string value.
+
+```typescript filename="schema.ts"
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
+
+const users = encryptedTable("users", {
+  email: encryptedColumn("email").equality().freeTextSearch(),
+  age: encryptedColumn("age").dataType("number").orderAndRange(),
+  metadata: encryptedColumn("metadata").dataType("json").searchableJson(),
+})
+```
+
+## Special-value handling
+
+Some numeric inputs are invalid for encryption. The following table covers the behaviours documented and validated by the SDK.
+
+| Input | Result |
+|---|---|
+| `NaN` | Error (rejected before encryption) |
+| `Infinity` / `-Infinity` | Error (rejected before encryption) |
+
+<Callout type="warn">
+  Passing `NaN` or `Infinity` to an encrypted numeric column throws at the operation level, not at the type level. TypeScript will not catch these at compile time. Validate your inputs before calling `encrypt` or `encryptModel`.
+</Callout>
+
+## `ProtectClientConfig` highlights
+
+`Encryption()` accepts an `EncryptionClientConfig` object. The `config` field is a `ClientConfig`. All credentials fall back to environment variables when omitted.
+
+| Option | Env variable | Description |
+|---|---|---|
+| `workspaceCrn` | `CS_WORKSPACE_CRN` | Workspace Cloud Resource Name. Format: `crn:<region>.aws:<workspace-id>` |
+| `accessKey` | `CS_CLIENT_ACCESS_KEY` | API access key for authenticating with CipherStash |
+| `clientId` | `CS_CLIENT_ID` | Client identifier generated during workspace onboarding |
+| `clientKey` | `CS_CLIENT_KEY` | Client key material used for ZeroKMS encryption operations |
+| `keyset` | (none) | Multi-tenant isolation. Specify `{ name: "tenant-a" }` or `{ id: "<uuid>" }` |
+
+See the full type at [EncryptionClientConfig](/stack/reference/stack/latest/packages/stack/src/types-public/type-aliases/EncryptionClientConfig) and [ClientConfig](/stack/reference/stack/latest/packages/stack/src/types-public/type-aliases/ClientConfig).
+
+```typescript filename="init.ts"
+import { Encryption } from "@cipherstash/stack"
+import { users } from "./schema"
+
+// Reads CS_* env vars automatically when config is omitted
+const client = await Encryption({ schemas: [users] })
+
+// Or pass credentials explicitly
+const client = await Encryption({
+  schemas: [users],
+  config: {
+    workspaceCrn: "crn:ap-southeast-2.aws:your-workspace-id",
+    clientId: "your-client-id",
+    clientKey: "your-client-key",
+    accessKey: "your-access-key",
+  },
+})
+```
+
+## Logging
+
+Set `STASH_STACK_LOG` to control log verbosity. The SDK never logs plaintext data.
+
+| Value | Output |
+|---|---|
+| `error` (default) | Errors only |
+| `info` | Info and errors |
+| `debug` | Debug, info, and errors |
+
+## Full API surface
+
+Everything else is in the auto-generated TypeDoc reference:
+
+- [Encryption module](/stack/reference/stack/latest/packages/stack/src/encryption) — `Encryption()`, `EncryptionClient` class, all methods
+- [Schema module](/stack/reference/stack/latest/packages/stack/src/schema) — `encryptedTable`, `encryptedColumn`, `encryptedField`, type inference helpers
+- [Identity module](/stack/reference/stack/latest/packages/stack/src/identity) — `LockContext`
+- [Types](/stack/reference/stack/latest/packages/stack/src/types-public) — `EncryptionClientConfig`, `ClientConfig`, `EncryptOptions`, `BulkEncryptPayload`, and more

@@ -1,0 +1,270 @@
+---
+title: Model operations
+description: Encrypt and decrypt entire records with schema-driven field selection using encryptModel, decryptModel, bulkEncryptModels, and bulkDecryptModels
+---
+
+# Model operations
+
+Model methods encrypt or decrypt an entire object in one call. The SDK inspects your schema to find which fields to encrypt and leaves all other fields on the object unchanged.
+
+This is the recommended approach when working with database records: pass the object in, get the encrypted (or decrypted) version back, and write it to the database.
+
+For full method signatures, see the [`EncryptionClient` API reference](/stack/reference/stack/latest/packages/stack/src/encryption/classes/EncryptionClient).
+
+## How schema-driven selection works
+
+When you call `encryptModel(record, schema)`, the SDK compares the object's keys against the columns declared in your `encryptedTable` schema. Fields that match a schema column are encrypted. Everything else passes through as-is.
+
+Given this schema:
+
+```typescript filename="schema.ts"
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
+
+const users = encryptedTable("users", {
+  email: encryptedColumn("email").equality().freeTextSearch(),
+  ssn: encryptedColumn("ssn").equality(),
+})
+```
+
+And this record:
+
+```typescript
+const user = {
+  id: "user_123",       // not in schema
+  email: "alice@example.com",  // in schema
+  ssn: "123-45-6789",  // in schema
+  createdAt: new Date(), // not in schema
+  role: "admin",         // not in schema
+}
+```
+
+The field selection looks like this:
+
+| Field | In schema | After `encryptModel` |
+|---|---|---|
+| `id` | No | `string` (unchanged) |
+| `email` | Yes | `Encrypted` |
+| `ssn` | Yes | `Encrypted` |
+| `createdAt` | No | `Date` (unchanged) |
+| `role` | No | `string` (unchanged) |
+
+## `encryptModel`
+
+Encrypts one object. Returns a `Result` wrapping the encrypted object.
+
+```typescript filename="encrypt-model.ts"
+import { Encryption } from "@cipherstash/stack"
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
+
+const users = encryptedTable("users", {
+  email: encryptedColumn("email").equality().freeTextSearch(),
+  ssn: encryptedColumn("ssn").equality(),
+})
+
+const client = await Encryption({ schemas: [users] })
+
+const user = {
+  id: "user_123",
+  email: "alice@example.com",
+  ssn: "123-45-6789",
+  createdAt: new Date(),
+}
+
+const result = await client.encryptModel(user, users)
+
+if (result.failure) {
+  throw new Error(`Encryption failed: ${result.failure.message}`)
+}
+
+const encryptedUser = result.data
+// encryptedUser.email → Encrypted
+// encryptedUser.ssn   → Encrypted
+// encryptedUser.id    → "user_123" (unchanged)
+```
+
+### Schema-aware types
+
+TypeScript infers the return type from the schema. Let the compiler do the work: do not pass an explicit type parameter unless you need backward compatibility.
+
+```typescript filename="encrypt-model-types.ts"
+// Let TypeScript infer — the return type reflects exactly which fields are encrypted
+const result = await client.encryptModel(user, users)
+// result.data.email is typed as Encrypted
+// result.data.id is typed as string
+
+// Explicit type parameter — return type degrades to User
+const result = await client.encryptModel<User>(user, users)
+
+// Explicit model and schema types — fully schema-aware
+const result = await client.encryptModel<User, typeof users>(user, users)
+```
+
+## `decryptModel`
+
+Decrypts one encrypted object. The SDK detects which fields are encrypted payloads and decrypts them. Non-encrypted fields pass through.
+
+```typescript filename="decrypt-model.ts"
+const decResult = await client.decryptModel(encryptedUser)
+
+if (decResult.failure) {
+  throw new Error(`Decryption failed: ${decResult.failure.message}`)
+}
+
+const decryptedUser = decResult.data
+// decryptedUser.email → "alice@example.com"
+// decryptedUser.ssn   → "123-45-6789"
+// decryptedUser.id    → "user_123"
+```
+
+`decryptModel` does not require a schema argument. It detects encrypted fields by inspecting the payload structure.
+
+## `bulkEncryptModels`
+
+Encrypts an array of objects in a single ZeroKMS round-trip. All records share one network call, while each field in each record still gets its own unique key.
+
+```typescript filename="bulk-encrypt-models.ts"
+const records = [
+  { id: "1", email: "alice@example.com", ssn: "111-22-3333", role: "admin" },
+  { id: "2", email: "bob@example.com",   ssn: "444-55-6666", role: "user" },
+  { id: "3", email: "cara@example.com",  ssn: "777-88-9999", role: "user" },
+]
+
+const result = await client.bulkEncryptModels(records, users)
+
+if (result.failure) {
+  throw new Error(`Bulk encryption failed: ${result.failure.message}`)
+}
+
+// result.data is an array of encrypted records, same order as input
+const encryptedRecords = result.data
+```
+
+### Writing encrypted records to PostgreSQL
+
+```typescript filename="bulk-insert.ts"
+import { Pool } from "pg"
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+
+async function createUsers(users: { email: string; ssn: string; role: string }[]) {
+  const result = await client.bulkEncryptModels(users, usersSchema)
+
+  if (result.failure) {
+    throw new Error(result.failure.message)
+  }
+
+  const values = result.data.map((r) => [r.email, r.ssn, r.role])
+
+  await pool.query(
+    `INSERT INTO users (email, ssn, role)
+     SELECT * FROM UNNEST($1::jsonb[], $2::jsonb[], $3::text[])`,
+    [
+      result.data.map((r) => r.email),
+      result.data.map((r) => r.ssn),
+      result.data.map((r) => r.role),
+    ],
+  )
+}
+```
+
+## `bulkDecryptModels`
+
+Decrypts an array of encrypted records in a single ZeroKMS call. Returns `Decrypted<T>[]` — an array of plain objects with all encrypted fields resolved back to their original types.
+
+```typescript filename="bulk-decrypt-models.ts"
+const decResult = await client.bulkDecryptModels(encryptedRecords)
+
+if (decResult.failure) {
+  throw new Error(`Bulk decryption failed: ${decResult.failure.message}`)
+}
+
+for (const user of decResult.data) {
+  console.log(user.email, user.ssn)
+}
+```
+
+### Decrypting database query results
+
+Fetch rows from PostgreSQL and pass the array directly to `bulkDecryptModels`:
+
+```typescript filename="fetch-decrypt.ts"
+const { rows } = await pool.query("SELECT * FROM users LIMIT 100")
+
+const decResult = await client.bulkDecryptModels(rows)
+
+if (decResult.failure) {
+  throw new Error(decResult.failure.message)
+}
+
+const users = decResult.data
+```
+
+## Failure handling
+
+All model methods return a `Result` object. The top-level `failure` fires when the entire operation fails (network error, auth failure, invalid credentials). There is no per-item failure for model operations: if any record fails, the whole call fails.
+
+```typescript filename="error-handling.ts"
+const result = await client.bulkEncryptModels(records, users)
+
+if (result.failure) {
+  console.error(result.failure.type)    // e.g. "EncryptionError"
+  console.error(result.failure.message) // human-readable description
+}
+```
+
+See [Error handling](/stack/reference/error-handling) for the full set of error types.
+
+## Identity-aware model operations
+
+Chain `.withLockContext()` to bind encryption to a user's JWT:
+
+```typescript filename="model-with-identity.ts"
+import { LockContext } from "@cipherstash/stack/identity"
+
+const lc = new LockContext()
+const lockContext = (await lc.identify(userJwt)).data!
+
+// Single record
+const encrypted = await client
+  .encryptModel(user, users)
+  .withLockContext(lockContext)
+
+// Bulk records — one ZeroKMS call, all locked to the same identity
+const bulkEncrypted = await client
+  .bulkEncryptModels(records, users)
+  .withLockContext(lockContext)
+
+const bulkDecrypted = await client
+  .bulkDecryptModels(encryptedRecords)
+  .withLockContext(lockContext)
+```
+
+See [Identity-aware encryption](/stack/cipherstash/encryption/identity) for the full flow.
+
+## When to use model methods vs raw bulk
+
+| Scenario | Recommended method |
+|---|---|
+| Inserting new records from an API payload | `encryptModel` / `bulkEncryptModels` |
+| Reading records from a database and decrypting for display | `decryptModel` / `bulkDecryptModels` |
+| Encrypting one specific field across many records (migration, import) | `bulkEncrypt` |
+| Encrypting a single value for a query term | `encrypt` |
+
+Use model methods when you have whole records to round-trip. Use raw bulk methods when you are targeting a single field across many records.
+
+See [Bulk operations](/stack/cipherstash/encryption/bulk-operations) for `bulkEncrypt` and `bulkDecrypt`.
+
+## ORM integrations
+
+The Drizzle, Supabase, and DynamoDB adapters wrap model methods behind their own APIs:
+
+- [Drizzle ORM](/stack/cipherstash/encryption/drizzle): `encryptModel` and `bulkEncryptModels` used behind `db.insert()`
+- [Supabase](/stack/cipherstash/encryption/supabase): `encryptedSupabase` handles model encryption transparently
+- [DynamoDB](/stack/cipherstash/encryption/dynamodb): `encryptedDynamoDB` wraps `PutItem` and `GetItem`
+
+## Next steps
+
+- [Bulk operations](/stack/cipherstash/encryption/bulk-operations): raw-value bulk encrypt and decrypt
+- [Schema definition](/stack/cipherstash/encryption/schema): declare which fields to encrypt
+- [Storing encrypted data](/stack/cipherstash/encryption/storing-data): raw SQL insert and retrieve patterns
+- [Identity-aware encryption](/stack/cipherstash/encryption/identity): scope encryption to a user's JWT

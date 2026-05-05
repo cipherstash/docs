@@ -1,0 +1,206 @@
+---
+title: Bulk operations
+description: Encrypt and decrypt arrays of raw values in a single ZeroKMS round-trip using bulkEncrypt and bulkDecrypt
+---
+
+# Bulk operations
+
+`bulkEncrypt` and `bulkDecrypt` encrypt or decrypt an array of raw values in a single call to ZeroKMS. Every value still gets its own unique key. The batch just pays the network round-trip once, regardless of how many items you pass.
+
+This page covers the raw-value variants. If you want to encrypt whole objects (records with multiple fields), see [Model operations](/stack/cipherstash/encryption/models) instead.
+
+For full method signatures, see the [`EncryptionClient` API reference](/stack/reference/stack/latest/packages/stack/src/encryption/classes/EncryptionClient).
+
+## Why bulk matters
+
+Calling `encrypt` in a loop makes one ZeroKMS request per value. For 100 emails that is 100 round-trips. `bulkEncrypt` collapses those into one.
+
+The throughput gain is significant for any batch larger than a handful of records. Use bulk operations whenever you are processing more than one value at a time.
+
+## `bulkEncrypt`
+
+Pass an array of `{ id, plaintext }` objects. The `id` is your correlation key: it flows through to the output so you can match encrypted results back to your source records.
+
+```typescript filename="bulk-encrypt.ts"
+import { Encryption } from "@cipherstash/stack"
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
+
+const users = encryptedTable("users", {
+  email: encryptedColumn("email").equality().freeTextSearch(),
+})
+
+const client = await Encryption({ schemas: [users] })
+
+const plaintexts = [
+  { id: "u1", plaintext: "alice@example.com" },
+  { id: "u2", plaintext: "bob@example.com" },
+  { id: "u3", plaintext: "charlie@example.com" },
+]
+
+const result = await client.bulkEncrypt(plaintexts, {
+  column: users.email,
+  table: users,
+})
+
+if (result.failure) {
+  throw new Error(`Bulk encryption failed: ${result.failure.message}`)
+}
+
+// result.data is an array of { id: string, data: Encrypted }
+// The id matches the id you passed in
+const encrypted = result.data
+```
+
+### Input shape
+
+Each element in the input array takes this shape:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | No | Correlation key returned in the output |
+| `plaintext` | `string \| number \| boolean \| null` | Yes | The value to encrypt |
+
+You can omit `id` when you do not need to correlate results (for example, when processing an ordered list where position is the correlation).
+
+### Mapping results back to records
+
+When `id` is present, use it to build a lookup map:
+
+```typescript filename="bulk-encrypt-map.ts"
+const encryptedByUserId = Object.fromEntries(
+  result.data.map((item) => [item.id, item.data]),
+)
+
+// encryptedByUserId["u1"] → Encrypted payload for alice
+```
+
+## `bulkDecrypt`
+
+Pass the array produced by `bulkEncrypt`. Results come back in the same order, with per-item success or failure.
+
+```typescript filename="bulk-decrypt.ts"
+const decrypted = await client.bulkDecrypt(encrypted)
+
+if (decrypted.failure) {
+  throw new Error(`Bulk decryption failed: ${decrypted.failure.message}`)
+}
+
+for (const item of decrypted.data) {
+  if ("data" in item) {
+    console.log(`${item.id}: ${item.data}`)
+  } else {
+    console.error(`${item.id} failed: ${item.error}`)
+  }
+}
+```
+
+### Per-item failure handling
+
+`bulkDecrypt` returns a top-level `Result` wrapping an array where each element is either a success or a per-item error. The top-level `failure` fires for infrastructure errors (network, auth). Individual decryption failures surface as `{ id, error }` items in the array.
+
+```typescript filename="bulk-decrypt-errors.ts"
+const successful: string[] = []
+const failed: string[] = []
+
+for (const item of decrypted.data) {
+  if ("data" in item) {
+    successful.push(item.data as string)
+  } else {
+    failed.push(item.id)
+  }
+}
+```
+
+### Ordering guarantee
+
+`bulkDecrypt` returns items in the same order as the input array. If you do not use `id`, you can rely on index position for correlation.
+
+## Complete example: bulk insert with UNNEST
+
+This pattern encrypts an array of values and inserts them into PostgreSQL with a single multi-row statement.
+
+```typescript filename="bulk-insert.ts"
+import { Pool } from "pg"
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+
+async function insertUsers(emails: string[]) {
+  const plaintexts = emails.map((email, i) => ({
+    id: String(i),
+    plaintext: email,
+  }))
+
+  const encryptResult = await client.bulkEncrypt(plaintexts, {
+    column: users.email,
+    table: users,
+  })
+
+  if (encryptResult.failure) {
+    throw new Error(`Encryption failed: ${encryptResult.failure.message}`)
+  }
+
+  const encryptedValues = encryptResult.data.map((item) => item.data)
+
+  const result = await pool.query(
+    `INSERT INTO users (email)
+     SELECT * FROM UNNEST($1::jsonb[])
+     RETURNING id`,
+    [encryptedValues],
+  )
+
+  return result.rows.map((row) => row.id)
+}
+```
+
+<Callout type="info">
+  Always use the `::jsonb` cast when passing encrypted values to PostgreSQL. This ensures PostgreSQL handles the CipherCell JSON payload correctly.
+</Callout>
+
+For the table setup and single-record insert pattern, see [Storing encrypted data](/stack/cipherstash/encryption/storing-data).
+
+## Identity-aware bulk encryption
+
+Lock an entire batch to a user's identity by chaining `.withLockContext()`:
+
+```typescript filename="bulk-encrypt-identity.ts"
+import { LockContext } from "@cipherstash/stack/identity"
+
+const lc = new LockContext()
+const lockContext = (await lc.identify(userJwt)).data!
+
+const encrypted = await client
+  .bulkEncrypt(plaintexts, { column: users.email, table: users })
+  .withLockContext(lockContext)
+
+const decrypted = await client
+  .bulkDecrypt(encrypted.data)
+  .withLockContext(lockContext)
+```
+
+See [Identity-aware encryption](/stack/cipherstash/encryption/identity) for the full lock context flow.
+
+## When to use bulk vs model operations
+
+| Scenario | Recommended method |
+|---|---|
+| Encrypting one field from a list of records | `bulkEncrypt` / `bulkDecrypt` |
+| Encrypting whole records with multiple encrypted fields | `bulkEncryptModels` / `bulkDecryptModels` |
+| Migrating a single column in an existing table | `bulkEncrypt` |
+| Inserting new records from a form or API payload | `bulkEncryptModels` |
+
+The rule of thumb: use raw bulk methods when you are working with a single field across many records. Use model methods when you have whole objects to round-trip.
+
+See [Model operations](/stack/cipherstash/encryption/models) for `bulkEncryptModels` and `bulkDecryptModels`.
+
+## ORM integrations
+
+Drizzle and DynamoDB have adapter-level bulk support that wraps these methods:
+
+- [Drizzle bulk insert](/stack/cipherstash/encryption/drizzle): `bulkEncryptModels` with Drizzle `.values()`
+- [DynamoDB bulk operations](/stack/cipherstash/encryption/dynamodb): `BatchWriteItem` and `BatchGetItem` wrappers
+
+## Next steps
+
+- [Model operations](/stack/cipherstash/encryption/models): encrypt whole records in one call
+- [Storing encrypted data](/stack/cipherstash/encryption/storing-data): raw SQL insert and retrieve patterns
+- [Identity-aware encryption](/stack/cipherstash/encryption/identity): scope encryption to a user's JWT

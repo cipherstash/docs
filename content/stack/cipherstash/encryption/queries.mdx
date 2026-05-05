@@ -1,0 +1,271 @@
+---
+title: Searchable encryption queries
+description: Equality, match, and range query patterns for encrypted PostgreSQL columns, with SDK predicates and raw SQL forms.
+---
+
+# Searchable encryption queries
+
+This page covers the three query families available for encrypted columns: equality, match (free-text), and range/order. Each section shows the SDK predicate, the raw SQL form, the underlying EQL index, and links to the corresponding index setup.
+
+For index creation (the `CREATE INDEX` statements your database needs), see [Setting up indexes](/stack/cipherstash/encryption/indexes).
+
+For a conceptual overview of how searchable encryption works, see [Searchable encryption](/stack/cipherstash/encryption/searchable-encryption).
+
+## Equality
+
+Exact match on an encrypted column. Uses the `unique` (HMAC-SHA256) index.
+
+**Schema:**
+
+```typescript filename="src/schema.ts"
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
+
+const users = encryptedTable("users", {
+  email: encryptedColumn("email").equality(),
+})
+```
+
+**SDK (single value):**
+
+```typescript filename="src/queries.ts"
+const term = await client.encryptQuery("alice@example.com", {
+  column: users.email,
+  table: users,
+  queryType: "equality",
+})
+
+const result = await pgClient.query(
+  "SELECT * FROM users WHERE email = $1",
+  [term.data],
+)
+```
+
+**SDK (IN list):**
+
+```typescript filename="src/queries.ts"
+const terms = await client.encryptQuery([
+  { value: "alice@example.com", column: users.email, table: users, queryType: "equality" as const },
+  { value: "bob@example.com", column: users.email, table: users, queryType: "equality" as const },
+])
+
+// Use each term.data as a separate parameter, or build an ANY($1) query.
+```
+
+**Drizzle:**
+
+```typescript filename="src/queries.ts"
+const results = await db
+  .select()
+  .from(usersTable)
+  .where(await encryptionOps.eq(usersTable.email, "alice@example.com"))
+```
+
+**Supabase wrapper:**
+
+```typescript filename="src/queries.ts"
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, email")
+  .eq("email", "alice@example.com")
+```
+
+**Raw SQL (self-hosted with EQL operator classes):**
+
+```sql
+SELECT * FROM users WHERE email = $1::eql_v2_encrypted;
+```
+
+**Raw SQL (Supabase / functional index form):**
+
+```sql
+SELECT * FROM users WHERE eql_v2.hmac_256(email) = eql_v2.hmac_256($1::eql_v2_encrypted);
+```
+
+<Callout type="warn">
+  On Supabase, bare `WHERE email = $1` does not use the functional index. Wrap both sides with `eql_v2.hmac_256()` to engage the hash index. The SDK wrappers (Drizzle, Supabase wrapper) handle this automatically. See [Index setup: Supabase callout](/stack/cipherstash/encryption/indexes#supabase-query-forms).
+</Callout>
+
+**Underlying index:** [Equality index setup](/stack/cipherstash/encryption/indexes#equality)
+
+---
+
+## Match (free-text)
+
+Substring and full-text search on an encrypted column. Uses the `match` (Bloom filter) index. Corresponds to `LIKE` / `ILIKE` semantics.
+
+**Schema:**
+
+```typescript filename="src/schema.ts"
+const users = encryptedTable("users", {
+  name: encryptedColumn("name").freeTextSearch(),
+})
+```
+
+**SDK:**
+
+```typescript filename="src/queries.ts"
+const term = await client.encryptQuery("alice", {
+  column: users.name,
+  table: users,
+  queryType: "freeTextSearch",
+})
+
+const result = await pgClient.query(
+  "SELECT * FROM users WHERE name LIKE $1",
+  [term.data],
+)
+```
+
+**Drizzle:**
+
+```typescript filename="src/queries.ts"
+const results = await db
+  .select()
+  .from(usersTable)
+  .where(await encryptionOps.ilike(usersTable.name, "%alice%"))
+```
+
+**Supabase wrapper:**
+
+```typescript filename="src/queries.ts"
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, name")
+  .ilike("name", "%alice%")
+```
+
+**Raw SQL:**
+
+```sql
+SELECT * FROM users WHERE name LIKE $1;
+```
+
+The Bloom filter index uses a GIN index on the extracted filter term. See [Match index setup](/stack/cipherstash/encryption/indexes#match).
+
+**Underlying index:** [Match index setup](/stack/cipherstash/encryption/indexes#match)
+
+---
+
+## Range and ordering
+
+Comparison (`>`, `>=`, `<`, `<=`, `BETWEEN`) and `ORDER BY` on an encrypted column. Uses the `ore` (Order Revealing Encryption) index.
+
+**Schema:**
+
+```typescript filename="src/schema.ts"
+const users = encryptedTable("users", {
+  age: encryptedColumn("age").dataType("number").orderAndRange(),
+})
+```
+
+**SDK (range filter):**
+
+```typescript filename="src/queries.ts"
+const term = await client.encryptQuery(21, {
+  column: users.age,
+  table: users,
+  queryType: "orderAndRange",
+})
+
+const result = await pgClient.query(
+  "SELECT * FROM users WHERE age > $1",
+  [term.data],
+)
+```
+
+**SDK, ORDER BY (self-hosted only):**
+
+```typescript filename="src/queries.ts"
+// Self-hosted PostgreSQL with EQL operator families installed:
+const result = await pgClient.query(
+  "SELECT * FROM users ORDER BY age ASC",
+)
+
+// Without operator family support (Supabase, or --exclude-operator-family):
+const result = await pgClient.query(
+  "SELECT * FROM users ORDER BY eql_v2.ore_block_u64_8_256(age) ASC",
+)
+```
+
+**Drizzle:**
+
+```typescript filename="src/queries.ts"
+// Range
+const results = await db
+  .select()
+  .from(usersTable)
+  .where(await encryptionOps.gte(usersTable.age, 18))
+
+// Sort (requires operator family support; not available on Supabase)
+const results = await db
+  .select()
+  .from(usersTable)
+  .orderBy(encryptionOps.asc(usersTable.age))
+```
+
+**Supabase wrapper:**
+
+```typescript filename="src/queries.ts"
+// Range filter works
+const { data } = await eSupabase
+  .from("users", users)
+  .select("id, age")
+  .gte("age", 18)
+
+// ORDER BY on encrypted columns is not supported on Supabase.
+// Sort application-side after decrypting.
+```
+
+<Callout type="warn">
+  `ORDER BY` on encrypted columns requires EQL operator families, which need superuser access to install. Supabase does not grant superuser. Range _filters_ (`>`, `>=`, `<`, `<=`) work on both self-hosted and Supabase. Sorting on encrypted columns is not currently supported on Supabase. Sort application-side after decrypting results. Operator family support for Supabase is being developed in collaboration with the Supabase and CipherStash teams.
+</Callout>
+
+**Underlying index:** [Range index setup](/stack/cipherstash/encryption/indexes#range-and-order)
+
+---
+
+## JSONB queries
+
+Query encrypted JSON columns using path existence or containment. Uses the `ste_vec` index.
+
+**Schema:**
+
+```typescript filename="src/schema.ts"
+const documents = encryptedTable("documents", {
+  metadata: encryptedColumn("metadata").searchableJson(),
+})
+```
+
+**SDK (path existence):**
+
+```typescript filename="src/queries.ts"
+const term = await client.encryptQuery("$.user.role", {
+  column: documents.metadata,
+  table: documents,
+})
+
+const result = await pgClient.query(
+  "SELECT * FROM documents WHERE cs_ste_vec_v2(metadata) @> $1",
+  [term.data],
+)
+```
+
+**SDK (containment):**
+
+```typescript filename="src/queries.ts"
+const term = await client.encryptQuery({ role: "admin" }, {
+  column: documents.metadata,
+  table: documents,
+})
+```
+
+**Drizzle:**
+
+```typescript filename="src/queries.ts"
+const results = await db
+  .select()
+  .from(documentsTable)
+  .where(await encryptionOps.jsonbPathExists(documentsTable.metadata, "$.user.role"))
+```
+
+**Underlying index:** [JSONB index setup](/stack/cipherstash/encryption/indexes#jsonb)

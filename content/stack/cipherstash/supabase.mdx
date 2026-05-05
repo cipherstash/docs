@@ -207,6 +207,10 @@ Full reference: [Drizzle ORM integration](/stack/cipherstash/encryption/drizzle)
 4. **Identity-bound keys.** Tie encryption to a user's identity. Only that user can decrypt their data.
 5. **Zero-knowledge.** CipherStash never sees your plaintext data. Keys are derived on your machine and never stored.
 
+<Callout type="info">
+  Encrypted columns on Supabase require functional indexes and a specific query form to avoid silent sequential scans. See [Setting up indexes](/stack/cipherstash/encryption/indexes) for the correct `CREATE INDEX` statements and query patterns.
+</Callout>
+
 ## Going to production
 
 Local development uses device-based authentication. Production uses environment variables. See [Going to production](/stack/deploy/going-to-production).

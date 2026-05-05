@@ -1,0 +1,148 @@
+---
+title: Setting up indexes
+description: Create PostgreSQL indexes for encrypted columns. Index syntax differs between self-hosted PostgreSQL and managed databases like Supabase.
+---
+
+# Setting up indexes
+
+Encrypted columns need PostgreSQL indexes for fast queries. Without an index, the database performs a sequential scan: correct but slow at scale.
+
+Index syntax differs between deployment types. Self-hosted PostgreSQL with full EQL installed supports custom operator classes and can use B-tree indexes directly on `eql_v2_encrypted` columns. Managed databases like Supabase cannot install operator families (they require superuser), so indexes must use extraction functions instead.
+
+## Deployment matrix
+
+| Query type | Self-hosted (full EQL) | Supabase |
+|---|---|---|
+| Equality | `USING btree (col)` with opclass, or `USING hash (eql_v2.hmac_256(col))` | `USING hash (eql_v2.hmac_256(col))` only |
+| Range / ORDER BY | `USING btree (col)` with opclass | None (OPE-index work in progress) |
+| Pattern match | `USING gin (eql_v2.bloom_filter(col))` | Same |
+| JSONB containment | `USING gin (eql_v2.ste_vec(col))` | Same |
+
+<Callout type="info">
+  Range filters (`>`, `>=`, `<`, `<=`) work on Supabase without a range index (they use a sequential scan). `ORDER BY` on encrypted columns is not supported on Supabase at all. Sort application-side after decrypting results. Operator family support for Supabase is in development.
+</Callout>
+
+---
+
+## Equality
+
+Equality indexes speed up `WHERE col = $1` queries and `IN` lists.
+
+**Self-hosted (B-tree with operator class):**
+
+```sql
+CREATE INDEX ON users USING btree (email);
+```
+
+This works because the full EQL install registers a B-tree operator class for `eql_v2_encrypted` that compares HMAC terms.
+
+**Self-hosted or Supabase (hash on extraction function):**
+
+```sql
+CREATE INDEX ON users USING hash (eql_v2.hmac_256(email));
+```
+
+This form works on both deployment types. Use it when you want one index that works everywhere, or when you are on Supabase.
+
+See queries: [Equality queries](/stack/cipherstash/encryption/queries#equality)
+
+---
+
+## Match
+
+Match indexes speed up `WHERE col LIKE $1` and `ILIKE` queries. They use a GIN index on the Bloom filter extracted from each encrypted value.
+
+```sql
+CREATE INDEX ON users USING gin (eql_v2.bloom_filter(name));
+```
+
+This form is identical for self-hosted and Supabase.
+
+See queries: [Match queries](/stack/cipherstash/encryption/queries#match-free-text)
+
+---
+
+## Range and order
+
+Range indexes support `>`, `>=`, `<`, `<=`, `BETWEEN`, and `ORDER BY` on encrypted columns.
+
+**Self-hosted (B-tree with operator class):**
+
+```sql
+CREATE INDEX ON users USING btree (age);
+```
+
+Requires the EQL operator family (`CREATE OPERATOR FAMILY`) to be installed. The full EQL install includes this. The `--exclude-operator-family` install flag omits it.
+
+**Supabase:**
+
+Functional range indexes for Supabase are not yet available. Range _filters_ work without an index (sequential scan). `ORDER BY` on encrypted columns is not supported on Supabase.
+
+See queries: [Range queries](/stack/cipherstash/encryption/queries#range-and-ordering)
+
+---
+
+## JSONB
+
+JSONB indexes support path existence and containment queries on encrypted JSON columns.
+
+```sql
+CREATE INDEX ON documents USING gin (eql_v2.ste_vec(metadata));
+```
+
+This form is identical for self-hosted and Supabase.
+
+See queries: [JSONB queries](/stack/cipherstash/encryption/queries#jsonb-queries)
+
+---
+
+## Supabase query forms
+
+This is the most common source of silent performance problems with encrypted columns on Supabase.
+
+A functional index on `eql_v2.hmac_256(email)` is only engaged when the query uses the same extraction function. A bare `WHERE email = $1` query does not use the index, even if the index exists. The database falls back to a sequential scan: your query returns correct results, but it scans every row.
+
+**Wrong (does not use functional index):**
+
+```sql
+SELECT * FROM users WHERE email = $1::eql_v2_encrypted;
+```
+
+**Right (engages the functional index):**
+
+```sql
+SELECT * FROM users WHERE eql_v2.hmac_256(email) = eql_v2.hmac_256($1::eql_v2_encrypted);
+```
+
+<Callout type="warn">
+  SDK wrappers (Drizzle adapter, Supabase wrapper) generate the correct query form automatically. This only matters when you write raw SQL queries against Supabase encrypted columns. If you are using the Drizzle adapter or Supabase wrapper, no action is needed.
+</Callout>
+
+The same principle applies to `eql_v2.bloom_filter` and `eql_v2.ste_vec` indexes: the extraction function must appear in both the index definition and the query predicate.
+
+---
+
+## Complete example
+
+```sql filename="migrations/add_encrypted_indexes.sql"
+-- Equality index (Supabase-compatible form)
+CREATE INDEX users_email_eq_idx ON users USING hash (eql_v2.hmac_256(email));
+
+-- Match index
+CREATE INDEX users_name_match_idx ON users USING gin (eql_v2.bloom_filter(name));
+
+-- JSONB index
+CREATE INDEX documents_metadata_ste_idx ON documents USING gin (eql_v2.ste_vec(metadata));
+
+-- Range index (self-hosted only — requires operator family)
+CREATE INDEX users_age_range_idx ON users USING btree (age);
+```
+
+---
+
+## Related
+
+- [Searchable encryption queries](/stack/cipherstash/encryption/queries): Query patterns for each index type
+- [Searchable encryption overview](/stack/cipherstash/encryption/searchable-encryption): How searchable indexes work
+- [Supabase integration](/stack/cipherstash/supabase): Supabase-specific setup and limitations
+- [EQL guide](/stack/reference/eql-guide): Full reference for EQL types and functions

@@ -1,0 +1,88 @@
+---
+title: PostgreSQL
+description: CipherStash integration options for PostgreSQL databases. Choose the right path based on your ORM, deployment, and how much application control you need.
+---
+
+# PostgreSQL
+
+CipherStash provides field-level encryption for PostgreSQL databases. You choose the integration depth. All paths use the same key management ([ZeroKMS](/stack/cipherstash/kms)), the same searchable encryption primitives ([EQL](/stack/reference/eql-guide)), and produce the same encrypted storage format.
+
+## Choose your integration
+
+| If you want... | Use |
+|---|---|
+| Zero application code changes, transparent encryption at the wire | [Proxy](/stack/cipherstash/proxy) |
+| Application-level control, ORM-agnostic | [Encryption SDK](/stack/cipherstash/encryption) |
+| First-class Drizzle ORM integration | [Drizzle adapter](/stack/cipherstash/encryption/drizzle) |
+| First-class Supabase JS SDK integration | [Supabase wrapper](/stack/cipherstash/supabase) |
+
+### Proxy
+
+[CipherStash Proxy](/stack/cipherstash/proxy) sits between your application and PostgreSQL. Your application connects to the proxy with a standard PostgreSQL connection string. The proxy encrypts and decrypts fields transparently using a policy file. No application code changes are required.
+
+Best for: existing applications you cannot modify, or teams who want encryption with zero SDK dependencies.
+
+### Encryption SDK
+
+The [Encryption SDK](/stack/cipherstash/encryption) is a Node.js library that encrypts values before they reach the database and decrypts them on the way back. You call `encrypt` and `decrypt` explicitly in your data layer. The SDK is ORM-agnostic and works with any PostgreSQL client.
+
+Best for: new applications or teams who want explicit control over which fields are encrypted and when.
+
+### Drizzle adapter
+
+The [Drizzle adapter](/stack/cipherstash/encryption/drizzle) wraps the Encryption SDK with Drizzle-native types and operators. Define encrypted columns with `encryptedType` in your Drizzle schema. Query them with `encryptionOps.eq`, `encryptionOps.ilike`, and other typed operators that mirror the standard Drizzle API.
+
+Best for: teams already using Drizzle ORM who want type-safe encrypted queries without writing raw SQL.
+
+### Supabase wrapper
+
+The [Supabase wrapper](/stack/cipherstash/supabase) wraps the Supabase JS client with transparent encryption on mutations and decryption on selects. Queries read identically to standard Supabase queries. It uses the Encryption SDK internally.
+
+Best for: teams using the Supabase JS client who want minimal query-layer changes.
+
+## What is EQL?
+
+EQL (Encrypt Query Language) is the PostgreSQL extension that makes encrypted queries possible. It provides the `eql_v2_encrypted` column type and the functions that index and compare encrypted values without decrypting them. Every integration path above relies on EQL.
+
+See [Encrypt Query Language](/stack/reference/eql-guide) for the full reference.
+
+## Index setup
+
+Encrypted columns require indexes for fast queries. Index syntax differs between self-hosted PostgreSQL (full EQL with operator classes) and managed databases like Supabase (no superuser, no operator families). See [Setting up indexes](/stack/cipherstash/encryption/indexes) for the complete setup guide, including the right index form for each deployment.
+
+## How these compose
+
+Proxy and the Encryption SDK are not mutually exclusive. A single PostgreSQL database can serve both:
+
+- One application uses the Proxy (legacy service with no code changes)
+- Another application uses the Encryption SDK directly (new service with full control)
+
+Both write to the same `eql_v2_encrypted` columns and use the same keysets. Data encrypted by one path is readable by the other.
+
+The Drizzle and Supabase adapters sit on top of the Encryption SDK. They are not separate encryption implementations. Swapping between the raw SDK and an adapter does not change how data is stored or which keys are used.
+
+```
+Your application
+     │
+     ├── Drizzle adapter ──┐
+     ├── Supabase wrapper ─┤
+     └── Raw SDK ──────────┤
+                           ▼
+                    Encryption SDK
+                           │
+                           ▼
+                        ZeroKMS
+                           │
+                           ▼
+                       PostgreSQL
+                   (eql_v2_encrypted)
+```
+
+The Proxy is a separate path that does not use the SDK, but it writes the same encrypted format and reads from the same keysets.
+
+## Next steps
+
+- [Quickstart](/stack/quickstart): Encrypt your first fields in 15 minutes
+- [Setting up indexes](/stack/cipherstash/encryption/indexes): Create PostgreSQL indexes for encrypted queries
+- [Searchable encryption queries](/stack/cipherstash/encryption/queries): Equality, match, and range query patterns
+- [Planning guide](/stack/reference/planning-guide): Architecture decisions and integration path selection
