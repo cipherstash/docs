@@ -1,0 +1,95 @@
+---
+title: Draft an encryption plan
+description: Use stash plan to produce a reviewable plan.md before any code changes are made
+---
+
+# Draft an encryption plan
+
+`stash plan` is the second step in the setup lifecycle. It hands off to a coding agent, which reads your project and produces a reviewable encryption plan at `.cipherstash/plan.md`. No code is changed. The plan is a checkpoint you review before running `stash impl`.
+
+```bash
+npx stash plan
+```
+
+## Prerequisites
+
+`stash plan` reads `.cipherstash/context.json`, which is written by `stash init`. If that file is missing, the command errors with a message pointing you to run `stash init` first.
+
+## What plan does
+
+1. Reads `.cipherstash/context.json` to understand your project (integration, schemas, environment, installed agents).
+2. Checks for an existing `.cipherstash/plan.md`. If one is found, warns you that the agent will be asked to revise it. Delete the file first to start fresh.
+3. Asks which agent should write the plan. In plan mode, the options are Claude Code and Codex. AGENTS.md and the CipherStash Agent are only available in implementation mode.
+4. Hands off to the selected agent with a planning prompt. The agent reads your codebase and produces `.cipherstash/plan.md`.
+5. After the agent finishes, asks (default-yes) whether to continue to `stash impl` now.
+
+## The plan.md artifact
+
+The agent writes `.cipherstash/plan.md` as a human-readable Markdown file. At the top, it embeds a machine-readable summary block:
+
+```
+<!-- cipherstash:plan-summary
+{
+  "columns": [
+    {"table": "users", "column": "email", "path": "new"},
+    {"table": "users", "column": "phone", "path": "migrate"}
+  ]
+}
+-->
+```
+
+`stash impl` parses this block to render a confirmation panel before launching implementation.
+
+### Column paths
+
+Each entry in `columns` has a `path` field with one of two values:
+
+| Path | Meaning | Implementation |
+|---|---|---|
+| `new` | Column does not yet exist as encrypted | Additive. Single deploy: add the encrypted column and update write paths. |
+| `migrate` | Column has existing plaintext data | Staged across four deploys: add encrypted twin, backfill, cutover, drop plaintext. |
+
+If `stash impl` finds a plan without the summary block (for example, a plan written before this feature was added), it falls back to a soft prompt asking you to open the file in your editor before proceeding.
+
+## Agent options
+
+In plan mode, `stash plan` offers two handoff targets:
+
+| Agent | Detected by | Notes |
+|---|---|---|
+| Claude Code | `claude` on `$PATH` | Launched interactively if detected. |
+| Codex | `codex` on `$PATH` | Launched interactively if detected. |
+
+The command defaults to Claude Code if detected, then Codex, then Claude Code regardless of detection. If neither is on `$PATH`, the relevant files are written and install instructions are printed.
+
+## Chain prompt
+
+After the agent completes the plan, `stash plan` shows:
+
+```
+Plan drafted at `.cipherstash/plan.md`. Continue to `stash impl` now? (Y/n)
+```
+
+Answering yes launches `stash impl` immediately. Answering no (or running non-interactively) prints the next step and exits:
+
+```
+Plan drafted at `.cipherstash/plan.md`. Review it, then run `stash impl` to implement.
+```
+
+Non-TTY environments (CI, pipes) skip the prompt and always print the hint.
+
+## Reviewing the plan
+
+Before running `stash impl`, open `.cipherstash/plan.md` and verify:
+
+- The tables and columns listed match your intent.
+- The `path` values are correct. A `migrate` path triggers the full four-deploy lifecycle. Confirm this is what you want for any column with existing data.
+- Any columns with `path: migrate` have a backfill strategy accounted for.
+
+## Next steps
+
+<Cards>
+  <Card title="Execute the plan" href="/stack/cipherstash/cli/impl" description="Run stash impl to hand off to an agent and execute the encryption plan." />
+  <Card title="Check project status" href="/stack/cipherstash/cli/status" description="Use stash status to see where you are in the lifecycle." />
+  <Card title="Install and upgrade EQL" href="/stack/cipherstash/cli/install" description="Manually install or upgrade the EQL database extension." />
+</Cards>

@@ -1,0 +1,83 @@
+---
+title: Project status
+description: Use stash status for a fast, read-only view of where you are in the encryption setup lifecycle
+---
+
+# Project status
+
+`stash status` shows where your project stands in the CipherStash setup lifecycle. It reads disk state only: no network, no database connection, no authentication. It runs in milliseconds.
+
+```bash
+npx stash status
+```
+
+## What it checks
+
+`stash status` inspects three files:
+
+| File | What it signals |
+|---|---|
+| `.cipherstash/context.json` | `stash init` has run successfully |
+| `.cipherstash/plan.md` | `stash plan` has produced an encryption plan |
+| `.cipherstash/setup-prompt.md` | `stash impl` has engaged an agent at least once |
+
+## Output
+
+`stash status` renders a lifecycle panel followed by a deeper-inspection block:
+
+```
+CipherStash project status
+
+Lifecycle
+✓ Initialized        supabase · npm · 3 tables
+◯ Plan written       run `stash plan` to draft
+◯ Implementation     waiting on plan
+
+Deeper inspection
+Database state:   `stash db status`
+Per-column state: `stash encrypt status`
+
+Next: run `stash plan` to draft your encryption plan.
+```
+
+### Stage markers
+
+| Marker | Meaning |
+|---|---|
+| `✓` | Stage is complete |
+| `◯` | Stage is pending |
+
+### Stages
+
+**Initialized**: `stash init` has run and `.cipherstash/context.json` exists. The detail line shows the detected integration, package manager, and number of tables in the schema.
+
+**Plan written**: `.cipherstash/plan.md` exists. The detail line shows the plan file path. If the project is initialized but no plan exists, it shows the next command to run.
+
+**Implementation**: An agent has been engaged at least once (`.cipherstash/setup-prompt.md` exists). This stage is always shown as pending because disk state cannot tell you whether the agent finished. Check `stash encrypt status` for per-column state. If no agent has been engaged, the detail line shows the next command to run.
+
+## Deeper inspection
+
+`stash status` points to two commands for state that requires a database connection:
+
+| Command | What it shows |
+|---|---|
+| `stash db status` | EQL installation state, database permissions, active encrypt config |
+| `stash encrypt status` | Per-column migration state: phase, progress, and drift |
+
+## When to use stash status
+
+Run `stash status` any time you want a quick answer to "where am I?" without triggering auth or a database round-trip. It is safe to run repeatedly, in any environment, including CI.
+
+Common use cases:
+
+- After onboarding to a new machine, to check what has already been set up
+- Before running `stash plan` or `stash impl`, to confirm prerequisites are met
+- In a CI pre-flight check, to verify context.json is committed
+
+## Next steps
+
+<Cards>
+  <Card title="Interactive setup" href="/stack/cipherstash/cli/init" description="Run stash init to scaffold your project and generate context.json." />
+  <Card title="Draft an encryption plan" href="/stack/cipherstash/cli/plan" description="Run stash plan to produce a reviewable encryption plan." />
+  <Card title="Execute an encryption plan" href="/stack/cipherstash/cli/impl" description="Run stash impl to hand off to a coding agent and execute the plan." />
+</Cards>

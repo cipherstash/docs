@@ -51,8 +51,10 @@ CipherStash splits its functionality across two packages: a runtime SDK that you
     Init runs nearly silently, with prompts only when it can't make a sensible default choice:
 
     - Authenticates you with CipherStash via your browser (only when you aren't already logged in).
+    - Resolves your database connection via `DATABASE_URL`.
     - Generates an encryption client at `./src/encryption/index.ts`. Only prompts you if a file already exists at that path.
     - Installs `@cipherstash/stack` and `stash` if either is missing — one combined prompt, skipped entirely when both are already present.
+    - Installs EQL into your database.
 
     The `--supabase` flag tailors the next-steps output to Supabase users.
 
@@ -62,7 +64,9 @@ CipherStash splits its functionality across two packages: a runtime SDK that you
   </Step>
 
   <Step>
-    ### Install EQL in your database
+    ### Control how EQL is installed (optional)
+
+    `stash init` installs EQL automatically. If you need to control the install method — for example, to write a Supabase migration file instead of pushing directly — run `stash db install` with explicit flags.
 
     The CLI prompts you to choose how EQL is installed. If a `supabase/migrations/` directory is detected, the migration-file option is pre-selected.
 

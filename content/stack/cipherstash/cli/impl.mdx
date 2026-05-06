@@ -1,0 +1,135 @@
+---
+title: Execute an encryption plan
+description: Use stash impl to hand off to a coding agent and execute your encryption plan
+---
+
+# Execute an encryption plan
+
+`stash impl` is the third step in the setup lifecycle. It reads your plan, confirms the scope, and hands off to a coding agent to make the changes. Run `stash plan` first to produce `.cipherstash/plan.md`.
+
+```bash
+npx stash impl
+```
+
+## Prerequisites
+
+`stash impl` reads `.cipherstash/context.json`, which is written by `stash init`. If that file is missing, the command errors with a message pointing you to run `stash init` first.
+
+## Behaviour overview
+
+`stash impl` branches based on three conditions: whether a plan file exists, whether you are in a TTY, and whether `--continue-without-plan` is set.
+
+| Condition | Behaviour |
+|---|---|
+| Plan exists, TTY | Render plan summary. Ask "Proceed with implementation against this plan?" (default-yes). |
+| Plan exists, non-TTY | Log the plan path and proceed without confirmation. |
+| No plan, `--continue-without-plan` | Ask "Implementation can take some time. Continue?" (default-no). Proceed if confirmed. |
+| No plan, TTY | Show a picker: "Draft a plan first (recommended)" or "Continue without a plan". |
+| No plan, non-TTY | Error with a clear message. Requires `stash plan` or `--continue-without-plan`. |
+
+## Plan-summary confirmation
+
+When `.cipherstash/plan.md` exists and a machine-readable summary block is present, `stash impl` renders a panel like:
+
+```
+Plan summary
+3 columns across 2 tables
+
+◇ users.email          add new encrypted column
+◇ users.phone          migrate existing column
+◇ orders.notes         migrate existing column
+
+Includes migrate-existing columns — implementation is staged across
+4 deploys (schema-add → backfill → cutover → drop).
+```
+
+It then asks:
+
+```
+Proceed with implementation against this plan? (Y/n)
+```
+
+Answering no cancels cleanly. Answering yes dispatches to the agent.
+
+If the plan file has no summary block (older plans or plans produced without the structured header), `stash impl` shows a soft prompt to open the file in your editor before proceeding, then continues to the agent picker.
+
+## No-plan picker
+
+If no plan exists and you are in a TTY (without `--continue-without-plan`), `stash impl` shows:
+
+```
+No plan found. What would you like to do?
+> Draft a plan first (recommended)  [runs `stash plan` — usually 1–3 min]
+  Continue without a plan           [skip the planning checkpoint]
+```
+
+Selecting "Draft a plan first" delegates to `stash plan`. When `stash plan` completes, you return to `stash impl` automatically.
+
+Selecting "Continue without a plan" shows the security confirm (default-no) before proceeding.
+
+## Security confirm (no-plan path)
+
+When bypassing the plan checkpoint, the command asks:
+
+```
+Implementation can take some time. Continue? (y/N)
+```
+
+This prompt defaults to no. It requires an explicit `y` or `yes`. Pressing enter cancels.
+
+## Flags
+
+| Flag | Description |
+|---|---|
+| `--continue-without-plan` | Skip the no-plan picker. Goes straight to the security confirm (default-no). |
+
+There is no `--yes` or `--force` that bypasses the security confirm. The confirm on the no-plan path always requires an explicit affirmative. This is intentional: implementation can take tens of minutes and makes real changes to your codebase.
+
+## Agent options
+
+`stash impl` offers four handoff targets:
+
+| Agent | Detected by | Notes |
+|---|---|---|
+| Claude Code | `claude` on `$PATH` | Launched interactively if detected. |
+| Codex | `codex` on `$PATH` | Launched interactively if detected. |
+| CipherStash Agent | Always available | Runs `stash wizard`. |
+| Write AGENTS.md | Always available | Works with Cursor, Windsurf, Cline, and others. |
+
+The command defaults to Claude Code if detected, then Codex, then AGENTS.md (the broadest "works without anything else installed" option). The CipherStash Agent is never selected by default.
+
+## Non-TTY behaviour
+
+In CI and piped contexts, `stash impl` requires either a plan on disk or `--continue-without-plan`:
+
+```bash
+# CI with a plan already committed
+npx stash impl
+
+# CI without a plan
+npx stash impl --continue-without-plan
+```
+
+Without `--continue-without-plan` and no plan on disk, the command errors:
+
+```
+No plan at `.cipherstash/plan.md`. Run `stash plan` first, or pass --continue-without-plan to skip planning.
+```
+
+## After implementation
+
+When the agent handoff completes, `stash impl` prints:
+
+```
+Implementation handoff complete. Run `stash db status` to verify state.
+```
+
+Run `stash db status` to check EQL installation and `stash encrypt status` for per-column migration state.
+
+## Next steps
+
+<Cards>
+  <Card title="Check project status" href="/stack/cipherstash/cli/status" description="Use stash status to see where you are in the lifecycle." />
+  <Card title="Push and status" href="/stack/cipherstash/cli/push" description="Push your encryption schema and check EQL installation state." />
+  <Card title="Draft an encryption plan" href="/stack/cipherstash/cli/plan" description="Use stash plan to draft a reviewable plan before implementation." />
+</Cards>

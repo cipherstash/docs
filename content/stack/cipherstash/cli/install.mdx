@@ -18,7 +18,7 @@ npx stash db install [options]
 3. **Checks permissions** and auto-selects the right SQL variant based on your database role.
 4. **Installs EQL extensions** in your database.
 
-After a successful install, the CLI prints a next-steps block with two paths: run `npx @cipherstash/wizard` for AI-guided setup, or use `@cipherstash/stack` directly with `Encryption`/`encryptModel`.
+After a successful install, the CLI prints a summary of what was installed. If you reached this step via `stash init`, EQL was already installed as part of init. Manual invocation is useful when you need specific flags (for example, `--supabase --migration` to write a Supabase migration file) or when you skipped the database connection during init.
 
 | Option | Description |
 |---|---|

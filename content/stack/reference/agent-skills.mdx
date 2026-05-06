@@ -57,8 +57,8 @@ The CipherStash CLI (`stash`) for database setup, schema management, and project
 **Covers:**
 
 - `stash.config.ts` configuration
+- Setup lifecycle: `init` (scaffold + EQL + context), `plan` (draft plan.md), `impl` (execute plan), `status` (lifecycle map)
 - Database commands: `db install`, `db upgrade`, `db push`, `db validate`, `db status`, `db test-connection`
-- Project initialization with `init`
 - Schema building with `schema build`
 - Authentication with `auth login`
 - Programmatic API (`EQLInstaller`, `loadStashConfig`, `defineConfig`, `loadBundledEqlSql`)
@@ -161,11 +161,10 @@ This means your agent can write accurate CipherStash code on the first try, rath
 
 After installing skills, your AI coding agent can assist with the full CipherStash setup:
 
-1. **Initialize your project:** Ask your agent to set up CipherStash and it will run `npx stash init`.
-2. **Define your schema:** Describe which columns to encrypt and the agent will generate the correct `encryptedTable` and `encryptedColumn` definitions.
-3. **Set up the database:** The agent will guide you through `npx stash db install`. The CLI auto-detects Supabase and Drizzle from your project.
-4. **Wire up encryption automatically:** Run `npx @cipherstash/wizard` to let the AI edit your schema and call sites. Or ask your coding agent to wire up `encryptModel`/`decryptModel` directly using the installed skills.
-5. **Handle edge cases:** The agent knows about searchable encryption constraints, operator family limitations, identity-aware encryption, and multi-tenant keysets.
+1. **Initialize your project:** Ask your agent to set up CipherStash and it will run `npx stash init`. Init authenticates you, installs EQL, scaffolds the encryption client, and writes `.cipherstash/context.json`.
+2. **Draft a plan:** Run `npx stash plan`. The agent produces `.cipherstash/plan.md` listing the tables and columns to encrypt. Review the plan before proceeding.
+3. **Execute the plan:** Run `npx stash impl`. The agent reads the plan and wires up `encryptModel`/`decryptModel` in your codebase. Skills give it accurate knowledge of the current API surface.
+4. **Handle edge cases:** The agent knows about searchable encryption constraints, operator family limitations, identity-aware encryption, and multi-tenant keysets.
 
 ## Requirements
 
