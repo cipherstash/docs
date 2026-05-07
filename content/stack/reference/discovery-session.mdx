@@ -1,0 +1,63 @@
+---
+title: Discovery session
+description: What to prepare before your first conversation with the CipherStash team, and what to expect during the call.
+---
+
+# Discovery session
+
+A discovery session is a structured 60-minute conversation between your engineering or security team and CipherStash. The goal is to map your data security requirements to the right integration path and identify anything that needs attention before you start building.
+
+This page differs from the [planning guide](/stack/reference/planning-guide). The planning guide is self-serve technical reading you do before or after a session. This page is preparation for the conversation itself.
+
+## Who should attend
+
+Bring the people who can answer questions about your data architecture and compliance requirements. Typically:
+
+- An engineer who owns the data layer or ORM setup
+- A security, compliance, or privacy lead (if separate from engineering)
+
+You do not need to have any CipherStash code written yet.
+
+## What to prepare
+
+Work through the following before the session. You do not need written answers. Thinking through these areas in advance makes the conversation more productive.
+
+### Current data security posture
+
+- Which sensitive fields does your application store (PII, payment data, health records)?
+- Are those fields encrypted today? If so, at what layer (disk, TLS, application)?
+- Do you have column-level or field-level encryption anywhere?
+
+### Regulated data inventory
+
+- Which regulations apply to your data (GDPR, HIPAA, PCI-DSS, SOC 2, BDSG)?
+- Which specific fields are in scope for each regulation?
+- Do you have data residency requirements (EU-only, US-only)?
+
+### Target outcomes
+
+- What is the threat model you are trying to address (breach, insider access, accidental exposure)?
+- Do you need searchable encrypted fields, or encrypt-only?
+- Do you need per-user encryption (identity-aware, lock contexts)?
+- What does success look like at 30 days, 90 days?
+
+### Architecture constraints
+
+- Which database are you using (PostgreSQL self-hosted, Supabase, RDS, DynamoDB)?
+- Which ORM or query layer sits above it (Drizzle, Prisma, raw SQL, Supabase JS SDK)?
+- Do you use a connection proxy or PgBouncer?
+- What is your deployment environment (Vercel, AWS Lambda, containers, bare metal)?
+- Do you have restrictions on native Node.js modules or binary dependencies?
+
+## What to expect during the session
+
+1. **Context gathering (15 min).** The CipherStash team walks through the areas above with you. No slides, no sales deck.
+2. **Integration path recommendation (20 min).** Based on your database and ORM, the team recommends one of: Proxy (zero code changes), Encryption SDK (application-layer control), Drizzle adapter, or Supabase wrapper. See [the PostgreSQL options overview](/stack/cipherstash/postgres) for a preview of this decision.
+3. **Key questions and blockers (15 min).** Open discussion about anything that could block adoption: compliance requirements, deployment constraints, managed database limitations.
+4. **Next steps (10 min).** Concrete actions for both sides, with timelines.
+
+You will leave with a clear recommended path, answers to your blockers, and a point of contact for technical questions during your trial.
+
+## Book a session
+
+[Contact the CipherStash team](https://cipherstash.com/contact) to schedule a discovery session.

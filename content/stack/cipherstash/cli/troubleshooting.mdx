@@ -9,7 +9,7 @@ description: Common errors and fixes for the CipherStash CLI
 
 | Error | Cause | Fix |
 |---|---|---|
-| `Could not find stash.config.ts` | No config file in cwd or parent dirs | Run `npx stash db install` to generate it, or create `stash.config.ts` manually |
+| `Could not find stash.config.ts` | No config file in cwd or parent dirs | Run `npx stash init` (which runs `db install` automatically), or run `npx stash db install` directly, or create `stash.config.ts` manually |
 | `databaseUrl is required` | Config missing `databaseUrl` | Add `databaseUrl` to config and check `.env` is loaded |
 | `must be superuser to create an operator family` | Standard SQL requires superuser | The CLI falls back to OPE mode automatically on managed databases. Pass `--exclude-operator-family` if you see this on self-hosted Postgres. |
 | `Insufficient database permissions` | Role lacks `CREATE` privileges | Connect as superuser or grant permissions |

@@ -1,0 +1,140 @@
+---
+title: Drizzle adapter reference
+description: Encrypted query operators, schema extraction, EQL migration generation, and API surface for @cipherstash/stack/drizzle.
+---
+
+`@cipherstash/stack/drizzle` integrates CipherStash field-level encryption with Drizzle ORM. It provides a custom column type for encrypted fields and drop-in query operators that encrypt search values before they reach PostgreSQL. This page covers the operators, batching patterns, and migration generation. The step-by-step integration guide is at [Drizzle integration guide](/stack/cipherstash/encryption/drizzle). Full type signatures live in the [auto-generated API reference](/stack/reference/stack/latest/packages/stack/src/drizzle).
+
+## Public entry points
+
+| Export | Purpose |
+|---|---|
+| [`encryptedType`](/stack/reference/stack/latest/packages/stack/src/drizzle/functions/encryptedType) | Custom Drizzle column type for an encrypted field. Accepts a `dataType` and index config. |
+| [`extractEncryptionSchema`](/stack/reference/stack/latest/packages/stack/src/drizzle/functions/extractEncryptionSchema) | Converts a Drizzle `pgTable` definition into a CipherStash `EncryptedTable` schema for the SDK. |
+| [`createEncryptionOperators`](/stack/reference/stack/latest/packages/stack/src/drizzle/functions/createEncryptionOperators) | Returns an object with all Drizzle query operators wrapped for encrypted columns. |
+| [`EncryptedColumnConfig`](/stack/reference/stack/latest/packages/stack/src/drizzle/type-aliases/EncryptedColumnConfig) | Type alias for the column configuration object (`dataType`, `equality`, `freeTextSearch`, `orderAndRange`, `searchableJson`). |
+| [`EncryptionConfigError`](/stack/reference/stack/latest/packages/stack/src/drizzle/classes/EncryptionConfigError) | Thrown when a column lacks the index required by an operator. |
+| [`EncryptionOperatorError`](/stack/reference/stack/latest/packages/stack/src/drizzle/classes/EncryptionOperatorError) | Thrown for operator-level failures (invalid arguments, unsupported operations). |
+
+## Encrypted query operators
+
+`createEncryptionOperators` returns a set of operators that mirror the standard Drizzle operator names. Each operator encrypts the search value before constructing the SQL fragment.
+
+**Key pattern:** Most operators are async. `await` the operator call in the `.where()` clause, or pass un-awaited operators to `encryptionOps.and()` / `encryptionOps.or()` for batching.
+
+| Operator | EQL function / mechanism | Required column index | Notes |
+|---|---|---|---|
+| `eq(col, value)` | PostgreSQL `=` on `eql_v2_encrypted` | `equality: true` | Also accepts `orderAndRange: true` |
+| `ne(col, value)` | PostgreSQL `!=` on `eql_v2_encrypted` | `equality: true` | Also accepts `orderAndRange: true` |
+| `like(col, pattern)` | Bloom filter via `eql_v2_encrypted` | `freeTextSearch: true` | Case sensitivity depends on token filter config |
+| `ilike(col, pattern)` | Bloom filter via `eql_v2_encrypted` | `freeTextSearch: true` | Case sensitivity depends on token filter config |
+| `notIlike(col, pattern)` | Bloom filter via `eql_v2_encrypted` | `freeTextSearch: true` | |
+| `gt(col, value)` | `eql_v2.gt()` ORE function | `orderAndRange: true` | |
+| `gte(col, value)` | `eql_v2.gte()` ORE function | `orderAndRange: true` | |
+| `lt(col, value)` | `eql_v2.lt()` ORE function | `orderAndRange: true` | |
+| `lte(col, value)` | `eql_v2.lte()` ORE function | `orderAndRange: true` | |
+| `between(col, min, max)` | `eql_v2.gte()` + `eql_v2.lte()` | `orderAndRange: true` | Inclusive |
+| `notBetween(col, min, max)` | ORE negation | `orderAndRange: true` | |
+| `inArray(col, values)` | Multiple equality encryptions | `equality: true` | |
+| `notInArray(col, values)` | Multiple equality encryptions | `equality: true` | |
+| `asc(col)` | ORE sort expression | `orderAndRange: true` | Sync, no `await` needed |
+| `desc(col)` | ORE sort expression | `orderAndRange: true` | Sync, no `await` needed |
+| `jsonbPathExists(col, path)` | `eql_v2.jsonb_path_exists()` | `searchableJson: true` | Returns boolean for use in `WHERE` |
+| `jsonbPathQueryFirst(col, path)` | `eql_v2.jsonb_path_query_first()` | `searchableJson: true` | Returns encrypted value for use in `SELECT` |
+| `jsonbGet(col, path)` | `->` operator on `eql_v2_encrypted` | `searchableJson: true` | Returns encrypted value for use in `SELECT` |
+
+Non-encrypted columns fall back to the standard Drizzle operator automatically.
+
+<Callout type="warn">
+  Sorting encrypted columns with `asc()` or `desc()` requires operator family support in the database. On managed databases (Supabase, RDS) or when EQL is installed with `--exclude-operator-family`, sort application-side after decrypting instead.
+</Callout>
+
+```typescript filename="queries.ts"
+import { drizzle } from "drizzle-orm/postgres-js"
+import { Encryption } from "@cipherstash/stack"
+import { extractEncryptionSchema, createEncryptionOperators } from "@cipherstash/stack/drizzle"
+import { usersTable } from "./schema"
+import postgres from "postgres"
+
+const usersSchema = extractEncryptionSchema(usersTable)
+const client = await Encryption({ schemas: [usersSchema] })
+const ops = createEncryptionOperators(client)
+const db = drizzle({ client: postgres(process.env.DATABASE_URL!) })
+
+// Equality lookup
+const exact = await db
+  .select()
+  .from(usersTable)
+  .where(await ops.eq(usersTable.email, "alice@example.com"))
+
+// Range query on an encrypted number column
+const adults = await db
+  .select()
+  .from(usersTable)
+  .where(await ops.gte(usersTable.age, 18))
+```
+
+## Batching conditions with `and` and `or`
+
+Passing multiple operators to `encryptionOps.and()` or `encryptionOps.or()` batches all encryption into a single ZeroKMS call. This is more efficient than `await`ing each operator separately.
+
+Pass each operator without `await` as an argument to `and()` or `or()`, then `await` the outer call.
+
+```typescript filename="batched-query.ts"
+// All three encryptions happen in one ZeroKMS call
+const results = await db
+  .select()
+  .from(usersTable)
+  .where(
+    await ops.and(
+      ops.gte(usersTable.age, 18),
+      ops.lte(usersTable.age, 65),
+      ops.ilike(usersTable.email, "%@example.com"),
+    ),
+  )
+```
+
+Both `and()` and `or()` filter out `undefined` conditions, which makes conditional query building safe:
+
+```typescript filename="conditional-query.ts"
+const results = await db
+  .select()
+  .from(usersTable)
+  .where(
+    await ops.and(
+      searchEmail ? ops.ilike(usersTable.email, `%${searchEmail}%`) : undefined,
+      ops.gte(usersTable.age, minAge),
+    ),
+  )
+```
+
+## EQL migration generation
+
+`extractEncryptionSchema` produces a CipherStash schema object from your Drizzle table. The `@cipherstash/cli` uses this schema to generate the EQL database migration that installs the required PostgreSQL indexes.
+
+Run the migration generator after defining your table:
+
+```bash
+npx @cipherstash/cli db install
+```
+
+The CLI reads your Drizzle config and calls `extractEncryptionSchema` internally to determine which columns need EQL indexes. It then produces a timestamped SQL migration file in your Drizzle migrations directory.
+
+See the [CipherStash CLI reference](/stack/cipherstash/cli) for all `db install` options.
+
+## Cross-links
+
+- Integration guide: [Drizzle integration guide](/stack/cipherstash/encryption/drizzle)
+- Index types: [Encrypted indexes](/stack/cipherstash/encryption/indexes)
+- Query patterns: [Encrypted queries](/stack/cipherstash/encryption/queries)
+- PostgreSQL setup: [Postgres setup](/stack/cipherstash/postgres)
+
+## Full API surface
+
+Everything else is in the auto-generated TypeDoc reference:
+
+- [Drizzle module](/stack/reference/stack/latest/packages/stack/src/drizzle) — all exports
+- [`encryptedType`](/stack/reference/stack/latest/packages/stack/src/drizzle/functions/encryptedType) — column builder
+- [`extractEncryptionSchema`](/stack/reference/stack/latest/packages/stack/src/drizzle/functions/extractEncryptionSchema) — schema conversion
+- [`createEncryptionOperators`](/stack/reference/stack/latest/packages/stack/src/drizzle/functions/createEncryptionOperators) — operator factory
+- [`EncryptedColumnConfig`](/stack/reference/stack/latest/packages/stack/src/drizzle/type-aliases/EncryptedColumnConfig) — column config type

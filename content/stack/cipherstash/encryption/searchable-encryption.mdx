@@ -32,6 +32,11 @@ The result: your data is encrypted at rest, in transit, and during query evaluat
    npx stash db install
    ```
 2. Define your encryption schema with the appropriate search indexes
+3. Create PostgreSQL indexes on your encrypted columns. See [Setting up indexes](/stack/cipherstash/encryption/indexes) for the correct `CREATE INDEX` syntax for your deployment (self-hosted vs Supabase).
+
+<Callout type="info">
+  Index creation syntax differs between self-hosted PostgreSQL and Supabase. On Supabase, queries against encrypted columns require a specific function-wrapped form to engage functional indexes. See [Setting up indexes](/stack/cipherstash/encryption/indexes) for the full guide.
+</Callout>
 
 ## What is EQL?
 

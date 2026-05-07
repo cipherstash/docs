@@ -138,7 +138,7 @@ port = "9930"
 
 ## Development settings
 
-Default settings are tuned for production. When running Proxy locally, override these for a better development experience.
+Default settings are tuned for production. When running Proxy locally, override these for a better development experience. None of these settings are appropriate for production.
 
 Enable colored, human-readable logs:
 
@@ -153,6 +153,29 @@ Reduce reload intervals when iterating on your schema:
 CS_DATABASE__CONFIG_RELOAD_INTERVAL="10"
 CS_DATABASE__SCHEMA_RELOAD_INTERVAL="10"
 ```
+
+### Slow query logging
+
+Slow query logging helps you identify statements that take longer than expected. Enable it with:
+
+```bash
+CS_LOG__SLOW_STATEMENTS="true"
+```
+
+By default, any statement taking longer than 2000 ms is flagged. Tune the thresholds to match your latency expectations:
+
+```bash
+CS_LOG__SLOW_STATEMENT_MIN_DURATION_MS="500"   # statement total time
+CS_LOG__SLOW_DB_RESPONSE_MIN_DURATION_MS="200" # database round-trip only
+```
+
+When a slow statement is detected, Proxy emits a structured log line at the `SLOW_STATEMENTS` target. With `format = "pretty"`, it looks like:
+
+```
+WARN  slow_statement  duration_ms=620  query="SELECT * FROM users WHERE ..."
+```
+
+Use these log lines to identify queries that need indexes or to spot unexpectedly slow EQL operations. To isolate slow-statement output in production, set `CS_LOG__SLOW_STATEMENTS_LEVEL=warn` while keeping the global level at `error`.
 
 ## Docker-specific options
 

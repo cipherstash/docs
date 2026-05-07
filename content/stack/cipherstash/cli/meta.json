@@ -2,10 +2,16 @@
   "title": "CipherStash CLI",
   "pages": [
     "index",
+    "---Setup---",
     "init",
+    "plan",
+    "impl",
+    "status",
+    "---Database---",
     "install",
     "validate",
     "push",
+    "---Reference---",
     "api",
     "troubleshooting"
   ]

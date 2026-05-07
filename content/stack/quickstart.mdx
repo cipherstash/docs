@@ -9,38 +9,47 @@ CipherStash encrypts your data at the field level. Every value gets its own key,
 
 Here's how to set it up. Works with any Postgres — Supabase, Neon, RDS, a Docker container, whatever.
 
-## Install
+## Set up your project
 
-```bash
-npm install @cipherstash/stack
-npm install -D stash
-```
+The CLI handles install, database setup, and encryption scaffolding as three explicit save-points.
 
-## Authenticate and set up your workspace
+### Step 1: Initialize
 
 ```bash
 npx stash init
 ```
 
-This opens a browser for device-based authentication. No shared secrets, no environment variables for local dev. Init will:
+This opens a browser for device-based authentication. No shared secrets, no environment variables for local dev. Init:
 
-1. Authenticate your device
-2. Create a workspace (or connect to an existing one)
-3. Generate a client with access to your default keyset
+1. Authenticates your device and connects to your workspace
+2. Resolves your database connection and installs the EQL extension
+3. Scaffolds an encryption client at `./src/encryption/index.ts`
+4. Installs `@cipherstash/stack` and `stash` if not already present
+5. Writes `.cipherstash/context.json` with detected facts about your project
 
-## Set up your database
+When init finishes, it prompts: `Continue to stash plan now?` (default-yes).
+
+### Step 2: Draft a plan
 
 ```bash
-npx stash db install
+npx stash plan
 ```
 
-Auto-detects your Postgres provider and installs the EQL extension for searchable encryption. On managed databases (Supabase, Neon, RDS), the CLI detects your role and selects the right install variant automatically.
+Hands off to a coding agent (Claude Code, Codex, or others) which reads your project and writes `.cipherstash/plan.md`. The plan lists the tables and columns to encrypt and whether each column is new or needs migration from plaintext. Review the plan before proceeding.
+
+### Step 3: Implement
+
+```bash
+npx stash impl
+```
+
+Reads the plan, shows a summary panel, asks you to confirm, then dispatches to an agent to make the changes.
 
 ## Define your encryption schema
 
-The CLI generates a schema file. Open it and define which columns to encrypt:
+After `stash plan` produces the plan, the agent edits `./src/encryption/index.ts` based on your project. The file defines which columns to encrypt:
 
-```typescript filename="encryption/schema.ts"
+```typescript filename="src/encryption/index.ts"
 import { encryptedTable, encryptedColumn } from "@cipherstash/stack"
 
 export const users = encryptedTable("users", {

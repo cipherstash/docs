@@ -1,0 +1,75 @@
+---
+title: Message flow
+description: How CipherStash Proxy handles PostgreSQL Parse and Bind messages to transparently encrypt and decrypt query parameters.
+---
+
+This page explains the internal message handling flow for advanced users debugging unmappable statements or unexpected proxy behaviour. CipherStash Proxy sits between your application and PostgreSQL and intercepts the PostgreSQL extended query protocol. It encrypts parameters before they reach the database and decrypts values before they reach your application.
+
+## Extended query protocol overview
+
+The PostgreSQL extended query protocol uses a sequence of messages to execute parameterised queries. The two most relevant messages for encryption are:
+
+- **Parse** — the client sends a SQL statement with parameter placeholders (`$1`, `$2`, ...). Proxy inspects the statement and maps column references to their encryption config.
+- **Bind** — the client sends parameter values to bind to a prepared statement. If Proxy recognised the statement during Parse, it encrypts the parameters here before forwarding them.
+
+## Parse flow
+
+When Proxy receives a Parse message, it determines whether the SQL statement references encrypted columns.
+
+![Parse message flow diagram](/images/proxy/parse.svg)
+
+1. Proxy checks whether the statement is encryptable (i.e., it references at least one column with an active encryption config).
+2. If it is encryptable, Proxy maps the column references to their encryption configuration.
+3. If the statement includes literal parameter values, Proxy rewrites them as encrypted values immediately.
+4. Proxy adds the statement and its column config to the connection context for use during Bind.
+5. Proxy forwards the (possibly rewritten) Parse message to PostgreSQL.
+
+If the statement is not encryptable (no encrypted columns referenced), Proxy forwards it unchanged.
+
+## Bind flow
+
+When Proxy receives a Bind message, it looks up the corresponding statement in the connection context.
+
+![Bind message flow diagram](/images/proxy/bind.svg)
+
+1. Proxy checks whether the statement that this Bind message references is in the context (i.e., was processed during Parse).
+2. If it is, Proxy encrypts each parameter value according to the column config mapped during Parse.
+3. Proxy rewrites the parameter values in the Bind message with the encrypted payloads.
+4. Proxy creates a portal for the bound statement and adds it to the context.
+5. Proxy forwards the rewritten Bind message to PostgreSQL.
+
+If the statement is not in context, Proxy creates a portal without encryption and forwards it unchanged.
+
+## Pipelining
+
+PostgreSQL supports pipelining: the client can send multiple messages without waiting for responses. Proxy must track Describe and Execute messages to correlate server responses with the right statements or portals, since responses arrive in order but may interleave.
+
+```
+            Sequential                              Pipelined
+| Client         | Server          |    | Client         | Server          |
+|----------------|-----------------|    |----------------|-----------------|
+| send query 1   |                 |    | send query 1   |                 |
+|                | process query 1 |    | send query 2   | process query 1 |
+| receive rows 1 |                 |    | send query 3   | process query 2 |
+| send query 2   |                 |    | receive rows 1 | process query 3 |
+|                | process query 2 |    | receive rows 2 |                 |
+| receive rows 2 |                 |    | receive rows 3 |                 |
+```
+
+The PostgreSQL server always processes queries in sequential order, even when pipelined. Proxy preserves this ordering when encrypting parameters and decrypting results.
+
+## Unmappable statements
+
+Some statements cannot be mapped to an encryption config. This happens when:
+
+- The statement uses a function or expression that obscures the column reference (e.g., `CAST(email AS text)`)
+- The column is referenced through a view, subquery, or CTE that Proxy cannot resolve
+- The statement uses a SQL feature Proxy does not yet parse (e.g., certain `COPY` forms)
+
+When a statement is unmappable, Proxy forwards it to PostgreSQL unmodified. No encryption or decryption occurs. The `cipherstash_proxy_statements_unmappable_total` Prometheus metric tracks how often this happens. Enable `CS_LOG__MAPPER_LEVEL=debug` to see which statements are unmappable and why.
+
+## Related reference
+
+- [Proxy configuration reference](/stack/reference/proxy-reference)
+- [Proxy errors](/stack/reference/proxy-errors)
+- [Prometheus metrics](/stack/reference/proxy-reference#prometheus-metrics)

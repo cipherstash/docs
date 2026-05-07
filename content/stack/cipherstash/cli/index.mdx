@@ -20,45 +20,47 @@ Think of it like Prisma CLI or Drizzle Kit. It sets up the database while the ma
 
 ### Interactive (recommended)
 
+The setup lifecycle has three explicit save-points. Each command can be run standalone; the chain prompts after `init` and `plan` are convenience for first-time users.
+
 <Steps>
   <Step>
     ### Run init
 
-    The `npx stash init` command authenticates you, generates your encryption schema, and installs dependencies.
+    `stash init` authenticates you, resolves your database, scaffolds an encryption client, installs dependencies, installs EQL, and writes `.cipherstash/context.json`.
 
     ```bash
     npx stash init
     ```
+
+    When init finishes, it asks (default-yes) whether to continue to `stash plan`.
   </Step>
 
   <Step>
-    ### Install EQL in your database
+    ### Draft an encryption plan
 
-    Run `db install` to write `stash.config.ts` (if missing), check permissions, and install EQL:
+    `stash plan` hands off to a coding agent (Claude Code or Codex), which reads your project and writes `.cipherstash/plan.md`. The plan lists the tables and columns to encrypt. Review it before proceeding.
 
     ```bash
-    npx stash db install
+    npx stash plan
     ```
 
-    The CLI auto-detects your Postgres provider and selects the right install variant. EQL is now installed and your encryption schema is ready.
-
-    After install, the CLI prints a next-steps block with two paths: the AI-powered wizard (`npx @cipherstash/wizard`) or direct SDK usage.
+    When plan finishes, it asks (default-yes) whether to continue to `stash impl`.
   </Step>
 
   <Step>
-    ### Wire up encryption (optional)
+    ### Execute the plan
 
-    Use the AI-powered wizard to edit your schema and application code automatically:
+    `stash impl` reads the plan, shows a summary panel, asks you to confirm, and dispatches to the agent to make the changes.
 
     ```bash
-    npx @cipherstash/wizard
+    npx stash impl
     ```
-
-    `@cipherstash/wizard` is a separate package. It runs once per project and requires no permanent install.
   </Step>
 </Steps>
 
 ### Manual setup
+
+If you prefer to configure things yourself rather than running `stash init`, you can scaffold the config file manually and run `stash db install` directly.
 
 <Steps>
   <Step>
@@ -124,9 +126,17 @@ The CLI loads `.env.local`, `.env.development.local`, `.env.development`, then `
 
 ## Wizard
 
-`@cipherstash/wizard` is an AI-powered tool that reads your codebase, asks which columns to encrypt, and wires up `@cipherstash/stack` for you. It is a separate package from `stash`.
+`stash wizard` (also available as `@cipherstash/wizard`) is the CipherStash-hosted AI setup tool. It reads your codebase, asks which columns to encrypt, and wires up `@cipherstash/stack` for you.
 
-Run it with your package manager's runner:
+The primary setup path is `stash init` → `stash plan` → `stash impl`, which can hand off to Claude Code, Codex, AGENTS.md (Cursor, Windsurf, Cline), or the wizard. The wizard is one handoff target among these options.
+
+Run it directly with:
+
+```bash
+npx stash wizard
+```
+
+Or via the package runner:
 
 ```bash
 npx @cipherstash/wizard       # npm / Node
@@ -135,14 +145,12 @@ bunx @cipherstash/wizard      # bun
 yarn dlx @cipherstash/wizard  # yarn
 ```
 
-The wizard installs nothing permanently and is intended to be invoked once per project.
-
 ### Prerequisites
 
 Before running the wizard, your project should have:
 
 - An authenticated CipherStash session (`npx stash auth login`)
-- A `stash.config.ts` (run `npx stash db install` to scaffold one)
+- A `stash.config.ts` (run `npx stash init` or `npx stash db install` to scaffold one)
 - A reachable database via `DATABASE_URL`
 
 ### What the wizard does
@@ -179,9 +187,10 @@ This command is experimental and gated behind the `STASH_EXPERIMENTAL_ENV_CMD=1`
 ## Next steps
 
 <Cards>
-  <Card title="Init" href="/stack/cipherstash/cli/init" description="Use the interactive init command to set up the CLI in your project." />
+  <Card title="Init" href="/stack/cipherstash/cli/init" description="Use the interactive init command to scaffold your project and generate context.json." />
+  <Card title="Plan" href="/stack/cipherstash/cli/plan" description="Draft a reviewable encryption plan before any code changes are made." />
+  <Card title="Impl" href="/stack/cipherstash/cli/impl" description="Execute the plan with a local coding agent." />
+  <Card title="Status" href="/stack/cipherstash/cli/status" description="Check where you are in the setup lifecycle at a glance." />
   <Card title="Install and upgrade" href="/stack/cipherstash/cli/install" description="Install or upgrade EQL in your database." />
-  <Card title="Schema validation" href="/stack/cipherstash/cli/validate" description="Validate your encryption schema for common misconfigurations." />
-  <Card title="Push to database" href="/stack/cipherstash/cli/push" description="Push your encryption schema to the database for use with CipherStash Proxy." />
   <Card title="Programmatic API" href="/stack/cipherstash/cli/api" description="Use the CLI as a library in your own scripts and tooling." />
 </Cards>

@@ -21,11 +21,12 @@ This is the primitive everything else depends on.
 
 ## How it works
 
-1. **Initialize your project:** Run `npx stash init` to generate your encryption schema and client.
-2. **Set up your database:** Run `npx stash db install` to set up searchable encryption in PostgreSQL.
-3. **Encrypt and store:** Encrypt values before writing to your database.
-4. **Query encrypted data:** Encrypt query terms and run them against your encrypted columns.
-5. **Decrypt on read:** Decrypt values when reading from the database.
+1. **Initialize your project:** Run `npx stash init` to authenticate, install EQL, scaffold the encryption client, and write `.cipherstash/context.json`.
+2. **Draft a plan:** Run `npx stash plan` to hand off to a coding agent, which produces a reviewable plan at `.cipherstash/plan.md`.
+3. **Execute the plan:** Run `npx stash impl` to confirm the plan and let the agent wire up encryption in your codebase.
+4. **Encrypt and store:** Encrypt values before writing to your database.
+5. **Query encrypted data:** Encrypt query terms and run them against your encrypted columns.
+6. **Decrypt on read:** Decrypt values when reading from the database.
 
 <Callout type="info">
 All key management (key generation, derivation, and isolation) is handled by [ZeroKMS](/stack/cipherstash/kms). Encryption keys are organized into [Key Sets](/stack/cipherstash/kms/keysets), the same primitive that will power Secrets (coming soon) environment isolation.
@@ -49,14 +50,14 @@ All key management (key generation, derivation, and isolation) is handled by [Ze
 
 [CipherStash CLI](/stack/cipherstash/cli) (`stash`) is the dev-time CLI for setting up your database. It handles installing the EQL extension, validating schemas, and managing the encryption lifecycle. Think of it like Drizzle Kit or Prisma CLI: a companion tool that sets up the database while `@cipherstash/stack` handles runtime encryption.
 
-`init` generates your encryption schema, client file, and installs `stash` as a devDependency. Then run `npx stash db install` to configure your database.
+`stash init` scaffolds the encryption client, installs EQL, and writes `.cipherstash/context.json`. Then run `stash plan` to draft an encryption plan and `stash impl` to execute it.
 
 ```bash
-npx stash init             # Interactive project setup
-npx stash db install       # Install EQL and scaffold stash.config.ts
+npx stash init             # Interactive project setup (auth, EQL install, client scaffold)
+npx stash plan             # Draft a reviewable encryption plan
+npx stash impl             # Execute the plan with a coding agent
 npx stash db validate      # Check schema for misconfigurations
 npx stash db status        # Show EQL installation state
-npx @cipherstash/wizard               # AI-powered encryption setup (separate package)
 ```
 
 <Cards>

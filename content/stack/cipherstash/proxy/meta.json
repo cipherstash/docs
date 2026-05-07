@@ -12,6 +12,7 @@
     "searchable-json",
     "encrypt-tool",
     "audit",
+    "message-flow",
     "troubleshooting"
   ]
 }
