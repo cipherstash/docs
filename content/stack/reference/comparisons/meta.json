@@ -1,0 +1,5 @@
+{
+  "title": "Comparisons",
+  "description": "How CipherStash compares to alternative approaches",
+  "pages": ["index", "fhe", "aws-kms"]
+}
