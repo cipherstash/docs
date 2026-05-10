@@ -2,18 +2,19 @@
 title: EQL API Reference
 description: Complete API reference for the Encrypt Query Language (EQL) PostgreSQL extension.
 ---
-> **Latest Version:** 2.3.0-pre.2
+> **Latest Version:** 2.3.0-pre.3
 
 Complete API reference for the Encrypt Query Language (EQL) PostgreSQL extension.
 
 ## Functions
 
 - [`->(eql_v2_encrypted, eql_v2_encrypted)`](#-eql_v2_encrypted-eql_v2_encrypted) - -> operator with encrypted selector
-- [`->>(eql_v2_encrypted, eql_v2_encrypted)`](#-eql_v2_encrypted-eql_v2_encrypted-1) - ->> operator with encrypted selector
+- [`->>()`](#) - ->> operator with encrypted selector
 - [`>(eql_v2_encrypted, eql_v2_encrypted)`](#eql_v2_encrypted-eql_v2_encrypted) - > operator for encrypted value and JSONB
 - [`blake3(eql_v2_encrypted)`](#blake3eql_v2_encrypted) - Extract Blake3 hash index term from encrypted column value.
 - [`bloom_filter(eql_v2_encrypted)`](#bloom_filtereql_v2_encrypted) - Extract Bloom filter index term from encrypted column value.
 - [`check_encrypted(eql_v2_encrypted)`](#check_encryptedeql_v2_encrypted) - Validate encrypted composite type structure.
+- [`compare_ore_block_u64_8_256_term(eql_v2.ore_block_u64_8_256_term, eql_v2.ore_block_u64_8_256_term)`](#compare_ore_block_u64_8_256_termeql_v2ore_block_u64_8_256_term-eql_v2ore_block_u64_8_256_term) - Compare two ORE block terms using cryptographic comparison.
 - [`compare_ore_block_u64_8_256_terms(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#compare_ore_block_u64_8_256_termseql_v2ore_block_u64_8_256-eql_v2ore_block_u64_8_256) - Compare ORE block composite types.
 - [`compare_ore_block_u64_8_256_terms(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#compare_ore_block_u64_8_256_termseql_v2ore_block_u64_8_256-eql_v2ore_block_u64_8_256-1) - Compare ORE block composite types.
 - [`compare_ore_block_u64_8_256_terms(eql_v2.ore_block_u64_8_256_term, eql_v2.ore_block_u64_8_256_term)`](#compare_ore_block_u64_8_256_termseql_v2ore_block_u64_8_256_term-eql_v2ore_block_u64_8_256_term) - Compare arrays of ORE block terms recursively.
@@ -33,14 +34,16 @@ Complete API reference for the Encrypt Query Language (EQL) PostgreSQL extension
 - [`diff_config(JSONB, JSONB)`](#diff_configjsonb-jsonb) - Compare two configurations and find differences.
 - [`eql_v2_configuration()`](#eql_v2_configuration) - Unique pending configuration constraint.
 - [`has_blake3(jsonb)`](#has_blake3jsonb) - Check if JSONB payload contains Blake3 index term.
-- [`has_bloom_filter(jsonb)`](#has_bloom_filterjsonb) - Check if JSONB payload contains Bloom filter index term.
-- [`has_hmac_256(jsonb)`](#has_hmac_256jsonb) - Check if JSONB payload contains HMAC-SHA256 index term.
-- [`has_ore_block_u64_8_256(jsonb)`](#has_ore_block_u64_8_256jsonb) - Check if JSONB payload contains ORE block index term.
+- [`has_bloom_filter()`](#has_bloom_filter) - Check if JSONB payload contains Bloom filter index term.
+- [`has_hmac_256()`](#has_hmac_256) - Check if JSONB payload contains HMAC-SHA256 index term.
+- [`has_ope_cllw_u64_65(jsonb)`](#has_ope_cllw_u64_65jsonb) - Check if JSONB payload contains CLWW OPE index term.
+- [`has_ope_cllw_var_8(jsonb)`](#has_ope_cllw_var_8jsonb) - Check if JSONB payload contains variable-width CLWW OPE index term.
+- [`has_ore_block_u64_8_256()`](#has_ore_block_u64_8_256) - Check if JSONB payload contains ORE block index term.
 - [`has_ore_cllw_u64_8(jsonb)`](#has_ore_cllw_u64_8jsonb) - Check if JSONB payload contains CLLW ORE index term.
 - [`has_ore_cllw_var_8(jsonb)`](#has_ore_cllw_var_8jsonb) - Check if JSONB payload contains variable-width CLLW ORE index term.
 - [`hmac_256(eql_v2_encrypted)`](#hmac_256eql_v2_encrypted) - Extract HMAC-SHA256 index term from encrypted column value.
 - [`ilike(eql_v2_encrypted, eql_v2_encrypted)`](#ilikeeql_v2_encrypted-eql_v2_encrypted) - Case-insensitive pattern matching helper.
-- [`is_ste_vec_array()`](#is_ste_vec_array) - Check if encrypted column value is marked as an STE vector array.
+- [`is_ste_vec_array(eql_v2_encrypted)`](#is_ste_vec_arrayeql_v2_encrypted) - Check if encrypted column value is marked as an STE vector array.
 - [`is_ste_vec_array(jsonb)`](#is_ste_vec_arrayjsonb) - Check if JSONB payload is marked as an STE vector array.
 - [`is_ste_vec_value(jsonb)`](#is_ste_vec_valuejsonb) - Check if JSONB payload is a single-element STE vector.
 - [`jsonb_array(jsonb)`](#jsonb_arrayjsonb) - Extract deterministic fields as array for GIN indexing.
@@ -56,6 +59,9 @@ Complete API reference for the Encrypt Query Language (EQL) PostgreSQL extension
 - [`jsonb_path_query_first(jsonb, text)`](#jsonb_path_query_firstjsonb-text) - Get first element matching selector.
 - [`log(text, text)`](#logtext-text) - Log message with context.
 - [`log(text)`](#logtext) - Log message for debugging.
+- [`ope_cllw_u64_65(eql_v2_encrypted)`](#ope_cllw_u64_65eql_v2_encrypted) - Extract CLWW OPE index term from encrypted column value.
+- [`ope_cllw_var_8(eql_v2_encrypted)`](#ope_cllw_var_8eql_v2_encrypted) - Extract variable-width CLWW OPE index term from encrypted column value.
+- [`order_by_ope(eql_v2_encrypted)`](#order_by_opeeql_v2_encrypted) - Extract OPE ciphertext bytes for ordering encrypted values.
 - [`ore_block_u64_8_256(jsonb)`](#ore_block_u64_8_256jsonb) - Extract ORE block index term from JSONB payload.
 - [`ore_block_u64_8_256_gt(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#ore_block_u64_8_256_gteql_v2ore_block_u64_8_256-eql_v2ore_block_u64_8_256) - Greater than operator for ORE block types.
 - [`ore_block_u64_8_256_gte(eql_v2.ore_block_u64_8_256, eql_v2.ore_block_u64_8_256)`](#ore_block_u64_8_256_gteeql_v2ore_block_u64_8_256-eql_v2ore_block_u64_8_256) - Greater than or equal operator for ORE block types.
@@ -72,6 +78,7 @@ Complete API reference for the Encrypt Query Language (EQL) PostgreSQL extension
 - [`selector(jsonb)`](#selectorjsonb) - Extract selector value from JSONB payload.
 - [`ste_vec(eql_v2_encrypted)`](#ste_veceql_v2_encrypted) - Extract STE vector index from encrypted column value.
 - [`ste_vec_contains(eql_v2_encrypted, eql_v2_encrypted)`](#ste_vec_containseql_v2_encrypted-eql_v2_encrypted) - Check if encrypted value 'a' contains all elements of encrypted value 'b'.
+- [`ste_vec_contains(eql_v2_encrypted, eql_v2_encrypted)`](#ste_vec_containseql_v2_encrypted-eql_v2_encrypted-1) - Check if encrypted value 'a' contains all elements of encrypted value 'b'.
 - [`ste_vec_contains(public.eql_v2_encrypted, eql_v2_encrypted)`](#ste_vec_containspubliceql_v2_encrypted-eql_v2_encrypted) - Check if STE vector array contains a specific encrypted element.
 - [`to_jsonb(eql_v2_encrypted)`](#to_jsonbeql_v2_encrypted) - Convert encrypted type to JSONB.
 - [`to_ste_vec_value(jsonb)`](#to_ste_vec_valuejsonb) - Convert single-element STE vector to regular encrypted value.
@@ -111,7 +118,7 @@ eql_v2_encrypted Encrypted value at selector
 
 ---
 
-### `->>(eql_v2_encrypted, eql_v2_encrypted)`
+### `->>()`
 
 ->> operator with encrypted selector
 
@@ -119,8 +126,8 @@ eql_v2_encrypted Encrypted value at selector
 
 | Name | Type | Description |
 |------|------|-------------|
-| `e` | `eql_v2_encrypted` | Encrypted JSONB data |
-| `selector` | `eql_v2_encrypted` | Encrypted field selector |
+| `e` |  | Encrypted JSONB data |
+| `selector` |  | Encrypted field selector |
 
 #### Returns
 
@@ -138,12 +145,20 @@ text Encrypted value at selector, implicitly cast from eql_v2_encrypted
 
 > operator for encrypted value and JSONB
 
+> operator for JSONB and encrypted value
+
 #### Parameters
 
 | Name | Type | Description |
 |------|------|-------------|
-| `a` | `eql_v2_encrypted` |  |
-| `b` | `eql_v2_encrypted` |  |
+| `a` | `eql_v2_encrypted` | Left operand (encrypted value) |
+| `b` | `eql_v2_encrypted` | Right operand (JSONB cast to encrypted) |
+
+#### Returns
+
+**Type:** `boolean`
+
+Boolean True if a > b
 
 #### Variants
 
@@ -224,6 +239,19 @@ Boolean True if structure is valid
 #### Variants
 
 - `check_encrypted(jsonb)`
+
+---
+
+### `compare_ore_block_u64_8_256_term(eql_v2.ore_block_u64_8_256_term, eql_v2.ore_block_u64_8_256_term)`
+
+Compare two ORE block terms using cryptographic comparison.
+
+#### Parameters
+
+| Name | Type | Description |
+|------|------|-------------|
+| `a` | `eql_v2.ore_block_u64_8_256_term` |  |
+| `b` | `eql_v2.ore_block_u64_8_256_term` |  |
 
 ---
 
@@ -500,7 +528,7 @@ Boolean True if Blake3 hash is present
 
 ---
 
-### `has_bloom_filter(jsonb)`
+### `has_bloom_filter()`
 
 Check if JSONB payload contains Bloom filter index term.
 
@@ -512,7 +540,7 @@ Tests whether the encrypted data payload includes a 'bf' field, indicating a Blo
 
 | Name | Type | Description |
 |------|------|-------------|
-| `val` | `jsonb` | encrypted EQL payload |
+| `val` |  |  |
 
 #### Returns
 
@@ -522,11 +550,11 @@ Boolean True if Bloom filter is present
 
 #### Variants
 
-- [`has_bloom_filter(jsonb)`](#has_bloom_filterjsonb)
+- `has_bloom_filter(jsonb)`
 
 ---
 
-### `has_hmac_256(jsonb)`
+### `has_hmac_256()`
 
 Check if JSONB payload contains HMAC-SHA256 index term.
 
@@ -538,7 +566,7 @@ Tests whether the encrypted data payload includes an 'hm' field, indicating an H
 
 | Name | Type | Description |
 |------|------|-------------|
-| `val` | `jsonb` | encrypted EQL payload |
+| `val` |  |  |
 
 #### Returns
 
@@ -548,17 +576,17 @@ Boolean True if HMAC-SHA256 hash is present
 
 #### Variants
 
-- [`has_hmac_256(jsonb)`](#has_hmac_256jsonb)
+- `has_hmac_256(jsonb)`
 
 ---
 
-### `has_ore_block_u64_8_256(jsonb)`
+### `has_ope_cllw_u64_65(jsonb)`
 
-Check if JSONB payload contains ORE block index term.
+Check if JSONB payload contains CLWW OPE index term.
 
-Check if encrypted column value contains ORE block index term.
+Check if encrypted column value contains CLWW OPE index term.
 
-Tests whether the encrypted data payload includes an 'ob' field, indicating an ORE block is available for range queries.
+Tests whether the encrypted data payload includes an 'opf' field, indicating a fixed-width CLWW OPE ciphertext is available for range queries.
 
 #### Parameters
 
@@ -570,11 +598,63 @@ Tests whether the encrypted data payload includes an 'ob' field, indicating an O
 
 **Type:** `boolean`
 
+Boolean True if CLWW OPE ciphertext is present
+
+#### Variants
+
+- [`has_ope_cllw_u64_65(jsonb)`](#has_ope_cllw_u64_65jsonb)
+
+---
+
+### `has_ope_cllw_var_8(jsonb)`
+
+Check if JSONB payload contains variable-width CLWW OPE index term.
+
+Check if encrypted column value contains variable-width CLWW OPE index term.
+
+Tests whether the encrypted data payload includes an 'opv' field, indicating a variable-width CLWW OPE ciphertext is available for range queries.
+
+#### Parameters
+
+| Name | Type | Description |
+|------|------|-------------|
+| `val` | `jsonb` | encrypted EQL payload |
+
+#### Returns
+
+**Type:** `boolean`
+
+Boolean True if variable-width CLWW OPE ciphertext is present
+
+#### Variants
+
+- [`has_ope_cllw_var_8(jsonb)`](#has_ope_cllw_var_8jsonb)
+
+---
+
+### `has_ore_block_u64_8_256()`
+
+Check if JSONB payload contains ORE block index term.
+
+Check if encrypted column value contains ORE block index term.
+
+Tests whether the encrypted data payload includes an 'ob' field, indicating an ORE block is available for range queries.
+
+#### Parameters
+
+| Name | Type | Description |
+|------|------|-------------|
+| `val` |  |  |
+
+#### Returns
+
+**Type:** `boolean`
+
 Boolean True if ORE block is present
 
 #### Variants
 
-- [`has_ore_block_u64_8_256(jsonb)`](#has_ore_block_u64_8_256jsonb)
+- `has_ore_block_u64_8_256(jsonb)`
 
 ---
 
@@ -667,17 +747,19 @@ Case-insensitive pattern matching helper.
 
 ---
 
-### `is_ste_vec_array()`
+### `is_ste_vec_array(eql_v2_encrypted)`
 
 Check if encrypted column value is marked as an STE vector array.
 
 Tests whether an encrypted column value has the array flag set by checking its underlying JSONB data field.
 
+Tests whether the encrypted data payload has the 'a' (array) flag set to true, indicating it represents an array for STE vector operations.
+
 #### Parameters
 
 | Name | Type | Description |
 |------|------|-------------|
-| `val` |  |  |
+| `val` | `eql_v2_encrypted` | column value |
 
 #### Returns
 
@@ -749,7 +831,7 @@ Extract deterministic fields as array for GIN indexing.
 
 Extract deterministic fields as array from encrypted column.
 
-Extracts only deterministic search term fields (s, b3, hm, ocv, ocf) from each STE vector element. Excludes non-deterministic ciphertext for correct containment comparison using PostgreSQL's native > operator.
+Extracts only deterministic search term fields (s, b3, hm, ocv, ocf, opf, opv) from each STE vector element. Excludes non-deterministic ciphertext for correct containment comparison using PostgreSQL's native > operator.
 
 #### Parameters
 
@@ -1091,6 +1173,84 @@ Primarily used in tests and development
 
 ---
 
+### `ope_cllw_u64_65(eql_v2_encrypted)`
+
+Extract CLWW OPE index term from encrypted column value.
+
+Extracts the fixed-width CLWW OPE ciphertext from an encrypted column value by accessing its underlying JSONB data field.
+
+#### Parameters
+
+| Name | Type | Description |
+|------|------|-------------|
+| `val` | `eql_v2_encrypted` | Encrypted column value |
+
+#### Returns
+
+**Type:** `eql_v2.ope_cllw_u64_65`
+
+eql_v2.ope_cllw_u64_65 CLWW OPE ciphertext
+
+#### Variants
+
+- `ope_cllw_u64_65(jsonb)`
+
+---
+
+### `ope_cllw_var_8(eql_v2_encrypted)`
+
+Extract variable-width CLWW OPE index term from encrypted column value.
+
+Extracts the variable-width CLWW OPE ciphertext from an encrypted column value by accessing its underlying JSONB data field.
+
+#### Parameters
+
+| Name | Type | Description |
+|------|------|-------------|
+| `val` | `eql_v2_encrypted` | Encrypted column value |
+
+#### Returns
+
+**Type:** `eql_v2.ope_cllw_var_8`
+
+eql_v2.ope_cllw_var_8 Variable-width CLWW OPE ciphertext
+
+#### Variants
+
+- `ope_cllw_var_8(jsonb)`
+
+---
+
+### `order_by_ope(eql_v2_encrypted)`
+
+Extract OPE ciphertext bytes for ordering encrypted values.
+
+Returns the raw CLWW Order-Preserving Encryption ciphertext as bytea so it can be used as an order key. OPE ciphertexts compare with standard lexicographic byte ordering, so the returned bytea can be ordered directly with \<, =, > (no custom protocol required).
+
+Prefers the fixed-width variant (opf, ope_cllw_u64_65) when present and falls back to the variable-width variant (opv, ope_cllw_var_8). Returns NULL when neither is present.
+
+#### Parameters
+
+| Name | Type | Description |
+|------|------|-------------|
+| `a` | `eql_v2_encrypted` | Encrypted value to extract order key from |
+
+#### Returns
+
+**Type:** `bytea`
+
+bytea OPE ciphertext bytes, or NULL if no OPE term is available
+
+#### Note
+
+Requires 'ope' index configuration on the column
+
+#### Variants
+
+- eql_v2.add_search_config
+
+---
+
 ### `ore_block_u64_8_256(jsonb)`
 
 Extract ORE block index term from JSONB payload.
@@ -1419,6 +1579,35 @@ Performs STE vector containment comparison between two encrypted values. Returns
 
 #### Returns
 
+**Type:** `REQUIRE b eql_v2_encrypted RETURNS boolean AS $$ SELECT eql_v2`
+
+Boolean True if all elements of b are contained in a
+
+#### Note
+
+Each element of b must match both selector and value in a
+
+#### Variants
+
+- eql_v2."@>"
+
+---
+
+### `ste_vec_contains(eql_v2_encrypted, eql_v2_encrypted)`
+
+Check if encrypted value 'a' contains all elements of encrypted value 'b'.
+
+Performs STE vector containment comparison between two encrypted values. Returns true if all elements in b's STE vector are found in a's STE vector. Used internally by the > containment operator for searchable encryption.
+
+#### Parameters
+
+| Name | Type | Description |
+|------|------|-------------|
+| `a` | `eql_v2_encrypted` | First encrypted value (container) |
+| `b` | `eql_v2_encrypted` | Second encrypted value (elements to find) |
+
+#### Returns
+
 **Type:** `boolean`
 
 Boolean True if all elements of b are contained in a
@@ -1458,7 +1647,7 @@ Compares both selector and encrypted value for match
 
 #### Variants
 
-- [`ste_vec_contains(eql_v2_encrypted, eql_v2_encrypted)`](#ste_vec_containseql_v2_encrypted-eql_v2_encrypted)
+- [`ste_vec_contains(eql_v2_encrypted, eql_v2_encrypted)`](#ste_vec_containseql_v2_encrypted-eql_v2_encrypted-1)
 
 ---
 
