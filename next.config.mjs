@@ -135,7 +135,18 @@ const config = {
       },
       {
         source: "/stack/platform/aws-kms-comparison",
-        destination: "/stack/reference/aws-kms-comparison",
+        destination: "/stack/reference/comparisons/aws-kms",
+        permanent: true,
+      },
+      // === Comparisons consolidation: flat pages → /reference/comparisons/ ===
+      {
+        source: "/stack/reference/aws-kms-comparison",
+        destination: "/stack/reference/comparisons/aws-kms",
+        permanent: true,
+      },
+      {
+        source: "/stack/reference/fhe-comparison",
+        destination: "/stack/reference/comparisons/fhe",
         permanent: true,
       },
       {
