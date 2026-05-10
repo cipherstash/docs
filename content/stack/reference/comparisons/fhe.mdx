@@ -3,8 +3,6 @@ title: CipherStash vs Homomorphic Encryption
 description: Searchable encryption is not FHE. Here's how CipherStash queries encrypted data — and why it's orders of magnitude faster than fully homomorphic encryption for real database workloads.
 ---
 
-# CipherStash vs Homomorphic Encryption
-
 CipherStash is often described — incorrectly — as "homomorphic encryption for databases." It isn't. CipherStash uses a **portfolio of specialised searchable-encryption schemes**, exposed through PostgreSQL via [EQL](/stack/reference/eql-guide), that are 5–6 orders of magnitude faster than today's best Fully Homomorphic Encryption (FHE) at the operations a real database actually runs.
 
 This page explains the difference, with numbers.

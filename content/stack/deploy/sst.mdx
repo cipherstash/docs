@@ -3,8 +3,6 @@ title: SST
 description: Configure SST and serverless functions to work with @cipherstash/stack
 ---
 
-# SST
-
 When deploying `@cipherstash/stack` in serverless functions with [SST](https://sst.dev/), you need to exclude the package from esbuild bundling and install it into the Lambda deployment artifact.
 
 Configure `nodejs.esbuild.external` and `nodejs.install` in your `sst.config.ts`:
