@@ -3,8 +3,6 @@ title: The CipherCell
 description: The CipherStash format for encrypted data with searchable encrypted metadata
 ---
 
-# The CipherCell
-
 The **CipherCell** is CipherStash's standard format for storing encrypted data in a database. It is a JSON-based structure that combines **encrypted values**, **searchable encrypted metadata**, and **non-sensitive metadata** into a single, self-contained record.
 CipherCells are designed to make encrypted data practical to work with in real applications. They can be stored in existing databases (such as PostgreSQL jsonb columns), indexed, queried, and audited without exposing plaintext.
 
