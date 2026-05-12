@@ -91,16 +91,16 @@ async function downloadAndExtractDocs(
 }
 
 /**
- * Escape curly braces in markdown content so MDX doesn't interpret them as JSX.
- * Preserves braces inside fenced code blocks and inline code spans.
+ * Escape characters that MDX would otherwise interpret as JSX syntax.
+ * Handles `{`, `}`, and stray `<` (e.g. SQL comparison operators).
+ * Preserves content inside fenced code blocks and inline code spans.
  */
-function escapeBraces(content: string): string {
+function escapeMdxSpecials(content: string): string {
   const lines = content.split("\n");
   const result: string[] = [];
   let inCodeBlock = false;
 
   for (const line of lines) {
-    // Track fenced code blocks
     if (/^```/.test(line)) {
       inCodeBlock = !inCodeBlock;
       result.push(line);
@@ -112,14 +112,16 @@ function escapeBraces(content: string): string {
       continue;
     }
 
-    // Outside code blocks: escape braces that aren't inside inline code
-    // Split by inline code spans, escape only non-code parts
     const parts = line.split(/(`[^`]*`)/);
     const escaped = parts
       .map((part, i) => {
-        // Odd indices are inline code spans — leave them alone
         if (i % 2 === 1) return part;
-        return part.replace(/\{/g, "\\{").replace(/\}/g, "\\}");
+        return part
+          .replace(/\{/g, "\\{")
+          .replace(/\}/g, "\\}")
+          // Escape `<` unless it begins a real JSX tag
+          // (followed by a letter, `_`, `$`, or `/`).
+          .replace(/<(?![A-Za-z_$/])/g, "\\<");
       })
       .join("");
     result.push(escaped);
@@ -213,7 +215,7 @@ function convertToMdx(content: string, tag: string): string {
   const versionBadge = `> **Latest Version:** ${version}\n\n`;
 
   const withFixedAnchors = fixAnchorLinks(stripped.trim());
-  return `${frontmatter}${versionBadge}${escapeBraces(withFixedAnchors)}\n`;
+  return `${frontmatter}${versionBadge}${escapeMdxSpecials(withFixedAnchors)}\n`;
 }
 
 async function main() {
