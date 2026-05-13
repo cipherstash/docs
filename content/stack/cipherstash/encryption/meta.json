@@ -19,6 +19,7 @@
     "---Integrations---",
     "storing-data",
     "drizzle",
+    "prisma-next",
     "supabase",
     "dynamodb"
   ]

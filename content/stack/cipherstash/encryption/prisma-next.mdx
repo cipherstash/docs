@@ -1,0 +1,481 @@
+---
+title: Prisma Next
+description: Searchable field-level encryption for Postgres with Prisma Next, the next-gen ORM with a built-in migration framework
+---
+
+# Prisma Next
+
+CipherStash provides first-class [Prisma Next](https://www.npmjs.com/package/@prisma-next/cli) integration through [`@cipherstash/prisma-next`](https://www.npmjs.com/package/@cipherstash/prisma-next). Declare encrypted columns directly in `schema.prisma` with `cipherstash.Encrypted*()` constructors, and use auto-encrypting query operators that make encrypted queries look like standard Prisma Next code.
+
+The Prisma Next integration has a meaningfully shorter onboarding path than the [Drizzle](/stack/cipherstash/encryption/drizzle) or [Supabase](/stack/cipherstash/encryption/supabase) integrations because the framework's migration system absorbs the database-side install. **You do not run `stash db install` for the EQL bundle** — `prisma-next migration apply` installs the EQL extension in the same control-plane sweep that creates your application tables.
+
+## Installation
+
+```bash
+npm install @cipherstash/stack @cipherstash/prisma-next
+```
+
+`@cipherstash/prisma-next` ships subpath exports for the control plane, the runtime plane, the bulk-encrypt middleware, and the all-in-one `./stack` setup helper. See the [subpath reference](#subpath-exports) below.
+
+## Authentication
+
+CipherStash uses a per-developer identity model so every encrypt and decrypt against your workspace is attributable to a real user — not a shared `.env` file.
+
+```bash
+stash auth login   # one-time, per developer
+```
+
+`stash auth login` runs a PKCE flow and caches the resulting credentials in your OS keychain. The `@cipherstash/stack` encryption client picks them up automatically with no env-var threading in local development.
+
+The four `CS_*` env vars (`CS_WORKSPACE_CRN`, `CS_CLIENT_ID`, `CS_CLIENT_KEY`, `CS_CLIENT_ACCESS_KEY`) are reserved for production deployments and CI runners — machine accounts where no human is at the keyboard. Provision them via the [CipherStash dashboard](https://dashboard.cipherstash.com/workspaces) → Settings → Access Keys when you're ready to deploy.
+
+<Callout type="info">
+  This identity story is universal across CipherStash integrations — Drizzle, Supabase, and Prisma Next all use the same PKCE / env-var split.
+</Callout>
+
+## Database setup
+
+Prisma Next models its database state as **contract spaces**, and `@cipherstash/prisma-next` ships its EQL bundle (the `eql_v2_configuration` table, the `eql_v2_encrypted` composite type, the `ore_*` types, the `eql_v2.*` functions and operators) as one of those contract spaces. Registering the extension is the only thing you need to do — the framework handles plan, apply, and verify the same way it manages your application schema.
+
+### Register the extension
+
+```typescript filename="prisma-next.config.ts"
+import { defineConfig } from "@prisma-next/cli/config-types"
+import postgresAdapter from "@prisma-next/adapter-postgres/control"
+import postgresDriver from "@prisma-next/driver-postgres/control"
+import sql from "@prisma-next/family-sql/control"
+import { prismaContract } from "@prisma-next/sql-contract-psl/provider"
+import postgres from "@prisma-next/target-postgres/control"
+import cipherstash from "@cipherstash/prisma-next/control"
+
+export default defineConfig({
+  family: sql,
+  target: postgres,
+  driver: postgresDriver,
+  adapter: postgresAdapter,
+  extensionPacks: [cipherstash],
+  contract: prismaContract("./prisma/schema.prisma", {
+    output: "src/prisma/contract.json",
+    target: postgres,
+  }),
+  migrations: { dir: "migrations" },
+})
+```
+
+Adding `cipherstash` to `extensionPacks` hands the framework the EQL bundle contract space; everything downstream (plan, apply, codec registration, `add_search_config` migration ops) follows from that single registration.
+
+### Install EQL + apply your schema in one step
+
+```bash
+npx prisma-next contract emit           # PSL → contract.{json,d.ts}
+npx prisma-next migration plan --name initial
+npx prisma-next migration apply         # installs EQL bundle + your app schema
+```
+
+The apply step runs **two** contract spaces' migrations in the same transaction: the cipherstash extension's baseline (installs the EQL bundle SQL byte-for-byte, creates the `eql_v2_configuration` table, registers `eql_v2_encrypted`) and your application's own migrations (creates your tables with `eql_v2_encrypted` columns and `eql_v2_encrypted_constraint_*` check constraints). One command, both halves of the install.
+
+## Schema definition
+
+Use `cipherstash.Encrypted*()` to declare encrypted columns directly in `schema.prisma`. Search-mode flags (`equality`, `freeTextSearch`, `orderAndRange`, `searchableJson`) default to `true`, so searchable encryption is the default for every cipherstash column.
+
+```prisma filename="prisma/schema.prisma"
+model User {
+  id            String @id
+  email         cipherstash.EncryptedString()
+  salary        cipherstash.EncryptedDouble()
+  accountId     cipherstash.EncryptedBigInt()  @map("accountid")
+  birthday      cipherstash.EncryptedDate()
+  emailVerified cipherstash.EncryptedBoolean() @map("emailverified")
+  preferences   cipherstash.EncryptedJson()
+
+  @@map("users")
+}
+```
+
+This is the **only** place per-column search-mode flags are declared. The stack-side `encryptedTable(...)` / `encryptedColumn(...)` schema, the EQL `add_search_config` migration ops, and the SDK's per-column index set are all derived from this file at runtime via [`cipherstashFromStack({ contractJson })`](#initialization).
+
+### Encrypted column types
+
+Each PSL constructor maps a JS plaintext to an EQL `cast_as` value and ships with a per-codec set of search-mode flags. Every flag defaults to `true`; pass `false` to opt out (`cipherstash.EncryptedString({ freeTextSearch: false })`).
+
+| PSL constructor | JS plaintext | EQL `cast_as` | Search-mode flags |
+|---|---|---|---|
+| `cipherstash.EncryptedString` | `string` | `text` | `equality`, `freeTextSearch`, `orderAndRange` |
+| `cipherstash.EncryptedDouble` | `number` (IEEE-754) | `double` | `equality`, `orderAndRange` |
+| `cipherstash.EncryptedBigInt` | `bigint` | `big_int` | `equality`, `orderAndRange` |
+| `cipherstash.EncryptedDate` | `Date` (calendar date) | `date` | `equality`, `orderAndRange` |
+| `cipherstash.EncryptedBoolean` | `boolean` | `boolean` | `equality` |
+| `cipherstash.EncryptedJson` | JSON-serialisable value | `jsonb` | `searchableJson` |
+
+Each enabled flag installs one EQL search-config index — see [Indexes](/stack/cipherstash/encryption/indexes) for the index families.
+
+<Callout type="info">
+  When in doubt, leave every flag enabled. Enabling unused flags costs migration time (one extra `add_search_config` DDL op per flag per column) and EQL index storage; it does not affect the encrypt / decrypt path.
+</Callout>
+
+### TypeScript schema authoring
+
+If you author your contract in TypeScript instead of PSL, the column factories are exported from `@cipherstash/prisma-next/column-types`:
+
+```typescript filename="contract.ts"
+import {
+  encryptedBigInt,
+  encryptedBoolean,
+  encryptedDate,
+  encryptedDouble,
+  encryptedJson,
+  encryptedString,
+} from "@cipherstash/prisma-next/column-types"
+import cipherstash from "@cipherstash/prisma-next/pack"
+import sqlFamily from "@prisma-next/family-sql/pack"
+import { defineContract, field, model } from "@prisma-next/sql-contract-ts/contract-builder"
+import postgres from "@prisma-next/target-postgres/pack"
+
+export const contract = defineContract({
+  family: sqlFamily,
+  target: postgres,
+  extensionPacks: { cipherstash },
+  models: {
+    User: model("User", {
+      fields: {
+        id: field.column({ codecId: "pg/int4@1", nativeType: "int4" })
+          .defaultSql("autoincrement()").id(),
+        email: field.column(encryptedString({ orderAndRange: true })),
+        salary: field.column(encryptedDouble()),
+        accountId: field.column(encryptedBigInt()).columnName("accountid"),
+        birthday: field.column(encryptedDate()),
+        emailVerified: field.column(encryptedBoolean()).columnName("emailverified"),
+        profile: field.column(encryptedJson()),
+      },
+    }).sql({ table: "users" }),
+  },
+})
+```
+
+PSL- and TS-authored contracts emit byte-identical `contract.json` for every codec.
+
+## Initialization
+
+`cipherstashFromStack({ contractJson })` is the one-call setup. It derives the stack encryption schemas from your contract, constructs the `@cipherstash/stack` `EncryptionClient`, builds the SDK adapter, and returns ready-to-spread `extensions` and `middleware` for `postgres<Contract>({...})`.
+
+```typescript filename="src/db.ts"
+import "dotenv/config"
+import { cipherstashFromStack } from "@cipherstash/prisma-next/stack"
+import postgres from "@prisma-next/postgres/runtime"
+
+import type { Contract } from "./prisma/contract.d"
+import contractJson from "./prisma/contract.json" with { type: "json" }
+
+const cipherstash = await cipherstashFromStack({ contractJson })
+
+export const db = postgres<Contract>({
+  contractJson,
+  extensions: cipherstash.extensions,
+  middleware: cipherstash.middleware,
+})
+```
+
+That's the entire setup. The bundled `cipherstash.encryptionClient` is also exposed on the return value if you need to talk to the SDK directly outside the ORM path (e.g. encrypting a search term for a custom raw-SQL query).
+
+<Callout type="info">
+  The schema-derivation step keeps one source of truth: `schema.prisma`. You never write a second `encryptedTable(...)` declaration that has to stay in lockstep with the PSL constructors — if you do supply an override `schemas` array, `cipherstashFromStack` validates it against the contract and throws on divergence at setup time.
+</Callout>
+
+## Subpath exports
+
+| Subpath | Purpose |
+|---|---|
+| `@cipherstash/prisma-next/stack` | One-call setup against `@cipherstash/stack`: `cipherstashFromStack`, `deriveStackSchemas`, `createCipherstashSdk` |
+| `@cipherstash/prisma-next/control` | `SqlControlExtensionDescriptor` (contract space + pack meta + codec lifecycle hooks) |
+| `@cipherstash/prisma-next/runtime` | Six envelope classes + `CipherstashSdk` + codec runtime + `decryptAll` + four free-standing helpers |
+| `@cipherstash/prisma-next/middleware` | `bulkEncryptMiddleware(sdk)` |
+| `@cipherstash/prisma-next/pack` | `cipherstashPackMeta` for TypeScript contract authoring |
+| `@cipherstash/prisma-next/column-types` | Six TS factories: `encryptedString`, `encryptedDouble`, `encryptedBigInt`, `encryptedDate`, `encryptedBoolean`, `encryptedJson` |
+
+`./control`, `./runtime`, `./middleware`, and `./stack` are tree-shakable along the same seams documented in the [DEVELOPING guide](https://github.com/cipherstash/protectjs/blob/main/packages/prisma-next/DEVELOPING.md). A runtime consumer never pulls the EQL bundle SQL; a control-plane consumer never pulls the envelope classes.
+
+## Insert encrypted data
+
+Wrap each plaintext value in the corresponding `Encrypted*.from(...)` factory. The bulk-encrypt middleware coalesces every plaintext placeholder across a query into one `bulkEncrypt` SDK round-trip per `(table, column)` group — so an insert with N rows and M encrypted columns runs `min(N, M)` ZeroKMS round-trips, not N × M.
+
+```typescript filename="insert.ts"
+import {
+  EncryptedBigInt,
+  EncryptedBoolean,
+  EncryptedDate,
+  EncryptedDouble,
+  EncryptedJson,
+  EncryptedString,
+} from "@cipherstash/prisma-next/runtime"
+import { db } from "./db"
+
+await db.orm.User.create({
+  id: "user-0",
+  email: EncryptedString.from("alice@example.com"),
+  salary: EncryptedDouble.from(95_000),
+  accountId: EncryptedBigInt.from(100_000_000_001n),
+  birthday: EncryptedDate.from(new Date("1990-04-12")),
+  emailVerified: EncryptedBoolean.from(true),
+  preferences: EncryptedJson.from({ theme: "dark", notifications: true }),
+})
+```
+
+## Query encrypted data
+
+Predicate operators are surfaced as **column methods** on the model accessor — `m.email.cipherstashEq(...)`. Sort and JSON SELECT-expression helpers are **free-standing functions** imported from `@cipherstash/prisma-next/runtime`.
+
+### Equality
+
+```typescript filename="query-equality.ts"
+const rows = await db.orm.User
+  .where((u) => u.email.cipherstashEq("alice@example.com"))
+  .all()
+```
+
+### Text search
+
+```typescript filename="query-text-search.ts"
+// ILIKE — case-insensitive substring match (requires freeTextSearch: true)
+const rows = await db.orm.User
+  .where((u) => u.email.cipherstashIlike("%@example.com"))
+  .all()
+```
+
+### Range queries
+
+```typescript filename="query-range.ts"
+// Greater than
+const rows = await db.orm.User
+  .where((u) => u.salary.cipherstashGt(100_000))
+  .all()
+
+// Between (inclusive)
+const rows = await db.orm.User
+  .where((u) =>
+    u.birthday.cipherstashBetween(
+      new Date("1985-01-01"),
+      new Date("1995-12-31"),
+    ),
+  )
+  .all()
+```
+
+### Array operators
+
+```typescript filename="query-array.ts"
+// IN [...] on bigint
+const rows = await db.orm.User
+  .where((u) =>
+    u.accountId.cipherstashInArray([100_000_000_001n, 100_000_000_004n]),
+  )
+  .all()
+
+// Equality on a boolean column is expressed as a single-element InArray —
+// booleans only carry the equality trait, so cipherstashEq is not surfaced.
+const rows = await db.orm.User
+  .where((u) => u.emailVerified.cipherstashInArray([true]))
+  .all()
+```
+
+### Sorting
+
+Sort helpers are free-standing functions, imported from `@cipherstash/prisma-next/runtime`:
+
+```typescript filename="query-sort.ts"
+import { cipherstashAsc, cipherstashDesc } from "@cipherstash/prisma-next/runtime"
+
+const rows = await db.orm.User
+  .orderBy((u) => cipherstashAsc(u.email))
+  .all()
+```
+
+Sort lowering uses the bare-column form (`ORDER BY <col> ASC|DESC`) against the EQL ORE index — there's no `eql_v2.order_by_*(col)` wrapper to remember.
+
+### Combining conditions
+
+```typescript filename="query-combined.ts"
+import { and } from "@prisma-next/sql-orm-client"
+
+const rows = await db.orm.User
+  .where((u) =>
+    and(
+      u.email.cipherstashIlike("%@example.com"),
+      u.salary.cipherstashGt(50_000),
+      u.birthday.cipherstashLt(new Date("1990-01-01")),
+    ),
+  )
+  .all()
+```
+
+## JSONB queries
+
+Encrypted JSON columns (`cipherstash.EncryptedJson`) support SELECT-expression helpers for path extraction. These require `searchableJson: true` (the default).
+
+### Extract value at path
+
+```typescript filename="query-jsonb-extract.ts"
+import { cipherstashJsonbPathQueryFirst } from "@cipherstash/prisma-next/runtime"
+
+// `cipherstashJsonbPathQueryFirst` returns Expression<cipherstash/json@1>
+// — the same encrypted type as the column — so it chains into follow-on
+// JSON helpers or predicates.
+const expr = cipherstashJsonbPathQueryFirst(u.preferences, "$.theme")
+```
+
+### Get value with `->` operator
+
+```typescript filename="query-jsonb-get.ts"
+import { cipherstashJsonbGet } from "@cipherstash/prisma-next/runtime"
+
+const expr = cipherstashJsonbGet(u.preferences, "$.theme")
+```
+
+<Callout type="info">
+  `cipherstashJsonbPathExists` exists in the predicate surface but currently returns zero rows against the live EQL bundle — the EQL `jsonb_path_exists` function expects a client-side-hashed STE-VEC selector. Workaround: project all rows with `cipherstashJsonbPathQueryFirst` / `cipherstashJsonbGet` and apply client-side post-filtering. Tracked at [TML-2504](https://linear.app/prisma-company/issue/TML-2504).
+</Callout>
+
+## Decrypt results
+
+Every read-side envelope carries the `(table, column)` it was decoded from, so `decrypt` and `decryptAll` route their bulk SDK calls by that key.
+
+```typescript filename="decrypt.ts"
+import { decryptAll } from "@cipherstash/prisma-next/runtime"
+
+const rows = await db.orm.User.where(/* … */).all()
+
+// One bulkDecrypt SDK round-trip per (table, column) group across the
+// full result set, then synchronous plaintext reads off the cached envelopes.
+await decryptAll(rows)
+
+for (const row of rows) {
+  console.log(await row.email.decrypt())   // sync after decryptAll
+  console.log(await row.salary.decrypt())
+}
+```
+
+Without `decryptAll`, each `await row.column.decrypt()` would round-trip individually.
+
+## Operator reference
+
+### Predicate operators (column methods)
+
+| Operator | Required flag | Lowering | Applies to |
+|---|---|---|---|
+| `cipherstashEq(plaintext)` | `equality` | `eql_v2.eq(self, $N)` | every cipherstash codec |
+| `cipherstashNe(plaintext)` | `equality` | `NOT eql_v2.eq(self, $N)` | every cipherstash codec |
+| `cipherstashInArray([p1, p2, ...])` | `equality` | `(eql_v2.eq(self, $1) OR eql_v2.eq(self, $2) OR ...)` | every cipherstash codec |
+| `cipherstashNotInArray([p1, p2, ...])` | `equality` | `NOT (eql_v2.eq(self, $1) OR ...)` | every cipherstash codec |
+| `cipherstashIlike(pattern)` | `freeTextSearch` | `eql_v2.ilike(self, $N)` | `EncryptedString` |
+| `cipherstashNotIlike(pattern)` | `freeTextSearch` | `NOT eql_v2.ilike(self, $N)` | `EncryptedString` |
+| `cipherstashGt(plaintext)` | `orderAndRange` | `eql_v2.gt(self, $N)` | `EncryptedString`, `EncryptedDouble`, `EncryptedBigInt`, `EncryptedDate` |
+| `cipherstashGte(plaintext)` | `orderAndRange` | `eql_v2.gte(self, $N)` | as above |
+| `cipherstashLt(plaintext)` | `orderAndRange` | `eql_v2.lt(self, $N)` | as above |
+| `cipherstashLte(plaintext)` | `orderAndRange` | `eql_v2.lte(self, $N)` | as above |
+| `cipherstashBetween(lo, hi)` | `orderAndRange` | `eql_v2.gte(self, $1) AND eql_v2.lte(self, $2)` | as above |
+| `cipherstashNotBetween(lo, hi)` | `orderAndRange` | `NOT (eql_v2.gte(self, $1) AND eql_v2.lte(self, $2))` | as above |
+| `cipherstashJsonbPathExists(path)` | `searchableJson` | `eql_v2.jsonb_path_exists(self, $N)` | `EncryptedJson` (see [TML-2504](https://linear.app/prisma-company/issue/TML-2504)) |
+
+### Free-standing helpers
+
+| Helper | Required flag | Returns | Applies to |
+|---|---|---|---|
+| `cipherstashAsc(col)` | `orderAndRange` | `OrderByItem` (`ORDER BY <col> ASC`) | `EncryptedString`, `EncryptedDouble`, `EncryptedBigInt`, `EncryptedDate` |
+| `cipherstashDesc(col)` | `orderAndRange` | `OrderByItem` (`ORDER BY <col> DESC`) | as above |
+| `cipherstashJsonbPathQueryFirst(col, path)` | `searchableJson` | `Expression<cipherstash/json@1>` | `EncryptedJson` |
+| `cipherstashJsonbGet(col, path)` | `searchableJson` | `Expression<cipherstash/json@1>` | `EncryptedJson` |
+
+### Why `cipherstash`-namespaced operators?
+
+EQL ciphertexts contain randomized nonces, so SQL `=` / `<` / `>` against an `eql_v2_encrypted` column always returns `false` for two encrypts of the same plaintext. The cipherstash codecs declare zero of the framework's built-in traits, so `m.email.eq(...)` is a **compile-time error** on a cipherstash column — no wrong-SQL footgun is possible. The namespaced replacements (`cipherstashEq`, etc.) lower to the corresponding `eql_v2.*` functions which short-circuit through the per-column EQL search-config index.
+
+## Override surface
+
+`cipherstashFromStack` accepts two optional overrides:
+
+- **`schemas`** — extra `EncryptedTable` declarations for tables the contract doesn't model (e.g. legacy tables not yet under Prisma Next). For tables the contract **does** declare, the override must agree on column names, `cast_as`, and the installed index set — divergence throws at setup time so ZeroKMS can't end up with an index set that disagrees with the EQL bundle's installed configuration.
+- **`encryptionConfig`** — pass-through to `Encryption({ config })` (keyset overrides, logging, alternate workspace).
+
+If `cipherstashFromStack` isn't a fit (custom SDK against a non-stack KMS, multi-tenant routing), drop one layer down to the primitives exported from the same subpath:
+
+- **`deriveStackSchemas(contractJson)`** — pure function returning `EncryptedTable[]` derived from the contract.
+- **`createCipherstashSdk(encryptionClient, schemas)`** — wraps an already-constructed stack `EncryptionClient` in the framework-native `CipherstashSdk` shape.
+
+## Complete example
+
+A runnable end-to-end example lives at [`cipherstash/protectjs:examples/prisma`](https://github.com/cipherstash/protectjs/tree/main/examples/prisma). It bundles a docker-compose Postgres, a six-codec `User` schema, and a flow that exercises every operator category against a live ZeroKMS workspace.
+
+```bash
+git clone https://github.com/cipherstash/protectjs
+cd protectjs/examples/prisma
+
+cp .env.example .env
+stash auth login
+
+docker compose up -d
+pnpm install
+pnpm emit
+pnpm migration:plan --name initial
+pnpm migration:apply
+pnpm start
+```
+
+Expected output:
+
+```text
+--- Insert (mixed-codec round-trip) ---
+Inserted 4 rows across six cipherstash codecs.
+
+--- cipherstashEq (string equality) ---
+Found 1 row(s) for alice@example.com.
+  user-0: alice@example.com
+
+--- cipherstashIlike (string free-text-search) ---
+Found 3 row(s) matching %@example.com.
+  user-0: alice@example.com
+  user-1: bob@example.com
+  user-2: carol@example.com
+
+--- cipherstashGt (double order-and-range) ---
+Found 2 user(s) with salary > 100,000.
+
+--- cipherstashBetween (date order-and-range) ---
+Found 3 user(s) born between 1985 and 1995.
+
+--- cipherstashInArray (bigint equality) ---
+Found 2 user(s) whose accountId is in the supplied array.
+
+--- cipherstashInArray (boolean equality-only) ---
+Found 3 user(s) with emailVerified = true.
+
+--- cipherstashAsc (bare-column ORDER BY) ---
+  user-0: email=alice@example.com
+  user-1: email=bob@example.com
+  user-2: email=carol@example.com
+  user-3: email=dave@otherorg.test
+```
+
+## Security model
+
+- **Plaintext lifetime.** Write-side handles retain their plaintext slot post-encrypt — JS strings are immutable and zeroing is best-effort, so the GC-driven lifecycle is the sufficient bound. The `Encrypted<X>.from(plaintext)` envelope's `decrypt()` returns the plaintext synchronously without consulting the SDK.
+- **Ciphertext routing.** Every read-side envelope carries the `(table, column)` it was decoded from; `decrypt` / `decryptAll` route their bulk SDK calls by that key so the SDK picks the right key material per column.
+- **Operator semantics.** Encrypted equality uses `eql_v2.eq` (deterministic-index lookup over the `unique` index); free-text uses `eql_v2.ilike` (bloom-filter lookup over `match`); range uses `eql_v2.gt` / `lt` / `eql_v2_encrypted` operator overloads (order-revealing-encryption lookup over `ore`). The framework's built-in `eq` / `gt` / `ilike` are unreachable on cipherstash columns — no wrong-SQL footgun where a randomized EQL ciphertext is compared with `=` directly.
+- **Plaintext redaction in implicit serialisation paths.** Every envelope's `toJSON`, `toString`, `valueOf`, `Symbol.toPrimitive`, and `Symbol.for('nodejs.util.inspect.custom')` paths return `[REDACTED]` (or, for `toJSON`, a `{ "$encryptedX": "<opaque>" }` placeholder). Accidental `console.log`, `JSON.stringify`, template-literal interpolation, error string construction, and `util.inspect` paths cannot leak plaintext. Explicit access is via `envelope.expose()`.
+- **Cancellation.** Every cipherstash-internal SDK call accepts an `AbortSignal`; mid-flight cancellation surfaces a `RUNTIME.ABORTED` envelope with a phase tag (`bulk-encrypt`, `decrypt`, or `decrypt-all`).
+
+## Known limitations
+
+- **`cipherstashJsonbPathExists` predicate** — currently returns zero rows against the live EQL bundle because the function expects a client-side-hashed STE-VEC selector. The non-predicate JSON helpers (`cipherstashJsonbPathQueryFirst`, `cipherstashJsonbGet`) work correctly. Tracked at [TML-2504](https://linear.app/prisma-company/issue/TML-2504).
+- **`EncryptedBigInt` capped at `Number.MAX_SAFE_INTEGER`** — `@cipherstash/stack`'s SDK accepts numeric plaintexts only for the `big_int` cast, and `createCipherstashSdk` converts `bigint → Number` at the SDK boundary with an eager safe-integer bounds check (throws on overflow). Values beyond `Number.MAX_SAFE_INTEGER` cannot be encrypted today.
+- **Encrypted timestamp / datetime** — lexical comparison over text-serialised timestamps is correctness-fragile (timezones, DST, format variation). CipherStash currently offers only calendar-date encryption via `EncryptedDate`.
+- **Non-bigint integer variants** — EQL supports `int`, `small_int`, `big_int`, `real`; the extension currently ships `bigint` (`big_int`) and IEEE-754 (`double`) only.
+- **Re-encryption migration** — flipping a populated column from plain to encrypted requires re-encrypting existing rows. The codec lifecycle hook emits the right search-config DDL but does not touch row data. Use a hand-authored `dataTransform` migration until a framework primitive lands.
+
+## References
+
+- [`@cipherstash/prisma-next` on npm](https://www.npmjs.com/package/@cipherstash/prisma-next)
+- [Package README](https://github.com/cipherstash/protectjs/blob/main/packages/prisma-next/README.md) — authoritative technical spec.
+- [Runnable example](https://github.com/cipherstash/protectjs/tree/main/examples/prisma).
+- [Prisma Next CLI](https://www.npmjs.com/package/@prisma-next/cli).
+- [EQL reference](/stack/reference/eql-guide) — encrypted operator semantics and search-config index types.
+- [Indexes](/stack/cipherstash/encryption/indexes) — `unique`, `match`, `ore`, `ste_vec` index family details.
+- [CipherStash CLI](/stack/cipherstash/cli) — `stash auth login`, workspace management, secrets.
