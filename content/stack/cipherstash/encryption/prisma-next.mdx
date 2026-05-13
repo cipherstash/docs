@@ -192,7 +192,7 @@ That's the entire setup. The bundled `cipherstash.encryptionClient` is also expo
 | `@cipherstash/prisma-next/pack` | `cipherstashPackMeta` for TypeScript contract authoring |
 | `@cipherstash/prisma-next/column-types` | Six TS factories: `encryptedString`, `encryptedDouble`, `encryptedBigInt`, `encryptedDate`, `encryptedBoolean`, `encryptedJson` |
 
-`./control`, `./runtime`, `./middleware`, and `./stack` are tree-shakable along the same seams documented in the [DEVELOPING guide](https://github.com/cipherstash/protectjs/blob/main/packages/prisma-next/DEVELOPING.md). A runtime consumer never pulls the EQL bundle SQL; a control-plane consumer never pulls the envelope classes.
+`./control`, `./runtime`, `./middleware`, and `./stack` are tree-shakable along the same seams documented in the [DEVELOPING guide](https://github.com/cipherstash/stack/blob/main/packages/prisma-next/DEVELOPING.md). A runtime consumer never pulls the EQL bundle SQL; a control-plane consumer never pulls the envelope classes.
 
 ## Insert encrypted data
 
@@ -402,11 +402,11 @@ If `cipherstashFromStack` isn't a fit (custom SDK against a non-stack KMS, multi
 
 ## Complete example
 
-A runnable end-to-end example lives at [`cipherstash/protectjs:examples/prisma`](https://github.com/cipherstash/protectjs/tree/main/examples/prisma). It bundles a docker-compose Postgres, a six-codec `User` schema, and a flow that exercises every operator category against a live ZeroKMS workspace.
+A runnable end-to-end example lives at [`cipherstash/stack:examples/prisma`](https://github.com/cipherstash/stack/tree/main/examples/prisma). It bundles a docker-compose Postgres, a six-codec `User` schema, and a flow that exercises every operator category against a live ZeroKMS workspace.
 
 ```bash
-git clone https://github.com/cipherstash/protectjs
-cd protectjs/examples/prisma
+git clone https://github.com/cipherstash/stack
+cd stack/examples/prisma
 
 cp .env.example .env
 stash auth login
@@ -473,8 +473,8 @@ Found 3 user(s) with emailVerified = true.
 ## References
 
 - [`@cipherstash/prisma-next` on npm](https://www.npmjs.com/package/@cipherstash/prisma-next)
-- [Package README](https://github.com/cipherstash/protectjs/blob/main/packages/prisma-next/README.md) — authoritative technical spec.
-- [Runnable example](https://github.com/cipherstash/protectjs/tree/main/examples/prisma).
+- [Package README](https://github.com/cipherstash/stack/blob/main/packages/prisma-next/README.md) — authoritative technical spec.
+- [Runnable example](https://github.com/cipherstash/stack/tree/main/examples/prisma).
 - [Prisma Next CLI](https://www.npmjs.com/package/@prisma-next/cli).
 - [EQL reference](/stack/reference/eql-guide) — encrypted operator semantics and search-config index types.
 - [Indexes](/stack/cipherstash/encryption/indexes) — `unique`, `match`, `ore`, `ste_vec` index family details.
