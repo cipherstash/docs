@@ -37,23 +37,23 @@ A database proxy that sits between an application and a database, enhancing your
 CipherStash Proxy works in-tandem with your existing infrastructure and is fully contained within your environment.
 See [CipherStash Proxy](/stack/cipherstash/proxy) for details.
 
-### Client
+### Client key
 
-A programmatic access point to a [keyset](#keyset). A client can have many keysets, and a keyset can also be shared by multiple clients.
+The cryptographic credential assigned to a programmatic access point for a [keyset](#keyset). A client key can have access to many keysets, and a keyset can also be shared by multiple client keys.
 
-There are two types of clients:
-- **Device-backed clients** are created automatically by `npx stash init` and tied to a developer's [device](#device). Used for local development.
-- **Machine clients** are created in the Dashboard for production and CI/CD. Identified by a [client ID](#client-id) and [client key](#client-key) set via environment variables.
+There are two types of client keys:
+- **Device-backed client keys** are created automatically by `npx stash init` and tied to a developer's [device](#device). Used for local development.
+- **Application client keys** are created in the Dashboard for production and CI/CD. Identified by a [client ID](#client-id) and [client key](#client-key) set via environment variables.
 
-See [Clients](/stack/cipherstash/kms/clients) for details.
+See [Client keys](/stack/cipherstash/kms/clients) for details.
 
 ### Client ID
 
-A unique identifier of a [client](#client). Each [client key](#client-key) and client ID is unique to your app.
+A unique identifier for a [client key](#client-key). Each client key and client ID is unique to your app.
 
-### Client key
+### Client key value
 
-A unique identifier of a [client](#client). Each client key and [client ID](#client-id) is unique to your app. The client key is sensitive and should be kept secret.
+The secret credential set via `CS_CLIENT_KEY`. Together with the [client ID](#client-id), it forms the credential pair for a [client key](#client-key). The client key value is sensitive and must be kept secret.
 
 ### CTS (CipherStash Token Service)
 
@@ -65,16 +65,16 @@ See [CTS](/stack/cipherstash/kms/cts) for details.
 
 ### Dashboard
 
-The web interface for managing CipherStash Cloud primitives — workspaces, clients, keysets, access keys, devices, and members.
+The web interface for managing CipherStash Cloud primitives — workspaces, client keys, keysets, access keys, devices, and members.
 Available at [dashboard.cipherstash.com](https://dashboard.cipherstash.com/).
 The Dashboard manages cloud infrastructure; product-specific configuration (encryption schemas, secrets, proxy rules) is handled by the SDKs and CLI.
 
 ### Device
 
-A unique identity tied to a developer's machine and user account, created by `npx stash init`.
-Each device has an associated [client](#client) that is automatically granted access to the default [keyset](#keyset).
+A unique identity tied to a developer's device and user account, created by `npx stash init`.
+Each device has an associated [client key](#client-key) that is automatically granted access to the default [keyset](#keyset).
 Devices are used for local development authentication — no environment variables required.
-Production environments use machine [clients](#client) with environment variables instead.
+Production environments use application [client keys](#client-key) with environment variables instead.
 See [Getting started](/stack/quickstart) for setup.
 
 ### Data access event
@@ -95,7 +95,7 @@ See [EQL](/stack/reference/eql-guide) for details.
 A cryptographic technique that combines a hash function with a secret key to verify both the integrity and authenticity of a message.
 Unlike raw hash functions (such as SHA-256), HMAC requires a secret key, which means only parties with the key can generate valid HMACs.
 This prevents attackers from pre-computing hash tables (rainbow tables) or guessing values.
-In searchable encryption, HMACs are used to create encrypted search tokens. The key stays client-side, so the server can match encrypted search tokens without ever learning the plaintext or being able to generate new tokens.
+In searchable encryption, HMACs are used to create encrypted search tokens. The key stays on the application side, so the server can match encrypted search tokens without ever learning the plaintext or being able to generate new tokens.
 
 ## I
 
@@ -117,7 +117,7 @@ They are digitally signed to ensure the integrity and authenticity of the inform
 A core CipherStash Cloud primitive for cryptographic isolation, managed by [ZeroKMS](#zerokms).
 Each keyset maintains its own set of data encryption keys — data encrypted under one keyset cannot be decrypted with another.
 Use keysets for tenant isolation, environment separation, regional compliance, or any cryptographic boundary your architecture requires.
-A [client](#client) can access many keysets, and a keyset can be shared by multiple clients.
+A [client key](#client-key) can access many keysets, and a keyset can be shared by multiple client keys.
 In the Secrets SDK, [environments](#environment) map directly to keysets.
 See [Keysets](/stack/cipherstash/kms/keysets) for details.
 
@@ -125,7 +125,7 @@ See [Keysets](/stack/cipherstash/kms/keysets) for details.
 
 ### OIDC (OpenID Connect)
 
-OIDC is an identity layer built on top of the OAuth 2.0 protocol that enables clients to verify user identity through an [Identity Provider](#idp-identity-provider).
+OIDC is an identity layer built on top of the OAuth 2.0 protocol that enables applications to verify user identity through an [Identity Provider](#idp-identity-provider).
 It facilitates secure single sign-on (SSO) and simplifies the authentication process by allowing the Identity Provider to share standardized identity information using RESTful APIs and [JSON Web Tokens](#jwt-json-web-token) (JWTs).
 
 ### ORE (Order Revealing Encryption)
@@ -159,7 +159,7 @@ See [Supported queries](/stack/cipherstash/encryption/searchable-encryption) for
 ### Workspace
 
 CipherStash uses workspaces to keep things organized.
-A workspace contains [keysets](#keyset), clients, and configuration, and can:
+A workspace contains [keysets](#keyset), client keys, and configuration, and can:
 - Be used to separate environments (e.g. dev and prod)
 - Be shared with other users
 - Be associated with a custom identity provider

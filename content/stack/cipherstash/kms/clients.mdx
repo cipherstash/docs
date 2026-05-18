@@ -1,51 +1,51 @@
 ---
-title: Clients
-description: Create and manage clients used by SDKs and Proxy
+title: Client keys
+description: Create and manage client keys used by SDKs and Proxy
 ---
 
-A Client is an instance of [CipherStash Proxy](/stack/cipherstash/proxy) or an application using an SDK like the [Encryption SDK](/stack/cipherstash/encryption) that you want to assign encryption or decryption privileges. Each client gets a unique ID and key, so you can revoke its access at any time.
+A client key is the cryptographic credential assigned to an instance of [CipherStash Proxy](/stack/cipherstash/proxy) or an application using an SDK like the [Encryption SDK](/stack/cipherstash/encryption). Each client key gets a unique ID and key pair, so you can revoke its access at any time.
 
-## Types of clients
+## Types of client keys
 
-CipherStash has two types of clients:
+CipherStash has two types of client keys:
 
-### Device-backed clients
+### Device-backed client keys
 
-Device-backed clients are created automatically when a developer runs `npx stash init`. They are tied to a specific developer's user account and machine (device).
+Device-backed client keys are created automatically when a developer runs `npx stash init`. They are tied to a specific developer's user account and device.
 
 - Created automatically during initialization — no manual setup required
-- Each developer gets their own unique client
+- Each developer gets their own unique client key
 - Used for **local development only**
 - Access can be revoked per developer without affecting other team members
 
-### Machine clients
+### Application client keys
 
-Machine clients are created manually in the Dashboard for production, CI/CD, and other non-interactive environments.
+Application client keys are created manually in the Dashboard for production, CI/CD, and other non-interactive environments.
 
 - No device attached — identified solely by `CS_CLIENT_ID` and `CS_CLIENT_KEY`
 - Used for **production and CI/CD** where there is no interactive login
 - Credentials are set via environment variables
 
-See [Going to production](/stack/deploy/going-to-production) for a guide to creating machine clients.
+See [Going to production](/stack/deploy/going-to-production) for a guide to creating application client keys.
 
-## Clients and keysets
+## Client keys and keysets
 
-When created, each client is associated with a [keyset](/stack/cipherstash/kms/keysets). This allows the client to perform encryption and decryption operations within the keyset.
+When created, each client key is associated with a [keyset](/stack/cipherstash/kms/keysets). This allows the client key to perform encryption and decryption operations within the keyset.
 
 ### Granting access to additional keysets
 
-When creating a new client, you can associate it with one or more keysets to grant access to the encrypted data in those keysets.
+When creating a new client key, you can associate it with one or more keysets to grant access to the encrypted data in those keysets.
 
-### Revoking access to a client
+### Revoking access to a client key
 
-At any time, you can revoke access to a client by removing the association with the keysets which will prohibit that client from accessing the encrypted data in those keysets.
+At any time, you can revoke access to a client key by removing the association with the keysets. This prohibits that client key from accessing the encrypted data in those keysets.
 
-## Creating a client
+## Creating a client key
 
 ### Automatic (local development)
 
-Run `npx stash init` to create a device-backed client automatically. See [Getting started](/stack/quickstart).
+Run `npx stash init` to create a device-backed client key automatically. See [Getting started](/stack/quickstart).
 
 ### Manual (production)
 
-In the [CipherStash Dashboard](https://dashboard.cipherstash.com), you can create a machine client by clicking the **Create a new client** button in the [Clients](https://dashboard.cipherstash.com/workspaces/_/clients) page.
+In the [CipherStash Dashboard](https://dashboard.cipherstash.com), you can create an application client key by clicking the **Create a new client** button in the [Clients](https://dashboard.cipherstash.com/workspaces/_/clients) page.

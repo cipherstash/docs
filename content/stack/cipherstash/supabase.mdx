@@ -207,7 +207,7 @@ Full reference: [Drizzle ORM integration](/stack/cipherstash/encryption/drizzle)
 2. **Works alongside Row Level Security.** CipherStash encryption and Supabase RLS are complementary. RLS controls who can access rows. CipherStash controls who can decrypt values. Defense in depth.
 3. **Schema-first.** Define encrypted columns once. Type-safe across your entire application.
 4. **Identity-bound keys.** Tie encryption to a user's identity. Only that user can decrypt their data.
-5. **Zero-knowledge.** CipherStash never sees your plaintext data. Keys are derived on your machine and never stored.
+5. **Zero-knowledge.** CipherStash never sees your plaintext data. Keys are derived on your device and never stored.
 
 <Callout type="info">
   Encrypted columns on Supabase require functional indexes and a specific query form to avoid silent sequential scans. See [Setting up indexes](/stack/cipherstash/encryption/indexes) for the correct `CREATE INDEX` statements and query patterns.

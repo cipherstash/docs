@@ -19,7 +19,7 @@ npx stash plan
 
 1. Reads `.cipherstash/context.json` to understand your project (integration, schemas, environment, installed agents).
 2. Checks for an existing `.cipherstash/plan.md`. If one is found, warns you that the agent will be asked to revise it. Delete the file first to start fresh.
-3. Asks which agent should write the plan. All four handoff targets are available — Claude Code, Codex, AGENTS.md (for Cursor/Windsurf/Cline), and the CipherStash Agent (`@cipherstash/wizard`). Each target produces a plan-mode artifact: Claude Code / Codex / AGENTS.md read the mode-aware `setup-prompt.md`; the wizard receives `--mode plan` and the gateway returns its planning prompt.
+3. Asks which agent should write the plan. All four handoff targets are available: Claude Code, Codex, AGENTS.md (for Cursor/Windsurf/Cline), and the CipherStash Agent (`@cipherstash/wizard`). Each target produces a plan-mode artifact: Claude Code / Codex / AGENTS.md read the mode-aware `setup-prompt.md`; the wizard receives `--mode plan` and the gateway returns its planning prompt.
 4. Hands off to the selected agent with a planning prompt. The agent reads your codebase and produces `.cipherstash/plan.md`.
 5. After the agent finishes, asks (default-yes) whether to continue to `stash impl` now.
 
@@ -62,7 +62,7 @@ If `stash impl` finds a plan without the summary block (for example, a plan writ
 | AGENTS.md | — | Writes `AGENTS.md` plus `.cipherstash/setup-prompt.md` for Cursor, Windsurf, Cline, and other editor-based agents. |
 | CipherStash Agent | — | Runs the in-house wizard package (`stash wizard`) with `--mode plan`. The wizard skips its column-selection TUI and post-agent install/push/migrate steps; the gateway returns a planning prompt. |
 
-The command defaults to Claude Code if detected, then Codex, otherwise AGENTS.md. The CipherStash Agent is never selected by default — pick it explicitly if you want the in-house wizard. Each target produces a `.cipherstash/plan.md` with the same machine-readable summary block at the top, so the choice of target doesn't change what `stash impl` parses later.
+The command defaults to Claude Code if detected, then Codex, otherwise AGENTS.md. The CipherStash Agent is never selected by default. Pick it explicitly if you want the in-house wizard. Each target produces a `.cipherstash/plan.md` with the same machine-readable summary block at the top, so the choice of target doesn't change what `stash impl` parses later.
 
 ## Chain prompt
 

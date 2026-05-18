@@ -17,11 +17,11 @@ cd proxy
 ### Set up credentials
 
 <Callout type="info">
-Complete the [Getting started](/stack/quickstart) guide first to initialize CipherStash on your machine.
+Complete the [Getting started](/stack/quickstart) guide first to initialize CipherStash on your device.
 </Callout>
 
 CipherStash Proxy runs inside a Docker container, so it cannot use the host's device-based authentication directly.
-For local development, create a client in the [CipherStash Dashboard](https://dashboard.cipherstash.com) and save the credentials to `.env.proxy.docker`:
+For local development, create a client key in the [CipherStash Dashboard](https://dashboard.cipherstash.com) and save the credentials to `.env.proxy.docker`:
 
 ```ini filename=".env.proxy.docker"
 CS_WORKSPACE_CRN=<your workspace CRN>
@@ -30,13 +30,13 @@ CS_CLIENT_KEY=<client key>
 CS_CLIENT_ACCESS_KEY=<access key>
 ```
 
-You can find your workspace CRN in **Settings** for your workspace. Create a client under **Clients** and an access key under **Access Keys**.
+You can find your workspace CRN in **Settings** for your workspace. Create a client key under **Clients** and an access key under **Access Keys**.
 
 <Callout type="warn">
 Do not commit `.env.proxy.docker` to version control. Add it to your `.gitignore`.
 </Callout>
 
-For production Proxy deployments, see [Going to production](/stack/deploy/going-to-production) to set up machine client credentials.
+For production Proxy deployments, see [Going to production](/stack/deploy/going-to-production) to set up application client key credentials.
 
 ### Start the containers
 
@@ -127,7 +127,7 @@ SELECT encrypted_email, encrypted_dob, encrypted_salary
 FROM users WHERE encrypted_dob > '2000-01-01';
 ```
 
-All comparison operations are evaluated against **encrypted** data — the literal values are transparently encrypted by Proxy before being compared in the database.
+All comparison operations are evaluated against **encrypted** data. The literal values are transparently encrypted by Proxy before being compared in the database.
 
 </Steps>
 

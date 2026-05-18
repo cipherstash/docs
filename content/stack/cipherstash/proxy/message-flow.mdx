@@ -9,8 +9,8 @@ This page explains the internal message handling flow for advanced users debuggi
 
 The PostgreSQL extended query protocol uses a sequence of messages to execute parameterised queries. The two most relevant messages for encryption are:
 
-- **Parse** — the client sends a SQL statement with parameter placeholders (`$1`, `$2`, ...). Proxy inspects the statement and maps column references to their encryption config.
-- **Bind** — the client sends parameter values to bind to a prepared statement. If Proxy recognised the statement during Parse, it encrypts the parameters here before forwarding them.
+- **Parse**: the client sends a SQL statement with parameter placeholders (`$1`, `$2`, ...). Proxy inspects the statement and maps column references to their encryption config.
+- **Bind**: the client sends parameter values to bind to a prepared statement. If Proxy recognised the statement during Parse, it encrypts the parameters here before forwarding them.
 
 ## Parse flow
 

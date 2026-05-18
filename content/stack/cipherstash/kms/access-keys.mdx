@@ -22,7 +22,7 @@ Use the role with the _least required privileges_ and avoid higher privileges un
 
 ### Member
 
-The member role is used for authenticating clients for cryptographic operations.
+The member role is used for authenticating client keys for cryptographic operations.
 
 These are the scopes that are available to the member role:
 
@@ -35,7 +35,7 @@ data_key:retrieve
 ### Control
 
 The control role is used for workspace automation tasks.
-It has access to the CipherStash API endpoints for creating, listing, enabling, disabling, granting, modifying, and revoking keysets and clients.
+It has access to the CipherStash API endpoints for creating, listing, enabling, disabling, granting, modifying, and revoking keysets and client keys.
 
 These are the scopes that are available to the control role:
 
@@ -54,11 +54,11 @@ client:list
 
 <Callout type="warn">
 In production environments, it is recommended to never use the admin role.
-Use the member role for authenticating clients, and the control role for workspace automation tasks.
+Use the member role for authenticating client keys, and the control role for workspace automation tasks.
 </Callout>
 
 The admin role is "god" mode.
-It has access to all the CipherStash API endpoints and can authenticate clients for cryptographic operations.
+It has access to all the CipherStash API endpoints and can authenticate client keys for cryptographic operations.
 
 These are the scopes that are available to the admin role:
 

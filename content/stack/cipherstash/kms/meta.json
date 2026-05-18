@@ -8,6 +8,7 @@
     "---Configuration---",
     "configuration",
     "access-keys",
+    "oidc",
     "clients",
     "keysets",
     "regions",

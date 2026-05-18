@@ -73,8 +73,8 @@ CipherStash implements a **zero-knowledge architecture**:
 CipherStash uses [keysets](/stack/cipherstash/kms/keysets) to scope encryption keys:
 
 - Each keyset provides **full cryptographic isolation**. Tenant A's keyset cannot decrypt Tenant B's data.
-- Compromising a single client key affects only the keysets that client has access to.
-- Revoking a client's access key immediately prevents further key derivation requests.
+- Compromising a single client key affects only the keysets that application has access to.
+- Revoking an application's access key immediately prevents further key derivation requests.
 
 ## Data flow
 

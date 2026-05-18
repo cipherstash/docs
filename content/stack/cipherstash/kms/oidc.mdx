@@ -1,0 +1,56 @@
+---
+title: OIDC Providers
+description: Register an identity provider so end users can authenticate cryptographic operations with their own identity tokens
+---
+
+OIDC Providers let you federate your existing identity provider (IdP) with CipherStash.
+Once registered, end users can authenticate cryptographic operations using the identity tokens your IdP issues, not just application credentials.
+
+This pairs with [identity-aware encryption](/stack/reference/stack/latest/packages/stack/src/identity/classes/LockContext) via `LockContext`, which binds encryption operations to a specific user identity.
+
+<Callout type="info">
+If you are only encrypting data at rest with application credentials, you do not need an OIDC provider.
+This feature is for workspaces where end-user identity should be bound to encryption operations.
+</Callout>
+
+## Why this matters
+
+Without an OIDC provider, encryption operations are authenticated by [access keys](/stack/cipherstash/kms/access-keys) (long-lived, application-scoped) or PKCE device login (developer laptops).
+With one, the identity token from your IdP can be bound to encryption and decryption operations — useful for per-user keys, audit trails, and identity-aware data access controls.
+
+## Supported providers
+
+CipherStash supports the following identity providers:
+
+- **Auth0**
+- **Okta**
+- **Clerk**
+
+## Registering a provider
+
+Go to your workspace in the [CipherStash Dashboard](https://dashboard.cipherstash.com/workspaces/_/oidc-providers) → **Authentication** → **OIDC Providers** → **Add OIDC Provider**.
+
+Select your vendor and enter the **Issuer URL** — this is the OIDC discovery endpoint that issues identity tokens for your application. The URL format depends on your provider:
+
+| Provider | Example issuer URL |
+| -------- | ------------------ |
+| Auth0 | `https://your-tenant.auth0.com/` |
+| Okta | `https://your-org.okta.com/` |
+| Clerk | `https://your-app.clerk.accounts.dev/` |
+
+Submit the form. The provider is now registered for that workspace.
+
+## What gets stored
+
+Each registered OIDC provider has three fields:
+
+- **ID** — assigned by CipherStash on registration
+- **Vendor** — one of `auth0`, `okta`, or `clerk`
+- **Issuer** — the URL you provided
+
+No client secret or shared key is stored. CipherStash validates tokens by fetching the JWKS from the issuer's discovery endpoint.
+
+## Using it from code
+
+Once a provider is registered, use `LockContext` in the Encryption SDK to bind encryption operations to a user's identity token.
+See the [`LockContext` API reference](/stack/reference/stack/latest/packages/stack/src/identity/classes/LockContext) for the full API.

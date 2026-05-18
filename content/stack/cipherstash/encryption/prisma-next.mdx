@@ -27,7 +27,7 @@ stash auth login   # one-time, per developer
 
 `stash auth login` runs a PKCE flow and caches the resulting credentials in your OS keychain. The `@cipherstash/stack` encryption client picks them up automatically with no env-var threading in local development.
 
-The four `CS_*` env vars (`CS_WORKSPACE_CRN`, `CS_CLIENT_ID`, `CS_CLIENT_KEY`, `CS_CLIENT_ACCESS_KEY`) are reserved for production deployments and CI runners — machine accounts where no human is at the keyboard. Provision them via the [CipherStash dashboard](https://dashboard.cipherstash.com/workspaces) → Settings → Access Keys when you're ready to deploy.
+The four `CS_*` env vars (`CS_WORKSPACE_CRN`, `CS_CLIENT_ID`, `CS_CLIENT_KEY`, `CS_CLIENT_ACCESS_KEY`) are reserved for production deployments and CI runners (application accounts where no human is at the keyboard). Provision them via the [CipherStash dashboard](https://dashboard.cipherstash.com/workspaces) → Settings → Access Keys when you're ready to deploy.
 
 <Callout type="info">
   This identity story is universal across CipherStash integrations — Drizzle, Supabase, and Prisma Next all use the same PKCE / env-var split.

@@ -5,7 +5,7 @@ description: Authentication and identity federation service for accessing Cipher
 
 CipherStash Token Service (CTS) is an authentication and identity federation service.
 
-CTS issues tokens that grant clients access to [ZeroKMS](/stack/cipherstash/kms).
+CTS issues tokens that grant client keys access to [ZeroKMS](/stack/cipherstash/kms).
 That access is temporary, limited, and can be granularly scoped.
 
 If you are familiar with the [AWS Security Token Service](https://docs.aws.amazon.com/STS/latest/APIReference/welcome.html) (AWS STS), CTS fulfills a similar role to that.
@@ -14,15 +14,15 @@ If you are familiar with the [AWS Security Token Service](https://docs.aws.amazo
 
 At a high level:
 
-- Clients authenticate to CTS
-- CTS issues temporary tokens to those authenticated clients
+- Client keys authenticate to CTS
+- CTS issues temporary tokens to those authenticated client keys
 - Those temporary tokens can be used to make requests to ZeroKMS
 
-A client can be either [CipherStash Proxy](/stack/cipherstash/proxy) or an application using the [Encryption SDK](/stack/cipherstash/encryption).
+A client key can be held by either [CipherStash Proxy](/stack/cipherstash/proxy) or an application using the [Encryption SDK](/stack/cipherstash/encryption).
 
 ## Tokens
 
-Clients can authenticate to CTS via either:
+Client keys can authenticate to CTS via either:
 
 - [Federating with an IDP](#federation)
 - [Access keys](#access-keys)
@@ -43,5 +43,5 @@ You can add and manage OIDC providers from your workspace settings in the [Ciphe
 
 ### Access keys
 
-[Access keys](/stack/cipherstash/kms/access-keys) are a persistent credential you can use for machine-to-machine access to CTS.
+[Access keys](/stack/cipherstash/kms/access-keys) are a persistent credential you can use for application-to-service access to CTS.
 You can create access keys in the [CipherStash Dashboard](https://dashboard.cipherstash.com).

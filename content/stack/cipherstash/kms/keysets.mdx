@@ -14,9 +14,9 @@ Each workspace has a default keyset, which is used to derive data keys for all r
 The default keyset is created automatically when you create a workspace.
 You can create additional keysets to meet your specific needs.
 
-When a developer runs `npx stash init`, their device-backed client is automatically granted access to the default keyset. This means no additional configuration is needed for local development.
+When a developer runs `npx stash init`, their device-backed client key is automatically granted access to the default keyset. This means no additional configuration is needed for local development.
 
-## Create a client with a keyset
+## Create a client key with a keyset
 
 ### By ID
 
@@ -63,19 +63,19 @@ This means:
 - **Compliance boundaries:** Isolate data by jurisdiction or regulatory requirement.
 - **Custom isolation boundaries:** Key Sets are a general-purpose primitive. Use them for any cryptographic boundary your application needs: per-region, per-department, or per-feature.
 
-## Keysets and clients
+## Keysets and client keys
 
-Keysets can be associated with any number of clients to grant that client access to performing encryption and decryption operations on the data in that keyset.
+Keysets can be associated with any number of client keys to grant each client key access to encryption and decryption operations on data in that keyset.
 
-### Granting access to a client
+### Granting access to a client key
 
-When creating a new keyset, you must choose which clients will be granted access to the keyset.
+When creating a new keyset, you must choose which client keys will be granted access to the keyset.
 You can manage this by clicking **Manage** on a particular keyset in the [Keysets](https://dashboard.cipherstash.com/workspaces/_/keysets) page of the [CipherStash Dashboard](https://dashboard.cipherstash.com).
 
 ### Revoking access to a keyset
 
-At any time, you can revoke access to a client by removing the association with the keysets which will prohibit that client from accessing the encrypted data in those keysets.
-You can manage this by clicking **Manage** on a particular client in the [Clients](https://dashboard.cipherstash.com/workspaces/_/clients) page of the [CipherStash Dashboard](https://dashboard.cipherstash.com).
+At any time, you can revoke access to a client key by removing the association with the keysets. This prohibits that client key from accessing the encrypted data in those keysets.
+You can manage this by clicking **Manage** on a particular client key in the [Clients](https://dashboard.cipherstash.com/workspaces/_/clients) page of the [CipherStash Dashboard](https://dashboard.cipherstash.com).
 
 ## Managing keysets
 
@@ -144,9 +144,9 @@ The response contains the ID of the created keyset:
 }
 ```
 
-#### Step 5: Grant access to a client
+#### Step 5: Grant access to a client key
 
-Grant access to a client by granting access to the keyset.
+Grant access to a client key by granting access to the keyset.
 You can find your client ID in the [CipherStash Dashboard](https://dashboard.cipherstash.com) on the [Clients](https://dashboard.cipherstash.com/workspaces/_/clients) page for your workspace.
 
 ```bash

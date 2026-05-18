@@ -10,19 +10,19 @@ Production and CI/CD environments don't have a physical device or interactive lo
 
 | Environment | Auth mechanism | How it works |
 |---|---|---|
-| Local development | Device-based | `npx stash init` creates a device and client. No env vars needed. |
-| CI/CD pipelines | Environment variables | Machine client identified by `CS_CLIENT_ID` and `CS_CLIENT_KEY`. |
-| Production hosting | Environment variables | Same as CI/CD. Machine clients have keyset access without a device. |
+| Local development | Device-based | `npx stash init` creates a device and client key. No env vars needed. |
+| CI/CD pipelines | Environment variables | Application client key identified by `CS_CLIENT_ID` and `CS_CLIENT_KEY`. |
+| Production hosting | Environment variables | Same as CI/CD. Application client keys have keyset access without a device. |
 
 ## Setting up production credentials
 
 <Steps>
   <Step>
-    ### Create a machine client
+    ### Create an application client key
 
-    In the [CipherStash Dashboard](https://dashboard.cipherstash.com), navigate to **Clients** and create a new client.
+    In the [CipherStash Dashboard](https://dashboard.cipherstash.com), navigate to **Clients** and create a new client key.
 
-    This is a **machine client** — it has no device attached and is identified solely by its client ID and key.
+    This is an **application client key** — it has no device attached and is identified solely by its client ID and key.
 
     Save the **Client ID** and **Client Key**. The client key is shown only once.
   </Step>
@@ -37,7 +37,7 @@ Production and CI/CD environments don't have a physical device or interactive lo
     | Role | Use case |
     |---|---|
     | **Member** | Application workloads — encrypt, decrypt, list keysets |
-    | **Control** | Infrastructure automation — manage keysets and clients |
+    | **Control** | Infrastructure automation — manage keysets and client keys |
     | **Admin** | Full access. Not recommended for production. |
 
     Save the **access key**. It is shown only once.
@@ -48,9 +48,9 @@ Production and CI/CD environments don't have a physical device or interactive lo
   <Step>
     ### Grant keyset access
 
-    Ensure the machine client has access to the appropriate keyset(s).
+    Ensure the application client key has access to the appropriate keyset(s).
 
-    By default, new clients are granted access to the **default keyset**.
+    By default, new client keys are granted access to the **default keyset**.
     For multi-tenant deployments, grant access to specific keysets as needed.
 
     See [Keysets](/stack/cipherstash/kms/keysets) for details on managing keyset access.
@@ -63,8 +63,8 @@ Production and CI/CD environments don't have a physical device or interactive lo
 
     ```bash
     CS_WORKSPACE_CRN=crn:region.aws:your-workspace-id
-    CS_CLIENT_ID=your-machine-client-id
-    CS_CLIENT_KEY=your-machine-client-key
+    CS_CLIENT_ID=your-application-client-id
+    CS_CLIENT_KEY=your-application-client-key
     CS_CLIENT_ACCESS_KEY=your-access-key
     ```
 
@@ -101,8 +101,8 @@ env:
 
 ```bash filename=".env.production"
 CS_WORKSPACE_CRN=crn:region.aws:your-workspace-id
-CS_CLIENT_ID=your-machine-client-id
-CS_CLIENT_KEY=your-machine-client-key
+CS_CLIENT_ID=your-application-client-id
+CS_CLIENT_KEY=your-application-client-key
 CS_CLIENT_ACCESS_KEY=your-access-key
 ```
 
@@ -125,7 +125,7 @@ Setting `CS_*` environment variables for local development is an anti-pattern.
 
 Device-based auth provides:
 - **Per-developer identity** — audit trails show who performed each operation
-- **No shared secrets** — each developer has their own client credentials
+- **No shared secrets** — each developer has their own device credentials
 - **Automatic session management** — no manual credential rotation
 
 If you have `CS_*` variables in a local `.env` file, remove them and run `npx stash init` instead.

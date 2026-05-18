@@ -119,8 +119,8 @@ console.log(result.data) // "alice@example.com"
 
 You encrypted a field, stored it, queried it without decrypting, and got the plaintext back. Here's what happened under the hood:
 
-- **ZeroKMS** derived a unique encryption key for the value. The key was created on your machine and never stored anywhere.
-- **Your client** — the unit of identity — is the only thing that can decrypt it. Another client, a stolen credential, an AI agent running on application credentials — none of them have the key.
+- **ZeroKMS** derived a unique encryption key for the value. The key was created on your device and never stored anywhere.
+- **Your client key** — the unit of identity — is the only thing that can decrypt it. Another client key, a stolen credential, an AI agent running on application credentials — none of them have the key.
 - **Your keyset** — the unit of isolation — defines the cryptographic boundary. Data encrypted under one keyset cannot be decrypted with another. Use keysets to isolate tenants, environments, or services.
 - **The encrypted index** lets Postgres evaluate queries without decrypting. The index terms are themselves encrypted — they reveal nothing about the plaintext.
 
@@ -136,4 +136,4 @@ This is Data Level Access Control. The rules aren't configured in a policy file.
 
 **Ready to deploy?** [Going to production](/stack/deploy/going-to-production) covers the switch from device auth to environment variables.
 
-**Manage your workspace.** [Open the dashboard](https://dashboard.cipherstash.com/workspaces) to view keysets, create clients, manage access keys, and check usage.
+**Manage your workspace.** [Open the dashboard](https://dashboard.cipherstash.com/workspaces) to view keysets, create client keys, manage access keys, and check usage.

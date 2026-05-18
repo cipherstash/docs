@@ -16,7 +16,7 @@ Statement fingerprints identify unique SQL statements by examining the raw parse
 | `SELECT a, b FROM c` | `fb1f305bea85c2f6` |
 | `SELECT b, a FROM c` | `fb1f305bea85c2f6` |
 
-Both queries produce the same fingerprint because they access the same columns from the same table — the column order doesn't affect the intent.
+Both queries produce the same fingerprint because they access the same columns from the same table. Column order doesn't affect the intent.
 
 ## Statement redaction
 
@@ -47,16 +47,16 @@ When combined with [identity-aware encryption](/stack/cipherstash/encryption/ide
 
 Record reconciliation extracts the record identifiers, maps them to the appropriate tables, and includes them in the data access event payload sent to Audit.
 
-Injected primary keys are always removed from the SQL results before being returned to the client. The process is internal to CipherStash Proxy — the format of the result set always matches the original query.
+Injected primary keys are always removed from the SQL results before being returned to the client. The process is internal to CipherStash Proxy. The format of the result set always matches the original query.
 
 ## How it works together
 
 These four features form a pipeline:
 
-1. **Fingerprint** — identify the query pattern
-2. **Redact** — strip sensitive values from the SQL statement
-3. **Inject** — add primary key references to track which records are accessed
-4. **Reconcile** — extract record identifiers and remove injected keys from results
+1. **Fingerprint**: identify the query pattern
+2. **Redact**: strip sensitive values from the SQL statement
+3. **Inject**: add primary key references to track which records are accessed
+4. **Reconcile**: extract record identifiers and remove injected keys from results
 
 The result is a complete data access event containing:
 

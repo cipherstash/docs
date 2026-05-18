@@ -9,13 +9,13 @@ ZeroKMS is the key management layer that powers [Encryption](/stack/cipherstash/
 
 ## Zero-knowledge by design
 
-Existing key management solutions reveal either data or keys to intermediaries. ZeroKMS uses proxy symmetric re-encryption (patent pending). Key seeds are returned to the client. The client creates data keys locally. Data keys are never seen by third parties. Never sent across the network.
+Existing key management solutions reveal either data or keys to intermediaries. ZeroKMS uses proxy symmetric re-encryption (patent pending). Key seeds are returned to the application. The application creates data keys locally. Data keys are never seen by third parties. Never sent across the network.
 
 ## How it works
 
 - **Unique key per value:** Each encrypted field uses a distinct data encryption key, not a shared table-level key.
 - **AWS KMS backed:** Root keys are stored in AWS KMS. ZeroKMS handles key derivation and wrapping.
-- **Zero-knowledge:** CipherStash never sees your plaintext data or unwrapped keys. When a data key is requested, ZeroKMS generates and returns key seeds to the client to create the data key locally. Data keys are never seen by third parties and are never sent across the network.
+- **Zero-knowledge:** CipherStash never sees your plaintext data or unwrapped keys. When a data key is requested, ZeroKMS generates and returns key seeds to the application to create the data key locally. Data keys are never seen by third parties and are never sent across the network.
 - **Multi-tenant isolation:** Use keysets to isolate encryption keys per tenant, customer, or business unit.
 - **Bulk operations:** ZeroKMS supports bulk encryption and decryption operations, enabling a unique data key per record without sacrificing performance.
 - **Multi-region:** ZeroKMS is highly available and deployed in [multiple cloud regions globally](/stack/cipherstash/kms/regions). It can also be deployed within your own cloud account or on-prem.

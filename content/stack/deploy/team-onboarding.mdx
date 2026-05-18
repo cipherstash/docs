@@ -3,15 +3,15 @@ title: Team onboarding
 description: Invite team members and set up per-developer device-based access to CipherStash
 ---
 
-Every developer on your team gets their own device and client when they initialize CipherStash.
+Every developer on your team gets their own device and client key when they initialize CipherStash.
 This means every encrypt, decrypt, and secret access operation is traceable to a specific developer.
 
 ## How team access works
 
 When a developer runs `npx stash init`, CipherStash creates:
 
-- A **device** tied to that developer's user account and machine
-- A **client** associated with the device, used for cryptographic operations
+- A **device** tied to that developer's user account and device
+- A **client key** associated with the device, used for cryptographic operations
 - Automatic access to the **default keyset** in your workspace
 
 No credentials are shared between developers.
@@ -38,13 +38,13 @@ Each person has their own identity, and access can be granted or revoked individ
   <Step>
     ### Developer runs init
 
-    The new team member runs the init command on their machine:
+    The new team member runs the init command on their device:
 
     ```bash
     npx stash init
     ```
 
-    This authenticates them via the browser, creates their unique device and client, and grants access to the default keyset.
+    This authenticates them via the browser, creates their unique device and client key, and grants access to the default keyset.
 
     They are now ready to develop locally with full CipherStash functionality — no environment variables needed.
   </Step>
@@ -52,31 +52,31 @@ Each person has their own identity, and access can be granted or revoked individ
 
 ## Managing team access
 
-### Viewing active clients
+### Viewing active client keys
 
-Navigate to **Clients** in the Dashboard to see all active clients, including device-backed clients created by `npx stash init`.
-Each client shows which developer and device it belongs to.
+Navigate to **Clients** in the Dashboard to see all active client keys, including device-backed client keys created by `npx stash init`.
+Each client key shows which developer and device it belongs to.
 
 ### Revoking a developer's access
 
 To remove a developer's access:
 
-1. Remove their client from keyset access in the Dashboard
+1. Remove their client key from keyset access in the Dashboard
 2. Remove them from the workspace
 3. Optionally, remove them from the organization
 
-Revoked clients can no longer perform encrypt, decrypt, or secret operations.
+Revoked client keys can no longer perform encrypt, decrypt, or secret operations.
 
-### Multiple machines
+### Multiple devices
 
-If a developer works on more than one machine (e.g., a laptop and a desktop), they run `npx stash init` on each machine.
-Each machine gets its own device and client.
-This is by design — you can revoke access per device without affecting their other machines.
+If a developer works on more than one device (e.g., a laptop and a desktop), they run `npx stash init` on each device.
+Each device gets its own device identity and client key.
+This is by design — you can revoke access per device without affecting their other devices.
 
 ## Relationship to production
 
 Team devices are for **local development only**.
-Production environments use separate [machine clients](/stack/deploy/going-to-production) configured with environment variables.
+Production environments use separate [application client keys](/stack/deploy/going-to-production) configured with environment variables.
 
 This separation ensures that:
 - Developer credentials never appear in production infrastructure
@@ -86,6 +86,6 @@ This separation ensures that:
 ## Next steps
 
 - [Getting started](/stack/quickstart) — The init guide to share with new team members
-- [Going to production](/stack/deploy/going-to-production) — Set up machine clients for deployment
+- [Going to production](/stack/deploy/going-to-production) — Set up application client keys for deployment
 - [Access keys](/stack/cipherstash/kms/access-keys) — Understand access key roles
-- [Clients](/stack/cipherstash/kms/clients) — Learn more about device-backed and machine clients
+- [Client keys](/stack/cipherstash/kms/clients) — Learn more about device-backed and application client keys
