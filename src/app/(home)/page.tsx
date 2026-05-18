@@ -16,6 +16,7 @@ import type { ComponentType } from "react";
 import {
   DrizzleLogo,
   DynamoDBLogo,
+  PrismaLogo,
   SupabaseLogo,
 } from "@/components/integration-logos";
 
@@ -64,6 +65,13 @@ const integrations: {
     description: "Encrypted column types and query operators for Drizzle.",
     href: "/stack/cipherstash/encryption/drizzle",
     logo: DrizzleLogo,
+  },
+  {
+    title: "Prisma Next",
+    description:
+      "Searchable field-level encryption for Postgres with Prisma Next.",
+    href: "/stack/cipherstash/encryption/prisma-next",
+    logo: PrismaLogo,
   },
   {
     title: "DynamoDB",
@@ -222,7 +230,7 @@ export default function HomePage() {
             Drop-in encryption for the databases and ORMs you already use.
           </p>
 
-          <div className="mt-8 grid gap-px bg-fd-border sm:grid-cols-3 border border-fd-border rounded-[2px] overflow-hidden">
+          <div className="mt-8 grid gap-px bg-fd-border sm:grid-cols-2 lg:grid-cols-4 border border-fd-border rounded-[2px] overflow-hidden">
             {integrations.map((integration) => (
               <Link
                 key={integration.title}
