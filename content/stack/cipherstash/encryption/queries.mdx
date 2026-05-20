@@ -169,8 +169,8 @@ const result = await pgClient.query(
 
 ```typescript filename="src/queries.ts"
 // Order by the extraction function — a bare `ORDER BY age` does not match
-// the functional range index expression. Requires a range index, so this
-// is self-hosted only.
+// the functional range index expression. The range index needs custom
+// operator class support — available on most providers, not Supabase.
 const result = await pgClient.query(
   "SELECT * FROM users ORDER BY eql_v2.ore_block_u64_8_256(age) ASC",
 )
@@ -185,7 +185,7 @@ const results = await db
   .from(usersTable)
   .where(await encryptionOps.gte(usersTable.age, 18))
 
-// Sort (requires a range index; self-hosted only)
+// Sort (requires a range index; most providers, not Supabase)
 const results = await db
   .select()
   .from(usersTable)
@@ -206,7 +206,7 @@ const { data } = await eSupabase
 ```
 
 <Callout type="warn">
-  `ORDER BY` on encrypted columns needs the range (Block-ORE) index, which is self-hosted only — its operator class requires superuser to install, and Supabase does not grant superuser. Range _filters_ (`>`, `>=`, `<`, `<=`) return correct results on both self-hosted and Supabase. On Supabase, `ORDER BY` on an encrypted column is not supported — sort application-side after decrypting.
+  `ORDER BY` on encrypted columns needs the range (Block-ORE) index, which relies on a B-tree operator class — creatable on any provider that allows custom operator classes (self-hosted, AWS RDS, and most managed Postgres). Supabase is the notable exception. Range _filters_ (`>`, `>=`, `<`, `<=`) return correct results everywhere — they fall back to a sequential scan where the index is unavailable. Where the range index cannot be created, `ORDER BY` on an encrypted column is not supported — sort application-side after decrypting.
 </Callout>
 
 **Underlying index:** [Range index setup](/stack/cipherstash/encryption/indexes#range-and-order)

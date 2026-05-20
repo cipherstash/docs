@@ -7,7 +7,7 @@ description: Create PostgreSQL functional indexes for encrypted columns — one 
 
 Encrypted columns need PostgreSQL indexes for fast queries. Without one, the database falls back to a sequential scan: correct, but slow at scale.
 
-EQL indexes an encrypted column with a **functional index** — an ordinary PostgreSQL index built over an EQL extraction function (`eql_v2.hmac_256`, `eql_v2.bloom_filter`, and so on) rather than over the raw column. One recipe per query type works on every PostgreSQL deployment — self-hosted, Supabase, RDS — with no superuser privileges and no custom operator classes.
+EQL indexes an encrypted column with a **functional index** — an ordinary PostgreSQL index built over an EQL extraction function (`eql_v2.hmac_256`, `eql_v2.bloom_filter`, and so on) rather than over the raw column. There is one recipe per query type: equality, pattern matching, and JSONB containment indexes work on every PostgreSQL deployment with no special privileges; range and ordering indexes additionally need a custom operator class, which most providers allow (see the note below).
 
 Bare-form queries engage these indexes automatically. `WHERE email = $1`, `WHERE name LIKE $1`, and `WHERE age < $1` each match their functional index with no query rewriting: EQL's operators inline to the same extraction function the index is built on, so the planner connects the two.
 
@@ -15,13 +15,13 @@ Bare-form queries engage these indexes automatically. `WHERE email = $1`, `WHERE
 
 | Query type | Index recipe | Availability |
 |---|---|---|
-| Equality | `USING hash (eql_v2.hmac_256(col))` | All deployments |
-| Pattern match (`LIKE` / `ILIKE`) | `USING gin (eql_v2.bloom_filter(col))` | All deployments |
-| JSONB containment | `USING gin (eql_v2.jsonb_array(col))` | All deployments |
-| Range / `ORDER BY` | `USING btree (eql_v2.ore_block_u64_8_256(col))` | Self-hosted only |
+| Equality | `USING hash (eql_v2.hmac_256(col))` | All providers |
+| Pattern match (`LIKE` / `ILIKE`) | `USING gin (eql_v2.bloom_filter(col))` | All providers |
+| JSONB containment | `USING gin (eql_v2.jsonb_array(col))` | All providers |
+| Range / `ORDER BY` | `USING btree (eql_v2.ore_block_u64_8_256(col))` | Most providers |
 
 <Callout type="info">
-  The range index is the one exception to "works everywhere": it relies on a B-tree operator class for the ORE term type, and installing an operator class requires superuser. Managed databases like Supabase do not grant superuser, so range indexes are unavailable there. Range *filters* (`>`, `>=`, `<`, `<=`) still return correct results on Supabase — they fall back to a sequential scan. `ORDER BY` on an encrypted column is not supported on Supabase; sort application-side after decrypting.
+  The range index carries one caveat: it relies on a B-tree operator class for the ORE term type, and creating an operator class needs elevated privileges. It works on any provider that allows that — self-hosted PostgreSQL and AWS RDS included — but not on every managed platform. Supabase is the notable exception. Where the range index cannot be created, range *filters* (`>`, `>=`, `<`, `<=`) still return correct results (they fall back to a sequential scan), but `ORDER BY` on an encrypted column is unavailable — sort application-side after decrypting.
 </Callout>
 
 ---
@@ -85,7 +85,7 @@ SELECT * FROM users ORDER BY eql_v2.ore_block_u64_8_256(age) LIMIT 10;
 ```
 
 <Callout type="warn">
-  Range indexes are self-hosted only — they need a B-tree operator class on the ORE term type, and operator classes require superuser to install. On Supabase, range filters still return correct results (via sequential scan) but cannot be indexed, and `ORDER BY` on an encrypted column is not supported — sort application-side after decrypting.
+  The range index needs a B-tree operator class on the ORE term type, so it can be created on any provider that allows custom operator classes — self-hosted PostgreSQL, AWS RDS, and most managed Postgres. Supabase is the notable exception: there, range filters still return correct results via sequential scan but cannot be indexed, and `ORDER BY` on an encrypted column is unavailable — sort application-side after decrypting.
 </Callout>
 
 See queries: [Range queries](/stack/cipherstash/encryption/queries#range-and-ordering)
@@ -118,7 +118,7 @@ CREATE INDEX users_name_match_idx ON users USING gin (eql_v2.bloom_filter(name))
 -- JSONB containment
 CREATE INDEX documents_metadata_idx ON documents USING gin (eql_v2.jsonb_array(metadata));
 
--- Range / ORDER BY (self-hosted only)
+-- Range / ORDER BY (most providers — needs custom operator class support)
 CREATE INDEX users_age_range_idx ON users USING btree (eql_v2.ore_block_u64_8_256(age));
 ```
 
