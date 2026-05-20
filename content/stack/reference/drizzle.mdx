@@ -46,7 +46,7 @@ description: Encrypted query operators, schema extraction, EQL migration generat
 Non-encrypted columns fall back to the standard Drizzle operator automatically.
 
 <Callout type="warn">
-  Sorting encrypted columns with `asc()` or `desc()` requires operator family support in the database. On managed databases (Supabase, RDS) or when EQL is installed with `--exclude-operator-family`, sort application-side after decrypting instead.
+  Sorting encrypted columns with `asc()` or `desc()` needs the range index, which relies on a custom operator class — creatable on most providers (self-hosted PostgreSQL, AWS RDS, …) but not Supabase. Where it is unavailable, sort application-side after decrypting instead.
 </Callout>
 
 ```typescript filename="queries.ts"
