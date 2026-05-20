@@ -5,7 +5,7 @@ description: Equality, match, and range query patterns for encrypted PostgreSQL 
 
 # Searchable encryption queries
 
-This page covers the three query families available for encrypted columns: equality, match (free-text), and range/order. Each section shows the SDK predicate, the raw SQL form, the underlying EQL index, and links to the corresponding index setup.
+This page covers the query patterns available for encrypted columns: equality, match (free-text), range/order, JSONB, grouping, and joins. Each section shows the SDK predicate, the raw SQL form, the underlying EQL index, and links to the corresponding index setup.
 
 For index creation (the `CREATE INDEX` statements your database needs), see [Setting up indexes](/stack/cipherstash/encryption/indexes).
 
@@ -215,7 +215,7 @@ const { data } = await eSupabase
 
 ## JSONB queries
 
-Query encrypted JSON columns using path existence or containment. Uses the `ste_vec` index.
+Encrypted JSON columns — configured with `.searchableJson()` — support containment, field access, field-level filtering, and JSON path queries, all without decrypting the document. The operators and functions mirror PostgreSQL's native JSONB surface; the [searchable JSON reference](/stack/cipherstash/proxy/searchable-json) lists the complete set.
 
 **Schema:**
 
@@ -225,10 +225,17 @@ const documents = encryptedTable("documents", {
 })
 ```
 
-**SDK (path existence):**
+### Containment
+
+Test whether an encrypted document contains a given field, value, or nested structure with `@>`:
+
+```sql
+SELECT * FROM documents
+WHERE eql_v2.jsonb_array(metadata) @> eql_v2.jsonb_array($1::eql_v2_encrypted);
+```
 
 ```typescript filename="src/queries.ts"
-const term = await client.encryptQuery("$.user.role", {
+const term = await client.encryptQuery({ role: "admin" }, {
   column: documents.metadata,
   table: documents,
 })
@@ -239,16 +246,39 @@ const result = await pgClient.query(
 )
 ```
 
-**SDK (containment):**
+Engages the `GIN (eql_v2.jsonb_array(metadata))` index — see [JSONB index setup](/stack/cipherstash/encryption/indexes#jsonb).
 
-```typescript filename="src/queries.ts"
-const term = await client.encryptQuery({ role: "admin" }, {
-  column: documents.metadata,
-  table: documents,
-})
+### Field access
+
+Extract a field from an encrypted JSON document with `->`. The result is a typed encrypted value you can filter on, order by, or decrypt:
+
+```sql
+SELECT metadata -> 'role' FROM documents;
 ```
 
-**Drizzle:**
+### Field equality and ordering
+
+An extracted field behaves like any encrypted column — filter it by equality, or order by it:
+
+```sql
+-- Equality on a JSON field
+SELECT * FROM documents WHERE metadata -> 'role' = $1::eql_v2.ste_vec_entry;
+
+-- Order by a JSON field
+SELECT * FROM documents ORDER BY eql_v2.ore_cllw(metadata -> 'created_at');
+```
+
+### Path queries
+
+Check whether a JSON path resolves, or read the value at a path:
+
+```sql
+-- Does the path exist?
+SELECT * FROM documents WHERE jsonb_path_exists(metadata, '$.user.role');
+
+-- Read the value at a path
+SELECT jsonb_path_query(metadata, '$.user.role') FROM documents;
+```
 
 ```typescript filename="src/queries.ts"
 const results = await db
@@ -257,4 +287,42 @@ const results = await db
   .where(await encryptionOps.jsonbPathExists(documentsTable.metadata, "$.user.role"))
 ```
 
-**Underlying index:** [JSONB index setup](/stack/cipherstash/encryption/indexes#jsonb)
+For the full JSONB operator and function reference — `->>`, `<@`, `jsonb_path_query_first`, `jsonb_array_elements`, `jsonb_array_length`, and JSONPath syntax — see [searchable JSON](/stack/cipherstash/proxy/searchable-json).
+
+---
+
+## GROUP BY and DISTINCT
+
+Encrypted columns can be grouped and deduplicated. Equality on encrypted data is by HMAC term — two encryptions of the same plaintext share the same HMAC term — so PostgreSQL groups rows by plaintext value without decrypting them:
+
+```sql
+-- Count rows per distinct (encrypted) category
+SELECT category, count(*) FROM products GROUP BY category;
+
+-- Distinct encrypted values
+SELECT DISTINCT category FROM products;
+```
+
+To group by a field inside an encrypted JSON column, group by the field's equality term:
+
+```sql
+SELECT count(*) FROM users GROUP BY eql_v2.eq_term(profile -> 'department');
+```
+
+`GROUP BY` and `DISTINCT` require the column to carry an HMAC term — set the `unique` index in the column's encryption config. No functional index is needed for grouping itself: a `GROUP BY` reads every row regardless.
+
+---
+
+## Joins
+
+Encrypted columns can be joined on equality. The `=` operator compares HMAC terms, so PostgreSQL satisfies the join with a hash join, exactly as it would for a plaintext column:
+
+```sql
+SELECT o.id, c.name
+FROM orders o
+JOIN customers c ON o.customer_email = c.email;
+```
+
+The two joined columns must be encrypted under the same configuration, so that equal plaintexts produce equal HMAC terms. Standard ORM joins (Drizzle's `.innerJoin()`, and so on) work unchanged — there is no special API and no query value to encrypt.
+
+**Underlying index:** a `hash` functional index on each joined column — see [Equality index setup](/stack/cipherstash/encryption/indexes#equality).

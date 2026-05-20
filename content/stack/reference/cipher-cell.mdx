@@ -47,11 +47,11 @@ A CipherCell is the **unit of encrypted storage** in CipherStash: a portable, se
 ## Structure
 
 <Callout type="warn">
-**Required fields**: Only `i` (identifier) and `v` (version) are required.
+**Required fields**: `v` (version) and `i` (identifier) are always present. A scalar payload also requires `c` (ciphertext); an STE-vector payload requires `k` and `sv`.
 
-**Payload requirement**: Either `c` (ciphertext) or `sv` (structured encryption vector) must be present, but never both.
+**Payload shape**: a CipherCell is either a scalar value (`c`) or an STE vector (`sv`) — never both. The `k` field names the shape.
 
-**Optional fields**: All searchable encrypted metadata (SEM) fields are optional and only included when the corresponding index types are configured.
+**Optional fields**: all searchable encrypted metadata (SEM) fields are optional, included only when the corresponding index type is configured.
 </Callout>
 
 A CipherCell is stored as a JSON object with the following top-level structure:
@@ -63,6 +63,7 @@ A CipherCell is stored as a JSON object with the following top-level structure:
     "c": "column_name"
   },
   "v": 2,
+  "k": "ct",
   "c": "encrypted_data_in_messagepack_base85",
   "hm": "2e182f0c444d1d51f5f70f32d778b2eaa854f5921a4a2acaa4446c44055cb777",
   "ob": ["ore_block_1", "ore_block_2"],
@@ -107,6 +108,22 @@ The encryption version used for this CipherCell.
 
 The version field allows for cryptographic algorithm upgrades over time while maintaining backward compatibility.
 
+### `k` - Kind
+
+Discriminates the two CipherCell shapes.
+
+**Type**: String — `"ct"` (scalar ciphertext) or `"sv"` (STE vector)
+
+**Required**: Yes for STE-vector payloads; optional for scalar payloads
+
+```json
+{
+  "k": "ct"
+}
+```
+
+`k` tells EQL — and any other consumer — which shape to expect: `"ct"` for a single encrypted value (carries a `c` field), `"sv"` for a structured-encryption vector (carries an `sv` array).
+
 ### `c` - Ciphertext (required unless `sv` is present)
 
 The encrypted record containing the actual plaintext data.
@@ -125,31 +142,17 @@ The encrypted record containing the actual plaintext data.
 Either `c` or `sv` must be present in every CipherCell, but never both. Use `c` for standard encrypted values and `sv` for structured encryption vectors (arrays or JSON structures).
 </Callout>
 
-### `a` - Array item flag
-
-Indicates whether this CipherCell represents an item within an array.
-
-**Type**: Boolean
-
-**Required**: No
-
-```json
-{
-  "a": true
-}
-```
-
 ## Searchable Encrypted Metadata (SEM)
 
 The CipherCell can contain various types of searchable encrypted metadata, each enabling different query capabilities. All SEM fields are optional and only included when the corresponding index type is configured.
 
 ### `hm` - HMAC-SHA256
 
-Enables exact match queries using HMAC-SHA256.
+Enables exact match queries using HMAC-SHA256. Used both at the root (scalar equality) and on STE-vector elements — where in v2.3 it replaced the former `b3` term.
 
 **Type**: Hex-encoded string (64 characters)
 
-**Index Type**: [Exact](/stack/cipherstash/encryption/searchable-encryption#exact-match)
+**Index Type**: [Exact](/stack/cipherstash/encryption/searchable-encryption#exact-matching)
 
 ```json
 {
@@ -163,7 +166,7 @@ Enables range queries and ordering using Order Revealing Encryption.
 
 **Type**: Array of strings
 
-**Index Type**: [Order / Range](/stack/cipherstash/encryption/searchable-encryption#range--order)
+**Index Type**: [Order / Range](/stack/cipherstash/encryption/searchable-encryption#sorting-and-range-queries)
 
 ```json
 {
@@ -180,21 +183,13 @@ Enables substring and pattern matching queries using encrypted Bloom filters wit
 
 **Type**: Array of integers
 
-**Index Type**: [Match](/stack/cipherstash/encryption/searchable-encryption#match-pattern)
+**Index Type**: [Match](/stack/cipherstash/encryption/searchable-encryption#free-text-search)
 
 ```json
 {
   "bf": [1234, 5678, 9012, 3456, 7890]
 }
 ```
-
-### `b3` - Blake3
-
-Blake3 hash for exact matches in structured encryption vectors.
-
-**Type**: Hex-encoded string
-
-**Used in**: SteVec (Structured Encryption Vector) subfield
 
 ### `s` - Selector
 
@@ -204,48 +199,47 @@ Selector value for field selection in structured encryption vectors.
 
 **Used in**: SteVec (Structured Encryption Vector) subfield
 
-### `ocf` - ORE CLWW Fixed-Width
+### `oc` - ORE CLLW
 
-ORE CLWW (Chenette-Lewi-Weis-Wu) fixed-width scheme for 64-bit integer values in structured encryption vectors.
+CLLW Order-Revealing Encryption term for STE-vector elements — enables range and ordering queries on a field inside an encrypted JSON document. In v2.3 this single field replaced the former `ocf` / `ocv` split: width is now carried on the ciphertext itself, via a leading domain-tag byte (`0x00` numeric, `0x01` string), so one column can hold mixed numeric and string values with a consistent total order.
 
-**Type**: String
+**Type**: Hex-encoded string
 
-**Used in**: SteVec (Structured Encryption Vector) subfield
+**Used in**: STE-vector element
 
-### `ocv` - ORE CLWW Variable-Width
-
-ORE CLWW variable-width scheme for string comparison in structured encryption vectors.
-
-**Type**: String
-
-**Used in**: SteVec (Structured Encryption Vector) subfield
+**Index Type**: [Order / Range](/stack/cipherstash/encryption/searchable-encryption#sorting-and-range-queries)
 
 ### `sv` - Structured Encryption Vector (SteVec) (required unless `c` is present)
 
-Nested array of CipherCells for supporting containment queries and JSON-style operations.
+Array of per-selector encrypted terms for an encrypted JSON document — supports containment (`@>`, `<@`) and path queries.
 
-**Type**: Array of CipherCell objects
+**Type**: Array of STE-vector elements
 
-**Required**: Yes (unless `c` attribute is present)
+**Required**: Yes (unless `c` is present)
 
 ```json
 {
   "sv": [
     {
+      "s": "selector1",
       "c": "Xk}0>Z*pVbW@%*8a%F0@",
-      "hm": "hash1...",
-      "s": "selector1"
+      "hm": "hash1..."
     },
     {
+      "s": "selector2",
       "c": "Yl~1?A+qWcX#&+9b&G1#",
-      "hm": "hash2...",
-      "s": "selector2"
+      "oc": "01a3f9..."
     }
   ]
 }
 ```
 
-SteVec enables queries on array elements and JSON document structures while maintaining encryption. Each element in the `sv` array is itself a CipherCell that can contain SEM fields like `b3`, `s`, `ocf`, and `ocv`.
+An STE-vector element is **not** a full CipherCell — it has no `i`, `v`, or nested `sv`. Each element carries:
+
+- `s` — the selector, deterministic per path/key within the document. Required.
+- `c` — the element's ciphertext. Required.
+- `a` — array marker; `true` when the selector points at a JSON array context. Optional.
+- exactly one of `hm` (equality — boolean leaves, array / object roots) **or** `oc` (ordering — string and number leaves).
 
 ## Complete example
 
@@ -258,6 +252,7 @@ Here's a complete CipherCell with multiple index types enabled:
     "c": "price"
   },
   "v": 2,
+  "k": "ct",
   "c": "Xk}0>Z*pVbW@%*8a%F0@Yl~1?A+qWcX#&+9b&G1#",
   "hm": "2e182f0c444d1d51f5f70f32d778b2eaa854f5921a4a2acaa4446c44055cb777",
   "ob": [
@@ -298,4 +293,4 @@ The CipherCell format is consistent across all CipherStash SDKs and tools, ensur
 ## Database storage
 
 CipherCells can be stored as JSON in any database that supports JSON data types.
-However, for search to be supported using the [Encryption SDK](/stack/cipherstash/encryption) or [CipherStash Proxy](/stack/cipherstash/proxy), the `eql_v2.encrypted` database type must be used which is available when the Encrypt Query Language (EQL) helpers have been installed.
+However, for search to be supported using the [Encryption SDK](/stack/cipherstash/encryption) or [CipherStash Proxy](/stack/cipherstash/proxy), the `eql_v2_encrypted` database type must be used, which is available once the Encrypt Query Language (EQL) helpers have been installed.
