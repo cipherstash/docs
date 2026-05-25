@@ -25,6 +25,7 @@ CipherStash supports the following identity providers:
 - **Auth0**
 - **Okta**
 - **Clerk**
+- **Supabase** — register from the dashboard setup hub or manually with the project issuer URL
 
 ## Registering a provider
 
@@ -37,15 +38,22 @@ Select your vendor and enter the **Issuer URL** — this is the OIDC discovery e
 | Auth0 | `https://your-tenant.auth0.com/` |
 | Okta | `https://your-org.okta.com/` |
 | Clerk | `https://your-app.clerk.accounts.dev/` |
+| Supabase | `https://{projectRef}.supabase.co/auth/v1` |
 
 Submit the form. The provider is now registered for that workspace.
+
+### Supabase (from the dashboard)
+
+If you [connected Supabase in the dashboard](/stack/reference/dashboard-supabase-integration), open **Settings → Integrations → Supabase**, select your project, and click **Configure OIDC for this project**.
+
+The dashboard registers vendor `supabase` with issuer `https://{projectRef}.supabase.co/auth/v1` for the selected project ref.
 
 ## What gets stored
 
 Each registered OIDC provider has three fields:
 
 - **ID** — assigned by CipherStash on registration
-- **Vendor** — one of `auth0`, `okta`, or `clerk`
+- **Vendor** — one of `auth0`, `okta`, `clerk`, or `supabase`
 - **Issuer** — the URL you provided
 
 No client secret or shared key is stored. CipherStash validates tokens by fetching the JWKS from the issuer's discovery endpoint.

@@ -6,6 +6,34 @@ icon: Supabase
 
 Field-level encryption that works with your Supabase project out of the box.
 
+## Connect from the dashboard
+
+You can connect Supabase from the [CipherStash Dashboard](https://dashboard.cipherstash.com) instead of starting entirely from the CLI.
+
+<Steps>
+  <Step>
+    ### Open workspace integrations
+
+    In your workspace, go to **Settings → Integrations** and click **Connect Supabase**.
+  </Step>
+
+  <Step>
+    ### Authorize Supabase OAuth
+
+    Approve access for the CipherStash OAuth app. Tokens are stored encrypted on the workspace.
+  </Step>
+
+  <Step>
+    ### Use the setup hub
+
+    Select a Supabase project, verify EQL and OIDC readiness, configure Supabase as an OIDC provider with one click, and copy Stack onboarding commands plus a `.env.local` snippet tailored to that project.
+  </Step>
+</Steps>
+
+You can also install CipherStash from the **Supabase Marketplace** — the dashboard supports both simple and signed redirect install flows.
+
+Full reference: [Supabase dashboard integration](/stack/reference/dashboard-supabase-integration)
+
 ## How this works
 
 ### What is EQL?
@@ -219,6 +247,7 @@ Local development uses device-based authentication. Production uses environment 
 
 ## Next steps
 
+- [Supabase dashboard integration](/stack/reference/dashboard-supabase-integration) — OAuth connect, setup hub, Marketplace install, and production config
 - [Quickstart](/stack/quickstart) — Encrypt your first fields in 15 minutes
 - [Supabase JS SDK reference](/stack/cipherstash/encryption/supabase) — Full API for the encryptedSupabase wrapper
 - [Drizzle ORM reference](/stack/cipherstash/encryption/drizzle) — Encrypted column types and operators

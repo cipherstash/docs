@@ -1,0 +1,251 @@
+---
+title: Supabase dashboard integration
+description: Connect Supabase from the CipherStash dashboard, verify EQL readiness, configure OIDC, and install from the Supabase Marketplace.
+---
+
+The CipherStash dashboard can connect to your Supabase account with OAuth, guide Stack onboarding for a specific project, and register Supabase as an OIDC provider for identity-aware encryption.
+
+Use this when you want a guided setup path instead of configuring everything from the CLI alone.
+
+## Where to find it
+
+In the [CipherStash Dashboard](https://dashboard.cipherstash.com):
+
+1. Open a workspace
+2. Go to **Settings → Integrations**
+3. Click **Connect Supabase** (or **Open setup** if already connected)
+
+Connected workspaces also have a dedicated setup page at:
+
+```
+/workspaces/{workspaceId}/settings/integrations/supabase
+```
+
+## Connect Supabase (OAuth)
+
+The dashboard uses Supabase OAuth with PKCE. Tokens are encrypted at rest in the CipherStash database and scoped to the workspace you connect from.
+
+<Steps>
+  <Step>
+    ### Start OAuth
+
+    On **Settings → Integrations**, click **Connect Supabase**. You are redirected to Supabase to authorize the CipherStash OAuth app.
+  </Step>
+
+  <Step>
+    ### Complete authorization
+
+    After you approve access, the dashboard stores encrypted access and refresh tokens for that workspace and redirects you to the Supabase setup hub.
+  </Step>
+
+  <Step>
+    ### Disconnect (optional)
+
+    From the setup hub, click **Disconnect** to remove the integration from the workspace. The dashboard marks the integration disconnected immediately and revokes the refresh token in the background.
+  </Step>
+</Steps>
+
+### OAuth scopes
+
+The integration requests these Supabase OAuth scopes:
+
+| Scope | Purpose |
+| --- | --- |
+| `projects:read` | List projects and read project metadata via the Management API |
+| `database:read` | Run read-only SQL checks (EQL version, encrypted columns) |
+
+Configure these scopes on your Supabase OAuth app. The dashboard does **not** request `secrets:read`.
+
+## Setup hub
+
+After connecting, the setup hub helps you onboard a specific Supabase project with Stack.
+
+### Project selection
+
+The hub lists Supabase projects available to the connected account. Select the project you want to encrypt. Readiness checks and onboarding commands update when you change projects.
+
+If you arrived from the Supabase Marketplace with a pre-selected project, that project is chosen automatically via a `?project=` query parameter.
+
+### Readiness checks
+
+For the selected project, the dashboard verifies:
+
+| Check | What it means |
+| --- | --- |
+| **Project services healthy** | Supabase project health from the Management API |
+| **EQL installed** | `SELECT eql_v2.version() AS version;` succeeds |
+| **Encrypted columns detected** | Columns using `eql_v2_encrypted` in `information_schema` |
+| **Supabase OIDC provider configured** | A Supabase issuer is registered on the CipherStash workspace |
+
+When project health, EQL, and OIDC are all satisfied, the hub shows a **Stack-ready** badge.
+
+<Callout type="info">
+  EQL detection uses `eql_v2.version()`, not a `pg_extension` lookup. If EQL is missing, run `npx stash db install --supabase --migration` in your application repo.
+</Callout>
+
+### Configure OIDC from the dashboard
+
+If Supabase OIDC is not registered yet, click **Configure OIDC for this project** on the readiness panel.
+
+The dashboard registers a Supabase OIDC provider on your CipherStash workspace with issuer:
+
+```
+https://{projectRef}.supabase.co/auth/v1
+```
+
+This enables [identity-aware encryption](/stack/cipherstash/encryption/identity) with Supabase Auth JWTs via `LockContext`.
+
+See [OIDC Providers](/stack/cipherstash/kms/oidc) for manual registration and usage from code.
+
+### Stack onboarding commands
+
+The hub copies the official Supabase + Stack workflow:
+
+```bash
+npm install @cipherstash/stack
+npm install -D stash
+npx stash auth login
+npx stash init --supabase
+npx stash db install --supabase --migration
+```
+
+It also generates a `.env.local` snippet for the selected project, including:
+
+- `DATABASE_URL` (Postgres host `db.{projectRef}.supabase.co`)
+- `SUPABASE_URL` and `SUPABASE_ANON_KEY` (when available from the Management API)
+- Comments for local dev (`~/.cipherstash/`) vs production (`CS_*` access keys)
+
+For the full CLI and SDK path, see [Supabase](/stack/cipherstash/supabase).
+
+### Encrypted schema
+
+When the selected project already has `eql_v2_encrypted` columns, the hub lists them by schema, table, and column name.
+
+## Install from the Supabase Marketplace
+
+CipherStash supports the [Supabase partner integration guide](https://supabase.com/docs/guides/integrations/partner-integration-guide) for the **Install Integration** button in the Supabase Marketplace.
+
+There are two redirect methods. Both create a one-time install record and send the user to a handler page where they pick a CipherStash workspace and complete OAuth.
+
+### Method 1 — Simple redirect
+
+Supabase redirects the user to:
+
+```
+GET {APP_URL}/api/integrations/supabase/install?project_id={ref}&organization_slug={slug}
+```
+
+The API creates an install record and redirects to:
+
+```
+{APP_URL}/integrations/supabase/install/{integrationId}
+```
+
+### Method 2 — Signed redirect
+
+Supabase POSTs a signed JWT to the same install endpoint:
+
+```http
+POST {APP_URL}/api/integrations/supabase/install
+Content-Type: application/json
+
+{ "token": "<signed-jwt>" }
+```
+
+On success, the API returns:
+
+```json
+{
+  "integrationId": "...",
+  "redirectUrl": "{APP_URL}/integrations/supabase/install/{integrationId}",
+  "expiresAt": "..."
+}
+```
+
+Supabase redirects the user to `redirectUrl`.
+
+### Install handler flow
+
+1. User lands on `/integrations/supabase/install/{integrationId}`
+2. If not signed in to CipherStash, they authenticate first
+3. User selects the workspace where Supabase should be connected
+4. OAuth completes and binds the install record to that workspace (bind-once)
+5. User lands on the setup hub, optionally with the Supabase project pre-selected
+
+Install links expire. If a link is invalid or expired, return to Supabase and click **Install Integration** again.
+
+<Callout type="info">
+  The normal in-dashboard **Connect Supabase** button does not use partner install records. Partner logic runs only when an `installId` is present in the OAuth flow.
+</Callout>
+
+## Production configuration (CipherStash operators)
+
+These environment variables configure the dashboard deployment (for example on Vercel):
+
+```bash
+NEXT_PUBLIC_APP_URL="https://dashboard.cipherstash.com"
+
+# Supabase OAuth (Connect button)
+SUPABASE_OAUTH_CLIENT_ID="..."
+SUPABASE_OAUTH_CLIENT_SECRET="..."
+# Optional — defaults to {NEXT_PUBLIC_APP_URL}/api/integrations/supabase/callback
+# SUPABASE_OAUTH_REDIRECT_URI="..."
+
+# Supabase Marketplace signed redirect (Method 2)
+SUPABASE_PARTNER_JWT_AUDIENCE="https://dashboard.cipherstash.com"
+SUPABASE_PARTNER_JWT_PUBLIC_KEYS='{"pik_xxx":"-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"}'
+```
+
+Register the OAuth callback URL on your Supabase OAuth app:
+
+```
+{NEXT_PUBLIC_APP_URL}/api/integrations/supabase/callback
+```
+
+### Values to provide Supabase (Marketplace)
+
+| Item | Example (production) |
+| --- | --- |
+| Redirect record endpoint | `https://dashboard.cipherstash.com/api/integrations/supabase/install` |
+| Redirect handler pattern | `https://dashboard.cipherstash.com/integrations/supabase/install/{integrationId}` |
+| JWT `aud` claim | `https://dashboard.cipherstash.com` |
+
+Verify signed redirect is enabled:
+
+```bash
+curl -I https://dashboard.cipherstash.com/api/integrations/supabase/install
+```
+
+When JWT verification is configured, the response includes:
+
+```
+X-Supabase-Partner-Signed-Redirect: enabled
+```
+
+### Database migrations
+
+The dashboard requires these migrations:
+
+- `supabase_integrations` — encrypted OAuth tokens per workspace
+- `supabase_partner_installs` — one-time Marketplace install records
+- `supabase_oauth_sessions` — PKCE OAuth state keyed by `state`
+
+Apply them before enabling the integration in production.
+
+## Security notes
+
+- OAuth tokens are encrypted at rest; integration queries run under organization RLS
+- Partner install IDs bind to a single workspace on first use (prevents hijacking)
+- OAuth PKCE state is stored in the database keyed by OAuth `state` (multi-tab safe)
+- Sign-in and sign-up redirects are validated as internal paths only
+- `NEXT_PUBLIC_APP_URL` is required in production (Host header is not trusted)
+- Public install endpoints are rate limited
+- Partner JWTs are verified with `ES256`, a 5-minute max age, and required claims
+
+## Next steps
+
+- [Supabase](/stack/cipherstash/supabase) — CLI setup, EQL install, and SDK integration paths
+- [Supabase JS SDK integration](/stack/cipherstash/encryption/supabase) — `encryptedSupabase` API reference
+- [OIDC Providers](/stack/cipherstash/kms/oidc) — Register and use identity providers
+- [Identity-aware encryption](/stack/cipherstash/encryption/identity) — Bind encryption to user JWTs
+- [Going to production](/stack/deploy/going-to-production) — `CS_*` credentials for deployed apps
