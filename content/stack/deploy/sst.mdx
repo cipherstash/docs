@@ -1,6 +1,6 @@
 ---
 title: SST
-description: Configure SST and serverless functions to work with @cipherstash/stack
+description: Configure SST serverless functions for @cipherstash/stack by excluding it from esbuild bundling and installing it into the Lambda deployment artifact.
 ---
 
 When deploying `@cipherstash/stack` in serverless functions with [SST](https://sst.dev/), you need to exclude the package from esbuild bundling and install it into the Lambda deployment artifact.
