@@ -271,11 +271,13 @@ export async function generateDocsForTag(
   const configPath = path.join(workingDir, "typedoc.json");
   await fs.writeFile(configPath, JSON.stringify(typedocConfig, null, 2));
 
-  // Generate TypeDoc documentation
+  // Generate TypeDoc documentation. Pass the package name through so the
+  // frontmatter plugin can build package-qualified SEO titles/descriptions.
   console.log("Generating TypeDoc markdown...");
   execSync("npx typedoc --options typedoc.json", {
     cwd: workingDir,
     stdio: "inherit",
+    env: { ...process.env, DOCS_PACKAGE_NAME: config.packageName },
   });
 
   // Strip .mdx extensions from internal links
