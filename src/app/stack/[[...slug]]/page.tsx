@@ -55,10 +55,22 @@ export async function generateMetadata(
   const page = source.getPage(params.slug);
   if (!page) notFound();
 
+  // Some pages use a brand-styled visual title (e.g. "/ENCRYPTION"); prefer an
+  // explicit `seoTitle` for the <title>/OG tags when present.
+  const title = page.data.seoTitle ?? page.data.title;
+  // Absolute public URL. Pages are served at cipherstash.com/docs (Next
+  // basePath) + the Fumadocs route (`page.url`, e.g. "/stack/...").
+  const url = `https://cipherstash.com/docs${page.url}`;
+
   return {
-    title: page.data.title,
+    title,
     description: page.data.description,
+    alternates: { canonical: url },
     openGraph: {
+      type: "article",
+      url,
+      title,
+      description: page.data.description,
       images: getPageImage(page).url,
     },
   };

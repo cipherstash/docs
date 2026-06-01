@@ -19,6 +19,18 @@ import {
   PrismaLogo,
   SupabaseLogo,
 } from "@/components/integration-logos";
+import type { Metadata } from "next";
+
+// The /docs landing page had no metadata (no <title>). `absolute` bypasses the
+// root layout's "%s | CipherStash Docs" template so the title isn't doubled.
+export const metadata: Metadata = {
+  title: {
+    absolute: "CipherStash Docs — Searchable encryption for Postgres",
+  },
+  description:
+    "Data Level Access Control for Postgres. Searchable field-level encryption, identity-bound keys, and cryptographic audit trails.",
+  alternates: { canonical: "https://cipherstash.com/docs" },
+};
 
 const monoClass = "font-[family-name:var(--font-fira-code)] tracking-[-0.02em]";
 const eyebrowClass =
