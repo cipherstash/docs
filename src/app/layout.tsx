@@ -1,7 +1,21 @@
 import { RootProvider } from "fumadocs-ui/provider/next";
 import { PostHogProvider } from "@/lib/posthog/provider";
 import "./global.css";
+import type { Metadata } from "next";
 import { Inter, Fira_Code } from "next/font/google";
+
+// Site-wide title template so every page gets a descriptive, branded
+// <title>. Per-page metadata returns a bare title (e.g. "Keysets") which
+// this template expands to "Keysets | CipherStash Docs".
+// NOTE: intentionally no `metadataBase` — the OG image URLs rely on Vercel's
+// inferred deployment origin (docs.cipherstash.com); overriding the base
+// would break them. Canonical/og:url are set as absolute URLs per page.
+export const metadata: Metadata = {
+  title: {
+    template: "%s | CipherStash Docs",
+    default: "CipherStash Docs",
+  },
+};
 
 const inter = Inter({
   subsets: ["latin"],
