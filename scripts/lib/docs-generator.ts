@@ -252,16 +252,24 @@ export async function generateDocsForTag(
         Result: "https://www.npmjs.com/package/@byteslice/result",
       },
     },
-    // Types that are deliberately not exported from the public entry points but
-    // are referenced by exported declarations (return types, params, mapped
-    // types). Listing them here documents the intent and silences the
-    // "referenced by ... but not included" warnings. The *WithLockContext
-    // variants are the lock-context-aware operation classes returned by
-    // `.withLockContext()`; the rest are internal helper/brand/zod-schema types.
+    // NOTE: `intentionallyNotExported` only *silences* the "referenced by ...
+    // but not included" warning — it does NOT add the type to the reference.
+    // So it is the right tool only for genuinely-internal types. Anything a
+    // consumer would want to know about should instead be re-exported from a
+    // documented entry point (the way the base operation classes are surfaced
+    // via the `export { ... }` block in stack's encryption/index.ts, per
+    // cipherstash/stack#502) so it renders as a real reference page — and then
+    // removed from this list. The array is split accordingly.
     intentionallyNotExported: [
+      // --- Genuinely internal: keep suppressed indefinitely. ---
+      // Helper/brand types, zod schema *values* (the runtime validators, not the
+      // inferred option types), and decrypt-result union members. QueryTermBase
+      // and TableDefinition are marked "excluded"/"used internally" in the stack
+      // source itself, so they belong here too.
       "Brand",
       "AtLeastOneCsTable",
       "QueryTermBase",
+      "TableDefinition",
       "DecryptionSuccess",
       "DecryptionError",
       "tokenFilterSchema",
@@ -270,12 +278,20 @@ export async function generateDocsForTag(
       "uniqueIndexOptsSchema",
       "oreIndexOptsSchema",
       "columnSchema",
-      "TableDefinition",
+      "DrizzleEncryptedSchema",
+
+      // --- Public API surface, suppressed only as a STOPGAP. ---
+      // These are useful to document but are not yet reachable from a documented
+      // entry point. The fix is stack-side: re-export them (the *WithLockContext
+      // operation classes + AuditConfig/AuditData from encryption/index.ts,
+      // DynamoDBOperationOptions from dynamodb/index.ts, FilterOp from
+      // supabase/index.ts) the same way cipherstash/stack#502 surfaced the base
+      // operation classes. Once a stack release exports them, REMOVE them here so
+      // they become real reference pages. (#502 covered the base classes only.)
       "AuditConfig",
       "AuditData",
       "DynamoDBOperationOptions",
       "FilterOp",
-      "DrizzleEncryptedSchema",
       "EncryptOperationWithLockContext",
       "EncryptQueryOperationWithLockContext",
       "BatchEncryptQueryOperationWithLockContext",
