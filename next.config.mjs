@@ -237,6 +237,74 @@ const config = {
         destination: "/stack/reference/stack/latest",
         permanent: false,
       },
+      // === AI-cited URLs orphaned by the restructure ===
+      // Recovered from ai-monitoring citation data (window 2026-05-12 → 2026-06-02):
+      // these 12 paths are cited by AI search engines (OpenAI/Anthropic) but now 404,
+      // discarding ~73 citations' worth of equity. Targets verified live 2026-06-02.
+      // NOTE: sources/destinations omit the "/docs" basePath, per the file's convention.
+      {
+        // Most-cited dead docs URL — 50 citations.
+        source: "/getting-started/what-is-cipherstash",
+        destination: "/stack/reference/what-is-cipherstash",
+        permanent: true,
+      },
+      {
+        source: "/what-is-cipherstash",
+        destination: "/stack/reference/what-is-cipherstash",
+        permanent: true,
+      },
+      {
+        source: "/getting-started/supported-solutions",
+        destination: "/stack/reference/supported-solutions",
+        permanent: true,
+      },
+      {
+        source: "/getting-started",
+        destination: "/stack",
+        permanent: true,
+      },
+      {
+        // Protect SDK lives in the encryption section.
+        source: "/protect-js/getting-started",
+        destination: "/stack/cipherstash/encryption",
+        permanent: true,
+      },
+      {
+        source: "/reference/protect-js",
+        destination: "/stack/cipherstash/encryption",
+        permanent: true,
+      },
+      {
+        source: "/devops/proxy",
+        destination: "/stack/cipherstash/proxy",
+        permanent: true,
+      },
+      {
+        source: "/proxy/how-to/aws-ecs",
+        destination: "/stack/deploy/aws-ecs",
+        permanent: true,
+      },
+      {
+        source: "/reference/eql",
+        destination: "/stack/reference/eql",
+        permanent: true,
+      },
+      {
+        source: "/platform/workspaces/key-sets",
+        destination: "/stack/cipherstash/kms/keysets",
+        permanent: true,
+      },
+      // ZeroKMS section was renamed to kms — catch-all covers disaster-recovery etc.
+      {
+        source: "/platform/zerokms/:path*",
+        destination: "/stack/cipherstash/kms/:path*",
+        permanent: true,
+      },
+      {
+        source: "/platform/zerokms",
+        destination: "/stack/cipherstash/kms",
+        permanent: true,
+      },
     ];
   },
   async rewrites() {
