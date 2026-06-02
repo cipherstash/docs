@@ -1,6 +1,6 @@
 ---
 title: Identity-aware encryption
-description: Tie encryption to a user's JWT so only that user can decrypt their data
+description: Use LockContext in @cipherstash/stack to tie encryption to a user JWT so only that identity can decrypt their data, including Clerk and Next.js setup.
 ---
 
 Lock encryption to a specific user by requiring a valid JWT for decryption. When a value is encrypted with a lock context, it can only be decrypted by presenting the same user's identity token.

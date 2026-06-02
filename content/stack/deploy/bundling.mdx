@@ -1,6 +1,6 @@
 ---
 title: Bundling
-description: Configure webpack, esbuild, Next.js, and other build tools to work with @cipherstash/stack
+description: Configure webpack, esbuild, Next.js, and SST to exclude the native @cipherstash/stack module from bundling, plus fixes for Linux deployment failures.
 ---
 
 `@cipherstash/stack` is a native Node.js module that relies on native `require` to load platform-specific binaries at runtime. It cannot be processed by bundlers like webpack or esbuild. You must exclude it from bundling.
