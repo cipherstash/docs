@@ -244,6 +244,49 @@ export async function generateDocsForTag(
     excludePrivate: true,
     excludeProtected: true,
     excludeInternal: true,
+    // Map external-package symbols referenced in {@link} tags to their upstream
+    // docs so the links resolve instead of warning. `Result` comes from
+    // @byteslice/result, which is not part of the generated reference.
+    externalSymbolLinkMappings: {
+      "@byteslice/result": {
+        Result: "https://www.npmjs.com/package/@byteslice/result",
+      },
+    },
+    // Types that are deliberately not exported from the public entry points but
+    // are referenced by exported declarations (return types, params, mapped
+    // types). Listing them here documents the intent and silences the
+    // "referenced by ... but not included" warnings. The *WithLockContext
+    // variants are the lock-context-aware operation classes returned by
+    // `.withLockContext()`; the rest are internal helper/brand/zod-schema types.
+    intentionallyNotExported: [
+      "Brand",
+      "AtLeastOneCsTable",
+      "QueryTermBase",
+      "DecryptionSuccess",
+      "DecryptionError",
+      "tokenFilterSchema",
+      "matchIndexOptsSchema",
+      "steVecIndexOptsSchema",
+      "uniqueIndexOptsSchema",
+      "oreIndexOptsSchema",
+      "columnSchema",
+      "TableDefinition",
+      "AuditConfig",
+      "AuditData",
+      "DynamoDBOperationOptions",
+      "FilterOp",
+      "DrizzleEncryptedSchema",
+      "EncryptOperationWithLockContext",
+      "EncryptQueryOperationWithLockContext",
+      "BatchEncryptQueryOperationWithLockContext",
+      "DecryptOperationWithLockContext",
+      "EncryptModelOperationWithLockContext",
+      "DecryptModelOperationWithLockContext",
+      "BulkEncryptOperationWithLockContext",
+      "BulkDecryptOperationWithLockContext",
+      "BulkEncryptModelsOperationWithLockContext",
+      "BulkDecryptModelsOperationWithLockContext",
+    ],
     useCodeBlocks: true,
     expandObjects: true,
     hideBreadcrumbs: true,

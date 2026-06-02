@@ -27,6 +27,7 @@ const stackConfig: DocsConfig = {
     "./packages/stack/src/identity/index.ts",
     "./packages/stack/src/types-public.ts",
     "./packages/stack/src/client.ts",
+    "./packages/stack/src/errors/index.ts",
   ],
   tsconfigInclude: ["packages/stack/src/**/*"],
   tagFilter: (tag: string) =>
