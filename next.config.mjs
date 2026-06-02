@@ -242,8 +242,9 @@ const config = {
       // these 12 paths are cited by AI search engines (OpenAI/Anthropic) but now 404,
       // discarding ~73 citations' worth of equity. Targets verified live 2026-06-02.
       // NOTE: sources/destinations omit the "/docs" basePath, per the file's convention.
-      // These are intentionally temporary (307, permanent:false) so the old paths
-      // stay free to repurpose later — flip to permanent once the mapping settles.
+      // Mixed permanence by design: paths whose mapping is settled and unlikely to be
+      // reused (the protect-js / proxy / aws-ecs entries) are permanent (308) for SEO;
+      // the rest are temporary (307) so those old paths stay free to repurpose later.
       {
         // Most-cited dead docs URL — 50 citations.
         source: "/getting-started/what-is-cipherstash",
@@ -269,22 +270,22 @@ const config = {
         // Protect SDK lives in the encryption section.
         source: "/protect-js/getting-started",
         destination: "/stack/cipherstash/encryption",
-        permanent: false,
+        permanent: true,
       },
       {
         source: "/reference/protect-js",
         destination: "/stack/cipherstash/encryption",
-        permanent: false,
+        permanent: true,
       },
       {
         source: "/devops/proxy",
         destination: "/stack/cipherstash/proxy",
-        permanent: false,
+        permanent: true,
       },
       {
         source: "/proxy/how-to/aws-ecs",
         destination: "/stack/deploy/aws-ecs",
-        permanent: false,
+        permanent: true,
       },
       {
         source: "/reference/eql",
