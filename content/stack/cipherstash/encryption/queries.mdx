@@ -69,21 +69,13 @@ const { data } = await eSupabase
   .eq("email", "alice@example.com")
 ```
 
-**Raw SQL (self-hosted with EQL operator classes):**
+**Raw SQL:**
 
 ```sql
 SELECT * FROM users WHERE email = $1::eql_v2_encrypted;
 ```
 
-**Raw SQL (Supabase / functional index form):**
-
-```sql
-SELECT * FROM users WHERE eql_v2.hmac_256(email) = eql_v2.hmac_256($1::eql_v2_encrypted);
-```
-
-<Callout type="warn">
-  On Supabase, bare `WHERE email = $1` does not use the functional index. Wrap both sides with `eql_v2.hmac_256()` to engage the hash index. The SDK wrappers (Drizzle, Supabase wrapper) handle this automatically. See [Index setup: Supabase callout](/stack/cipherstash/encryption/indexes#supabase-query-forms).
-</Callout>
+A bare `=` engages the `eql_v2.hmac_256(email)` functional index on every deployment — self-hosted and Supabase alike. The operator inlines to the HMAC comparison the index stores, so there is no need to wrap the query in `eql_v2.hmac_256()`.
 
 **Underlying index:** [Equality index setup](/stack/cipherstash/encryption/indexes#equality)
 
@@ -173,15 +165,12 @@ const result = await pgClient.query(
 )
 ```
 
-**SDK, ORDER BY (self-hosted only):**
+**SDK, ORDER BY (most providers):**
 
 ```typescript filename="src/queries.ts"
-// Self-hosted PostgreSQL with EQL operator families installed:
-const result = await pgClient.query(
-  "SELECT * FROM users ORDER BY age ASC",
-)
-
-// Without operator family support (Supabase, or --exclude-operator-family):
+// Order by the extraction function — a bare `ORDER BY age` does not match
+// the functional range index expression. The range index needs custom
+// operator class support — available on most providers, not Supabase.
 const result = await pgClient.query(
   "SELECT * FROM users ORDER BY eql_v2.ore_block_u64_8_256(age) ASC",
 )
@@ -196,7 +185,7 @@ const results = await db
   .from(usersTable)
   .where(await encryptionOps.gte(usersTable.age, 18))
 
-// Sort (requires operator family support; not available on Supabase)
+// Sort (requires a range index; most providers, not Supabase)
 const results = await db
   .select()
   .from(usersTable)
@@ -217,7 +206,7 @@ const { data } = await eSupabase
 ```
 
 <Callout type="warn">
-  `ORDER BY` on encrypted columns requires EQL operator families, which need superuser access to install. Supabase does not grant superuser. Range _filters_ (`>`, `>=`, `<`, `<=`) work on both self-hosted and Supabase. Sorting on encrypted columns is not currently supported on Supabase. Sort application-side after decrypting results. Operator family support for Supabase is being developed in collaboration with the Supabase and CipherStash teams.
+  `ORDER BY` on encrypted columns needs the range (Block-ORE) index, which relies on a B-tree operator class — creatable on any provider that allows custom operator classes (self-hosted, AWS RDS, and most managed Postgres). Supabase is the notable exception. Range _filters_ (`>`, `>=`, `<`, `<=`) return correct results everywhere — they fall back to a sequential scan where the index is unavailable. Where the range index cannot be created, `ORDER BY` on an encrypted column is not supported — sort application-side after decrypting.
 </Callout>
 
 **Underlying index:** [Range index setup](/stack/cipherstash/encryption/indexes#range-and-order)
@@ -245,7 +234,7 @@ const term = await client.encryptQuery("$.user.role", {
 })
 
 const result = await pgClient.query(
-  "SELECT * FROM documents WHERE cs_ste_vec_v2(metadata) @> $1",
+  "SELECT * FROM documents WHERE eql_v2.jsonb_array(metadata) @> eql_v2.jsonb_array($1::eql_v2_encrypted)",
   [term.data],
 )
 ```

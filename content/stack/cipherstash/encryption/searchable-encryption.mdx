@@ -134,7 +134,7 @@ const result = await pgClient.query(
 Use `.orderAndRange()` for sorting and range operations:
 
 <Callout type="info">
-  If your PostgreSQL database does not support EQL Operator families, use the `eql_v2.ore_block_u64_8_256()` function for `ORDER BY`. Databases with Operator family support can use `ORDER BY` directly on the encrypted column name.
+  Order by the `eql_v2.ore_block_u64_8_256()` extraction function, not the bare column — a bare `ORDER BY` does not match the functional range index. The range index needs custom operator class support, available on most providers (self-hosted, AWS RDS, …) but not Supabase; where it cannot be created, sort application-side after decrypting.
 </Callout>
 
 ```typescript filename="search.ts"
@@ -253,7 +253,7 @@ const term = await client.encryptQuery([{
 }])
 
 const result = await pgClient.query(
-  "SELECT * FROM documents WHERE cs_ste_vec_v2(metadata_encrypted) @> $1",
+  "SELECT * FROM documents WHERE eql_v2.jsonb_array(metadata_encrypted) @> eql_v2.jsonb_array($1::eql_v2_encrypted)",
   [term.data[0]]
 )
 ```
