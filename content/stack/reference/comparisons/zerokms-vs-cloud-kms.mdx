@@ -1,0 +1,152 @@
+---
+title: ZeroKMS vs Cloud KMS
+description: Compare CipherStash ZeroKMS's zero-trust key management with traditional cloud KMS platforms like AWS KMS, Google Cloud KMS, and Azure Key Vault
+---
+
+## Overview
+
+Cloud KMS services like AWS KMS, Google Cloud KMS, and Azure Key Vault provide managed key management infrastructure with scalability, ease of use, and integration with cloud ecosystems. However, they place underlying hardware and operational controls with the cloud provider.
+
+This page examines the trade-offs of traditional cloud KMS services and how ZeroKMS provides a zero-trust alternative while maintaining cloud-native benefits.
+
+{/* TODO: add a diagram here. The original Markdoc source used a D2 diagram (this repo has no D2 renderer yet). Original source:
+Start -> Decision: Check
+Decision -> Success: Yes
+Decision -> Debug: No
+Debug -> Decision: Retry
+Success -> End
+*/}
+
+## Why Organizations Use Cloud KMS
+
+### Scalability and Availability
+
+Cloud KMS services scale automatically and provide high availability across multiple regions without managing infrastructure.
+
+### Ease of Management
+
+No hardware procurement, maintenance, or lifecycle management is required. Key management is handled through APIs and cloud-native tooling.
+
+### Cloud Service Integration
+
+Deep integration with other cloud services enables seamless encryption for storage, databases, and compute resources.
+
+### Cost Efficiency
+
+Usage-based pricing eliminates capital expenditure and reduces operational overhead compared to managing HSMs.
+
+## Cloud KMS Trade-offs
+
+### Provider-Managed Control
+
+The cloud provider controls the underlying hardware and operations. Organizations must trust the provider with key custody and access controls.
+
+### Shared Key Model
+
+Traditional cloud KMS uses shared keys across multiple records, increasing the blast radius of any key compromise.
+
+### Limited Jurisdictional Control
+
+While multi-region options exist, ultimate control over key location and handling remains with the provider.
+
+### Performance Bottlenecks
+
+Network latency and API rate limits can impact performance for high-throughput applications.
+
+### Compliance Limitations
+
+Provider attestations may not satisfy all regulatory requirements, particularly those requiring zero-knowledge proofs or continuous audit trails.
+
+## How ZeroKMS Addresses Cloud KMS Requirements
+
+### Zero-Knowledge Key Management
+
+ZeroKMS uses a unique encryption key for every record, making it impossible for any single party—including CipherStash—to access data keys. No centralized key store exists.
+
+### No Shared Secrets
+
+Keys are derived on-demand by combining client- and server-side components. No party (client, server, or CipherStash) holds all components needed to decrypt data unilaterally.
+
+### Superior Performance
+
+ZeroKMS operations are up to 14× faster than AWS KMS, with sub-5ms overhead at scale. This removes network latency and API rate limit concerns.
+
+### Instant Key Revocation
+
+Organizations maintain fine-grained, identity-based access control via OIDC integration. Only authorized identities can decrypt specific records, with instant revocation capabilities.
+
+### Continuous Audit and Compliance
+
+Every access is logged in real time with cryptographically verifiable audit trails, exceeding standard cloud KMS audit capabilities.
+
+### Flexible Deployment
+
+ZeroKMS runs as a managed cloud service across multiple regions. It's also available as a Docker container for deployment under your own jurisdiction when needed.
+
+### Cloud-Native Integration
+
+ZeroKMS integrates with modern cloud architectures while maintaining zero-trust principles, supporting hybrid and multi-cloud deployments.
+
+## Comparison Table
+
+| Feature | Cloud KMS | ZeroKMS |
+|---------|-----------|----------|
+| Key Storage | Centralized in provider | Distributed, generated locally |
+| Deployment | Managed service | Managed service or container |
+| Control Model | Provider-managed | Zero-knowledge, client-side |
+| Performance | Network-dependent, rate-limited | Up to 14× faster, sub-5ms overhead |
+| Key Granularity | Shared keys | Per-record keys |
+| Breach Impact | All records using key | Single record only |
+| Compliance | Provider attestations | Continuous audit, cryptographic proofs |
+| Access Control | IAM-based | Identity-based (OIDC) per-record |
+| Jurisdictional Control | Provider regions | Flexible deployment |
+| Cost Model | Usage-based | Usage-based |
+
+## Benefits Over Cloud KMS
+
+ZeroKMS enables organizations to maintain cloud-native benefits while eliminating trust dependencies:
+
+- **Zero-trust architecture**: No party can access keys without explicit authorization
+- **Reduced blast radius**: Per-record encryption limits breach impact to single records
+- **Superior performance**: Up to 14× faster than AWS KMS without rate limits
+- **Fine-grained control**: Identity-based access per record, not just per key
+- **Continuous compliance**: Real-time audit trails with cryptographic verification
+- **Vendor independence**: Deploy in any environment without lock-in
+
+## Use Cases
+
+### When Cloud KMS Makes Sense
+
+- Basic encryption at rest for cloud storage and databases
+- Simple key management requirements without stringent compliance needs
+- Tight coupling with single cloud provider ecosystem
+- Low-throughput workloads with relaxed latency requirements
+
+### When ZeroKMS Makes Sense
+
+- Zero-trust security requirements
+- High-throughput encryption with performance-critical applications
+- Fine-grained, per-record encryption and access control
+- Stringent compliance requirements (healthcare, finance, government)
+- Multi-cloud or hybrid architectures
+- Reduced blast radius and instant revocation needs
+- Continuous auditability and real-time compliance monitoring
+
+## Migration Path
+
+Organizations can migrate from cloud KMS to ZeroKMS incrementally:
+
+1. **Assess**: Identify high-value data requiring enhanced protection
+2. **Pilot**: Start with new applications or non-critical workloads
+3. **Integrate**: Leverage existing OIDC identity providers
+4. **Migrate**: Gradually move sensitive workloads to ZeroKMS
+5. **Coexist**: Maintain cloud KMS for basic encryption needs
+
+This approach allows organizations to enhance security posture without disrupting existing operations.
+
+## Learn More
+
+- [Read about ZeroKMS](/stack/cipherstash/kms)
+- [Compare with HSMs](/stack/reference/comparisons/zerokms-vs-hsm)
+- [View all comparisons](/stack/reference/comparisons)
+- [Book a discovery session](/stack/reference/discovery-session)
