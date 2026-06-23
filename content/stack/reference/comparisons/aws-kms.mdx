@@ -1,397 +1,177 @@
 ---
 title: CipherStash vs AWS KMS
-description: Compare CipherStash and AWS KMS for application-level encryption — the zero-trust ZeroKMS key-management architecture plus a developer-experience comparison covering searchable encryption, bulk operations, and type safety.
+description: How CipherStash compares to AWS KMS for application-level encryption — the distributed-trust ZeroKMS key-management architecture, plus a developer-experience comparison covering searchable encryption, identity-aware keys, bulk operations, and type safety.
 ---
 
-Encrypting data should not require managing binary buffers, base64 encoding, key ARNs, or building custom search solutions. CipherStash eliminates these complexities with a zero-trust key-management architecture and a developer-friendly API.
+CipherStash and AWS KMS solve overlapping problems differently. AWS KMS is a centralized key-management service: keys live in AWS-controlled HSMs, and it returns binary ciphertext that you encode and store yourself. CipherStash encrypts application data through a developer SDK backed by **ZeroKMS**, a key-management service that issues a unique key per record and never holds the keys needed to decrypt your data.
 
-This page compares CipherStash against AWS KMS across two lenses: the underlying **architecture and trust model** (ZeroKMS vs provider-managed cloud KMS), and the day-to-day **developer experience** of encrypting application data.
+This page compares them on two axes: the **architecture and trust model**, and the **developer experience** of encrypting application data.
 
-<Callout type="info">
-This comparison focuses on AWS KMS, but Google Cloud KMS and Azure Key Vault share the same provider-custody architecture — so the architecture and trust-model points below apply to them as well.
-</Callout>
+## What's being compared
+
+| Term | What it is |
+|---|---|
+| **AWS KMS** | AWS's managed key-management service. Keys live in AWS-controlled HSMs; you call `Encrypt`/`Decrypt` and manage ciphertext storage yourself. |
+| **ZeroKMS** | CipherStash's key-management service. Derives a unique key per record on demand from client- and server-side components; no party — including CipherStash — holds a complete data key. |
+| **CipherStash Encryption SDK** (`@cipherstash/stack`) | The TypeScript library that encrypts/decrypts application data and runs searchable queries, backed by ZeroKMS. |
+| **CipherStash Proxy** | A drop-in SQL proxy that applies the same primitives server-side with no application code changes. |
+
+The SDK and Proxy are two deployment shapes of the same primitives; the examples below use the SDK.
 
 ## Architecture & trust model
 
-Cloud KMS services like AWS KMS provide managed key management infrastructure with scalability, ease of use, and deep integration with the cloud ecosystem. However, they place the underlying hardware and operational controls — and ultimately key custody — with the cloud provider.
+AWS KMS provides managed key management with high availability and deep AWS integration, but key custody and the underlying hardware remain with AWS. Two properties matter for a security evaluation:
 
-### Why teams choose cloud KMS
+- **Shared keys, larger blast radius.** A KMS key (or a derived data key) typically protects many records, so a single key compromise exposes everything it covers.
+- **Provider custody.** AWS controls the HSMs and the IAM boundary around them, so your trust model includes AWS.
 
-- **Scalability and availability**: Scales automatically with high availability across regions, no infrastructure to manage.
-- **Ease of management**: No hardware procurement or lifecycle management; everything is API-driven.
-- **Cloud service integration**: Native encryption for storage, databases, and compute within the provider's ecosystem.
-- **Cost efficiency**: Usage-based pricing with no capital expenditure compared to managing HSMs.
+ZeroKMS takes a different approach:
 
-### Cloud KMS trade-offs
+- **Unique key per record.** Every value gets its own key, so a compromised key exposes a single record rather than a dataset.
+- **Distributed trust.** Keys are derived on demand by combining client- and server-side components and are never stored. No single party — including CipherStash — can decrypt data unilaterally (CipherStash calls this *zero-knowledge* key management).
+- **Identity-bound access.** Decryption is gated by OIDC identity, with per-record access control, instant revocation, and a real-time audit log of every access.
+- **Performance.** Sub-5ms overhead for most operations ([latency benchmarks](https://app.artillery.io/share/sh_75edb9d22a060633bfdce04777ffd60d1bcfc88989393dc38d3a4924b83fc6cd)), and up to 14× the throughput of AWS KMS at scale.
+{/* TODO: cite a public throughput benchmark for the "14×" figure, as the FHE page does for its ORE numbers. Until sourced, this claim is unverifiable to an external reader. */}
+- **Deployment.** Managed service across regions, or self-hosted as a container for jurisdictional control.
 
-- **Provider-managed control**: The provider controls the underlying hardware and operations. You must trust them with key custody and access controls.
-- **Shared key model**: Traditional cloud KMS uses shared keys across many records, increasing the blast radius of any single key compromise.
-- **Limited jurisdictional control**: Multi-region options exist, but ultimate control over key location and handling stays with the provider.
-- **Performance bottlenecks**: Network latency and API rate limits can throttle high-throughput applications.
-- **Compliance limitations**: Provider attestations may not satisfy requirements for zero-knowledge proofs or continuous audit trails.
-
-### How ZeroKMS differs
-
-CipherStash key management is built on **ZeroKMS**, a zero-trust alternative that keeps cloud-native benefits while removing provider trust dependencies:
-
-- **Zero-knowledge key management**: A unique encryption key for every record, making it impossible for any single party — including CipherStash — to access data keys. No centralized key store exists.
-- **No shared secrets**: Keys are derived on demand by combining client- and server-side components. No party holds everything needed to decrypt data unilaterally.
-- **Superior performance**: Up to 14× faster than AWS KMS, with sub-5ms overhead at scale — removing network-latency and rate-limit concerns.
-- **Instant key revocation**: Fine-grained, identity-based access control via OIDC. Only authorized identities can decrypt specific records, with instant revocation.
-- **Continuous audit and compliance**: Every access is logged in real time with cryptographically verifiable audit trails, exceeding standard cloud KMS audit capabilities.
-- **Flexible deployment**: Runs as a managed cloud service across regions, or as a Docker container for deployment under your own jurisdiction.
+The same architecture comparison applies to Google Cloud KMS and Azure Key Vault, which share the provider-custody, shared-key model.
 
 ## Developer experience
 
-Beyond the trust model, CipherStash is designed to make application-level encryption simple. The rest of this page compares the day-to-day developer experience against the AWS KMS SDK.
+Beyond the trust model, the SDK removes the boilerplate AWS KMS requires. Examples are TypeScript.
 
-### The simple truth: encrypting a value
+### Encrypting and decrypting a value
 
-Start with the most basic operation: encrypting a single value.
-
-#### AWS KMS: Manual work required
+AWS KMS returns binary ciphertext you must encode, store, and decode yourself:
 
 ```typescript
-import { KMSClient, EncryptCommand } from '@aws-sdk/client-kms';
+import { KMSClient, EncryptCommand, DecryptCommand } from "@aws-sdk/client-kms";
 
-const client = new KMSClient({ region: 'us-west-2' });
-const keyId = 'arn:aws:kms:us-west-2:123456789012:key/abcd1234-efgh-5678-ijkl-9012mnopqrst';
+const client = new KMSClient({ region: "us-west-2" });
+const keyId = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-...";
 
-async function encryptWithKMS(plaintext: string): Promise<string> {
-  try {
-    const command = new EncryptCommand({
-      KeyId: keyId,
-      Plaintext: Buffer.from(plaintext),
-    });
-
-    const response = await client.send(command);
-    const ciphertext = response.CiphertextBlob;
-    const base64Ciphertext = Buffer.from(ciphertext).toString('base64');
-
-    return base64Ciphertext;
-  } catch (error) {
-    console.error('Error encrypting data:', error);
-    throw error;
-  }
-}
-
-const encrypted = await encryptWithKMS('secret@squirrel.example');
-```
-
-**What you're managing:** Key ARNs, binary buffer conversions, base64 encoding/decoding, manual error handling, region configuration, AWS credential setup.
-
-#### CipherStash Encryption: One simple call
-
-```typescript
-import { Encryption } from '@cipherstash/stack';
-import { encryptedTable, encryptedColumn } from '@cipherstash/stack/schema';
-
-const users = encryptedTable('users', {
-  email: encryptedColumn('email'),
-});
-
-const client = await Encryption({
-  schemas: [users],
-});
-
-const encryptResult = await client.encrypt(
-  'secret@squirrel.example',
-  { column: users.email, table: users }
+const enc = await client.send(
+  new EncryptCommand({ KeyId: keyId, Plaintext: Buffer.from("secret@squirrel.example") }),
 );
+const ciphertext = Buffer.from(enc.CiphertextBlob).toString("base64"); // you store this
 
-if (encryptResult.failure) {
-  throw new Error(encryptResult.failure.message);
-}
-
-const ciphertext = encryptResult.data;
+const dec = await client.send(
+  new DecryptCommand({ CiphertextBlob: Buffer.from(ciphertext, "base64") }),
+);
+const plaintext = Buffer.from(dec.Plaintext).toString("utf-8");
 ```
 
-**What you get:** No key management (handled by ZeroKMS), no binary conversions, no base64 encoding, type-safe error handling, JSON payload ready for storage, zero-knowledge encryption by default.
+You manage: key ARNs, buffer/base64 conversions, error handling, AWS credentials, and regions.
 
-### Decryption
-
-#### AWS KMS
+The CipherStash SDK returns a JSON payload ready for `JSONB` storage, with key management handled by ZeroKMS and a type-safe `Result` rather than thrown errors:
 
 ```typescript
-async function decryptWithKMS(base64Ciphertext: string): Promise<string> {
-  try {
-    const ciphertextBlob = Buffer.from(base64Ciphertext, 'base64');
-    const command = new DecryptCommand({ CiphertextBlob: ciphertextBlob });
-    const response = await client.send(command);
-    return Buffer.from(response.Plaintext).toString('utf-8');
-  } catch (error) {
-    console.error('Error decrypting data:', error);
-    throw error;
-  }
-}
+import { Encryption } from "@cipherstash/stack";
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema";
+
+const users = encryptedTable("users", { email: encryptedColumn("email") });
+const client = await Encryption({ schemas: [users] });
+
+const result = await client.encrypt("secret@squirrel.example", { column: users.email, table: users });
+if (result.failure) throw new Error(result.failure.message);
+
+const plaintext = (await client.decrypt(result.data)).data; // type: string
 ```
 
-#### CipherStash Encryption
+### Capabilities AWS KMS doesn't provide without custom work
+
+**Searchable encryption** — query encrypted data directly in PostgreSQL. AWS KMS requires decrypting in memory or building a custom searchable index.
 
 ```typescript
-const decryptResult = await client.decrypt(ciphertext);
-
-if (decryptResult.failure) {
-  throw new Error(decryptResult.failure.message);
-}
-
-const plaintext = decryptResult.data;
-```
-
-### Features that AWS KMS can't do without major custom work
-
-#### 1. Searchable encryption: Built-in vs impossible
-
-**AWS KMS** requires decrypting everything and searching in memory, storing plaintext indexes, or building a custom searchable encryption solution.
-
-**CipherStash Encryption** has searchable encryption built-in:
-
-```typescript
-const users = encryptedTable('users', {
-  email: encryptedColumn('email')
-    .freeTextSearch()
-    .equality()
-    .orderAndRange(),
+const users = encryptedTable("users", {
+  email: encryptedColumn("email").freeTextSearch().equality().orderAndRange(),
 });
 
-const searchTerms = await client.encryptQuery('secret', {
-  column: users.email,
-  table: users,
-});
+const terms = await client.encryptQuery("secret", { column: users.email, table: users });
 ```
 
-#### 2. Identity-aware encryption: Built-in vs custom implementation
-
-**AWS KMS** has no built-in support. You must implement custom logic with encryption context as a workaround.
-
-**CipherStash Encryption** has built-in identity-aware encryption:
+**Identity-aware encryption** — bind encryption to an OIDC identity via `LockContext`. AWS KMS has no built-in equivalent; encryption context is a manual workaround.
 
 ```typescript
-import { LockContext } from '@cipherstash/stack/identity';
+import { LockContext } from "@cipherstash/stack/identity";
 
-const lc = new LockContext();
-const lockContext = await lc.identify(userJwt);
+const lockContext = await new LockContext().identify(userJwt);
 
-const encryptResult = await client.encrypt(
-  'secret@squirrel.example',
-  { column: users.email, table: users }
-).withLockContext(lockContext);
-
-const decryptResult = await client.decrypt(ciphertext)
+await client
+  .encrypt("secret@squirrel.example", { column: users.email, table: users })
   .withLockContext(lockContext);
 ```
 
-#### 3. Bulk operations: Native API vs manual batching
-
-**AWS KMS** has no bulk API. You must manually batch operations and handle rate limits.
-
-**CipherStash Encryption** has native bulk encryption:
+**Bulk operations** — native batch API. AWS KMS has no bulk endpoint; you batch and handle rate limits manually.
 
 ```typescript
-const bulkPlaintexts = [
-  { id: '1', plaintext: 'Alice' },
-  { id: '2', plaintext: 'Bob' },
-  { id: '3', plaintext: 'Charlie' },
-];
-
-const bulkResult = await client.bulkEncrypt(bulkPlaintexts, {
-  column: users.name,
-  table: users,
-});
-
-const encryptedMap = bulkResult.data;
+const result = await client.bulkEncrypt(
+  [{ id: "1", plaintext: "Alice" }, { id: "2", plaintext: "Bob" }],
+  { column: users.name, table: users },
+);
 ```
-
-### Error handling, type safety, and storage format
-
-#### Error handling
-
-**AWS KMS:** Try/catch with manual error type checking:
-
-```typescript
-try {
-  const response = await client.send(command)
-} catch (error) {
-  if (error.name === "AccessDeniedException") {
-    // Handle access denied
-  } else if (error.name === "InvalidKeyUsageException") {
-    // Handle invalid key usage
-  }
-}
-```
-
-**CipherStash Encryption:** Type-safe Result pattern:
-
-```typescript
-const result = await client.encrypt(plaintext, options)
-
-if (result.failure) {
-  switch (result.failure.type) {
-    case "EncryptionError":
-      // TypeScript knows this is an EncryptionError
-      break
-    case "ClientInitError":
-      // TypeScript knows this is a ClientInitError
-      break
-  }
-}
-```
-
-#### Type safety
-
-**AWS KMS:** Manual typing with binary data handling:
-
-```typescript
-const plaintext: string = Buffer.from(response.Plaintext).toString("utf-8")
-```
-
-**CipherStash Encryption:** Full TypeScript inference:
-
-```typescript
-const plaintext = decryptResult.data // Type: string
-```
-
-#### Storage format
-
-**AWS KMS:** Binary data that needs encoding:
-
-```typescript
-// Returns Uint8Array, must encode for storage
-const base64 = Buffer.from(ciphertext).toString("base64")
-```
-
-**CipherStash Encryption:** JSON payload ready for database:
-
-```typescript
-// Returns JSON payload ready for JSONB storage
-const ciphertext = encryptResult.data
-```
-
-### Complete workflow comparison
-
-#### AWS KMS: Full implementation
-
-```typescript
-import { KMSClient, EncryptCommand, DecryptCommand } from "@aws-sdk/client-kms"
-
-const client = new KMSClient({ region: "us-west-2" })
-const keyId = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-efgh-5678-ijkl-9012mnopqrst"
-
-async function encrypt(plaintext: string): Promise<string> {
-  const command = new EncryptCommand({
-    KeyId: keyId,
-    Plaintext: Buffer.from(plaintext),
-  })
-  const response = await client.send(command)
-  return Buffer.from(response.CiphertextBlob).toString("base64")
-}
-
-async function decrypt(base64Ciphertext: string): Promise<string> {
-  const command = new DecryptCommand({
-    CiphertextBlob: Buffer.from(base64Ciphertext, "base64"),
-  })
-  const response = await client.send(command)
-  return Buffer.from(response.Plaintext).toString("utf-8")
-}
-
-const encrypted = await encrypt("secret@squirrel.example")
-const decrypted = await decrypt(encrypted)
-```
-
-~25 lines for basic encrypt/decrypt. You manage: key ARNs, binary conversions, base64 encoding, error handling, AWS credentials, regions.
-
-#### CipherStash Encryption: Full implementation
-
-```typescript
-import { Encryption } from "@cipherstash/stack"
-import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
-
-const users = encryptedTable("users", {
-  email: encryptedColumn("email"),
-})
-
-const client = await Encryption({ schemas: [users] })
-
-const encryptResult = await client.encrypt("secret@squirrel.example", {
-  column: users.email,
-  table: users,
-})
-
-if (encryptResult.failure) {
-  throw new Error(encryptResult.failure.message)
-}
-
-const decryptResult = await client.decrypt(encryptResult.data)
-```
-
-~20 lines including setup. `@cipherstash/stack` handles everything.
 
 ## Comparison
 
 ### Architecture
 
-| Feature | AWS KMS | CipherStash (ZeroKMS) |
+| Property | AWS KMS | CipherStash (ZeroKMS) |
 |---------|---------|------------------------|
-| Key Storage | Centralized in provider | Distributed, generated locally |
-| Control Model | Provider-managed | Zero-knowledge, client-side |
-| Key Granularity | Shared keys | Per-record keys |
-| Breach Impact | All records using key | Single record only |
-| Performance | Network-dependent, rate-limited | Up to 14× faster, sub-5ms overhead |
-| Access Control | IAM-based | Identity-based (OIDC) per-record |
-| Compliance | Provider attestations | Continuous audit, cryptographic proofs |
-| Jurisdictional Control | Provider regions | Flexible deployment (cloud or container) |
+| Key storage | Centralized in provider HSMs | Distributed, derived on demand, never stored |
+| Control model | Provider-managed custody | Distributed trust, no single point of decryption |
+| Key granularity | Shared keys | Per-record keys |
+| Breach impact | All records under the key | Single record |
+| Access control | IAM-based | Identity-based (OIDC), per-record |
+| Audit | CloudTrail (API calls) | Real-time log of every decryption |
+| Performance | Network-dependent, rate-limited | Sub-5ms overhead; up to 14× throughput |
+| Deployment | AWS regions | Managed service or self-hosted container |
 
 ### Developer experience
 
 | Feature | AWS KMS | CipherStash Encryption |
 |---------|---------|------------------------|
-| **Basic Encryption** | Requires manual buffer/base64 handling | One-line API, JSON payload |
-| **Key Management** | You manage key ARNs | Zero-knowledge, automatic |
-| **Searchable Encryption** | Not possible | Built-in for PostgreSQL |
-| **Identity-Aware Encryption** | Custom implementation | Built-in `LockContext` |
-| **Bulk Operations** | Manual batching | Native bulk API |
-| **Error Handling** | Try/catch, manual types | Type-safe Result pattern |
-| **Type Safety** | Manual typing | Full TypeScript inference |
-| **Storage Format** | Binary (needs encoding) | JSON (database-ready) |
-| **ORM Integration** | Manual integration | Built-in Drizzle support |
-| **Setup Complexity** | Medium (AWS credentials, regions) | Low (just environment variables) |
+| Basic encryption | Manual buffer/base64 handling | One call, JSON payload |
+| Key management | You manage key ARNs | Automatic, via ZeroKMS |
+| Searchable encryption | Not supported | Built-in for PostgreSQL |
+| Identity-aware encryption | Manual workaround | Built-in `LockContext` |
+| Bulk operations | Manual batching | Native bulk API |
+| Error handling | Try/catch, manual types | Type-safe `Result` |
+| Storage format | Binary (needs encoding) | JSON (`JSONB`-ready) |
+| ORM integration | Manual | Built-in Drizzle support |
 
 ## When to use each
 
-### Use AWS KMS when:
+**AWS KMS fits when:**
 
-- You need encryption for AWS services (S3, EBS, etc.) or infrastructure-level resources
-- Basic encryption at rest with simple key management and no stringent compliance needs
-- You're tightly coupled to a single cloud provider ecosystem
-- You don't need to search encrypted data and are comfortable with manual buffer/base64 handling
+- You're encrypting AWS infrastructure resources (S3, EBS, RDS storage) rather than application records
+- You need envelope encryption at rest with simple key management and no querying over ciphertext
+- A shared-key model and AWS key custody are acceptable for your threat model
 
-### Use CipherStash when:
+**CipherStash fits when:**
 
-- You're building applications with databases and need to search encrypted data
-- You want zero-trust, zero-knowledge key management with per-record encryption and instant revocation
-- You need identity-aware encryption and fine-grained, per-record access control
-- You have high-throughput or performance-critical workloads, or multi-cloud / hybrid architectures
-- You need continuous auditability and real-time compliance (healthcare, finance, government)
-- You value a developer-friendly API, type safety, and developer experience
+- You're encrypting application data in PostgreSQL and need to query it while it stays encrypted
+- You want per-record keys, distributed trust, and instant, identity-based (OIDC) revocation
+- You need real-time audit trails for compliance (SOC 2, HIPAA, GDPR)
+- You're on multi-cloud or hybrid infrastructure and want to avoid provider key custody
+
+**Limits to know:** searchable encryption targets PostgreSQL; identity-aware encryption requires an OIDC provider; and CipherStash encrypts at the application layer, so it complements — rather than replaces — disk- or infrastructure-level encryption (where AWS KMS fits).
 
 ## Migration path
 
-Organizations can migrate from AWS KMS (or any cloud KMS) to CipherStash incrementally:
+Migration from AWS KMS (or any cloud KMS) can be incremental:
 
-1. **Assess**: Identify high-value data requiring enhanced protection
-2. **Pilot**: Start with new applications or non-critical workloads
-3. **Integrate**: Leverage existing OIDC identity providers
-4. **Migrate**: Gradually move sensitive workloads to ZeroKMS
-5. **Coexist**: Maintain cloud KMS for basic infrastructure encryption needs
-
-This approach enhances your security posture without disrupting existing operations.
+1. **Assess** — identify high-value data that benefits from per-record encryption and searchable queries
+2. **Pilot** — start with a new application or a non-critical workload
+3. **Integrate** — connect your existing OIDC identity provider
+4. **Migrate** — move sensitive workloads to ZeroKMS in stages
+5. **Coexist** — keep AWS KMS for infrastructure-level encryption
 
 ## Learn more
 
 - [CipherStash Encryption getting started](/stack/quickstart)
-- [Read about ZeroKMS](/stack/cipherstash/kms)
-- [CipherStash schema reference](/stack/cipherstash/encryption/schema)
+- [ZeroKMS](/stack/cipherstash/kms)
+- [Schema reference](/stack/cipherstash/encryption/schema)
 - [Searchable encryption concepts](/stack/cipherstash/encryption/searchable-encryption)
-- [Compare with HSMs](/stack/reference/comparisons/zerokms-vs-hsm)
-- [View all comparisons](/stack/reference/comparisons)
+- [Security architecture](/stack/reference/security-architecture) — leakage profiles and primitives
+- [ZeroKMS vs Hardware Security Modules](/stack/reference/comparisons/zerokms-vs-hsm)
 - [AWS KMS documentation](https://docs.aws.amazon.com/kms/)

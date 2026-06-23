@@ -145,7 +145,7 @@ HSMs integrate with legacy infrastructure, support custom backup and cluster top
 
 ### Per-Record and Zero-Knowledge Key Management
 
-ZeroKMS uses a unique encryption key for every record, reducing breach impact and making it impossible for any single party—including CipherStash—to access data keys. This mitigates centralized vulnerabilities in traditional cloud KMS and provides control on par with or beyond HSMs.
+ZeroKMS derives a unique key per record on demand; keys are never stored, and no single party — including CipherStash — can decrypt data unilaterally (CipherStash calls this *zero-knowledge* key management). A compromised key exposes a single record rather than a dataset, addressing the shared-key blast radius of centralized KMS while keeping key custody distributed rather than tied to physical hardware.
 
 ### No Shared Secrets and No Single Point of Decryption
 
@@ -157,7 +157,7 @@ Organizations maintain fine-grained, identity-based access control via OIDC inte
 
 ### Performance Without Bottlenecks
 
-ZeroKMS operations deliver sub-5ms overhead at scale, removing latency and bottleneck concerns associated with hardware HSMs.
+ZeroKMS adds [sub-5ms overhead](https://app.artillery.io/share/sh_75edb9d22a060633bfdce04777ffd60d1bcfc88989393dc38d3a4924b83fc6cd) for most operations, removing the latency and throughput bottlenecks associated with hardware HSMs.
 
 ### Continuous Audit and Compliance
 
