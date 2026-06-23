@@ -119,9 +119,11 @@ function escapeMdxSpecials(content: string): string {
         return part
           .replace(/\{/g, "\\{")
           .replace(/\}/g, "\\}")
-          // Escape `<` unless it begins a real JSX tag
-          // (followed by a letter, `_`, `$`, or `/`).
-          .replace(/<(?![A-Za-z_$/])/g, "\\<");
+          // Escape `<` unless it begins a real JSX/HTML tag, a closing
+          // tag, or an autolink (followed by a lowercase letter, `_`, `$`,
+          // or `/`). Uppercase-led tokens like `<T>` are type placeholders
+          // in the API reference, not JSX, so they must be escaped too.
+          .replace(/<(?![a-z_$/])/g, "\\<");
       })
       .join("");
     result.push(escaped);
