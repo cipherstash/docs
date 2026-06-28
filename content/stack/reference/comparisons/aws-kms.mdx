@@ -46,6 +46,25 @@ The standard way to make AWS KMS fast enough for per-record encryption is **data
 
 ZeroKMS reaches the same one-round-trip amortization through its [bulk API](#capabilities-aws-kms-doesnt-provide-without-custom-work) — independent of access pattern, sequential or scattered — while keeping a unique, individually auditable and revocable key per record. You don't trade the security model for the performance.
 
+### Cost
+
+The two services meter cost in fundamentally different ways, and the difference compounds exactly where database encryption spends its time — reads.
+
+- **AWS KMS** is pure usage metering: **$1 per key per month, plus $0.03 per 10,000 requests** ([standard symmetric pricing](https://aws.amazon.com/kms/pricing/)). Critically, it bills **both directions** — every `Encrypt`/`GenerateDataKey` *and* every `Decrypt` is a billable request. Under the per-value security model, that's one billable request per encrypted value, each way.
+- **ZeroKMS** is a [flat subscription](/stack/reference/billing) by encryption operations per month (Free 10k, Pro 50k, Business 500k, Enterprise unlimited), and **decryption is always free** — you're charged for encrypting data, never for reading it back.
+
+Field-level database encryption is read-heavy: a record is encrypted once and decrypted on every read for the rest of its life. So the read path dominates the bill — and it's precisely where the models diverge. Taking the benchmark's read scenario (a query returning 50 records × 3 encrypted fields = 150 `Decrypt` calls under per-value security):
+
+| Read volume (50 records × 3 fields/query) | `Decrypt` calls / month | AWS KMS | ZeroKMS |
+|---|---:|---:|---:|
+| 1 query | 150 | $0.00045 | **$0** |
+| 1M queries / month | 150M | **$450** | **$0** |
+| 10M queries / month | 1.5B | **$4,500** | **$0** |
+
+ZeroKMS reads are free regardless of volume; the encryption side sits under a fixed monthly plan. AWS KMS read cost, by contrast, is **linear and unbounded** in access volume — a hot dataset pays again on every read, forever. (And you hit per-second request quotas, throttling reads, long before the bill becomes the binding constraint.)
+
+The only lever to cut that AWS read cost is **data-key caching** — the same lever from [above](#what-about-data-key-caching), with the same failure mode: it cuts `Decrypt` calls on sequential reads but collapses back to one call per record on scattered (real) reads, and it costs you per-record audit and revocation. On AWS KMS, **cost and performance fail together, for the same architectural reason.** ZeroKMS needs no such lever — decrypts are free *and* bulk-amortized.
+
 ## Developer experience
 
 Beyond the trust model, the SDK removes the boilerplate AWS KMS requires. Examples are TypeScript.
@@ -134,6 +153,7 @@ const result = await client.bulkEncrypt(
 | Access control | IAM-based | Identity-based (OIDC), per-record |
 | Audit | CloudTrail (API calls) | Real-time log of every decryption |
 | Performance | Network-dependent, rate-limited | Sub-5ms overhead; ~16× lower latency, up to ~85× throughput |
+| Cost model | Per-request, billed both ways (linear in access volume) | Flat subscription; decryption free |
 | Deployment | AWS regions | Managed service or self-hosted container |
 
 ### Developer experience
