@@ -30,11 +30,21 @@ ZeroKMS takes a different approach:
 - **Unique key per record.** Every value gets its own key, so a compromised key exposes a single record rather than a dataset.
 - **Distributed trust.** Keys are derived on demand by combining client- and server-side components and are never stored. No single party — including CipherStash — can decrypt data unilaterally (CipherStash calls this *zero-knowledge* key management).
 - **Identity-bound access.** Decryption is gated by OIDC identity, with per-record access control, instant revocation, and a real-time audit log of every access.
-- **Performance.** Sub-5ms overhead for most operations ([latency benchmarks](https://app.artillery.io/share/sh_75edb9d22a060633bfdce04777ffd60d1bcfc88989393dc38d3a4924b83fc6cd)), and up to 14× the throughput of AWS KMS at scale.
-{/* TODO: cite a public throughput benchmark for the "14×" figure, as the FHE page does for its ORE numbers. Until sourced, this claim is unverifiable to an external reader. */}
+- **Performance.** Sub-5ms overhead for most operations ([latency benchmarks](https://app.artillery.io/share/sh_75edb9d22a060633bfdce04777ffd60d1bcfc88989393dc38d3a4924b83fc6cd)). Because ZeroKMS processes a whole batch in one round-trip while AWS KMS has no bulk API, the gap widens with batch size: at a realistic 100-record batch an in-region benchmark measured **~16× lower p95 latency** and, under sustained load, **roughly two orders of magnitude (~85×) higher throughput** before AWS KMS hits its rate limit.
+{/* TODO: ~16× latency / ~85× throughput are from the in-region two-host benchmark in cipherstash/benches (kms-app/REPORT.md). The throughput multiple is at default per-region KMS quotas. Replace with a public-facing citation before relying on the exact figures externally, as the FHE page does for its ORE numbers. */}
 - **Deployment.** Managed service across regions, or self-hosted as a container for jurisdictional control.
 
 The same architecture comparison applies to Google Cloud KMS and Azure Key Vault, which share the provider-custody, shared-key model.
+
+### What about data-key caching?
+
+The standard way to make AWS KMS fast enough for per-record encryption is **data-key caching (reuse)**: generate one data key, encrypt many records with it locally, and call KMS once per *key* instead of once per *value*. It's worth understanding why this doesn't solve the database case.
+
+- **It speeds writes and sequential reads.** Records inserted together share a data key, so an insert and a read of that same contiguous block need only one KMS call between them. This is the best case, and reuse handles it well.
+- **It collapses on real reads.** Production queries don't retrieve rows in insert order — they look up by user, time range, or a secondary index, scattered across the table. A scattered result references roughly *one distinct data key per record*, so decrypting it costs roughly *one KMS `Decrypt` per record* — exactly the per-value cost reuse was meant to avoid. The amortization you buy at write time disappears the moment the read pattern diverges from the write pattern, which is the normal case.
+- **It weakens the security model.** Sharing one key across many records is the shared-key blast radius above, by another name: you lose per-record revocation (revoking one record's key revokes it for every record that shares it) and per-record audit (the log shows one `Decrypt` of a key that unlocks many records, not which record was read).
+
+ZeroKMS reaches the same one-round-trip amortization through its [bulk API](#capabilities-aws-kms-doesnt-provide-without-custom-work) — independent of access pattern, sequential or scattered — while keeping a unique, individually auditable and revocable key per record. You don't trade the security model for the performance.
 
 ## Developer experience
 
@@ -123,7 +133,7 @@ const result = await client.bulkEncrypt(
 | Breach impact | All records under the key | Single record |
 | Access control | IAM-based | Identity-based (OIDC), per-record |
 | Audit | CloudTrail (API calls) | Real-time log of every decryption |
-| Performance | Network-dependent, rate-limited | Sub-5ms overhead; up to 14× throughput |
+| Performance | Network-dependent, rate-limited | Sub-5ms overhead; ~16× lower latency, up to ~85× throughput |
 | Deployment | AWS regions | Managed service or self-hosted container |
 
 ### Developer experience
