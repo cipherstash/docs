@@ -38,13 +38,19 @@ For database field encryption you want three things at once: plaintext that neve
 
 ZeroKMS occupies the corner none of Vault's modes reach: the SDK encrypts locally (plaintext never sent), every record gets its own key, and a batch of up to 10,000 keys is a single round-trip.
 
-### Why the reuse row collapses
+### Reading the table
 
-The bottom Vault row — envelope with a reused data key — looks like it gets close: plaintext stays client-side *and* it's fast. But reuse only amortizes when the records you read back share a data key, which holds for writes and for reads in insert order. Real queries don't read in insert order — they look up by user, time range, or a secondary index, **scattered** across the table. A scattered result references roughly one distinct data key per record, so decrypting it costs one Vault unwrap per record — the per-record cost reuse was meant to avoid. And reuse means a key now covers many records, so you lose per-record revocation (revoking one record's key revokes it for every record sharing it) and per-record audit (the log shows one unwrap of a key that opens many records, not which record was read). This is the same dynamic as AWS KMS data-key caching; see [CipherStash vs AWS KMS](/stack/reference/comparisons/aws-kms).
+The trade-off lands in a different place than it does for a cloud KMS, because of one asymmetry in Vault's API: `encrypt` and `decrypt` are batched (`batch_input`), but `datakey` — which mints a data key for envelope mode — is **one key per call, with no batch**.
+
+- **Direct modes are fast both ways, but expose plaintext.** A whole batch encrypts or decrypts in one round-trip — but the plaintext is sent to Vault to be encrypted. Per-record keys are possible via a derived `context`; the exposure remains.
+- **Envelope keeps plaintext client-side, but per-record keys cost you on writes.** A unique key per record means one `datakey` round-trip *per record* on the write path (there is no batched key generation). That's the `✗` in the bulk column — it's a *write*-throughput cost.
+- **Reuse buys back write throughput by sharing a key** across many records. That's a security trade-off, not a free lunch: you lose per-record revocation (revoking one record's key revokes it for every record sharing it) and per-record audit (the log shows one unwrap of a key that opens many records, not which record was read).
+
+Note what does **not** happen: a scattered read does not collapse. Vault unwraps all the distinct data keys in a result with a single batched `transit/decrypt` call, so reads are one round-trip regardless of access pattern. This is where Vault differs from AWS KMS — whose `Decrypt` has no batch API, so a scattered read of N records costs N calls (see [CipherStash vs AWS KMS](/stack/reference/comparisons/aws-kms)). For Vault, the cost of per-record keys lands on **writes**, and the cost of reuse is the **security model** — not reads.
 
 ## Architecture & trust model
 
-- **Plaintext exposure.** In Transit direct mode, plaintext is sent to Vault to be encrypted — Vault (and whoever operates it) sees it in the clear at the moment of encryption. ZeroKMS never receives plaintext: the SDK encrypts locally and ZeroKMS only performs key derivation. Vault's envelope mode also keeps plaintext client-side, but at the cost of the reuse trade-off above.
+- **Plaintext exposure.** In Transit direct mode, plaintext is sent to Vault to be encrypted — Vault (and whoever operates it) sees it in the clear at the moment of encryption. ZeroKMS never receives plaintext: the SDK encrypts locally and ZeroKMS only performs key derivation. Vault's envelope mode also keeps plaintext client-side, but per-record keys then cost a `datakey` round-trip per record on write — or you reuse a key and take the security trade-off above.
 - **Key custody and trust.** Transit keys live in Vault; whoever controls the Vault cluster (your operators, or HashiCorp for HCP Vault) controls the keys. ZeroKMS derives keys on demand by combining client- and server-side components and never stores them — no single party, including CipherStash, can decrypt unilaterally.
 - **Key granularity.** A Transit key is typically shared across many records (shared-key blast radius), or derived per `context` if you build that in. ZeroKMS issues a unique key per record natively.
 - **Access control & audit.** Vault gates Transit operations with its policy system and logs to the audit device, at key/path granularity. ZeroKMS binds decryption to OIDC identity with per-record access control, instant revocation, and a real-time per-record audit log.
@@ -59,7 +65,7 @@ Vault Transit is a service you send data *to*. ZeroKMS is a key service the SDK 
 Unlike AWS KMS, Vault Transit **has a batch API**, so this is not a throughput blowout — batched Transit in-region is fast, and raw speed is not the differentiator. A few things shape a fair comparison:
 
 - Transit caches keys in memory and does not touch storage on the encrypt/decrypt hot path, so a single well-provisioned Vault node fairly represents per-node throughput. Scaling means adding nodes (an operational and cost consideration), where ZeroKMS is a managed service.
-- A fair benchmark must use batch on both sides (Transit `batch_input` vs ZeroKMS bulk), run in-region with a separate load generator, and report Vault's envelope/`datakey` mode separately — it reproduces the per-record-vs-reuse trade-off rather than the batch path.
+- A fair benchmark must use batch on both sides (Transit `batch_input` vs ZeroKMS bulk), run in-region with a separate load generator, and report Vault's envelope/`datakey` mode separately — its serial write path (per-record keys = one `datakey` round-trip per record, vs a reused key) is where the difference shows, not the batched read path.
 
 {/* TODO: link the in-region benchmark numbers once the `vault-transit` backend run lands (cipherstash/benches kms-app). Until then this section stays qualitative — no unsourced figures. */}
 
