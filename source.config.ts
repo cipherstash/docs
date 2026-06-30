@@ -71,15 +71,19 @@ const codeCopyTrackingTransformer: ShikiTransformer = {
     }
     const ctaType = attributes["cta-type"];
     const hasCtaType = typeof ctaType === "string" && ctaType !== "";
-    // A block is a CTA when it carries a bare `cta` flag (or `cta="true"`) or
-    // any `cta-type`. An explicit `cta="false"`/`cta=""` opts out. Treating a
-    // lone `cta-type` as a CTA avoids silently dropping the category.
+    // `cta` is a flag: a bare `cta` (or `cta="true"`) opts in. An explicit
+    // `cta="false"`/`cta=""` is an opt-out that wins even when a `cta-type` is
+    // present. A lone `cta-type` (no `cta`) still implies a CTA so the category
+    // isn't silently dropped.
     const ctaFlag = attributes.cta;
-    if (ctaFlag === true || ctaFlag === "true" || hasCtaType) {
+    const ctaOptOut = ctaFlag === "false" || ctaFlag === "";
+    const isCta =
+      !ctaOptOut && (ctaFlag === true || ctaFlag === "true" || hasCtaType);
+    if (isCta) {
       node.properties["data-cta"] = "true";
-    }
-    if (hasCtaType) {
-      node.properties["data-cta-type"] = ctaType;
+      if (hasCtaType) {
+        node.properties["data-cta-type"] = ctaType;
+      }
     }
   },
 };

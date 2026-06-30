@@ -87,7 +87,12 @@ export function TrackedCodeBlock(props: CodeBlockProps) {
   }, [isCta, ctaType, pagePath, resolveExampleId]);
 
   function handleClick(event: MouseEvent<HTMLElement>) {
-    const button = (event.target as HTMLElement).closest("button");
+    // The click can originate on the copy button's inner <svg>/<path>; guard
+    // for a real Element before walking up. `closest` lives on Element, so this
+    // also covers SVG targets without an unsafe HTMLElement cast.
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const button = target.closest("button");
     if (!button) return;
 
     // The Fumadocs copy button is the only button inside the code block; its
