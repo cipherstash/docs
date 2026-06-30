@@ -84,9 +84,13 @@ metadata to enrich the event:
 
 - `example-id="install-drizzle"` — stable slug for the block. When omitted, a
   fallback is derived from the filename/language plus the block's position.
-- `cta` — marks the block as a call-to-action (sets `is_cta: true`).
+- `cta` — marks the block as a call-to-action (sets `is_cta: true`). Use
+  `cta="false"` to opt a block out.
 - `cta-type="install"` — categorizes the CTA (`install`, `quickstart`,
-  `signup`); only meaningful alongside `cta`.
+  `signup`). Implies `cta`, so a block with a `cta-type` is treated as a CTA
+  even without the bare `cta` flag.
+
+Quote attribute values (`example-id="…"`); bare flags (`cta`) need no value.
 
 ```` ```bash cta cta-type="install" example-id="install-drizzle" ````
 mark install commands and other CTAs so they can be tracked distinctly.

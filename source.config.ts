@@ -29,10 +29,13 @@ export const docs = defineDocs({
 // Attribute names may contain hyphens, e.g. `example-id="drizzle-basic-query"`.
 function parseTrackingAttributes(raw: string): Record<string, string | true> {
   const attributes: Record<string, string | true> = {};
-  const pattern = /(?<=^|\s)([\w-]+)(?:=(?:"([^"]*)"|'([^']*)'))?/g;
+  // Accept quoted ("…"/'…') and bare unquoted values, so a forgotten quote
+  // (`example-id=foo`) still parses instead of being silently dropped. A bare
+  // key with no value (`cta`) is recorded as `true`.
+  const pattern = /(?<=^|\s)([\w-]+)(?:=(?:"([^"]*)"|'([^']*)'|([^\s"']+)))?/g;
   for (const match of raw.matchAll(pattern)) {
-    const [, name, double, single] = match;
-    attributes[name] = double ?? single ?? true;
+    const [, name, double, single, unquoted] = match;
+    attributes[name] = double ?? single ?? unquoted ?? true;
   }
   return attributes;
 }
@@ -54,21 +57,28 @@ const codeCopyTrackingTransformer: ShikiTransformer = {
 
     const attributes = parseTrackingAttributes(raw);
 
+    // Only emit attributes for non-empty string values, so `example-id=""`
+    // falls back to the client-derived id rather than reporting an empty slug.
     const exampleId = attributes["example-id"];
-    if (typeof exampleId === "string") {
+    if (typeof exampleId === "string" && exampleId !== "") {
       node.properties["data-example-id"] = exampleId;
     }
     // Surface the `filename` so the client can derive a readable fallback
     // `example_id` for blocks that lack an explicit `example-id`.
     const filename = attributes.filename;
-    if (typeof filename === "string") {
+    if (typeof filename === "string" && filename !== "") {
       node.properties["data-filename"] = filename;
     }
-    if ("cta" in attributes) {
+    const ctaType = attributes["cta-type"];
+    const hasCtaType = typeof ctaType === "string" && ctaType !== "";
+    // A block is a CTA when it carries a bare `cta` flag (or `cta="true"`) or
+    // any `cta-type`. An explicit `cta="false"`/`cta=""` opts out. Treating a
+    // lone `cta-type` as a CTA avoids silently dropping the category.
+    const ctaFlag = attributes.cta;
+    if (ctaFlag === true || ctaFlag === "true" || hasCtaType) {
       node.properties["data-cta"] = "true";
     }
-    const ctaType = attributes["cta-type"];
-    if (typeof ctaType === "string") {
+    if (hasCtaType) {
       node.properties["data-cta-type"] = ctaType;
     }
   },

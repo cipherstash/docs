@@ -5,8 +5,10 @@ import {
   type CodeBlockProps,
   Pre,
 } from "fumadocs-ui/components/codeblock";
+import { slug } from "github-slugger";
+import { usePathname } from "next/navigation";
 import posthog from "posthog-js";
-import { type MouseEvent, useEffect, useRef } from "react";
+import { type MouseEvent, useCallback, useEffect, useRef } from "react";
 
 // Build-time metadata is attached to the `<pre>` as `data-*` attributes by the
 // `cipherstash:code-copy-tracking` Shiki transformer (see `source.config.ts`).
@@ -17,13 +19,6 @@ type TrackingProps = {
   "data-cta"?: string;
   "data-cta-type"?: string;
 };
-
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 /**
  * Drop-in replacement for the Fumadocs `pre` MDX component that keeps the
@@ -47,10 +42,31 @@ export function TrackedCodeBlock(props: CodeBlockProps) {
     attrs["data-filename"] ??
     (typeof props.title === "string" ? props.title : undefined);
 
-  const figureRef = useRef<HTMLElement>(null);
+  // Pathname without the `/docs` basePath, matching the $pageview event in
+  // `src/lib/posthog/provider.tsx` so the events join on a consistent page key.
+  const pagePath = usePathname();
 
-  // Fire `cta_viewed` once when a CTA block enters the viewport. `example_id`
-  // is resolved with the same logic as `code_copied` so the two events join up.
+  const figureRef = useRef<HTMLElement>(null);
+  // Resolve the `example_id` once and cache it, so `cta_viewed` and
+  // `code_copied` for the same block always report the same id — the auto
+  // fallback derives a positional index that must not drift between the
+  // scroll-time and click-time events.
+  const cachedExampleId = useRef<string | null>(null);
+  const resolveExampleId = useCallback(() => {
+    if (exampleId) return exampleId;
+    if (cachedExampleId.current === null) {
+      cachedExampleId.current = autoExampleId(
+        figureRef.current,
+        filename,
+        language,
+      );
+    }
+    return cachedExampleId.current;
+  }, [exampleId, filename, language]);
+
+  // Fire `cta_viewed` once per mount when a CTA block enters the viewport.
+  // Re-firing on client-side back/forward navigation is intentional: it mirrors
+  // the per-pageview `$pageview` model, so impressions stay comparable.
   useEffect(() => {
     if (!isCta) return;
     const figure = figureRef.current;
@@ -59,16 +75,16 @@ export function TrackedCodeBlock(props: CodeBlockProps) {
     const observer = new IntersectionObserver((entries) => {
       if (!entries.some((entry) => entry.isIntersecting)) return;
       posthog.capture("cta_viewed", {
-        page_path: window.location.pathname,
-        example_id: exampleId ?? autoExampleId(figure, filename, language),
+        page_path: pagePath,
+        example_id: resolveExampleId(),
         ...(ctaType ? { cta_type: ctaType } : {}),
       });
-      observer.disconnect(); // fire once
+      observer.disconnect();
     });
     observer.observe(figure);
 
     return () => observer.disconnect();
-  }, [isCta, exampleId, ctaType, filename, language]);
+  }, [isCta, ctaType, pagePath, resolveExampleId]);
 
   function handleClick(event: MouseEvent<HTMLElement>) {
     const button = (event.target as HTMLElement).closest("button");
@@ -79,11 +95,14 @@ export function TrackedCodeBlock(props: CodeBlockProps) {
     const label = button.getAttribute("aria-label") ?? "";
     if (!/^Cop(y|ied)/.test(label)) return;
 
+    // Don't count a copy the browser can't actually perform: Fumadocs' copy
+    // uses `navigator.clipboard`, which is absent in insecure (non-HTTPS)
+    // contexts and there silently rejects.
+    if (!navigator.clipboard) return;
+
     posthog.capture("code_copied", {
-      page_path: window.location.pathname,
-      example_id:
-        exampleId ??
-        autoExampleId(button.closest("figure"), filename, language),
+      page_path: pagePath,
+      example_id: resolveExampleId(),
       language,
       is_cta: isCta,
       ...(isCta && ctaType ? { cta_type: ctaType } : {}),
@@ -99,13 +118,17 @@ export function TrackedCodeBlock(props: CodeBlockProps) {
 
 // Derive a stable-per-page slug for code blocks that authors haven't tagged
 // with an explicit `example-id`. Combines the filename (or language) with the
-// block's position on the page so repeated filenames stay distinct.
+// block's position on the page so repeated filenames stay distinct. Uses
+// `github-slugger` — the same slugger Fumadocs uses for heading anchors — so
+// ids line up with on-page anchors.
 function autoExampleId(
   figure: Element | null,
   filename: string | undefined,
   language: string,
 ): string {
-  const base = filename ? slugify(filename) : language;
+  // `slug()` can return "" for filenames that are all punctuation/non-ASCII;
+  // fall back to the language so the id is never bare (e.g. "-0").
+  const base = (filename && slug(filename)) || language;
   let index = 0;
   if (figure) {
     const figures = Array.from(document.querySelectorAll("figure.shiki"));
