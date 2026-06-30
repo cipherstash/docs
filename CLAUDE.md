@@ -73,6 +73,24 @@ description: Install the SDK and encrypt your first value in under 5 minutes
 - Use `highlight={1,3-5}` for line highlighting
 - Fumadocs `Steps`/`Step` components are available for step-by-step guides
 
+#### Copy analytics
+
+Every code block's copy button emits a PostHog `code_copied` event (see
+`src/components/code-block.tsx` and the Shiki transformer in `source.config.ts`).
+Blocks marked as CTAs also emit `cta_viewed` once when scrolled into view, giving
+a per-page `cta_viewed` → `code_copied` (is_cta: true) funnel.
+`page_path` and `language` are captured automatically; add optional fence
+metadata to enrich the event:
+
+- `example-id="install-drizzle"` — stable slug for the block. When omitted, a
+  fallback is derived from the filename/language plus the block's position.
+- `cta` — marks the block as a call-to-action (sets `is_cta: true`).
+- `cta-type="install"` — categorizes the CTA (`install`, `quickstart`,
+  `signup`); only meaningful alongside `cta`.
+
+```` ```bash cta cta-type="install" example-id="install-drizzle" ````
+mark install commands and other CTAs so they can be tracked distinctly.
+
 ### Styling
 
 Fumadocs UI theme with custom purple primary color (`hsl(269, 70%, 45%)`). Dark mode uses pure black background. CSS variables prefixed with `--color-fd-*` in `src/app/global.css`.
