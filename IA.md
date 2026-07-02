@@ -17,7 +17,7 @@ on a product decision (see CIP-3307 checklist).
   enforces that every legacy page has a mapping.
 - Frontmatter facets (`type`, `components`, `audience`, `integration`,
   `verifiedAgainst`, `reviewBy`) are defined in `source.config.ts` (`v2docs`).
-- **Moving a page = ** move the file into `content/docs`, update its facets,
+- **Moving a page** = move the file into `content/docs`, update its facets,
   fix inbound links, confirm its `v2-redirects.mjs` entry, tick it here.
 
 ## URL conventions
