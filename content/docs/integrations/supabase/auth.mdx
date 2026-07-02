@@ -1,0 +1,100 @@
+---
+title: Supabase Auth
+description: "Lock decryption to the authenticated user: use the Supabase Auth session JWT as a lock context so encrypted data only decrypts for the identity it belongs to."
+type: guide
+components: [encryption, auth]
+audience: [developer]
+verifiedAgainst:
+  stack: "0.18.0"
+---
+
+Row Level Security scopes *queries* to the logged-in user. Identity-aware encryption goes one layer deeper: values encrypted with a **lock context** can only be *decrypted* by presenting the same user's identity — enforced by [CTS](/security/cts), CipherStash's token service, not by your application code. Even your own backend, holding valid workspace credentials, cannot decrypt another user's locked values without that user's session.
+
+With Supabase Auth, the identity is the session JWT you already have.
+
+<Callout type="warn">
+Lock contexts require a Business or Enterprise workspace plan.
+</Callout>
+
+## Register Supabase Auth with your workspace
+
+CTS needs to trust your Supabase project as an OIDC issuer — that's what lets it exchange a Supabase session JWT for a CipherStash identity token. The issuer for a Supabase project is:
+
+```
+https://<project-ref>.supabase.co/auth/v1
+```
+
+The easiest path is the CipherStash dashboard's [Supabase integration](/integrations/supabase/dashboard-experience), which configures this during setup. Manual OIDC configuration is covered in the [auth reference](/reference/auth).
+
+## Lock queries to the session user
+
+Identify the user with their Supabase session token, then attach the lock context to any [`encryptedSupabase`](/reference/stack/supabase) query:
+
+```typescript
+import { LockContext } from "@cipherstash/stack/identity"
+import { db } from "./lib/db"
+import { patients } from "./lib/schema"
+
+// 1. The Supabase session you already have
+const { data: { session } } = await supabaseClient.auth.getSession()
+
+// 2. Identify: exchanges the Supabase JWT for a CTS identity token
+const lc = new LockContext()
+const identified = await lc.identify(session.access_token)
+
+if (identified.failure) {
+  throw new Error(identified.failure.message)
+}
+const lockContext = identified.data
+
+// 3. Encrypt and decrypt under that identity
+await db.from("patients", patients)
+  .insert({ email: "alice@example.com", name: "Alice Chen" })
+  .withLockContext(lockContext)
+
+const { data } = await db.from("patients", patients)
+  .select("id, email, name")
+  .eq("email", "alice@example.com")
+  .withLockContext(lockContext)
+```
+
+A value written with `.withLockContext()` can only be decrypted with a lock context for the **same identity**. Reading it without one — or as a different user — fails with an encryption error, regardless of what RLS allows.
+
+By default the identity is the JWT's `sub` claim, which for Supabase Auth is the user's UUID. You can widen or change that:
+
+```typescript
+const lc = new LockContext({
+  context: { identityClaim: ["sub"] },  // default; add "scopes" to bind permissions too
+})
+```
+
+## Where it fits
+
+- **Per-user data** (a user's own medical history, messages, documents): lock to `sub`. The row is useless to anyone but its owner — including operators with database access and your own service role.
+- **Shared/tenant data** (a support queue, org-wide records): don't lock it, or you'll be unable to decrypt it outside a user session. Plain encryption already protects it from the database side; RLS scopes who can query it.
+- **Server-side jobs** that must read locked data need the owning user's session — by design. If a background job must read a field, that field shouldn't be identity-locked.
+
+## Errors
+
+`identify()` returns a result, not a throw. The common failures:
+
+| Scenario | What you see |
+| --- | --- |
+| Expired or invalid Supabase JWT | `CtsTokenError` from `identify()` |
+| Issuer not registered with the workspace | `CtsTokenError` — register the OIDC issuer first |
+| Expired CTS token at query time | `LockContextError` — call `identify()` again |
+| Decrypting another user's locked value | `encryptionError` on the [query response](/reference/stack/supabase#responses-and-errors) |
+
+## Where to next
+
+<Cards>
+  <Card title="Identity-aware encryption" href="/concepts/identity-aware-encryption">
+    The concept: lock contexts, CTS, and what identity binding proves.
+  </Card>
+  <Card title="encryptedSupabase reference" href="/reference/stack/supabase">
+    `.withLockContext()` and `.audit()` on the query builder.
+  </Card>
+  <Card title="Auth reference" href="/reference/auth">
+    OIDC configuration, access keys, and clients.
+  </Card>
+</Cards>
