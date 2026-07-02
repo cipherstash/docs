@@ -130,14 +130,22 @@ live at `/docs/errors/<code>` — permanent, never restructured (CIP-3338).
 ## Reference
 
 - [x] Section scaffold 🚧 (eql, stack, auth, cli, proxy, workspace)
-- **EQL (v3 rewrite — CIP-3326):**
-- [x] `/reference/eql` — overview + install (single SQL file, permissions split, dbdev, Docker)
-- [x] `/reference/eql/types` — 10 scalar families × variants + `eql_v3.json`
-- [x] `/reference/eql/operators` — per-variant matrix incl. what RAISES; typed-operand rule
+- **EQL (v3 rewrite — CIP-3326; Tailwind-shaped: install → core concepts → type
+  categories → indexes → query patterns). Anti-drift rule: shared mechanics
+  (typed operands, blockers, envelope, variant model, ORE-equality) live ONLY in
+  core-concepts — category/query pages link, never restate:**
+- [x] `/reference/eql` — install (single SQL file, permissions split, dbdev, Docker)
+- [x] `/reference/eql/core-concepts` — variant model, payload anatomy (absorbs
+      cipher-cell), typed-operand rule, fail-loud blockers, term leakage pointer
+- [x] `/reference/eql/numbers-and-dates` — int*/float*/numeric/date/timestamp
+- [x] `/reference/eql/text` — all six text variants; owns the no-LIKE treatment
+- [x] `/reference/eql/json` — ste_vec + sv payload shape + containment/path queries
+- [x] `/reference/eql/booleans` — storage-only variants (bool has only that one)
 - [x] `/reference/eql/indexes` — functional indexes on extractors; Supabase-compatible
-- [x] `/reference/eql/json` — ste_vec, path queries
-- [x] `/reference/eql/functions` — incl. aggregates (min/max only)
-- [x] `/reference/eql/payload-format` — v/i/c envelope, hm/ob/bf (absorbs cipher-cell)
+- [x] `/reference/eql/filtering` — =, IN, ranges, token match, containment
+- [x] `/reference/eql/sorting` — ORDER BY, extractor sort-key form, pagination
+- [x] `/reference/eql/grouping-and-aggregates` — GROUP BY/DISTINCT, min/max, no SUM/AVG
+- [x] `/reference/eql/joins` — equijoins, the same-keyset constraint
 - **Stack SDK:**
 - [ ] `/reference/stack` — client + configuration (port encryption/* pages)
 - [ ] `/reference/stack/schema`

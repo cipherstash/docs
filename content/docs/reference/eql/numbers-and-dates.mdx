@@ -1,0 +1,140 @@
+---
+title: Numbers & dates
+description: "The complete reference for encrypted numeric and date/time columns: the int, float, numeric, date, and timestamp domain variants, the ORE-backed payload they carry, and range, ORDER BY, and MIN/MAX queries."
+type: reference
+components: [eql]
+verifiedAgainst:
+  eql: "3.0.0"
+---
+
+Eight scalar types share one identical query surface: `int2`, `int4`, `int8`, `float4`, `float8`, `numeric`, `date`, and `timestamp`. These are the columns you filter by range, sort newest-first, and take a `MIN` / `MAX` over — salaries, totals, rates, hire dates, timestamps. Everything on this page applies to all eight; only the domain name changes.
+
+There is no free-text matching for these types — `_match` and `_search` are [text-only variants](/reference/eql/text). Boolean columns are a separate, storage-only story — see [Booleans](/reference/eql/booleans).
+
+## Variants
+
+Each of the eight scalar types generates the same four `jsonb`-backed domain variants:
+
+| Domain variant | Capability | Index term carried |
+| --- | --- | --- |
+| `eql_v3.<T>` | Storage and decryption only. Every comparison operator is blocked — only `IS NULL` / `IS NOT NULL` work. | none |
+| `eql_v3.<T>_eq` | Equality: `=` and `<>` (plus `IN`, `GROUP BY`, `DISTINCT`, equijoins). | `hm` (HMAC-256) |
+| `eql_v3.<T>_ord` | Full comparison surface: `=` `<>` `<` `<=` `>` `>=`, `BETWEEN`, `ORDER BY`, and `MIN` / `MAX`. | `ob` (ORE block) |
+| `eql_v3.<T>_ord_ore` | Identical to `<T>_ord` — a twin name that documents intent. | `ob` (ORE block) |
+
+Declare only the capability you query on — each index term class reveals different structure to an observer (see [Searchable encryption](/concepts/searchable-encryption)), and the variant model itself is covered in [Core concepts](/reference/eql/core-concepts):
+
+```sql
+CREATE TABLE employees (
+    id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    salary     eql_v3.int8_ord,       -- range queries, ORDER BY, MIN/MAX
+    tax_rate   eql_v3.numeric_eq,     -- exact lookup only
+    net_worth  eql_v3.numeric,        -- store and decrypt only, never queried
+    hired_on   eql_v3.date_ord,
+    created_at eql_v3.timestamp_ord
+);
+```
+
+## Payload
+
+A value for an `_ord` column carries the shared envelope keys (`v`, `i`, `c` — see [Core concepts](/reference/eql/core-concepts)) plus the `ob` ordering term. Here is a payload for the `eql_v3.int8_ord` `salary` column:
+
+```json
+{
+  "v": 2,
+  "i": { "t": "employees", "c": "salary" },
+  "c": "mBbKmsMM%bK#QQOx1yLDBHyD...",
+  "ob": [
+    "7a1fd0c2...", "d24c9be1...", "03fa66b8...", "91b7e04d...",
+    "5c28aa19...", "e6f3071c...", "48d92ab5...", "0b64cf37..."
+  ]
+}
+```
+
+- **`ob` is the only index term.** An `_ord` payload carries no `hm`: equality on `_ord` variants compares ORE terms, which collapse to equality — see [Core concepts](/reference/eql/core-concepts). Only `_eq` payloads carry `hm` (a single hex HMAC-SHA-256 string) instead of `ob`.
+- **The `ob` block count varies with the plaintext width**: 8 blocks for the int scalars, 12 for `timestamp`, 14 for `numeric` — the array just carries more block strings.
+
+## Operators and functions
+
+The function forms exist for managed platforms that disallow custom operators — they take the same typed arguments and resolve identically.
+
+| SQL operator | Function form | `eql_v3.<T>` | `<T>_eq` | `<T>_ord` / `<T>_ord_ore` |
+| --- | --- | :---: | :---: | :---: |
+| `=` / `<>` | `eql_v3.eq(a, b)` / `eql_v3.neq(a, b)` | ❌ | ✅ | ✅ |
+| `<` `<=` `>` `>=` | `eql_v3.lt` / `lte` / `gt` / `gte` | ❌ | ❌ | ✅ |
+| `BETWEEN` | desugars to `>=` and `<=` | ❌ | ❌ | ✅ |
+| `IN` | desugars to `=` | ❌ | ✅ | ✅ |
+| `GROUP BY` / `DISTINCT` | — (needs an equality term) | ❌ | ✅ | ✅ |
+| `ORDER BY` | sort key: `eql_v3.ord_term(col)` | ❌ | ❌ | ✅ |
+| `MIN` / `MAX` | `eql_v3.min(col)` / `eql_v3.max(col)` | ❌ | ❌ | ✅ |
+| `IS NULL` / `IS NOT NULL` | — | ✅ | ✅ | ✅ |
+
+Blocked cells raise an `operator … is not supported` exception — they never silently return wrong rows. Operands must be typed (`$1::eql_v3.int8_ord`), or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one. Both rules are covered in [Core concepts](/reference/eql/core-concepts).
+
+**`SUM`, `AVG`, and other arithmetic aggregates are not supported** on encrypted columns — they would require homomorphic encryption. `MIN` / `MAX` work because they only need comparison; for sums and averages, decrypt at the application boundary and aggregate client-side.
+
+## Example queries
+
+### Range filter
+
+```sql
+SELECT * FROM employees
+WHERE salary >= $1::eql_v3.int8_ord;
+
+SELECT * FROM employees
+WHERE salary BETWEEN $1::eql_v3.int8_ord AND $2::eql_v3.int8_ord;
+```
+
+### Date window
+
+`BETWEEN` works the same on `date` and `timestamp` columns:
+
+```sql
+SELECT * FROM employees
+WHERE hired_on BETWEEN $1::eql_v3.date_ord AND $2::eql_v3.date_ord;
+```
+
+### Newest-first listing
+
+Bare `ORDER BY created_at` sorts correctly, but the planner doesn't rewrite sort keys, so it adds a `Sort` node even when a btree index exists. Write the sort key in extractor form to stream rows out of the index already ordered — at large row counts this is the difference between seconds and milliseconds (see [Sorting](/reference/eql/sorting)):
+
+```sql
+SELECT * FROM employees
+WHERE created_at >= $1::eql_v3.timestamp_ord
+ORDER BY eql_v3.ord_term(created_at) DESC
+LIMIT 10;
+```
+
+### MIN and MAX
+
+`eql_v3.min` / `eql_v3.max` compare ORE terms — no decryption happens in the database, and the encrypted result decrypts in the client. `NULL` inputs are skipped; an all-`NULL` input set returns `NULL`:
+
+```sql
+SELECT eql_v3.min(salary) FROM employees;
+SELECT eql_v3.max(created_at) FROM employees;
+```
+
+### Cast at the call site
+
+On a generic `jsonb` column whose payloads already carry the `ob` term, cast to the right domain in the query:
+
+```sql
+SELECT eql_v3.min(salary_jsonb::eql_v3.int8_ord) FROM employees;
+```
+
+## Where to next
+
+<Cards>
+  <Card title="Indexes" href="/reference/eql/indexes">
+    Btree recipes on `eql_v3.ord_term` for range, ORDER BY, and MIN/MAX.
+  </Card>
+  <Card title="Filtering" href="/reference/eql/filtering">
+    WHERE-clause patterns across all encrypted types.
+  </Card>
+  <Card title="Sorting" href="/reference/eql/sorting">
+    Why the extractor-form sort key matters, and how to verify with EXPLAIN.
+  </Card>
+  <Card title="Grouping & aggregates" href="/reference/eql/grouping-and-aggregates">
+    GROUP BY, DISTINCT, and the aggregate surface on encrypted columns.
+  </Card>
+</Cards>

@@ -1,11 +1,18 @@
 {
   "title": "EQL",
   "pages": [
-    "types",
-    "operators",
-    "indexes",
+    "core-concepts",
+    "---Types---",
+    "numbers-and-dates",
+    "text",
     "json",
-    "functions",
-    "payload-format"
+    "booleans",
+    "---Indexes---",
+    "indexes",
+    "---Queries---",
+    "filtering",
+    "sorting",
+    "grouping-and-aggregates",
+    "joins"
   ]
 }

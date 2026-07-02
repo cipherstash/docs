@@ -1,0 +1,96 @@
+---
+title: Sorting
+description: "ORDER BY on encrypted columns: which variants sort, when to write the sort key in extractor form, keyset pagination, and the ::jsonb projection trap."
+type: reference
+components: [eql]
+verifiedAgainst:
+  eql: "3.0.0"
+---
+
+`ORDER BY` on an encrypted column needs an ORE ordering term: it works on `_ord` / `_ord_ore` variants of every scalar and on `text_search`. ORE terms are order-preserving, so the database sorts ciphertext in exactly the order the plaintext would sort — without decrypting anything. Which variants carry the term is covered in [Numbers & dates](/reference/eql/numbers-and-dates) and [Text](/reference/eql/text); the variant model itself is in [Core concepts](/reference/eql/core-concepts).
+
+Sorting a variant *without* an ORE term (`_eq`, `text_match`, bare storage variants) won't raise — but the order is meaningless. Type the column as an `_ord` variant when ordering matters.
+
+## Bare form vs extractor form
+
+Both of these sort correctly:
+
+```sql
+-- Bare form
+SELECT * FROM users ORDER BY created_at DESC;
+
+-- Extractor form
+SELECT * FROM users ORDER BY eql_v3.ord_term(created_at) DESC;
+```
+
+The difference is the plan. The planner inlines encrypted operators in *predicates*, so a `WHERE created_at < $1` matches a btree on `eql_v3.ord_term(created_at)` without rewriting — but it does **not** rewrite *sort keys*. Bare `ORDER BY created_at` therefore adds a `Sort` node above the scan, and that sort's cost scales linearly with the rows passing the filter.
+
+Writing the sort key in extractor form makes it textually match the index expression, so rows stream out of the btree already ordered — no `Sort` node at all:
+
+```sql
+CREATE INDEX users_created_at_ord
+  ON users USING btree (eql_v3.ord_term(created_at));
+ANALYZE users;
+
+SELECT * FROM users
+  WHERE created_at < $1::eql_v3.timestamp_ord
+  ORDER BY eql_v3.ord_term(created_at) DESC
+  LIMIT 10;
+-- Index Scan Backward using users_created_at_ord — no Sort node
+```
+
+At large row counts this is the difference between seconds and milliseconds, and it matters most for `LIMIT` queries: with a `Sort` node, Postgres must sort *every* matching row before it can return the top 10; streaming from the index, it stops after 10.
+
+Rule of thumb: bare form is fine for small result sets or when no ordering index exists; any hot query with `ORDER BY ... LIMIT` should use the extractor form. Confirm with `EXPLAIN (COSTS OFF)` — a `Sort` node above an `Index Scan` means the sort key didn't match the index. Full plan-reading guidance is in [Indexes](/reference/eql/indexes).
+
+## `ASC`, `DESC`, and `NULLS`
+
+`ASC` / `DESC` behave normally — a btree serves both directions (backward scans handle `DESC`). SQL `NULL` column values are not encrypted, so `NULLS FIRST` / `NULLS LAST` also behave normally:
+
+```sql
+SELECT * FROM users
+ORDER BY eql_v3.ord_term(last_login) DESC NULLS LAST;
+```
+
+## Keyset pagination
+
+`OFFSET` pagination degrades on encrypted columns the same way it does on plaintext ones — every page re-sorts and discards the rows before the offset. Keyset (cursor) pagination composes an encrypted range filter with an extractor-form sort:
+
+```sql
+-- Page 1
+SELECT id, email, created_at FROM users
+  ORDER BY eql_v3.ord_term(created_at) DESC
+  LIMIT 20;
+
+-- Next page: pass the last row's created_at back, re-encrypted as the cursor
+SELECT id, email, created_at FROM users
+  WHERE created_at < $1::eql_v3.timestamp_ord
+  ORDER BY eql_v3.ord_term(created_at) DESC
+  LIMIT 20;
+```
+
+Both the filter and the sort ride the same btree on `eql_v3.ord_term(created_at)`, so every page is an index scan that stops after 20 rows. The client re-encrypts the cursor value for the next request — the database only ever sees ciphertext.
+
+## The `::jsonb` projection trap
+
+<Callout type="warn">
+If you project the column with a cast and sort on it — `SELECT col::jsonb ... ORDER BY col` — Postgres folds the cast into the scan and uses `(col)::jsonb` as the sort key, which matches no index. Project the column raw and let the client decode it, or write the sort key as `eql_v3.ord_term(col)`, which sidesteps the problem entirely.
+</Callout>
+
+## Sorting extracted JSON leaves
+
+String and Number leaves inside an encrypted JSON document carry a CLLW ORE term, so they sort too — the extractor is `eql_v3.ore_cllw` on the extracted entry:
+
+```sql
+SELECT * FROM orders
+ORDER BY eql_v3.ore_cllw(metadata -> 'total_selector'::text) DESC
+LIMIT 10;
+```
+
+A btree on the same `eql_v3.ore_cllw(...)` expression streams this ordered, exactly like `ord_term` on a scalar column. Selectors, node types, and which leaves are orderable are covered in [JSON](/reference/eql/json).
+
+## Where to go next
+
+- [Indexes](/reference/eql/indexes) — the btree recipe behind every sort on this page, plus `EXPLAIN` verification and large-table build guidance.
+- [Filtering](/reference/eql/filtering) — the range predicates that pair with these sorts.
+- [Grouping & aggregates](/reference/eql/grouping-and-aggregates) — `MIN` / `MAX`, which use the same ordering term.

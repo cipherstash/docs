@@ -1,6 +1,6 @@
 ---
-title: Encrypted JSON
-description: "Store and query encrypted JSON documents with eql_v3.json — containment, field access, and path queries over ciphertext, with the native jsonb operators that don't apply blocked outright."
+title: JSON
+description: "The complete reference for encrypted JSON documents with eql_v3.json — the ste_vec payload shape, containment, field access, and path queries over ciphertext, with the native jsonb operators that don't apply blocked outright."
 type: reference
 components: [eql]
 verifiedAgainst:
@@ -21,7 +21,47 @@ Three `jsonb`-backed domains make up the encrypted JSON surface:
 | `eql_v3.ste_vec_entry` | A single entry from the vector: a selector, a ciphertext, and exactly one index term. This is what `->` returns. |
 | `eql_v3.ste_vec_query` | A containment needle: entries with selectors and index terms but **no ciphertext**. This is what you cast a `@>` operand to. |
 
-The full wire shape of each is documented in [Payload format](/reference/eql/payload-format).
+## Payload shape
+
+An encrypted JSON document uses a different payload shape from the scalar types: the standard envelope keys are present (`v`, `i`, plus the `k: "sv"` discriminator — envelope anatomy is covered in [Core concepts](/reference/eql/core-concepts)), but there is no root ciphertext. Instead, an `sv` array carries one encrypted entry per path in the document. Each entry has:
+
+| Key | Contents |
+| --- | --- |
+| `s` | Selector — a deterministic hash of the JSON path. Required; entry matching compares selectors first. |
+| `c` | Ciphertext for the node at that path. |
+| `hm` **or** `oc` | Exactly one, never both — the domain `CHECK` enforces the exclusivity. `hm` (HMAC-256) on Boolean/`null` leaves and Object/Array roots; `oc` (CLLW ORE, backed by `eql_v3.ore_cllw`) on String/Number leaves. |
+| `a` | Optional array marker — `true` when the selector points at an array context. |
+
+The decoded `oc` value starts with a domain-tag byte (`0x00` numeric, `0x01` string) followed by the CLLW ciphertext, so numeric and string values in one column keep a consistent total order. Earlier payload versions split this into two fields — `ocf` (fixed-width, numeric) and `ocv` (variable-width, string) — which consolidated into the single `oc` key; the tag byte now carries the distinction.
+
+A document payload for an `eql_v3.json` column:
+
+```json
+{
+  "v": 2,
+  "k": "sv",
+  "i": { "t": "orders", "c": "metadata" },
+  "sv": [
+    { "s": "2517068c0d1f9d4d41d2c666211f785e", "c": "mBbKmM...", "hm": "b0e0..." },
+    { "s": "f510853a4ab9d4f75f51a533ac264c5d", "c": "mBbKmQ...", "oc": "01a3f2..." },
+    { "s": "33743aed3ae636f6bf05cff11ac4b519", "c": "mBbKmR...", "oc": "004e19..." }
+  ]
+}
+```
+
+- First entry: an object root — `hm` only, equality/containment
+- Second entry: a string leaf — `oc` starting with tag `01`
+- Third entry: a numeric leaf — `oc` starting with tag `00`
+
+A containment **query** payload (`eql_v3.ste_vec_query`) has the same `sv` shape but its entries carry no `c` — containment matches selectors and index terms, never ciphertexts. This is the needle the client builds for a `@>` query:
+
+```json
+{
+  "sv": [
+    { "s": "f510853a4ab9d4f75f51a533ac264c5d", "oc": "01a3f2..." }
+  ]
+}
+```
 
 ## Storing encrypted JSON
 
@@ -50,7 +90,7 @@ During encryption, the client flattens the document: each unique path gets a det
 | String | `oc` (CLLW ORE, string domain) | Yes | Yes |
 | Number | `oc` (CLLW ORE, numeric domain) | Yes | Yes |
 
-Each entry carries exactly one of `hm` or `oc` — the domain `CHECK` enforces the exclusivity. `hm` is a deterministic hash, so it supports equality only. `oc` is a CLLW ORE term that reveals ordering and, being deterministic, collapses to equality on matching selectors — `eql_v3.eq_term` reads whichever term an entry carries, so equality works uniformly across all node types. Earlier payload versions split the ORE term into `ocf` (fixed-width, numeric) and `ocv` (variable-width, string); current payloads emit a single `oc` whose leading domain-tag byte carries the numeric/string distinction.
+Each entry carries exactly one of `hm` or `oc` — the domain `CHECK` enforces the exclusivity. `hm` is a deterministic hash, so it supports equality only. `oc` is a CLLW ORE term that reveals ordering and, being deterministic, collapses to equality on matching selectors — `eql_v3.eq_term` reads whichever term an entry carries, so equality works uniformly across all node types.
 
 JSON `null` here means a `null` literal *inside* the document. A SQL `NULL` column value is not encrypted at all.
 
@@ -66,7 +106,7 @@ These native PostgreSQL `jsonb` operators are **blocked** on `eql_v3.json`. They
 Use containment (`@>` / `<@`), field access (`->` / `->>`), or the `eql_v3.jsonb_path_*` functions instead. There is no server-side mutation of an encrypted document — updates re-encrypt in the client.
 
 <Callout type="warn">
-**Type your operands.** `eql_v3.json` is a domain over `jsonb`, and PostgreSQL resolves `domain OP untyped_literal` to the **native** `jsonb` operator — bypassing both the encrypted operator and the blockers. `WHERE doc -> 'email'` silently runs native `jsonb ->` and returns `NULL`; `WHERE doc -> 'email'::text` resolves the encrypted operator. This is the same rule as the [scalar operators](/reference/eql/operators). Queries through CipherStash Proxy always bind typed parameters, so this only bites hand-written ad-hoc SQL.
+**Operands must be typed** (`doc -> 'email'::text`, not `doc -> 'email'`) — an untyped operand resolves the native `jsonb` operator, bypassing both the encrypted operator and the blockers. See [Core concepts](/reference/eql/core-concepts).
 </Callout>
 
 ## Containment: `@>` and `<@`
@@ -213,16 +253,16 @@ The rows come back as ciphertext; decrypt them in the client.
 </Step>
 </Steps>
 
-## In this section
+## Where to next
 
 <Cards>
-  <Card title="Payload format" href="/reference/eql/payload-format">
-    The wire shape of the ste_vec envelope and its entries.
+  <Card title="Core concepts" href="/reference/eql/core-concepts">
+    The envelope anatomy, typed-operand rule, and fail-loud behavior shared by every EQL type.
   </Card>
   <Card title="Indexes" href="/reference/eql/indexes">
     GIN containment and field-level functional index recipes.
   </Card>
-  <Card title="Operators" href="/reference/eql/operators">
-    The full operator surface, including the typed-operand rule.
+  <Card title="Filtering" href="/reference/eql/filtering">
+    WHERE-clause patterns across all encrypted types.
   </Card>
 </Cards>

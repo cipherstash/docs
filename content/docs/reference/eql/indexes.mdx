@@ -29,7 +29,7 @@ EQL v3 deliberately ships no operator class for encrypted columns. Operators res
 
 ## Index recipes
 
-Type the column as the domain variant that carries the term ([Types](/reference/eql/types)), then index the matching extractor:
+Type the column as the domain variant that carries the term (see [Core concepts](/reference/eql/core-concepts) for the variant model, and the per-type pages for specifics), then index the matching extractor:
 
 ```sql
 -- Equality: hash index on eq_term
@@ -65,8 +65,8 @@ All three must hold:
 
 ```sql
 -- ✓ resolves the encrypted operator → uses the index
-WHERE email = $1;
 WHERE email = $1::eql_v3.text_eq;
+WHERE email = $1;   -- only when the client (Stack SDK / Proxy) binds $1 typed
 
 -- ✗ falls through to native jsonb semantics
 WHERE email = '{"hm":"abc"}'::jsonb;

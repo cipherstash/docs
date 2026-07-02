@@ -11,20 +11,7 @@ Encrypt Query Language (EQL) is a set of types, operators, and functions for sto
 
 EQL itself never encrypts anything. Encryption and decryption happen in the client, using the [Stack SDK](/reference/stack) or [CipherStash Proxy](/reference/proxy). EQL provides the database-side surface those clients query against: encrypted column types, the operators that compare them, and the term-extractor functions that make indexes work.
 
-## The v3 model
-
-Every encrypted column is a `jsonb`-backed **domain type** in the `eql_v3` schema. The domain variant you choose declares the column's searchable capability: `eql_v3.text_eq` supports equality (`=` / `<>`), `eql_v3.text_match` supports encrypted text containment (`@>` / `<@`), `eql_v3.int4_ord` adds range comparisons, `ORDER BY`, and `MIN` / `MAX`. Each domain carries a `CHECK` constraint that validates the encrypted payload on insert, so a malformed or wrong-version value is rejected at write time rather than surfacing at query time.
-
-There is no database-side configuration table. Earlier EQL versions tracked encryption config in the database (`config_add_table`, `config_add_column`, and friends) — those are gone in v3. The searchable surface of a column is fixed by the domain variant you type it as, and which index terms travel in a value's payload is decided by the encryption client. Operators that a variant doesn't support raise an "operator not supported" error rather than silently falling through to native `jsonb` semantics — and `LIKE` / `ILIKE` are blocked on every encrypted column.
-
-```sql
-CREATE TABLE users (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email eql_v3.text_eq,          -- equality only
-    salary eql_v3.int4_ord,        -- equality + range + ORDER BY
-    created_at eql_v3.timestamp_ord
-);
-```
+Every encrypted column is a `jsonb`-backed domain type in the `eql_v3` schema, and the domain variant you choose declares what the column can do — the full model is in [Core concepts](/reference/eql/core-concepts).
 
 ## Install
 
@@ -113,25 +100,42 @@ Schema changes — adding or removing encrypted columns — always go through th
 
 EQL v3 is designed to install without superuser. There are no custom operator classes (which managed platforms typically block), no `postgresql.conf` changes, and no separate Supabase build — the single install script is the same artefact everywhere. Indexing works through ordinary functional indexes over EQL's term-extractor functions, which any user who can `CREATE INDEX` can build. See the [Supabase integration](/integrations/supabase) for platform-specific setup.
 
-## In this section
+## Understand
 
 <Cards>
-  <Card title="Types" href="/reference/eql/types">
-    The encrypted domain type families and the capability each variant carries.
+  <Card title="Core concepts" href="/reference/eql/core-concepts">
+    Domain variants, the encrypted payload, typed operands, and fail-loud blockers — the model every other page assumes.
   </Card>
-  <Card title="Operators" href="/reference/eql/operators">
-    Which SQL operators resolve on which variant, and what raises.
+  <Card title="Numbers and dates" href="/reference/eql/numbers-and-dates">
+    Encrypted integers, floats, numerics, dates, and timestamps.
   </Card>
-  <Card title="Indexes" href="/reference/eql/indexes">
-    Functional-index recipes for equality, range, and text match.
+  <Card title="Text" href="/reference/eql/text">
+    Encrypted text: equality, ordering, and free-text token matching — and why there is no `LIKE`.
   </Card>
   <Card title="JSON" href="/reference/eql/json">
     Encrypted JSON documents: containment, field access, and GIN indexing.
   </Card>
-  <Card title="Functions" href="/reference/eql/functions">
-    The function equivalents of every operator, extractors, and aggregates.
+  <Card title="Booleans" href="/reference/eql/booleans">
+    Storage-only by design: why encrypted booleans carry no index terms.
   </Card>
-  <Card title="Payload format" href="/reference/eql/payload-format">
-    The encrypted payload envelope and index terms.
+  <Card title="Indexes" href="/reference/eql/indexes">
+    Functional-index recipes over the term extractors, and what it takes for an index to engage.
+  </Card>
+</Cards>
+
+## Use
+
+<Cards>
+  <Card title="Filtering" href="/reference/eql/filtering">
+    `WHERE` clauses on encrypted columns: equality, ranges, and text containment.
+  </Card>
+  <Card title="Sorting" href="/reference/eql/sorting">
+    `ORDER BY` on encrypted columns, and how to keep the sort in the index.
+  </Card>
+  <Card title="Grouping and aggregates" href="/reference/eql/grouping-and-aggregates">
+    `GROUP BY`, `DISTINCT`, `COUNT`, and the `MIN` / `MAX` aggregates.
+  </Card>
+  <Card title="Joins" href="/reference/eql/joins">
+    Equijoins on encrypted columns and the same-keyset rule.
   </Card>
 </Cards>
