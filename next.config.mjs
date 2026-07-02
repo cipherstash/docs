@@ -16,6 +16,16 @@ const config = {
   reactStrictMode: true,
   async redirects() {
     return [
+      // The app lives under the /docs basePath, so the bare domain root
+      // (e.g. on Vercel preview URLs) would otherwise 404. In production
+      // "/" never reaches this app — cipherstash.com routes only /docs/*
+      // here — so this only affects previews.
+      {
+        source: "/",
+        destination: "/docs",
+        basePath: false,
+        permanent: false,
+      },
       // Vanity URL for the new IA (safe to ship ungated: the path has no
       // legacy traffic). Temporary until the v2 quickstart is canonical.
       {

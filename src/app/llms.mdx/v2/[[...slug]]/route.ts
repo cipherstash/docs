@@ -9,10 +9,14 @@ export const revalidate = false;
 
 export async function GET(
   req: Request,
-  { params }: RouteContext<"/llms.mdx/v2/[...slug]">,
+  { params }: RouteContext<"/llms.mdx/v2/[[...slug]]">,
 ) {
   const { slug } = await params;
-  const page = v2source.getPage(slug);
+  // The landing page's markdown mirror is served at /docs/index.mdx (its URL
+  // is "/", which can't carry an .mdx suffix) — normalize back to the root.
+  const normalized =
+    !slug || (slug.length === 1 && slug[0] === "index") ? [] : slug;
+  const page = v2source.getPage(normalized);
   if (!page) notFound();
 
   const posthog = getPostHogClient();
@@ -22,7 +26,7 @@ export async function GET(
       event: "llms_mdx_page_fetched",
       properties: {
         $current_url: req.url,
-        page_slug: slug?.join("/") ?? "",
+        page_slug: normalized.join("/"),
         page_title: page.data.title,
         referer: req.headers.get("referer") ?? "",
         user_agent: req.headers.get("user-agent") ?? "",
