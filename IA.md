@@ -35,7 +35,9 @@ live at `/docs/errors/<code>` — permanent, never restructured (CIP-3338).
 - [ ] `/get-started/quickstart` — rewritten on EQL v3 (fixes `cs_match_v1`, broken scaffold imports)
 - [ ] `/get-started/choose-your-stack` — static matrix v1 (platform × ORM × auth)
 - [ ] `/get-started/examples` — runnable example apps index
-- [ ] `/docs` landing page (replaces/updates `(home)` route: what-is + audience router)
+- [ ] `/docs` landing page 🚧 — now `content/docs/index.mdx` rendered inside the docs
+      nav (the old standalone `(home)` route is deleted; recoverable from git history).
+      CIP-3327 refines the content (what-is + audience router)
 
 ## Integrations — CIP-3328 (Supabase), CIP-3330 (auth), CIP-3336 (rest)
 
