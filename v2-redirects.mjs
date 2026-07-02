@@ -78,7 +78,7 @@ export const v2Redirects = [
   },
   {
     source: "/stack/cipherstash/encryption/queries",
-    destination: "/reference/eql/operators",
+    destination: "/reference/eql/filtering",
     permanent: false,
   },
   // configuration, encrypt-decrypt, bulk-operations, models, schema, storing-data
@@ -291,7 +291,7 @@ export const v2Redirects = [
   },
   {
     source: "/stack/reference/cipher-cell",
-    destination: "/reference/eql/payload-format",
+    destination: "/reference/eql/core-concepts",
     permanent: false,
   },
   {

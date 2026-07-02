@@ -1,0 +1,182 @@
+---
+title: Indexes
+description: "Create Postgres indexes on encrypted columns using functional indexes over EQL's term-extractor functions."
+type: reference
+components: [eql]
+verifiedAgainst:
+  eql: "3.0.0"
+---
+
+EQL indexes are ordinary PostgreSQL functional indexes over **term-extractor functions** — never an index or operator class on the column itself. Each extractor returns a small per-row index term whose return type already carries a default operator class:
+
+| Extractor | Index method | Term | Capability |
+| --- | --- | --- | --- |
+| `eql_v3.eq_term(col)` | `hash` (or `btree`) | `hm` (HMAC-256) | equality |
+| `eql_v3.ord_term(col)` | `btree` | `ob` (ORE block) | range, `ORDER BY`, `MIN` / `MAX` |
+| `eql_v3.match_term(col)` | `gin` | `bf` (bloom filter) | text containment |
+
+The extractors are inlinable SQL functions, so the planner rewrites a bare-form predicate into the same expression the index was built on. You don't rewrite queries to use the index:
+
+```sql
+SELECT * FROM users WHERE email = $1::eql_v3.text_eq;
+-- planner inlines `=` to: eql_v3.eq_term(email) = eql_v3.eq_term($1)
+-- Index Cond on USING hash (eql_v3.eq_term(email))
+```
+
+<Callout type="warn">
+EQL v3 deliberately ships no operator class for encrypted columns. Operators resolve against the domain's `jsonb` base type, so an opclass on the column would bypass the encrypted surface. Always index through the extractor.
+</Callout>
+
+## Index recipes
+
+Type the column as the domain variant that carries the term (see [Core concepts](/reference/eql/core-concepts) for the variant model, and the per-type pages for specifics), then index the matching extractor:
+
+```sql
+-- Equality: hash index on eq_term
+-- (columns typed eql_v3.<T>_eq or text_search; equality on _ord columns
+-- compares ORE terms, so the btree on ord_term below serves it)
+CREATE INDEX users_email_eq
+  ON users USING hash (eql_v3.eq_term(email));
+
+-- Range / ordering: btree index on ord_term
+-- (columns typed eql_v3.<T>_ord or _ord_ore)
+CREATE INDEX users_created_at_ord
+  ON users USING btree (eql_v3.ord_term(created_at));
+
+-- Text match: GIN index on match_term
+-- (columns typed eql_v3.text_match or text_search)
+CREATE INDEX users_name_match
+  ON users USING gin (eql_v3.match_term(name));
+
+ANALYZE users;
+```
+
+Run `ANALYZE` after every index build. `CREATE INDEX` on an expression gathers no statistics for that expression — without `ANALYZE`, the planner has no histogram for `eql_v3.eq_term(email)` and can misjudge the index it just built.
+
+Create indexes when the table has a significant number of rows (typically more than 1,000) and you query the column with the matching operator. Drop indexes for capabilities you no longer query — duplicate indexes compete for cache and slow writes.
+
+## Requirements for an index to engage
+
+All three must hold:
+
+1. **The value carries the required term.** Equality needs `hm`, range needs `ob`, containment needs `bf`. Which terms travel in a value's payload is decided by the encryption client — a value with only a bloom term will not drive an equality index.
+2. **The index was built after the data carried the term.** If you change which terms a column's values carry, recreate the index.
+3. **The query operand is typed.** A typed parameter (`$1`, which CipherStash Proxy supplies) or an explicit cast resolves the encrypted operator; a bare `jsonb` literal falls through to native `jsonb` semantics and skips the index entirely:
+
+```sql
+-- ✓ resolves the encrypted operator → uses the index
+WHERE email = $1::eql_v3.text_eq;
+WHERE email = $1;   -- only when the client (Stack SDK / Proxy) binds $1 typed
+
+-- ✗ falls through to native jsonb semantics
+WHERE email = '{"hm":"abc"}'::jsonb;
+```
+
+## Query shapes
+
+### Equality
+
+```sql
+SELECT * FROM users WHERE email = $1::eql_v3.text_eq;
+-- Index Scan using users_email_eq
+--   Index Cond: (eql_v3.eq_term(email) = eql_v3.eq_term($1))
+```
+
+### Range and ORDER BY
+
+The `<`, `<=`, `>`, `>=` operators inline to comparisons on `eql_v3.ord_term`, so natural-form range predicates match the btree:
+
+```sql
+SELECT * FROM users WHERE created_at < $1::eql_v3.timestamp_ord;
+```
+
+`ORDER BY` needs care. The planner inlines operators in *predicates* but does not rewrite *sort keys*: `ORDER BY created_at` uses the index for the `WHERE` clause but still adds a `Sort` node, which scales linearly with the rows passing the filter. To stream rows out of the btree already ordered, write the sort key in extractor form:
+
+```sql
+SELECT * FROM users
+  WHERE created_at < $1::eql_v3.timestamp_ord
+  ORDER BY eql_v3.ord_term(created_at) DESC
+  LIMIT 10;
+```
+
+ORE terms are order-preserving, so this sorts identically to the natural form — it just lets the index do the ordering. At large row counts this is the difference between seconds and milliseconds.
+
+<Callout type="warn">
+If you `SELECT col::jsonb ... ORDER BY col`, Postgres folds the cast into the scan and uses `(col)::jsonb` as the sort key — which matches no index. Project the column raw, or write the sort key as `eql_v3.ord_term(col)`, which sidesteps this entirely.
+</Callout>
+
+### GROUP BY and DISTINCT
+
+Group on the extractor, not the raw column:
+
+```sql
+SELECT eql_v3.eq_term(email), count(*)
+  FROM users
+  GROUP BY eql_v3.eq_term(email);
+```
+
+`GROUP BY email` uses the entire encrypted payload (1–2 KB per row) as the hash key; Postgres estimates a hash table far larger than the default `work_mem` and falls back to a disk-spilling `GroupAggregate`. The extractor key is a small deterministic term, so the hash table fits in `work_mem` and the planner picks `HashAggregate` reliably. If an ORM forces the raw-column form, raising `work_mem` is the rescue knob — but the extractor form is the design.
+
+## Encrypted JSON
+
+Containment (`@>` / `<@`) on `eql_v3.json` document columns uses a GIN index over `eql_v3.to_ste_vec_query(col)::jsonb`, and field-level equality and ordering have their own extractor recipes. See [JSON](/reference/eql/json).
+
+## Verify with EXPLAIN
+
+The first move on a slow query is `EXPLAIN (COSTS OFF)`:
+
+- **`Index Scan using <your-index>`** — the functional index is engaged.
+- **`Index Cond:` referencing the extractor** (`eql_v3.eq_term(...)`, `eql_v3.ord_term(...)`) — the inlined predicate matched the index.
+- **`Seq Scan`** — no index used. Check the three requirements above.
+- **`Filter:` showing the raw operator** — inlining did not happen. Usual causes: a pinned `search_path` on a customised function, or the planner judging another plan cheaper.
+- **`Sort` node above an Index Scan** — natural-form `ORDER BY`. Switch the sort key to `eql_v3.ord_term(col)` to eliminate it.
+
+Once the plan looks right, repeat with `EXPLAIN ANALYZE` to measure actual timings. For a full diagnosis walkthrough, see [query performance troubleshooting](/guides/troubleshooting/query-performance).
+
+## Building indexes on large tables
+
+Index *build* time is a separate axis from query time — a functional index that queries in a millisecond can take hours to `CREATE` on a large table.
+
+**Raise `maintenance_work_mem`.** `CREATE INDEX` draws on `maintenance_work_mem` (default 64 MB — far too small for a multi-million-row build). It's the single highest-leverage knob:
+
+```sql
+SET maintenance_work_mem = '2GB';
+CREATE INDEX users_email_eq ON users USING btree (eql_v3.eq_term(email));
+```
+
+**Prefer `btree` over `hash` for equality on large tables.** A btree build sorts then bulk-loads with sequential writes and can parallelise; a hash build scatters rows to random buckets and degrades to random I/O once the index outgrows cache — it cannot parallelise. A btree on `eql_v3.eq_term(col)` serves `=` exactly as well as a hash index, with no query-side cost. Hash is fine up to mid-six-figure row counts.
+
+**Expect a de-TOAST floor.** A functional index over a large encrypted column de-TOASTs the whole stored value once per row to evaluate the extractor. This cost is identical across access methods and sets the build's floor rate. Index builds are also I/O-heavy in a way queries are not — containerised Postgres on a virtualised filesystem (Docker Desktop on macOS, notably) pays a steep penalty, so run large builds on native storage.
+
+**Watch the build.** From a second session while `CREATE INDEX` runs:
+
+```sql
+SELECT phase, tuples_done, tuples_total,
+       round(100.0 * tuples_done / nullif(tuples_total, 0), 1) AS pct
+FROM pg_stat_progress_create_index;
+```
+
+A steady `tuples_done` rate is healthy. A rate that decays over time is the cache/memory wall — raise `maintenance_work_mem`, and if it's a hash index, rebuild it as a btree.
+
+## Why this works on managed Postgres
+
+Everything above is a functional index over an `IMMUTABLE` SQL function — no operator class on a column, no superuser, no `postgresql.conf` changes. Managed platforms that block custom operator classes (Supabase among them) run these recipes unchanged, so the indexing model is identical on Supabase, RDS, Cloud SQL, and self-hosted Postgres. See the [Supabase integration](/integrations/supabase).
+
+## Troubleshooting
+
+**Index not being used:**
+
+1. Verify the value carries the term:
+
+   ```sql
+   SELECT email::jsonb ? 'hm' AS has_hmac,
+          email::jsonb ? 'ob' AS has_ore_block,
+          email::jsonb ? 'bf' AS has_bloom
+   FROM users LIMIT 1;
+   ```
+
+2. Verify the operand is typed (`$1::eql_v3.text_eq`, not `$1::jsonb`).
+3. Recreate the index if the column's terms changed after it was built.
+4. Run `ANALYZE`. Very small tables may still choose a sequential scan — that's correct.
+
+**`=` returns zero rows on a populated column:** equality requires the term its variant compares — `hm` on `_eq` / `text_search`, `ob` on `_ord` variants. Type the column as an equality-capable variant and confirm the encryption client is emitting that term.

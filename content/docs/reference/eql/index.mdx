@@ -1,8 +1,144 @@
 ---
 title: EQL
-description: "EQL documentation — being built as part of the docs V2 overhaul."
+description: "Encrypt Query Language (EQL) installs encrypted column types and operators into Postgres as plain SQL — encryption itself happens in your client."
+type: reference
+components: [eql]
+verifiedAgainst:
+  eql: "3.0.0"
 ---
 
-This section is being built as part of the docs V2 overhaul ([CIP-3307](https://linear.app/cipherstash/issue/CIP-3307)). Track progress in [IA.md](https://github.com/cipherstash/docs/blob/v2/IA.md).
+Encrypt Query Language (EQL) is a set of types, operators, and functions for storing and querying encrypted data in PostgreSQL. It installs as a single plain-SQL script — no extension packaging, no superuser, no operator classes — so it runs on Supabase, RDS, Cloud SQL, and self-hosted Postgres alike.
 
-Until it lands, current documentation lives in the [existing docs](/stack).
+EQL itself never encrypts anything. Encryption and decryption happen in the client, using the [Stack SDK](/reference/stack) or [CipherStash Proxy](/reference/proxy). EQL provides the database-side surface those clients query against: encrypted column types, the operators that compare them, and the term-extractor functions that make indexes work.
+
+Every encrypted column is a `jsonb`-backed domain type in the `eql_v3` schema, and the domain variant you choose declares what the column can do — the full model is in [Core concepts](/reference/eql/core-concepts).
+
+## Install
+
+<Steps>
+<Step>
+
+### Download the install script
+
+Each [GitHub release](https://github.com/cipherstash/encrypt-query-language/releases) publishes a versioned `cipherstash-encrypt.sql`:
+
+```sh
+curl -sLo cipherstash-encrypt.sql https://github.com/cipherstash/encrypt-query-language/releases/latest/download/cipherstash-encrypt.sql
+```
+
+</Step>
+<Step>
+
+### Run it against each database
+
+```sh
+psql -f cipherstash-encrypt.sql
+```
+
+The script installs the `eql_v3` schema with all domain types, operators, functions, and aggregates. It is idempotent: re-running it upgrades the `eql_v3` surface in place and won't remove anything you've built on top of it. To upgrade, download the latest script and run it again.
+
+</Step>
+<Step>
+
+### Verify
+
+```sql
+SELECT eql_v3.version();
+-- '3.0.0'
+```
+
+</Step>
+</Steps>
+
+<Callout type="warn">
+`DROP SCHEMA eql_v3 CASCADE` drops every column typed as an `eql_v3` domain. The domain types live in the schema, and your columns depend on them.
+</Callout>
+
+### dbdev
+
+EQL is also published to [dbdev](https://database.dev/cipherstash/eql). The dbdev release can lag behind GitHub releases, so prefer the install script when you need the latest version.
+
+### Docker for local development
+
+Run a Postgres image with EQL pre-installed:
+
+```sh
+docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=postgres \
+  ghcr.io/cipherstash/postgres-eql:17
+```
+
+EQL installs automatically on first boot. Images are available for PostgreSQL 14–17 (`:14` through `:17`), and you can pin a specific EQL version with a suffixed tag (for example `:17-3.0.0`).
+
+## Permissions
+
+Installing EQL and running queries against it need different privileges. A common production pattern splits them across two users.
+
+**Migration user** — installs EQL and adds encrypted columns during migrations:
+
+```sql
+GRANT CREATE ON DATABASE your_database TO your_migration_user;
+GRANT CREATE ON SCHEMA public TO your_migration_user;
+GRANT ALTER ON ALL TABLES IN SCHEMA public TO your_migration_user;
+```
+
+`CREATE ON DATABASE` creates the `eql_v3` schema and its types; `CREATE ON SCHEMA` and `ALTER` are needed to add encrypted columns (typed as `eql_v3` domains, with their `CHECK` constraints) to your tables.
+
+**Runtime user** — the application's day-to-day access:
+
+```sql
+-- EQL schema usage (resolves the encrypted operators / extractors)
+GRANT USAGE ON SCHEMA eql_v3 TO your_app_user;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA eql_v3 TO your_app_user;
+
+-- User table access (normal application permissions)
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE your_tables TO your_app_user;
+```
+
+Schema changes — adding or removing encrypted columns — always go through the migration user.
+
+## Managed Postgres and Supabase
+
+EQL v3 is designed to install without superuser. There are no custom operator classes (which managed platforms typically block), no `postgresql.conf` changes, and no separate Supabase build — the single install script is the same artefact everywhere. Indexing works through ordinary functional indexes over EQL's term-extractor functions, which any user who can `CREATE INDEX` can build. See the [Supabase integration](/integrations/supabase) for platform-specific setup.
+
+## Understand
+
+<Cards>
+  <Card title="Core concepts" href="/reference/eql/core-concepts">
+    Domain variants, the encrypted payload, typed operands, and fail-loud blockers — the model every other page assumes.
+  </Card>
+  <Card title="Numbers" href="/reference/eql/numbers">
+    Encrypted integers, floats, and numerics.
+  </Card>
+  <Card title="Dates & times" href="/reference/eql/dates-and-times">
+    Encrypted dates and timestamps: time windows, newest-first, retention cutoffs.
+  </Card>
+  <Card title="Text" href="/reference/eql/text">
+    Encrypted text: equality, ordering, and free-text token matching — and why there is no `LIKE`.
+  </Card>
+  <Card title="JSON" href="/reference/eql/json">
+    Encrypted JSON documents: containment, field access, and GIN indexing.
+  </Card>
+  <Card title="Booleans" href="/reference/eql/booleans">
+    Storage-only by design: why encrypted booleans carry no index terms.
+  </Card>
+  <Card title="Indexes" href="/reference/eql/indexes">
+    Functional-index recipes over the term extractors, and what it takes for an index to engage.
+  </Card>
+</Cards>
+
+## Use
+
+<Cards>
+  <Card title="Filtering" href="/reference/eql/filtering">
+    `WHERE` clauses on encrypted columns: equality, ranges, and text containment.
+  </Card>
+  <Card title="Sorting" href="/reference/eql/sorting">
+    `ORDER BY` on encrypted columns, and how to keep the sort in the index.
+  </Card>
+  <Card title="Grouping and aggregates" href="/reference/eql/grouping-and-aggregates">
+    `GROUP BY`, `DISTINCT`, `COUNT`, and the `MIN` / `MAX` aggregates.
+  </Card>
+  <Card title="Joins" href="/reference/eql/joins">
+    Equijoins on encrypted columns and the same-keyset rule.
+  </Card>
+</Cards>

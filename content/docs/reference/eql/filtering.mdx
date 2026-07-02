@@ -1,0 +1,124 @@
+---
+title: Filtering
+description: "WHERE-clause patterns on encrypted columns: equality, IN lists, ranges and BETWEEN, text token matching, JSON containment, and combining encrypted and plaintext predicates."
+type: reference
+components: [eql]
+verifiedAgainst:
+  eql: "3.0.0"
+---
+
+Every filter below is ordinary SQL — the encrypted operators resolve from the column's domain variant, and a functional index on the matching term extractor serves the predicate. One rule applies throughout: **operands must be typed** (`$1::eql_v3.text_eq`, not a bare literal), or PostgreSQL falls through to native `jsonb` semantics. See [Core concepts](/reference/eql/core-concepts) for the typed-operand rule and how unsupported operators fail loudly instead of returning wrong rows.
+
+## Equality: `=` and `<>`
+
+Works on `_eq` and `_ord` / `_ord_ore` variants of every scalar, and on `text_search`:
+
+```sql
+SELECT * FROM users WHERE email = $1::eql_v3.text_eq;
+SELECT * FROM users WHERE tax_id <> $1::eql_v3.text_eq;
+```
+
+On `_eq` and `text_search` columns equality compares the HMAC (`hm`) term. On `_ord` variants there is no `hm` — equality compares the ORE (`ob`) term, which collapses to equality, so `_ord` columns get `=` and `<>` for free. See [Core concepts](/reference/eql/core-concepts) for the mechanism.
+
+```sql
+-- salary is eql_v3.int8_ord: equality works without an hm term
+SELECT * FROM users WHERE salary = $1::eql_v3.int8_ord;
+```
+
+Bare storage-only variants (`eql_v3.text`, `eql_v3.int4`, …) block every comparison — see the type pages for what each variant supports: [Numbers](/reference/eql/numbers), [Dates & times](/reference/eql/dates-and-times), [Text](/reference/eql/text), [Booleans](/reference/eql/booleans).
+
+## `IN` lists
+
+`IN` desugars to `=`, so it needs the same equality-capable variants. Each list element is a separately encrypted, typed operand:
+
+```sql
+SELECT * FROM users
+WHERE email IN ($1::eql_v3.text_eq, $2::eql_v3.text_eq, $3::eql_v3.text_eq);
+```
+
+There is no way to encrypt a list as one value — the client encrypts each element and binds it as its own parameter. `IN (subquery)` also works, subject to the same-keyset rule covered in [Joins](/reference/eql/joins).
+
+## Ranges and `BETWEEN`
+
+`<`, `<=`, `>`, `>=` work on `_ord` / `_ord_ore` variants and `text_search` — the variants carrying an ORE (`ob`) term:
+
+```sql
+SELECT * FROM users WHERE salary >= $1::eql_v3.int8_ord;
+
+-- BETWEEN desugars to >= and <=
+SELECT * FROM users
+WHERE created_at BETWEEN $1::eql_v3.timestamp_ord AND $2::eql_v3.timestamp_ord;
+```
+
+Half-open ranges compose the same way:
+
+```sql
+SELECT * FROM events
+WHERE occurred_at >= $1::eql_v3.timestamp_ord
+  AND occurred_at <  $2::eql_v3.timestamp_ord;
+```
+
+## Text token matching: `@>`
+
+There is no `LIKE` on encrypted columns — encrypted free-text matching is bloom-filter token containment via `@>` on a `text_match` or `text_search` column:
+
+```sql
+SELECT * FROM users WHERE name @> $1::eql_v3.text_match;
+```
+
+The client encrypts the search term into a bloom-filter query value; matching is probabilistic (false positives possible, false negatives not). For the full no-`LIKE` story and match-term tuning, see [Text](/reference/eql/text).
+
+## JSON containment and path filters
+
+Encrypted JSON documents (`eql_v3.json`) filter by containment and path existence:
+
+```sql
+-- Does the document contain this (encrypted) structure?
+SELECT * FROM orders WHERE metadata @> $1::eql_v3.ste_vec_query;
+
+-- Does this path exist in the document?
+SELECT * FROM orders WHERE eql_v3.jsonb_path_exists(metadata, 'region_selector');
+
+-- Equality on an extracted leaf
+SELECT * FROM orders
+WHERE metadata -> 'email_selector'::text = $1::eql_v3.ste_vec_entry;
+```
+
+Field access is by selector hash, not plaintext path. The full JSON surface — containment, field access, path queries, and range filters on extracted leaves — is in [JSON](/reference/eql/json).
+
+## Combining predicates
+
+Encrypted predicates compose with `AND`, `OR`, `NOT`, and parentheses like any other predicate — and plaintext columns filter normally alongside encrypted ones in the same `WHERE` clause:
+
+```sql
+SELECT * FROM users
+WHERE status = 'active'                           -- plaintext column, native operator
+  AND created_at >= $1::eql_v3.timestamp_ord      -- encrypted range
+  AND (email = $2::eql_v3.text_eq                 -- encrypted equality
+       OR name @> $3::eql_v3.text_match);         -- encrypted token match
+```
+
+The planner treats each encrypted predicate independently, so it can combine an index on a plaintext column with a functional index on an encrypted one (bitmap-AND, or whichever plan is cheapest).
+
+## `IS NULL` and `IS NOT NULL`
+
+A SQL `NULL` column value is never encrypted — there is no payload to encrypt — so null checks work on **every** variant, including storage-only ones:
+
+```sql
+SELECT * FROM users WHERE tax_id IS NULL;
+SELECT * FROM users WHERE tax_id IS NOT NULL;
+```
+
+Don't confuse this with a JSON `null` *inside* an encrypted document, which is an encrypted value like any other — see [JSON](/reference/eql/json).
+
+## Shape summary
+
+| Filter shape | Operators | Works on | Index |
+| --- | --- | --- | --- |
+| Equality | `=` `<>` `IN` | `_eq`, `_ord` / `_ord_ore`, `text_search` | hash (or btree) on `eql_v3.eq_term` — btree on `eql_v3.ord_term` for `_ord` |
+| Range | `<` `<=` `>` `>=` `BETWEEN` | `_ord` / `_ord_ore`, `text_search` | btree on `eql_v3.ord_term` |
+| Text token match | `@>` `<@` | `text_match`, `text_search` | GIN on `eql_v3.match_term` |
+| JSON containment | `@>` `<@` | `eql_v3.json` | GIN on `eql_v3.to_ste_vec_query(col)::jsonb` |
+| Null check | `IS NULL` / `IS NOT NULL` | every variant | — |
+
+Every one of these has a full index recipe — which method, which extractor, and how to confirm the index engages with `EXPLAIN` — in [Indexes](/reference/eql/indexes).

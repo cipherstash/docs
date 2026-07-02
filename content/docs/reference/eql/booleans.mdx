@@ -1,0 +1,62 @@
+---
+title: Booleans
+description: "Encrypted booleans are storage-only by design: eql_v3.bool stores and decrypts, carries no index terms, and blocks every comparison."
+type: reference
+components: [eql]
+verifiedAgainst:
+  eql: "3.0.0"
+---
+
+Every scalar type has a storage-only variant — for `bool` it's the only one. EQL ships `eql_v3.bool` and nothing else: there is no `bool_eq` and no `bool_ord`. An encrypted boolean column can be stored, decrypted, and null-checked; it cannot be filtered, sorted, grouped, or joined on.
+
+## Why there are no query variants
+
+A two-value column has too little cardinality for any searchable index to be safe. An equality term over `true` / `false` would partition the table into two visible buckets — leaking the value distribution (and, with any outside knowledge, the values themselves) outright. Rather than ship an index term that can't keep its promise, EQL omits the query variants entirely. See [Searchable encryption](/concepts/searchable-encryption) for the general analysis of what index terms reveal.
+
+## What works, what raises
+
+`eql_v3.bool` follows the bare-variant contract described in [Core concepts](/reference/eql/core-concepts#variants-declare-capability): it carries no index terms, so `IS NULL` / `IS NOT NULL` are the only predicates that work. Every comparison operator routes to a blocker and raises — the [fail-loud behavior](/reference/eql/core-concepts#unsupported-operations-fail-loudly) shared by all encrypted variants:
+
+```sql
+-- ❌ Raises: operator = is not supported for eql_v3.bool
+SELECT * FROM users WHERE is_active = $1::eql_v3.bool;
+
+-- ✅ Works: NULL columns are not encrypted
+SELECT * FROM users WHERE is_active IS NOT NULL;
+```
+
+## Filter client-side
+
+Query on other columns, decrypt the boolean in your application, and filter there:
+
+```sql
+CREATE TABLE users (
+    id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email       eql_v3.text_eq,       -- exact lookup
+    created_at  eql_v3.timestamp_ord, -- range queries, ORDER BY
+    is_active   eql_v3.bool           -- storage only (by design)
+);
+```
+
+```sql
+-- Narrow the result set with the columns that do carry index terms…
+SELECT id, email, is_active FROM users
+WHERE created_at >= $1::eql_v3.timestamp_ord;
+-- …then decrypt is_active in the client and filter on the plaintext.
+```
+
+The [Stack SDK](/reference/stack) and [CipherStash Proxy](/reference/proxy) decrypt the payload back to a plain boolean on read, so the client-side filter is an ordinary `if`.
+
+If a boolean genuinely needs to be a server-side predicate, that is a data-modelling signal: consider whether the flag is actually sensitive. A non-sensitive flag can stay a plain PostgreSQL `boolean` column alongside your encrypted columns.
+
+## Storing without querying
+
+`bool` is the forced case of a pattern available to every scalar type: the bare variant `eql_v3.<T>` (for example `eql_v3.int4`, `eql_v3.text`, `eql_v3.timestamp`) is storage-and-decryption only. It carries no index terms, and every comparison operator raises — use it for columns you only ever store and decrypt, so the database holds no searchable material for them at all.
+
+For every type other than `bool`, storage-only is a choice you can walk back. If you later need to query, retype the column as a query variant — or, if the payloads already carry the needed term (the client decides which terms travel in the payload), cast at the call site:
+
+```sql
+SELECT * FROM readings WHERE value::eql_v3.int4_ord > $1::eql_v3.int4_ord;
+```
+
+The variant families and what each one enables are covered in [Core concepts](/reference/eql/core-concepts); the per-type specifics live in [Numbers](/reference/eql/numbers), [Dates & times](/reference/eql/dates-and-times), and [Text](/reference/eql/text).

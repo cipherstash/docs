@@ -1,0 +1,104 @@
+---
+title: Grouping & aggregates
+description: "GROUP BY, DISTINCT, COUNT, and eql_v3.min/max on encrypted columns — why to group on the extractor, and why SUM and AVG stay client-side."
+type: reference
+components: [eql]
+verifiedAgainst:
+  eql: "3.0.0"
+---
+
+Grouping and deduplication need an equality term, so they work on the same variants as `=`: `_eq`, `_ord` / `_ord_ore`, and `text_search`. `MIN` / `MAX` need an ordering term (`_ord` / `_ord_ore`, `text_search`). Arithmetic aggregates don't work at all — that's the last section. As everywhere, operands and call-site casts must be typed; see [Core concepts](/reference/eql/core-concepts).
+
+## `GROUP BY` and `DISTINCT`
+
+Both work in natural form on equality-capable variants:
+
+```sql
+SELECT email, COUNT(*) FROM logins GROUP BY email;
+SELECT DISTINCT email FROM logins;
+```
+
+Grouping compares equality terms, so rows encrypting the same plaintext land in the same group — but the group key that comes back is ciphertext. Decrypt it in the client if you need to display it.
+
+## Group on the extractor
+
+For anything beyond small tables, group on the equality-term extractor instead of the raw column:
+
+```sql
+SELECT eql_v3.eq_term(email) AS email_term, COUNT(*)
+  FROM logins
+  GROUP BY eql_v3.eq_term(email);
+```
+
+The reason is planner economics. `GROUP BY email` uses the entire encrypted payload — 1–2 KB per row — as the hash key. Postgres estimates a hash table far larger than the default `work_mem` and falls back to a disk-spilling `GroupAggregate`. The extractor key is a small deterministic term: the hash table fits in `work_mem` and the planner picks `HashAggregate` reliably. If an ORM forces the raw-column form, raising `work_mem` is the rescue knob — but the extractor form is the design. The same reasoning, from the index-tuning angle, is in [Indexes](/reference/eql/indexes).
+
+Note the trade-off: grouping on `eq_term` returns the *term*, not the encrypted value — fine for counting, but the term itself can't be decrypted. If you need the group key's plaintext, join the grouped result back to the table on the term to recover a representative encrypted value, then decrypt that in the client.
+
+## `COUNT` and `COUNT(DISTINCT)`
+
+Plain `COUNT(col)` counts non-`NULL` rows — it never compares values, so it works on **any** variant, including storage-only ones:
+
+```sql
+SELECT COUNT(tax_id) FROM users;   -- works even on bare eql_v3.text
+```
+
+`COUNT(DISTINCT col)` deduplicates, so it needs an equality-capable variant — and the same extractor advice applies:
+
+```sql
+SELECT COUNT(DISTINCT eql_v3.eq_term(email)) FROM logins;
+```
+
+## `MIN` and `MAX`: `eql_v3.min` / `eql_v3.max`
+
+EQL ships `min` / `max` aggregates per ord-capable variant of every scalar type. The input type selects the aggregate, and the return type matches the input:
+
+```sql
+eql_v3.min(eql_v3.<T>_ord)      RETURNS eql_v3.<T>_ord
+eql_v3.max(eql_v3.<T>_ord)      RETURNS eql_v3.<T>_ord
+eql_v3.min(eql_v3.<T>_ord_ore)  RETURNS eql_v3.<T>_ord_ore
+eql_v3.max(eql_v3.<T>_ord_ore)  RETURNS eql_v3.<T>_ord_ore
+```
+
+Comparison routes through the variant's `<` / `>` operator on the ORE term — no decryption happens in the database, and the result is an encrypted value the client decrypts. `NULL` inputs are skipped; an all-`NULL` input set returns `NULL`, matching native aggregate semantics.
+
+```sql
+SELECT eql_v3.min(salary) FROM users;
+SELECT eql_v3.max(salary) FROM users WHERE department = 'engineering';
+
+-- Combined with grouping
+SELECT eql_v3.eq_term(department_code) AS dept, eql_v3.max(salary)
+  FROM users
+  GROUP BY eql_v3.eq_term(department_code);
+```
+
+If the column is generic `jsonb` rather than a domain, cast to the right variant at the call site so overload resolution can pick the aggregate:
+
+```sql
+SELECT eql_v3.min(salary_jsonb::eql_v3.int8_ord) FROM users;
+```
+
+A btree on `eql_v3.ord_term(col)` serves `MIN` / `MAX` — the [Indexes](/reference/eql/indexes) page has the recipe.
+
+## No `SUM`, no `AVG`
+
+<Callout type="warn">
+**`SUM`, `AVG`, and every other arithmetic aggregate are unsupported** on encrypted columns — they would require homomorphic encryption, which EQL does not do. `MIN` / `MAX` work because they only need *comparison*, which the ORE term provides. For sums and averages, select the rows (or `MIN`/`MAX`/`COUNT` server-side to narrow them) and aggregate client-side after decryption.
+</Callout>
+
+## Grouping on extracted JSON leaves
+
+Leaves inside an encrypted JSON document group the same way — extract the entry by selector, then group on its equality term:
+
+```sql
+SELECT eql_v3.eq_term(metadata -> 'region_selector'::text) AS region, COUNT(*)
+  FROM orders
+  GROUP BY eql_v3.eq_term(metadata -> 'region_selector'::text);
+```
+
+`eql_v3.eq_term` reads whichever term the entry carries, so this works on every JSON node type. String and Number leaves also support `eql_v3.min` / `eql_v3.max` via their CLLW ORE term. Selectors and node capabilities are in [JSON](/reference/eql/json).
+
+## Where to go next
+
+- [Indexes](/reference/eql/indexes) — the hash/btree recipes that back these shapes, and the full `work_mem` / `HashAggregate` story.
+- [Joins](/reference/eql/joins) — equality terms across tables, and the same-keyset rule.
+- [Filtering](/reference/eql/filtering) — the `WHERE` shapes that feed these aggregates.

@@ -130,14 +130,27 @@ live at `/docs/errors/<code>` — permanent, never restructured (CIP-3338).
 ## Reference
 
 - [x] Section scaffold 🚧 (eql, stack, auth, cli, proxy, workspace)
-- **EQL (v3 rewrite — CIP-3326):**
-- [ ] `/reference/eql` — overview + install (single SQL file, permissions split, dbdev, Docker)
-- [ ] `/reference/eql/types` — 10 scalar families × variants + `eql_v3.json`
-- [ ] `/reference/eql/operators` — per-variant matrix incl. what RAISES; typed-operand rule
-- [ ] `/reference/eql/indexes` — functional indexes on extractors; Supabase-compatible
-- [ ] `/reference/eql/json` — ste_vec, path queries
-- [ ] `/reference/eql/functions` — incl. aggregates (min/max only)
-- [ ] `/reference/eql/payload-format` — v/i/c envelope, hm/ob/bf (absorbs cipher-cell)
+- **EQL (v3 rewrite — CIP-3326; Tailwind-shaped: install → core concepts → type
+  categories → indexes → query patterns). Anti-drift rule: shared mechanics
+  (typed operands, blockers, envelope, variant model, ORE-equality) live ONLY in
+  core-concepts — category/query pages link, never restate:**
+- [x] `/reference/eql` — install (single SQL file, permissions split, dbdev, Docker)
+- [x] `/reference/eql/core-concepts` — variant model, payload anatomy (absorbs
+      cipher-cell), typed-operand rule, fail-loud blockers, term leakage pointer
+- [x] `/reference/eql/numbers` — int*/float*/numeric
+- [x] `/reference/eql/dates-and-times` — date/timestamp (same traits as numbers,
+      distinct semantics)
+- [x] `/reference/eql/text` — all six text variants; owns the no-LIKE treatment
+- [x] `/reference/eql/json` — ste_vec + sv payload shape + containment/path queries
+- [x] `/reference/eql/booleans` — storage-only variants (bool has only that one)
+- [x] `/reference/eql/indexes` — functional indexes on extractors; Supabase-compatible
+- [x] `/reference/eql/filtering` — =, IN, ranges, token match, containment
+- [x] `/reference/eql/sorting` — ORDER BY, extractor sort-key form, pagination
+- [x] `/reference/eql/grouping-and-aggregates` — GROUP BY/DISTINCT, min/max, no SUM/AVG
+- [x] `/reference/eql/joins` — equijoins, the same-keyset constraint
+- [ ] ⛔ `/reference/eql/query-performance` — port the EQL repo performance guide once
+      rewritten for v3 upstream (v3 branch folded it into database-indexes.md; verify
+      nothing from the v2 guide on main was lost) — see CIP-3351
 - **Stack SDK:**
 - [ ] `/reference/stack` — client + configuration (port encryption/* pages)
 - [ ] `/reference/stack/schema`
@@ -171,5 +184,9 @@ live at `/docs/errors/<code>` — permanent, never restructured (CIP-3338).
 - [ ] OG images for v2 pages (route only covers legacy tree)
 - [ ] Correctness CI: snippet type-checking, SQL-vs-EQL-Docker, terminology lint (CIP-3337)
 - [ ] llms.txt curation + Cloudflare AI crawl policy + md-degradation check (CIP-3339)
+- [ ] ⛔ EQL 3.0.0 release alignment (CIP-3352, blocks CIP-3335) — the EQL reference
+      documents the release as decided, ahead of the eql_v3 branch: payload `v: 3`,
+      OPE SEM specifier, Docker tag `:17-3.0.0`, `version()` output, schema files.
+      Each must land upstream or be walked back in the docs before merge
 - [ ] Flip `ENABLE_V2_REDIRECTS=1`, delete `content/stack` + `/stack` routes + legacy loader (CIP-3335)
 - [ ] Consistency sweep + Supabase listing v3 revision (CIP-3335)
