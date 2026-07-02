@@ -7,7 +7,7 @@ verifiedAgainst:
   eql: "3.0.0"
 ---
 
-`ORDER BY` on an encrypted column needs an ORE ordering term: it works on `_ord` / `_ord_ore` variants of every scalar and on `text_search`. ORE terms are order-preserving, so the database sorts ciphertext in exactly the order the plaintext would sort — without decrypting anything. Which variants carry the term is covered in [Numbers & dates](/reference/eql/numbers-and-dates) and [Text](/reference/eql/text); the variant model itself is in [Core concepts](/reference/eql/core-concepts).
+`ORDER BY` on an encrypted column needs an ORE ordering term: it works on `_ord` / `_ord_ore` variants of every scalar and on `text_search`. ORE terms are order-preserving, so the database sorts ciphertext in exactly the order the plaintext would sort — without decrypting anything. Which variants carry the term is covered in [Numbers](/reference/eql/numbers), [Dates & times](/reference/eql/dates-and-times), and [Text](/reference/eql/text); the variant model itself is in [Core concepts](/reference/eql/core-concepts).
 
 Sorting a variant *without* an ORE term (`_eq`, `text_match`, bare storage variants) won't raise — but the order is meaningless. Type the column as an `_ord` variant when ordering matters.
 

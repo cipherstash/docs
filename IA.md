@@ -137,7 +137,9 @@ live at `/docs/errors/<code>` — permanent, never restructured (CIP-3338).
 - [x] `/reference/eql` — install (single SQL file, permissions split, dbdev, Docker)
 - [x] `/reference/eql/core-concepts` — variant model, payload anatomy (absorbs
       cipher-cell), typed-operand rule, fail-loud blockers, term leakage pointer
-- [x] `/reference/eql/numbers-and-dates` — int*/float*/numeric/date/timestamp
+- [x] `/reference/eql/numbers` — int*/float*/numeric
+- [x] `/reference/eql/dates-and-times` — date/timestamp (same traits as numbers,
+      distinct semantics)
 - [x] `/reference/eql/text` — all six text variants; owns the no-LIKE treatment
 - [x] `/reference/eql/json` — ste_vec + sv payload shape + containment/path queries
 - [x] `/reference/eql/booleans` — storage-only variants (bool has only that one)
@@ -146,6 +148,9 @@ live at `/docs/errors/<code>` — permanent, never restructured (CIP-3338).
 - [x] `/reference/eql/sorting` — ORDER BY, extractor sort-key form, pagination
 - [x] `/reference/eql/grouping-and-aggregates` — GROUP BY/DISTINCT, min/max, no SUM/AVG
 - [x] `/reference/eql/joins` — equijoins, the same-keyset constraint
+- [ ] ⛔ `/reference/eql/query-performance` — port the EQL repo performance guide once
+      rewritten for v3 upstream (v3 branch folded it into database-indexes.md; verify
+      nothing from the v2 guide on main was lost) — see CIP-3351
 - **Stack SDK:**
 - [ ] `/reference/stack` — client + configuration (port encryption/* pages)
 - [ ] `/reference/stack/schema`

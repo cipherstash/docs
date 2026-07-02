@@ -3,7 +3,8 @@
   "pages": [
     "core-concepts",
     "---Types---",
-    "numbers-and-dates",
+    "numbers",
+    "dates-and-times",
     "text",
     "json",
     "booleans",

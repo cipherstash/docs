@@ -22,7 +22,11 @@ All six are `jsonb`-backed domains. Which one you declare fixes the column's que
 | `eql_v3.text_match` | Free-text token containment: `@>` / `<@`. |
 | `eql_v3.text_search` | Equality + ordering + token containment. |
 
-Declare only the capabilities you query on — each capability stores extra searchable material with defined leakage (see [Searchable encryption](/concepts/searchable-encryption)):
+Declare only the capabilities you query on — each capability stores extra searchable material with defined leakage (see [Searchable encryption](/concepts/searchable-encryption)).
+
+### Example
+
+A users table mixing the variants by how each column is queried:
 
 ```sql
 CREATE TABLE users (
@@ -68,21 +72,32 @@ The narrower variants carry only their own term: a `text_eq` payload carries `hm
 
 **`bf` positions are signed**: EQL stores the filter as PostgreSQL `smallint[]`, and filters sized above 32768 emit upper-half bit positions as *negative* signed values. Consumers must use a signed 16-bit integer type.
 
-## Operators and functions
+## Operators
 
-The function forms exist for managed platforms that disallow custom operators — they take the same typed arguments and resolve identically.
-
-| SQL operator | Function form | `eql_v3.text` | `text_eq` | `text_ord` / `text_ord_ore` | `text_match` | `text_search` |
-| --- | --- | :---: | :---: | :---: | :---: | :---: |
-| `=` / `<>` | `eql_v3.eq(a, b)` / `eql_v3.neq(a, b)` | ❌ | ✅ | ✅ | ❌ | ✅ |
-| `<` `<=` `>` `>=` | `eql_v3.lt` / `lte` / `gt` / `gte` | ❌ | ❌ | ✅ | ❌ | ✅ |
-| `@>` / `<@` | `eql_v3.contains(a, b)` / `eql_v3.contained_by(a, b)` | ❌ | ❌ | ❌ | ✅ | ✅ |
-| `LIKE` / `ILIKE` (`~~` / `~~*`) | none | ❌ | ❌ | ❌ | ❌ | ❌ |
-| `IN` / `GROUP BY` / `DISTINCT` | desugar to `=` / need an equality term | ❌ | ✅ | ✅ | ❌ | ✅ |
-| `ORDER BY`, `MIN` / `MAX` | `eql_v3.min(col)` / `eql_v3.max(col)` | ❌ | ❌ | ✅ | ❌ | ✅ |
-| `IS NULL` / `IS NOT NULL` | — | ✅ | ✅ | ✅ | ✅ | ✅ |
+| SQL operator | `eql_v3.text` | `text_eq` | `text_ord` / `text_ord_ore` | `text_match` | `text_search` |
+| --- | :---: | :---: | :---: | :---: | :---: |
+| `=` / `<>` | ❌ | ✅ | ✅ | ❌ | ✅ |
+| `<` `<=` `>` `>=` | ❌ | ❌ | ✅ | ❌ | ✅ |
+| `@>` / `<@` | ❌ | ❌ | ❌ | ✅ | ✅ |
+| `LIKE` / `ILIKE` (`~~` / `~~*`) | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `IN` / `GROUP BY` / `DISTINCT` | ❌ | ✅ | ✅ | ❌ | ✅ |
+| `ORDER BY` | ❌ | ❌ | ✅ | ❌ | ✅ |
+| `IS NULL` / `IS NOT NULL` | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 Blocked cells raise an `operator … is not supported` exception — they never silently return wrong rows. Operands must be typed (`$1::eql_v3.text_eq`), or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one. Both rules are covered in [Core concepts](/reference/eql/core-concepts).
+
+## Functions
+
+Every operator has a function form, for managed platforms that disallow custom operators — same typed arguments, identical resolution. The `MIN` / `MAX` aggregates only exist as functions:
+
+| Function | Equivalent | Available on |
+| --- | --- | --- |
+| `eql_v3.eq(a, b)` / `eql_v3.neq(a, b)` | `=` / `<>` | `text_eq`, `text_ord` / `text_ord_ore`, `text_search` |
+| `eql_v3.lt` / `lte` / `gt` / `gte` | `<` `<=` `>` `>=` | `text_ord` / `text_ord_ore`, `text_search` |
+| `eql_v3.contains(a, b)` / `eql_v3.contained_by(a, b)` | `@>` / `<@` | `text_match`, `text_search` |
+| `eql_v3.min(col)` / `eql_v3.max(col)` | aggregate `MIN` / `MAX` | `text_ord` / `text_ord_ore`, `text_search` |
+
+There are no `like` / `ilike` function forms — encrypted text matching is `eql_v3.contains` on a `text_match` value.
 
 ## There is no `LIKE`
 

@@ -25,7 +25,7 @@ On `_eq` and `text_search` columns equality compares the HMAC (`hm`) term. On `_
 SELECT * FROM users WHERE salary = $1::eql_v3.int8_ord;
 ```
 
-Bare storage-only variants (`eql_v3.text`, `eql_v3.int4`, …) block every comparison — see the type pages for what each variant supports: [Numbers & dates](/reference/eql/numbers-and-dates), [Text](/reference/eql/text), [Booleans](/reference/eql/booleans).
+Bare storage-only variants (`eql_v3.text`, `eql_v3.int4`, …) block every comparison — see the type pages for what each variant supports: [Numbers](/reference/eql/numbers), [Dates & times](/reference/eql/dates-and-times), [Text](/reference/eql/text), [Booleans](/reference/eql/booleans).
 
 ## `IN` lists
 

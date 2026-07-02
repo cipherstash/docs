@@ -1,19 +1,19 @@
 ---
-title: Numbers & dates
-description: "The complete reference for encrypted numeric and date/time columns: the int, float, numeric, date, and timestamp domain variants, the ORE-backed payload they carry, and range, ORDER BY, and MIN/MAX queries."
+title: Numbers
+description: "The complete reference for encrypted numeric columns: the int, float, and numeric domain variants, the ORE-backed payload they carry, and range, ORDER BY, and MIN/MAX queries."
 type: reference
 components: [eql]
 verifiedAgainst:
   eql: "3.0.0"
 ---
 
-Eight scalar types share one identical query surface: `int2`, `int4`, `int8`, `float4`, `float8`, `numeric`, `date`, and `timestamp`. These are the columns you filter by range, sort newest-first, and take a `MIN` / `MAX` over — salaries, totals, rates, hire dates, timestamps. Everything on this page applies to all eight; only the domain name changes.
+Six numeric types share one identical query surface: `int2`, `int4`, `int8`, `float4`, `float8`, and `numeric`. These are the columns you filter by range, sort, and take a `MIN` / `MAX` over — salaries, totals, rates, quantities.
 
-There is no free-text matching for these types — `_match` and `_search` are [text-only variants](/reference/eql/text). Boolean columns are a separate, storage-only story — see [Booleans](/reference/eql/booleans).
+Date and time columns have the same capabilities but their own semantics — see [Dates & times](/reference/eql/dates-and-times). There is no free-text matching for numeric types — `_match` and `_search` are [text-only variants](/reference/eql/text).
 
 ## Variants
 
-Each of the eight scalar types generates the same `jsonb`-backed domain variants. The generic form:
+Each numeric type generates the same `jsonb`-backed domain variants. The generic form:
 
 | Domain variant | Capability |
 | --- | --- |
@@ -32,25 +32,25 @@ And every concrete domain this page covers:
 | `float4` | `eql_v3.float4` · `eql_v3.float4_eq` · `eql_v3.float4_ord` · `eql_v3.float4_ord_ore` |
 | `float8` | `eql_v3.float8` · `eql_v3.float8_eq` · `eql_v3.float8_ord` · `eql_v3.float8_ord_ore` |
 | `numeric` | `eql_v3.numeric` · `eql_v3.numeric_eq` · `eql_v3.numeric_ord` · `eql_v3.numeric_ord_ore` |
-| `date` | `eql_v3.date` · `eql_v3.date_eq` · `eql_v3.date_ord` · `eql_v3.date_ord_ore` |
-| `timestamp` | `eql_v3.timestamp` · `eql_v3.timestamp_eq` · `eql_v3.timestamp_ord` · `eql_v3.timestamp_ord_ore` |
 
-Declare only the capability you query on — each capability stores extra searchable material with defined leakage (see [Searchable encryption](/concepts/searchable-encryption)), and the variant model itself is covered in [Core concepts](/reference/eql/core-concepts):
+Declare only the capability you query on — each capability stores extra searchable material with defined leakage (see [Searchable encryption](/concepts/searchable-encryption)), and the variant model itself is covered in [Core concepts](/reference/eql/core-concepts).
+
+### Example
+
+A payroll table mixing the variants by how each column is queried:
 
 ```sql
 CREATE TABLE employees (
     id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     salary     eql_v3.int8_ord,       -- range queries, ORDER BY, MIN/MAX
     tax_rate   eql_v3.numeric_eq,     -- exact lookup only
-    net_worth  eql_v3.numeric,        -- store and decrypt only, never queried
-    hired_on   eql_v3.date_ord,
-    created_at eql_v3.timestamp_ord
+    net_worth  eql_v3.numeric         -- store and decrypt only, never queried
 );
 ```
 
 ### SEM specifiers
 
-All eight types take the same mechanism specifiers on their orderable variant (the concept is defined in [Core concepts](/reference/eql/core-concepts#sem-specifiers)):
+All six types take the same mechanism specifiers on their orderable variant (the concept is defined in [Core concepts](/reference/eql/core-concepts#sem-specifiers)):
 
 | Specifier | Meaning |
 | --- | --- |
@@ -76,24 +76,31 @@ A value for an `_ord` column carries the shared envelope keys (`v`, `i`, `c` —
 ```
 
 - **`ob` is the only index term.** An `_ord` payload carries no `hm`: equality on `_ord` variants compares ORE terms, which collapse to equality — see [Core concepts](/reference/eql/core-concepts). Only `_eq` payloads carry `hm` (a single hex HMAC-SHA-256 string) instead of `ob`.
-- **The `ob` block count varies with the plaintext width**: 8 blocks for the int scalars, 12 for `timestamp`, 14 for `numeric` — the array just carries more block strings.
+- **The `ob` block count varies with the plaintext width**: 8 blocks for the int types, 14 for `numeric`.
 
-## Operators and functions
+## Operators
 
-The function forms exist for managed platforms that disallow custom operators — they take the same typed arguments and resolve identically.
-
-| SQL operator | Function form | `eql_v3.<T>` | `<T>_eq` | `<T>_ord` / `<T>_ord_ore` |
-| --- | --- | :---: | :---: | :---: |
-| `=` / `<>` | `eql_v3.eq(a, b)` / `eql_v3.neq(a, b)` | ❌ | ✅ | ✅ |
-| `<` `<=` `>` `>=` | `eql_v3.lt` / `lte` / `gt` / `gte` | ❌ | ❌ | ✅ |
-| `BETWEEN` | desugars to `>=` and `<=` | ❌ | ❌ | ✅ |
-| `IN` | desugars to `=` | ❌ | ✅ | ✅ |
-| `GROUP BY` / `DISTINCT` | — (needs an equality term) | ❌ | ✅ | ✅ |
-| `ORDER BY` | sort key: `eql_v3.ord_term(col)` | ❌ | ❌ | ✅ |
-| `MIN` / `MAX` | `eql_v3.min(col)` / `eql_v3.max(col)` | ❌ | ❌ | ✅ |
-| `IS NULL` / `IS NOT NULL` | — | ✅ | ✅ | ✅ |
+| SQL operator | `eql_v3.<T>` | `<T>_eq` | `<T>_ord` / `<T>_ord_ore` |
+| --- | :---: | :---: | :---: |
+| `=` / `<>` | ❌ | ✅ | ✅ |
+| `<` `<=` `>` `>=` | ❌ | ❌ | ✅ |
+| `BETWEEN` (desugars to `>=` and `<=`) | ❌ | ❌ | ✅ |
+| `IN` (desugars to `=`) | ❌ | ✅ | ✅ |
+| `GROUP BY` / `DISTINCT` | ❌ | ✅ | ✅ |
+| `ORDER BY` | ❌ | ❌ | ✅ |
+| `IS NULL` / `IS NOT NULL` | ✅ | ✅ | ✅ |
 
 Blocked cells raise an `operator … is not supported` exception — they never silently return wrong rows. Operands must be typed (`$1::eql_v3.int8_ord`), or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one. Both rules are covered in [Core concepts](/reference/eql/core-concepts).
+
+## Functions
+
+Every operator has a function form, for managed platforms that disallow custom operators — same typed arguments, identical resolution. The `MIN` / `MAX` aggregates only exist as functions:
+
+| Function | Equivalent | Available on |
+| --- | --- | --- |
+| `eql_v3.eq(a, b)` / `eql_v3.neq(a, b)` | `=` / `<>` | `_eq`, `_ord` / `_ord_ore` |
+| `eql_v3.lt` / `lte` / `gt` / `gte` | `<` `<=` `>` `>=` | `_ord` / `_ord_ore` |
+| `eql_v3.min(col)` / `eql_v3.max(col)` | aggregate `MIN` / `MAX` | `_ord` / `_ord_ore` |
 
 **`SUM`, `AVG`, and other arithmetic aggregates are not supported** on encrypted columns — they would require homomorphic encryption. `MIN` / `MAX` work because they only need comparison; for sums and averages, decrypt at the application boundary and aggregate client-side.
 
@@ -109,33 +116,23 @@ SELECT * FROM employees
 WHERE salary BETWEEN $1::eql_v3.int8_ord AND $2::eql_v3.int8_ord;
 ```
 
-### Date window
-
-`BETWEEN` works the same on `date` and `timestamp` columns:
-
-```sql
-SELECT * FROM employees
-WHERE hired_on BETWEEN $1::eql_v3.date_ord AND $2::eql_v3.date_ord;
-```
-
-### Newest-first listing
-
-Bare `ORDER BY created_at` sorts correctly, but the planner doesn't rewrite sort keys, so it adds a `Sort` node even when a btree index exists. Write the sort key in extractor form to stream rows out of the index already ordered — at large row counts this is the difference between seconds and milliseconds (see [Sorting](/reference/eql/sorting)):
-
-```sql
-SELECT * FROM employees
-WHERE created_at >= $1::eql_v3.timestamp_ord
-ORDER BY eql_v3.ord_term(created_at) DESC
-LIMIT 10;
-```
-
 ### MIN and MAX
 
 `eql_v3.min` / `eql_v3.max` compare ORE terms — no decryption happens in the database, and the encrypted result decrypts in the client. `NULL` inputs are skipped; an all-`NULL` input set returns `NULL`:
 
 ```sql
 SELECT eql_v3.min(salary) FROM employees;
-SELECT eql_v3.max(created_at) FROM employees;
+SELECT eql_v3.max(salary) FROM employees;
+```
+
+### Sorted listing
+
+Write the sort key in extractor form to stream rows out of the index already ordered (see [Sorting](/reference/eql/sorting) for why):
+
+```sql
+SELECT * FROM employees
+ORDER BY eql_v3.ord_term(salary) DESC
+LIMIT 10;
 ```
 
 ### Cast at the call site
@@ -149,14 +146,14 @@ SELECT eql_v3.min(salary_jsonb::eql_v3.int8_ord) FROM employees;
 ## Where to next
 
 <Cards>
+  <Card title="Dates & times" href="/reference/eql/dates-and-times">
+    The same capabilities on date and timestamp columns.
+  </Card>
   <Card title="Indexes" href="/reference/eql/indexes">
     Btree recipes on `eql_v3.ord_term` for range, ORDER BY, and MIN/MAX.
   </Card>
   <Card title="Filtering" href="/reference/eql/filtering">
     WHERE-clause patterns across all encrypted types.
-  </Card>
-  <Card title="Sorting" href="/reference/eql/sorting">
-    Why the extractor-form sort key matters, and how to verify with EXPLAIN.
   </Card>
   <Card title="Grouping & aggregates" href="/reference/eql/grouping-and-aggregates">
     GROUP BY, DISTINCT, and the aggregate surface on encrypted columns.
