@@ -303,13 +303,13 @@ Two notes:
 
 - [x] Section scaffold 🚧 (index + supabase stub with facet exemplar)
 - [ ] `/integrations` index — category grid w/ setup badges
-- [ ] `/integrations/supabase` — flagship tutorial (CIP-3328)
-- [ ] `/integrations/supabase/database`
-- [ ] `/integrations/supabase/auth`
-- [ ] `/integrations/supabase/dashboard-experience` — Table Editor, expose eql schema
+- [x] `/integrations/supabase` — flagship tutorial (CIP-3328)
+- [x] `/integrations/supabase/database`
+- [x] `/integrations/supabase/auth`
+- [x] `/integrations/supabase/dashboard-experience` — Table Editor, expose eql schema
 - [ ] ⛔ `/integrations/supabase/edge-functions` — pending Deno/FFI answer
 - [ ] ⛔ `/integrations/supabase/realtime` — pending product verification
-- [ ] `/integrations/drizzle` — merge the two divergent Drizzle pages
+- [ ] `/integrations/drizzle` 🚧 — merge the two divergent Drizzle pages
 - [ ] `/integrations/prisma-next`
 - [ ] `/integrations/aws/rds-aurora` — Proxy path
 - [ ] `/integrations/aws/dynamodb`
@@ -420,7 +420,7 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
 - [ ] `/reference/stack` — client + configuration (port encryption/* pages)
 - [ ] `/reference/stack/schema`
 - [ ] `/reference/stack/encrypt-decrypt` (+ bulk, models)
-- [ ] `/reference/stack/supabase` — THE canonical `encryptedSupabase` page, ONE signature (CIP-3328)
+- [x] `/reference/stack/supabase` — THE canonical `encryptedSupabase` page, ONE signature (CIP-3328)
 - [ ] `/reference/stack/drizzle-operators`
 - [ ] `/reference/stack/errors` — port error-handling; miette catalog later (CIP-3338)
 - [ ] `/reference/stack/upgrading-from-protect` (retitled package-rename guide)
@@ -453,5 +453,9 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
       documents the release as decided, ahead of the eql_v3 branch: payload `v: 3`,
       OPE SEM specifier, Docker tag `:17-3.0.0`, `version()` output, schema files.
       Each must land upstream or be walked back in the docs before merge
+- [ ] ⛔ Stack SDK Supabase-wrapper v3 alignment (CIP-3355, blocks CIP-3335) — the
+      Supabase section documents the 0.18 wrapper API with v3 wire semantics; the
+      wrapper itself is still v2 (composite type, `like` wire op, v2 payloads) and
+      the SDK's v3 branches don't touch `src/supabase/` yet
 - [ ] Flip `ENABLE_V2_REDIRECTS=1`, delete `content/stack` + `/stack` routes + legacy loader (CIP-3335)
 - [ ] Consistency sweep + Supabase listing v3 revision (CIP-3335)
