@@ -1,0 +1,112 @@
+---
+title: Joins
+description: "Equijoins on encrypted columns: the same-keyset and matching-variant constraint, IN (subquery) and set operations, a worked example, and how to diagnose a join that returns nothing."
+type: reference
+components: [eql]
+verifiedAgainst:
+  eql: "3.0.0"
+---
+
+Equijoins work on equality-capable variants (`_eq`, `_ord` / `_ord_ore`, `text_search`) — the join condition is just encrypted equality. But there is one constraint that has no plaintext equivalent, and it is the single thing to internalize on this page:
+
+<Callout type="warn">
+**Both sides of the join must be encrypted with the same keyset and typed as a matching variant.** Encrypted equality compares deterministic index terms, and those terms are derived from the encryption keys. Two columns encrypted under different keysets produce different terms for the *same plaintext* — their terms can **never** match, and the join returns no rows. This is not an error the database can detect: the query is valid, the plan is fine, the result is simply empty.
+</Callout>
+
+"Matching variant" means both sides compare the same term kind: `_eq` with `_eq` (or `text_search`, which carries an `hm` term too) compares HMAC terms; `_ord` with `_ord` compares ORE terms. An `_eq` column can't join an `_ord` column — one side has no `hm`, the other no `ob`, and the equality operator between mismatched variants doesn't resolve. See [Core concepts](/reference/eql/core-concepts) for the term model.
+
+## Equijoin
+
+```sql
+SELECT u.*, o.total
+FROM users u
+JOIN orders o ON u.email = o.customer_email;
+-- both columns eql_v3.text_eq, encrypted with the same keyset
+```
+
+No typed-operand cast is needed here — both operands are encrypted columns, so their domain types resolve the encrypted operator directly. All join types (`INNER`, `LEFT`, `RIGHT`, `FULL`) work; `LEFT JOIN` null-extension behaves normally because SQL `NULL`s are not encrypted.
+
+Index both sides for anything beyond small tables — a hash (or btree) index on `eql_v3.eq_term(col)` on each column. Recipes are in [Indexes](/reference/eql/indexes).
+
+## `IN (subquery)` and set operations
+
+Both follow the same rule, because both compare equality terms across two column sources:
+
+```sql
+-- IN (subquery): users.email and orders.customer_email must share a keyset
+SELECT * FROM users
+WHERE email IN (SELECT customer_email FROM orders WHERE flagged);
+
+-- Set-operation dedup: UNION / INTERSECT / EXCEPT dedupe by equality term
+SELECT email FROM users
+UNION
+SELECT customer_email FROM orders;
+```
+
+If the two columns are under different keysets, `IN (subquery)` matches nothing, `INTERSECT` is empty, `EXCEPT` returns everything, and `UNION` never merges duplicates — all silently.
+
+## Worked example
+
+Two tables sharing an encrypted customer identifier, both columns typed `eql_v3.text_eq` and encrypted by the same client configuration (same keyset):
+
+```sql
+CREATE TABLE users (
+  id    BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  email eql_v3.text_eq
+);
+
+CREATE TABLE orders (
+  id             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  customer_email eql_v3.text_eq,
+  total          BIGINT NOT NULL
+);
+
+CREATE INDEX users_email_eq  ON users  USING hash (eql_v3.eq_term(email));
+CREATE INDEX orders_cust_eq  ON orders USING hash (eql_v3.eq_term(customer_email));
+ANALYZE users; ANALYZE orders;
+```
+
+Orders per user, filtered by an encrypted lookup on one side:
+
+```sql
+SELECT u.id, COUNT(o.id) AS order_count
+FROM users u
+LEFT JOIN orders o ON u.email = o.customer_email
+WHERE u.email = $1::eql_v3.text_eq
+GROUP BY u.id;
+```
+
+The `WHERE` engages the hash index on `users`; the join condition engages the one on `orders`. The grouping key here is a plaintext `id`, so no extractor is needed — grouping on encrypted columns is covered in [Grouping & aggregates](/reference/eql/grouping-and-aggregates).
+
+## Anti-pattern: joining across keysets
+
+The failure mode is quiet. A join across keysets doesn't raise, doesn't warn, and produces a plan that looks healthy — the terms just never match, so it behaves exactly like a join where no rows happen to correlate:
+
+```sql
+-- users encrypted by service A's keyset, partners by service B's:
+SELECT * FROM users u JOIN partners p ON u.email = p.contact_email;
+-- 0 rows. Always. Even when the plaintext emails overlap.
+```
+
+To diagnose a join that returns fewer rows than expected (or none):
+
+1. **Check the variants.** Both columns must be equality-capable and compare the same term kind. A blocked operator raises loudly, so if the query *runs*, the variants at least resolve — but confirm they compare the same term (`hm` vs `ob`).
+2. **Compare terms for a known-matching pair.** Take one row from each table that you know holds the same plaintext and compare their equality terms:
+
+   ```sql
+   SELECT eql_v3.eq_term(u.email) = eql_v3.eq_term(p.contact_email) AS terms_match
+   FROM users u, partners p
+   WHERE u.id = 42 AND p.id = 7;   -- rows known to share a plaintext value
+   ```
+
+   `false` for plaintext-identical values means the terms were derived under different keysets (or different client configurations) — no SQL will make them join.
+3. **Fix it at the encryption layer.** Configure both columns under the same keyset in the [Stack SDK](/reference/stack) or [CipherStash Proxy](/reference/proxy) and re-encrypt one side. Cross-keyset correlation otherwise has to happen in the client, after decryption.
+
+Treat shared keysets as part of your schema design: columns you intend to join are a unit, the same way a foreign key pair is.
+
+## Where to go next
+
+- [Filtering](/reference/eql/filtering) — the equality and `IN` shapes joins are built from.
+- [Grouping & aggregates](/reference/eql/grouping-and-aggregates) — grouping joined results on encrypted keys.
+- [Indexes](/reference/eql/indexes) — equality index recipes for both sides of a join.
+- [Core concepts](/reference/eql/core-concepts) — index terms, variants, and why determinism makes joins possible at all.
