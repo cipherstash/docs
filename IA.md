@@ -184,5 +184,9 @@ live at `/docs/errors/<code>` — permanent, never restructured (CIP-3338).
 - [ ] OG images for v2 pages (route only covers legacy tree)
 - [ ] Correctness CI: snippet type-checking, SQL-vs-EQL-Docker, terminology lint (CIP-3337)
 - [ ] llms.txt curation + Cloudflare AI crawl policy + md-degradation check (CIP-3339)
+- [ ] ⛔ EQL 3.0.0 release alignment (CIP-3352, blocks CIP-3335) — the EQL reference
+      documents the release as decided, ahead of the eql_v3 branch: payload `v: 3`,
+      OPE SEM specifier, Docker tag `:17-3.0.0`, `version()` output, schema files.
+      Each must land upstream or be walked back in the docs before merge
 - [ ] Flip `ENABLE_V2_REDIRECTS=1`, delete `content/stack` + `/stack` routes + legacy loader (CIP-3335)
 - [ ] Consistency sweep + Supabase listing v3 revision (CIP-3335)
