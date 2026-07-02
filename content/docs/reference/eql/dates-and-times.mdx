@@ -85,7 +85,7 @@ A value for an `_ord` column carries the shared envelope keys (`v`, `i`, `c` —
 | `ORDER BY` | ❌ | ❌ | ✅ |
 | `IS NULL` / `IS NOT NULL` | ✅ | ✅ | ✅ |
 
-Blocked cells raise an `operator … is not supported` exception — they never silently return wrong rows. Operands must be typed (`$1::eql_v3.timestamp_ord`), or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one. Both rules are covered in [Core concepts](/reference/eql/core-concepts).
+Blocked *operator* cells raise an `operator … is not supported` exception — they never silently return wrong rows. `ORDER BY` is the one blocked cell that doesn't raise: it isn't an operator, so sorting a variant without an ordering term runs — but the order is meaningless (see [Sorting](/reference/eql/sorting)). Operands must be typed (`$1::eql_v3.timestamp_ord`), or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one. Both rules are covered in [Core concepts](/reference/eql/core-concepts).
 
 ## Functions
 

@@ -77,7 +77,7 @@ WHERE email = '{"hm":"abc"}'::jsonb;
 ### Equality
 
 ```sql
-SELECT * FROM users WHERE email = $1;
+SELECT * FROM users WHERE email = $1::eql_v3.text_eq;
 -- Index Scan using users_email_eq
 --   Index Cond: (eql_v3.eq_term(email) = eql_v3.eq_term($1))
 ```
@@ -87,14 +87,14 @@ SELECT * FROM users WHERE email = $1;
 The `<`, `<=`, `>`, `>=` operators inline to comparisons on `eql_v3.ord_term`, so natural-form range predicates match the btree:
 
 ```sql
-SELECT * FROM users WHERE created_at < $1;
+SELECT * FROM users WHERE created_at < $1::eql_v3.timestamp_ord;
 ```
 
 `ORDER BY` needs care. The planner inlines operators in *predicates* but does not rewrite *sort keys*: `ORDER BY created_at` uses the index for the `WHERE` clause but still adds a `Sort` node, which scales linearly with the rows passing the filter. To stream rows out of the btree already ordered, write the sort key in extractor form:
 
 ```sql
 SELECT * FROM users
-  WHERE created_at < $1
+  WHERE created_at < $1::eql_v3.timestamp_ord
   ORDER BY eql_v3.ord_term(created_at) DESC
   LIMIT 10;
 ```
