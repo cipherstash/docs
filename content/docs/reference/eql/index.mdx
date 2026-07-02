@@ -1,8 +1,137 @@
 ---
 title: EQL
-description: "EQL documentation — being built as part of the docs V2 overhaul."
+description: "Encrypt Query Language (EQL) installs encrypted column types and operators into Postgres as plain SQL — encryption itself happens in your client."
+type: reference
+components: [eql]
+verifiedAgainst:
+  eql: "3.0.0"
 ---
 
-This section is being built as part of the docs V2 overhaul ([CIP-3307](https://linear.app/cipherstash/issue/CIP-3307)). Track progress in [IA.md](https://github.com/cipherstash/docs/blob/v2/IA.md).
+Encrypt Query Language (EQL) is a set of types, operators, and functions for storing and querying encrypted data in PostgreSQL. It installs as a single plain-SQL script — no extension packaging, no superuser, no operator classes — so it runs on Supabase, RDS, Cloud SQL, and self-hosted Postgres alike.
 
-Until it lands, current documentation lives in the [existing docs](/stack).
+EQL itself never encrypts anything. Encryption and decryption happen in the client, using the [Stack SDK](/reference/stack) or [CipherStash Proxy](/reference/proxy). EQL provides the database-side surface those clients query against: encrypted column types, the operators that compare them, and the term-extractor functions that make indexes work.
+
+## The v3 model
+
+Every encrypted column is a `jsonb`-backed **domain type** in the `eql_v3` schema. The domain variant you choose declares the column's searchable capability: `eql_v3.text_eq` supports equality (`=` / `<>`), `eql_v3.text_match` supports encrypted text containment (`@>` / `<@`), `eql_v3.int4_ord` adds range comparisons, `ORDER BY`, and `MIN` / `MAX`. Each domain carries a `CHECK` constraint that validates the encrypted payload on insert, so a malformed or wrong-version value is rejected at write time rather than surfacing at query time.
+
+There is no database-side configuration table. Earlier EQL versions tracked encryption config in the database (`config_add_table`, `config_add_column`, and friends) — those are gone in v3. The searchable surface of a column is fixed by the domain variant you type it as, and which index terms travel in a value's payload is decided by the encryption client. Operators that a variant doesn't support raise an "operator not supported" error rather than silently falling through to native `jsonb` semantics — and `LIKE` / `ILIKE` are blocked on every encrypted column.
+
+```sql
+CREATE TABLE users (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email eql_v3.text_eq,          -- equality only
+    salary eql_v3.int4_ord,        -- equality + range + ORDER BY
+    created_at eql_v3.timestamp_ord
+);
+```
+
+## Install
+
+<Steps>
+<Step>
+
+### Download the install script
+
+Each [GitHub release](https://github.com/cipherstash/encrypt-query-language/releases) publishes a versioned `cipherstash-encrypt.sql`:
+
+```sh
+curl -sLo cipherstash-encrypt.sql https://github.com/cipherstash/encrypt-query-language/releases/latest/download/cipherstash-encrypt.sql
+```
+
+</Step>
+<Step>
+
+### Run it against each database
+
+```sh
+psql -f cipherstash-encrypt.sql
+```
+
+The script installs the `eql_v3` schema with all domain types, operators, functions, and aggregates. It is idempotent: re-running it upgrades the `eql_v3` surface in place and won't remove anything you've built on top of it. To upgrade, download the latest script and run it again.
+
+</Step>
+<Step>
+
+### Verify
+
+```sql
+SELECT eql_v3.version();
+-- '3.0.0'
+```
+
+</Step>
+</Steps>
+
+<Callout type="warn">
+`DROP SCHEMA eql_v3 CASCADE` drops every column typed as an `eql_v3` domain. The domain types live in the schema, and your columns depend on them.
+</Callout>
+
+### dbdev
+
+EQL is also published to [dbdev](https://database.dev/cipherstash/eql). The dbdev release can lag behind GitHub releases, so prefer the install script when you need the latest version.
+
+### Docker for local development
+
+Run a Postgres image with EQL pre-installed:
+
+```sh
+docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=postgres \
+  ghcr.io/cipherstash/postgres-eql:17
+```
+
+EQL installs automatically on first boot. Images are available for PostgreSQL 14–17 (`:14` through `:17`), and you can pin a specific EQL version with a suffixed tag (for example `:17-3.0.0`).
+
+## Permissions
+
+Installing EQL and running queries against it need different privileges. A common production pattern splits them across two users.
+
+**Migration user** — installs EQL and adds encrypted columns during migrations:
+
+```sql
+GRANT CREATE ON DATABASE your_database TO your_migration_user;
+GRANT CREATE ON SCHEMA public TO your_migration_user;
+GRANT ALTER ON ALL TABLES IN SCHEMA public TO your_migration_user;
+```
+
+`CREATE ON DATABASE` creates the `eql_v3` schema and its types; `CREATE ON SCHEMA` and `ALTER` are needed to add encrypted columns (typed as `eql_v3` domains, with their `CHECK` constraints) to your tables.
+
+**Runtime user** — the application's day-to-day access:
+
+```sql
+-- EQL schema usage (resolves the encrypted operators / extractors)
+GRANT USAGE ON SCHEMA eql_v3 TO your_app_user;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA eql_v3 TO your_app_user;
+
+-- User table access (normal application permissions)
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE your_tables TO your_app_user;
+```
+
+Schema changes — adding or removing encrypted columns — always go through the migration user.
+
+## Managed Postgres and Supabase
+
+EQL v3 is designed to install without superuser. There are no custom operator classes (which managed platforms typically block), no `postgresql.conf` changes, and no separate Supabase build — the single install script is the same artefact everywhere. Indexing works through ordinary functional indexes over EQL's term-extractor functions, which any user who can `CREATE INDEX` can build. See the [Supabase integration](/integrations/supabase) for platform-specific setup.
+
+## In this section
+
+<Cards>
+  <Card title="Types" href="/reference/eql/types">
+    The encrypted domain type families and the capability each variant carries.
+  </Card>
+  <Card title="Operators" href="/reference/eql/operators">
+    Which SQL operators resolve on which variant, and what raises.
+  </Card>
+  <Card title="Indexes" href="/reference/eql/indexes">
+    Functional-index recipes for equality, range, and text match.
+  </Card>
+  <Card title="JSON" href="/reference/eql/json">
+    Encrypted JSON documents: containment, field access, and GIN indexing.
+  </Card>
+  <Card title="Functions" href="/reference/eql/functions">
+    The function equivalents of every operator, extractors, and aggregates.
+  </Card>
+  <Card title="Payload format" href="/reference/eql/payload-format">
+    The encrypted payload envelope and index terms.
+  </Card>
+</Cards>

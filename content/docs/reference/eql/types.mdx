@@ -1,0 +1,95 @@
+---
+title: Encrypted types
+description: "The eql_v3 encrypted-domain type families: which domain variant to declare for each scalar type, and what each variant lets you query."
+type: reference
+components: [eql]
+verifiedAgainst:
+  eql: "3.0.0"
+---
+
+EQL ships its searchable-encryption surface as PostgreSQL **domains in the `eql_v3` schema**. There are two kinds:
+
+- **Per-scalar encrypted-domain types** — `eql_v3.int4`, `eql_v3.text`, `eql_v3.timestamp`, and so on. One family of domain *variants* per scalar type.
+- **An encrypted-JSON document type** — `eql_v3.json` — for structured encryption of whole JSONB documents. See [JSON support](/reference/eql/json).
+
+A column's query capability is fixed by the **domain variant you type it as**. There is no database-side configuration step: which index terms travel in a value's payload is decided by the encryption client (the [Stack SDK](/reference/stack) or [CipherStash Proxy](/reference/proxy)), and the column's domain variant is what makes the matching operators resolve.
+
+## The family model
+
+Every scalar type `<T>` generates a storage-only variant plus the query variants its capabilities allow. All variants are `jsonb`-backed domains.
+
+| Domain variant | Capability | Index term carried |
+| --- | --- | --- |
+| `eql_v3.<T>` | Storage and decryption only. Every comparison operator is blocked — only `IS NULL` / `IS NOT NULL` work. | none |
+| `eql_v3.<T>_eq` | Equality: `=` and `<>` (plus `IN`, `GROUP BY`, `DISTINCT`, equijoins). | `hm` (`eql_v3.hmac_256`) |
+| `eql_v3.<T>_ord` / `eql_v3.<T>_ord_ore` | Full comparison surface: `=` `<>` `<` `<=` `>` `>=`, `BETWEEN`, `ORDER BY`, and the `eql_v3.min` / `eql_v3.max` aggregates. | `ob` (`eql_v3.ore_block_256`) |
+| `eql_v3.text_match` (text only) | Encrypted free-text token containment via `@>` / `<@`. No equality, no ordering. | `bf` (`eql_v3.bloom_filter`) |
+| `eql_v3.text_search` (text only) | Everything: equality, ordering, and token containment combined. | `hm` + `ob` + `bf` |
+
+Two things worth calling out:
+
+- **The bare variant blocks everything.** `eql_v3.<T>` carries no index term. Querying it with any comparison operator raises an "operator not supported" exception. Use it for columns you only ever store and decrypt. If you later need to query, type the column as a query variant — or cast at the call site (`col::eql_v3.int4_ord`) if the payload already carries the term.
+- **`_ord` and `_ord_ore` are twins.** They are byte-identical surfaces backed by the same ORE block term. Pick the name that documents intent — "ordered" versus "ordered via ORE block". Both support the full ordered surface and `MIN` / `MAX`.
+
+## Type matrix
+
+The scalar tokens that ship in EQL 3.0.0 are `int2`, `int4`, `int8`, `numeric`, `float4`, `float8`, `date`, `timestamp`, `text`, and `bool`.
+
+| Scalar | `eql_v3.<T>` | `<T>_eq` | `<T>_ord` | `<T>_ord_ore` | `text_match` | `text_search` |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: |
+| `int2` | ✅ | ✅ | ✅ | ✅ | — | — |
+| `int4` | ✅ | ✅ | ✅ | ✅ | — | — |
+| `int8` | ✅ | ✅ | ✅ | ✅ | — | — |
+| `float4` | ✅ | ✅ | ✅ | ✅ | — | — |
+| `float8` | ✅ | ✅ | ✅ | ✅ | — | — |
+| `numeric` | ✅ | ✅ | ✅ | ✅ | — | — |
+| `date` | ✅ | ✅ | ✅ | ✅ | — | — |
+| `timestamp` | ✅ | ✅ | ✅ | ✅ | — | — |
+| `text` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `bool` | ✅ | ❌ | ❌ | ❌ | — | — |
+
+<Callout type="warn">
+**`bool` is storage-only by design.** A two-value column has too little cardinality for any searchable index to be safe — an equality index over `true`/`false` would leak the value distribution outright. EQL ships only `eql_v3.bool`, with no `_eq` or `_ord` variants. Store and decrypt boolean columns; filter on them client-side.
+</Callout>
+
+## Index terms
+
+Each query variant stores one or more encrypted index terms alongside the ciphertext:
+
+- **`hm`** — an HMAC-256 term (`eql_v3.hmac_256`). Supports exact equality.
+- **`ob`** — an ORE block term (`eql_v3.ore_block_256`). Order-revealing: supports comparison and sorting.
+- **`bf`** — a bloom filter term (`eql_v3.bloom_filter`). Supports probabilistic ngram token containment.
+
+The payload structure — envelope keys plus per-variant term keys — is documented in [Payload format](/reference/eql/payload-format). What each term mathematically reveals about the plaintext (and why you should only carry the terms you need) is covered in [Searchable encryption](/concepts/searchable-encryption).
+
+## Encrypted JSON: `eql_v3.json`
+
+`eql_v3.json` is the encrypted-JSON document domain, built on the structured-encryption ("ste_vec") model: a JSONB document is encrypted into a searchable vector of terms, one per path inside the document, supporting containment (`@>`), field access (`->` / `->>`), and path queries. It has its own operator and function surface — see [JSON support](/reference/eql/json).
+
+## Choosing a variant
+
+Declare only the capabilities you query on. Every index term a value carries is extra material stored in the database, and each term class reveals different structure to an observer — equality terms reveal value repetition, ORE terms reveal ordering, bloom terms reveal token overlap (see [Searchable encryption](/concepts/searchable-encryption)):
+
+- Never queried, only decrypted → bare `eql_v3.<T>`
+- Exact lookup, `IN`, joins, `GROUP BY` → `<T>_eq`
+- Ranges, `ORDER BY`, `MIN`/`MAX` → `<T>_ord`
+- Free-text matching on text → `text_match`
+- Text you need to look up, sort, *and* search → `text_search`
+
+The variant you declare must match the terms the client is configured to emit for that column — the domain makes the operator resolve, but the term in the payload is what makes it answer.
+
+## Example
+
+```sql
+CREATE TABLE users (
+    id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email       eql_v3.text_search,   -- lookup, sort, and free-text match
+    name        eql_v3.text_match,    -- free-text match only
+    tax_id      eql_v3.text_eq,       -- exact lookup only
+    salary      eql_v3.int8_ord,      -- range queries, ORDER BY, MIN/MAX
+    is_active   eql_v3.bool,          -- storage only (by design)
+    created_at  eql_v3.timestamp_ord
+);
+```
+
+Once the table exists, add functional indexes on the term extractors so queries engage an index — see [Indexes](/reference/eql/indexes). The operators each variant supports are listed in [Operators](/reference/eql/operators).

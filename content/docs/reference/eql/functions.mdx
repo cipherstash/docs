@@ -1,0 +1,112 @@
+---
+title: Functions
+description: "The eql_v3 function surface: comparison functions, index-term extractors, MIN/MAX aggregates, JSON functions, and version reporting."
+type: reference
+components: [eql]
+verifiedAgainst:
+  eql: "3.0.0"
+---
+
+Everything EQL exposes lives in the `eql_v3` schema. Most functions are generated per [domain variant](/reference/eql/types), so PostgreSQL's overload resolution picks the right implementation from the argument type. As with operators, arguments must be typed — see [the typed-operand rule](/reference/eql/operators).
+
+## Comparison functions
+
+Function forms of the comparison operators, for platforms that disallow custom operators. Each is generated per capable domain variant, with overloads accepting the domain on either side and `jsonb` on the other:
+
+```sql
+eql_v3.eq(a, b)   RETURNS boolean  -- =    on _eq / _ord / _ord_ore / text_search
+eql_v3.neq(a, b)  RETURNS boolean  -- <>
+eql_v3.lt(a, b)   RETURNS boolean  -- <    on _ord / _ord_ore / text_search
+eql_v3.lte(a, b)  RETURNS boolean  -- <=
+eql_v3.gt(a, b)   RETURNS boolean  -- >
+eql_v3.gte(a, b)  RETURNS boolean  -- >=
+eql_v3.contains(a, b)      RETURNS boolean  -- @>  on text_match / text_search / eql_v3.json
+eql_v3.contained_by(a, b)  RETURNS boolean  -- <@
+```
+
+```sql
+SELECT * FROM users WHERE eql_v3.eq(email, $1::eql_v3.text_eq);
+SELECT * FROM users WHERE eql_v3.lt(created_at, $1::eql_v3.timestamp_ord);
+```
+
+Calling a comparison function a variant doesn't support resolves to a blocker that raises `operator … is not supported` — the same [fail-loud behavior](/reference/eql/operators) as the operators. There are no `like` / `ilike` functions: text matching is `eql_v3.contains` on a `text_match` value.
+
+## Index-term extractors
+
+These extract the encrypted index term from a domain value. They're generated per eq-, ord-, and match-capable variant of every scalar type, and they return the self-contained `eql_v3` index-term types:
+
+```sql
+-- Equality term (hm)
+eql_v3.eq_term(a eql_v3.<T>_eq)         RETURNS eql_v3.hmac_256
+
+-- Ordering term (ob)
+eql_v3.ord_term(a eql_v3.<T>_ord)       RETURNS eql_v3.ore_block_256
+eql_v3.ord_term(a eql_v3.<T>_ord_ore)   RETURNS eql_v3.ore_block_256
+
+-- Text-match term (bf)
+eql_v3.match_term(a eql_v3.text_match)  RETURNS eql_v3.bloom_filter
+```
+
+`eql_v3.text_search` carries all three terms, so all three extractors work on it.
+
+The extractors exist for **indexing**: EQL indexes through a functional index on the extractor, never an operator class on the column. The extractors are inlinable, so bare-form predicates (`WHERE email = $1`) engage the index without rewriting. Sort keys are the exception — see [Range and ORDER BY](/reference/eql/indexes#range-and-order-by):
+
+```sql
+CREATE INDEX users_email_eq   ON users USING hash  (eql_v3.eq_term(email));
+CREATE INDEX users_salary_ord ON users USING btree (eql_v3.ord_term(salary));
+CREATE INDEX users_name_match ON users USING gin   (eql_v3.match_term(name));
+```
+
+See [Indexes](/reference/eql/indexes) for the full recipes and performance guidance.
+
+## Aggregates: `eql_v3.min` and `eql_v3.max`
+
+`MIN` / `MAX` over encrypted values, defined per ord-capable variant of every scalar type. The input type selects the aggregate; the return type matches the input:
+
+```sql
+eql_v3.min(eql_v3.<T>_ord)      RETURNS eql_v3.<T>_ord
+eql_v3.max(eql_v3.<T>_ord)      RETURNS eql_v3.<T>_ord
+eql_v3.min(eql_v3.<T>_ord_ore)  RETURNS eql_v3.<T>_ord_ore
+eql_v3.max(eql_v3.<T>_ord_ore)  RETURNS eql_v3.<T>_ord_ore
+```
+
+Comparison routes through the variant's `<` / `>` operator, which uses the ORE block term — no decryption happens in the database. `NULL` inputs are skipped, and an all-`NULL` input set returns `NULL`.
+
+```sql
+SELECT eql_v3.min(salary) FROM users;
+SELECT eql_v3.max(salary) FROM users WHERE department = 'engineering';
+
+-- On a generic jsonb column, cast to the right domain at the call site
+SELECT eql_v3.min(salary_jsonb::eql_v3.int8_ord) FROM users;
+```
+
+<Callout type="warn">
+**`SUM`, `AVG`, and other arithmetic aggregates are not supported** on encrypted columns — they would require homomorphic encryption. `MIN` / `MAX` work because they only need comparison. For sums and averages, decrypt at the application boundary and aggregate client-side.
+</Callout>
+
+## JSON functions
+
+The encrypted-JSON document type `eql_v3.json` has its own function surface:
+
+- `eql_v3.jsonb_path_query(doc, selector)` — set-returning path query yielding encrypted entries; also `jsonb_path_query_first` and `jsonb_path_exists`
+- `eql_v3.jsonb_array_length` / `jsonb_array_elements` / `jsonb_array_elements_text` — array helpers
+- `eql_v3.to_ste_vec_query(doc)` — builds the GIN-indexable containment query form
+- Entry-level term extractors: `eql_v3.eq_term(eql_v3.ste_vec_entry)` and `eql_v3.ore_cllw(eql_v3.ste_vec_entry)`
+
+These are documented with worked examples in [JSON support](/reference/eql/json).
+
+## `eql_v3.version()`
+
+Returns the installed EQL version string, baked in at build time:
+
+```sql
+SELECT eql_v3.version();
+-- '3.0.0'
+```
+
+The same version string is mirrored as a comment on the `eql_v3` schema, so you can read it without calling a function:
+
+```sql
+SELECT obj_description('eql_v3'::regnamespace);
+-- '3.0.0'
+```

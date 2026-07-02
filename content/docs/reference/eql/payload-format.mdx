@@ -1,0 +1,123 @@
+---
+title: Payload format
+description: "The wire format of every EQL encrypted value: the v/i/c envelope, the index-term keys, and the ste_vec document shape."
+type: reference
+components: [eql]
+verifiedAgainst:
+  eql: "3.0.0"
+---
+
+Every EQL encrypted value is a `jsonb` payload with a shared envelope plus the index terms that make it queryable. This page defines that wire format. Earlier CipherStash docs called this format the **CipherCell** — this page is the current definition of the same structure.
+
+Payloads are produced by the encryption clients — the [Stack SDK](/reference/stack) and [CipherStash Proxy](/reference/proxy) — and consumed by EQL's operators and functions inside Postgres. EQL never sees plaintext: it validates, stores, and compares these payloads; it cannot produce or decrypt them.
+
+## The envelope
+
+Every payload carries three envelope keys. Each `eql_v3` domain's `CHECK` constraint requires them, so a value missing any of these is rejected at write time:
+
+| Key | Contents | Notes |
+| --- | --- | --- |
+| `v` | Payload version | Always exactly `2` on the wire. The domain `CHECK`s assert it and raise on any other value. |
+| `i` | Ident: `{"t": "<table>", "c": "<column>"}` | Binds the ciphertext to the table and column it was encrypted for. Both keys required. |
+| `c` | Ciphertext | The opaque, non-deterministic encrypted blob (mp_base85-encoded). Never used in comparisons. |
+
+<Callout>
+`eql_v3` names the **SQL schema generation**, not the payload version. The JSON envelope version is still `v: 2` — the wire field names are unchanged from EQL v2, and the domain `CHECK`s assert `v = 2`.
+</Callout>
+
+A `k` discriminator (`"ct"` for a scalar ciphertext, `"sv"` for a JSON document) also appears on payloads emitted by the clients, distinguishing the two top-level shapes.
+
+## Index-term keys
+
+Alongside the envelope, a payload carries the index terms for its column's capability. On the wire, a payload is discriminated by *which term key is present* — the SQL domain name carries the rest. Each key is backed by a SEM (searchable encrypted metadata) type in the `eql_v3` schema:
+
+| Key | SEM type | Wire shape | Enables | Reveals |
+| --- | --- | --- | --- | --- |
+| `hm` | `eql_v3.hmac_256` (domain over `text`) | Hex string (HMAC-SHA-256) | `=`, `<>` on `_eq` and `text_search` domains | Whether two values are equal — nothing else |
+| `ob` | `eql_v3.ore_block_256` (composite: array of `bytea` block terms) | Array of hex-encoded ORE blocks | `<`, `<=`, `>`, `>=`, `ORDER BY` on `_ord` / `_ord_ore` domains — and `=` / `<>`, since ORE comparison collapses to equality | The relative order of two values |
+| `bf` | `eql_v3.bloom_filter` (domain over `smallint[]`) | Array of set bit positions (**signed** 16-bit) | `@>` / `<@` token containment on `_match` domains | Probabilistic token overlap between values |
+
+Notes on the wire shapes:
+
+- **`ob` block count is width-agnostic**: 8 blocks for the int scalars, 12 for timestamp, 14 for numeric — the array just carries more block strings.
+- **`bf` positions are signed**: EQL stores the filter as PostgreSQL `smallint[]`, and filters sized above 32768 emit upper-half bit positions as *negative* signed values. Consumers must use a signed 16-bit integer type.
+
+The capability is encoded as **required keys**: the payload for an `eql_v3.text_eq` column must carry `hm`; an `eql_v3.int4_ord` payload must carry `ob` (and only `ob` — equality on `_ord` domains compares ORE terms, so no `hm` is needed); a `text_match` payload must carry `bf`; a `text_search` payload carries all three. A payload missing its term key fails the domain `CHECK` — and fails to deserialize in the client bindings. See [Types](/reference/eql/types) for the domain-to-capability mapping, and [Searchable encryption](/concepts/searchable-encryption) for what these terms do and don't leak.
+
+## JSON documents: the `sv` vector
+
+An [encrypted JSON document](/reference/eql/json) uses a different payload shape: no root ciphertext, and an `sv` array with one encrypted entry per path in the document. Each entry carries:
+
+| Key | Contents |
+| --- | --- |
+| `s` | Selector — a deterministic hash of the JSON path. Required; entry matching compares selectors first. |
+| `c` | Ciphertext for the node at that path. |
+| `hm` **or** `oc` | Exactly one, never both — the domain `CHECK` enforces the exclusivity. `hm` (HMAC-256) on Boolean/`null` leaves and Object/Array roots; `oc` (CLLW ORE, backed by `eql_v3.ore_cllw`) on String/Number leaves. |
+| `a` | Optional array marker — `true` when the selector points at an array context. |
+
+The decoded `oc` value starts with a domain-tag byte (`0x00` numeric, `0x01` string) followed by the CLLW ciphertext, so numeric and string values in one column keep a consistent total order. Earlier payload versions split this into two fields — `ocf` (fixed-width, numeric) and `ocv` (variable-width, string) — which consolidated into the single `oc` key; the tag byte now carries the distinction.
+
+A containment **query** payload (`eql_v3.ste_vec_query`) has the same `sv` shape but its entries carry no `c` — containment matches selectors and index terms, never ciphertexts.
+
+## Example payloads
+
+A scalar payload for an `eql_v3.text_search` column (lookup + ordering + free-text match, so all three terms are required):
+
+```json
+{
+  "v": 2,
+  "i": { "t": "users", "c": "email" },
+  "c": "mBbKmsMM%bK#QQOx1yLDBHyD...",
+  "hm": "9c8ec1d2f9932b979b1bf3f09f8a4e2f6a41f8de2f0c8b7a52e1f5c3d4b6a790",
+  "ob": ["7a1fd0c2...", "d24c9be1...", "03fa66b8..."],
+  "bf": [42, 1290, -8113, 30201]
+}
+```
+
+- `v`, `i`, `c` — the envelope
+- `hm` — equality term: `WHERE email = $1` compares this
+- `ob` — ordering term: `ORDER BY` and range comparisons walk these blocks
+- `bf` — bloom-filter term: `@>` token containment tests these bit positions
+
+A JSON document payload for an `eql_v3.json` column:
+
+```json
+{
+  "v": 2,
+  "k": "sv",
+  "i": { "t": "orders", "c": "metadata" },
+  "sv": [
+    { "s": "2517068c0d1f9d4d41d2c666211f785e", "c": "mBbKmM...", "hm": "b0e0..." },
+    { "s": "f510853a4ab9d4f75f51a533ac264c5d", "c": "mBbKmQ...", "oc": "01a3f2..." },
+    { "s": "33743aed3ae636f6bf05cff11ac4b519", "c": "mBbKmR...", "oc": "004e19..." }
+  ]
+}
+```
+
+- First entry: an object root — `hm` only, equality/containment
+- Second entry: a string leaf — `oc` starting with tag `01`
+- Third entry: a numeric leaf — `oc` starting with tag `00`
+
+And the containment needle the client builds for a `@>` query — index terms, no ciphertexts:
+
+```json
+{
+  "sv": [
+    { "s": "f510853a4ab9d4f75f51a533ac264c5d", "oc": "01a3f2..." }
+  ]
+}
+```
+
+## Machine-readable schemas
+
+The [EQL repository](https://github.com/cipherstash/encrypt-query-language) publishes the format as JSON Schema in two places:
+
+- **`crates/eql-bindings/schema/`** — one schema per scalar domain (`$id`s under `https://schemas.cipherstash.com/eql/v3/`), generated from the canonical Rust wire types in the `eql-bindings` crate. TypeScript bindings are generated from the same definitions, so every producer and consumer shares one source of truth.
+- **`docs/reference/schema/`** — full-payload schemas covering both the scalar and `sv` document shapes. These files are currently named for the v2.x payload releases (`eql-payload-v2.2.schema.json`, `eql-payload-v2.3.schema.json`) and reference `eql_v2` function names, even though the current SQL surface is `eql_v3` — the v2.3 schema is the applicable document-shape definition, matching the still-`v: 2` envelope.
+
+## Who produces and consumes this
+
+- **Produce:** the Stack SDK and CipherStash Proxy encrypt plaintext into these payloads — ciphertext, index terms, selectors — using keys the database never holds.
+- **Consume:** EQL's domain `CHECK`s validate the shape on write, and its operators and extractor functions ([Operators](/reference/eql/operators), [Indexes](/reference/eql/indexes)) compare the term keys at query time.
+
+The division is strict: EQL never sees plaintext, and the clients never rely on the database for key material.

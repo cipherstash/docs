@@ -131,13 +131,13 @@ live at `/docs/errors/<code>` — permanent, never restructured (CIP-3338).
 
 - [x] Section scaffold 🚧 (eql, stack, auth, cli, proxy, workspace)
 - **EQL (v3 rewrite — CIP-3326):**
-- [ ] `/reference/eql` — overview + install (single SQL file, permissions split, dbdev, Docker)
-- [ ] `/reference/eql/types` — 10 scalar families × variants + `eql_v3.json`
-- [ ] `/reference/eql/operators` — per-variant matrix incl. what RAISES; typed-operand rule
-- [ ] `/reference/eql/indexes` — functional indexes on extractors; Supabase-compatible
-- [ ] `/reference/eql/json` — ste_vec, path queries
-- [ ] `/reference/eql/functions` — incl. aggregates (min/max only)
-- [ ] `/reference/eql/payload-format` — v/i/c envelope, hm/ob/bf (absorbs cipher-cell)
+- [x] `/reference/eql` — overview + install (single SQL file, permissions split, dbdev, Docker)
+- [x] `/reference/eql/types` — 10 scalar families × variants + `eql_v3.json`
+- [x] `/reference/eql/operators` — per-variant matrix incl. what RAISES; typed-operand rule
+- [x] `/reference/eql/indexes` — functional indexes on extractors; Supabase-compatible
+- [x] `/reference/eql/json` — ste_vec, path queries
+- [x] `/reference/eql/functions` — incl. aggregates (min/max only)
+- [x] `/reference/eql/payload-format` — v/i/c envelope, hm/ob/bf (absorbs cipher-cell)
 - **Stack SDK:**
 - [ ] `/reference/stack` — client + configuration (port encryption/* pages)
 - [ ] `/reference/stack/schema`

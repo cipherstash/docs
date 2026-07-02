@@ -1,4 +1,11 @@
 {
   "title": "EQL",
-  "pages": ["..."]
+  "pages": [
+    "types",
+    "operators",
+    "indexes",
+    "json",
+    "functions",
+    "payload-format"
+  ]
 }
