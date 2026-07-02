@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Zap,
 } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import type { ComponentType } from "react";
 import {
@@ -19,7 +20,6 @@ import {
   PrismaLogo,
   SupabaseLogo,
 } from "@/components/integration-logos";
-import type { Metadata } from "next";
 
 // The /docs landing page had no metadata (no <title>). `absolute` bypasses the
 // root layout's "%s | CipherStash Docs" template so the title isn't doubled.

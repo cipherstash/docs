@@ -1,6 +1,14 @@
 import { createMDX } from "fumadocs-mdx/next";
+import { v2Redirects } from "./v2-redirects.mjs";
 
 const withMDX = createMDX();
+
+// V2 IA migration (CIP-3325): the full legacy→v2 redirect map is gated so the
+// preview site serves BOTH trees while sections migrate (legacy at /stack, v2
+// at the root). Flip on at merge; once content/stack is deleted the map
+// becomes unconditional (CIP-3335). Coverage is enforced by
+// `bun run validate-redirects` regardless of the flag.
+const enableV2Redirects = process.env.ENABLE_V2_REDIRECTS === "1";
 
 /** @type {import('next').NextConfig} */
 const config = {
@@ -8,6 +16,14 @@ const config = {
   reactStrictMode: true,
   async redirects() {
     return [
+      // Vanity URL for the new IA (safe to ship ungated: the path has no
+      // legacy traffic). Temporary until the v2 quickstart is canonical.
+      {
+        source: "/quickstart",
+        destination: "/get-started/quickstart",
+        permanent: false,
+      },
+      ...(enableV2Redirects ? v2Redirects : []),
       // === 4-section consolidation: product sections under /cipherstash/ ===
       {
         source: "/stack/encryption/:path*",
@@ -316,6 +332,13 @@ const config = {
         {
           source: "/stack/:path*.mdx",
           destination: "/llms.mdx/stack/:path*",
+        },
+        // Raw-markdown mirror for the v2 tree (Cloudflare/agents fetch
+        // <page>.mdx). Listed after the /stack rule so legacy paths keep
+        // resolving to the legacy collection.
+        {
+          source: "/:path*.mdx",
+          destination: "/llms.mdx/v2/:path*",
         },
       ],
       afterFiles: [

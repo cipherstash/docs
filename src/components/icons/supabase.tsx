@@ -44,5 +44,5 @@ export function SupabaseIcon(props: React.SVGProps<SVGSVGElement>) {
         </linearGradient>
       </defs>
     </svg>
-  )
+  );
 }

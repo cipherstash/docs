@@ -23,6 +23,54 @@ export const docs = defineDocs({
   },
 });
 
+// V2 information architecture (CIP-3325). New content lives in content/docs
+// and is served from the site root (e.g. /docs/get-started/...). The legacy
+// `docs` collection above (content/stack) is served alongside it during the
+// migration and is deleted once the last section moves. See IA.md.
+export const v2docs = defineDocs({
+  dir: "content/docs",
+  docs: {
+    schema: pageSchema.extend({
+      seoTitle: z.string().optional(),
+      // Diátaxis page type. Every page should declare one; enforced by the
+      // docs lint (CIP-3337) rather than the schema so stubs can land first.
+      type: z.enum(["tutorial", "guide", "concept", "reference"]).optional(),
+      // Facets powering index pages, filtered views, and the future
+      // tailored-quickstart picker (CIP-3339). Nav position never depends on
+      // these — the sidebar tree comes from meta.json alone.
+      components: z
+        .array(z.enum(["encryption", "auth", "zerokms", "eql", "proxy", "cli"]))
+        .optional(),
+      audience: z.array(z.enum(["developer", "cto", "ciso"])).optional(),
+      integration: z
+        .object({
+          category: z.enum([
+            "platform",
+            "orm",
+            "framework",
+            "auth-provider",
+            "language",
+            "runtime",
+          ]),
+          setup: z.enum(["code-only", "dashboard-required"]),
+          pairsWith: z.array(z.string()).optional(),
+        })
+        .optional(),
+      // Review tracking (CIP-3337): API pages pin the releases they were
+      // verified against (e.g. { stack: "1.2.0", eql: "3.0.0" }); claims pages
+      // (compliance, pricing, comparisons) carry a review-by date instead.
+      verifiedAgainst: z.record(z.string(), z.string()).optional(),
+      reviewBy: z.string().optional(),
+    }),
+    postprocess: {
+      includeProcessedMarkdown: true,
+    },
+  },
+  meta: {
+    schema: metaSchema,
+  },
+});
+
 // Parse the leftover code-fence meta string (what remains after Fumadocs
 // extracts `title`, `tab`, and line-number directives) for the analytics
 // attributes documented for authors: `example-id`, `cta`, and `cta-type`.

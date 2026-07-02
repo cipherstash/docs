@@ -2,7 +2,7 @@ import { RootProvider } from "fumadocs-ui/provider/next";
 import { PostHogProvider } from "@/lib/posthog/provider";
 import "./global.css";
 import type { Metadata } from "next";
-import { Inter, Fira_Code } from "next/font/google";
+import { Fira_Code, Inter } from "next/font/google";
 
 // Site-wide title template so every page gets a descriptive, branded
 // <title>. Per-page metadata returns a bare title (e.g. "Keysets") which
