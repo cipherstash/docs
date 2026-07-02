@@ -303,11 +303,10 @@ const config = {
         destination: "/stack/deploy/aws-ecs",
         permanent: true,
       },
-      {
-        source: "/reference/eql",
-        destination: "/stack/reference/eql",
-        permanent: false,
-      },
+      // NOTE(v2): the AI-citation redirect "/reference/eql" →
+      // "/stack/reference/eql" was removed here — its source collides with
+      // the v2 IA's /reference/eql page, which now serves that traffic
+      // directly (CIP-3325).
       {
         source: "/platform/workspaces/key-sets",
         destination: "/stack/cipherstash/kms/keysets",
