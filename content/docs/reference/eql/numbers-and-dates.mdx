@@ -13,16 +13,29 @@ There is no free-text matching for these types — `_match` and `_search` are [t
 
 ## Variants
 
-Each of the eight scalar types generates the same four `jsonb`-backed domain variants:
+Each of the eight scalar types generates the same `jsonb`-backed domain variants. The generic form:
 
-| Domain variant | Capability | Index term carried |
-| --- | --- | --- |
-| `eql_v3.<T>` | Storage and decryption only. Every comparison operator is blocked — only `IS NULL` / `IS NOT NULL` work. | none |
-| `eql_v3.<T>_eq` | Equality: `=` and `<>` (plus `IN`, `GROUP BY`, `DISTINCT`, equijoins). | `hm` (HMAC-256) |
-| `eql_v3.<T>_ord` | Full comparison surface: `=` `<>` `<` `<=` `>` `>=`, `BETWEEN`, `ORDER BY`, and `MIN` / `MAX`. | `ob` (ORE block) |
-| `eql_v3.<T>_ord_ore` | Identical to `<T>_ord` — a twin name that documents intent. | `ob` (ORE block) |
+| Domain variant | Capability |
+| --- | --- |
+| `eql_v3.<T>` | Storage and decryption only. |
+| `eql_v3.<T>_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
+| `eql_v3.<T>_ord` | Comparisons, `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
+| `eql_v3.<T>_ord_ore` | As `<T>_ord`, with the ORE mechanism pinned — see [SEM specifiers](#sem-specifiers). |
 
-Declare only the capability you query on — each index term class reveals different structure to an observer (see [Searchable encryption](/concepts/searchable-encryption)), and the variant model itself is covered in [Core concepts](/reference/eql/core-concepts):
+And every concrete domain this page covers:
+
+| Type | Variants |
+| --- | --- |
+| `int2` | `eql_v3.int2` · `eql_v3.int2_eq` · `eql_v3.int2_ord` · `eql_v3.int2_ord_ore` |
+| `int4` | `eql_v3.int4` · `eql_v3.int4_eq` · `eql_v3.int4_ord` · `eql_v3.int4_ord_ore` |
+| `int8` | `eql_v3.int8` · `eql_v3.int8_eq` · `eql_v3.int8_ord` · `eql_v3.int8_ord_ore` |
+| `float4` | `eql_v3.float4` · `eql_v3.float4_eq` · `eql_v3.float4_ord` · `eql_v3.float4_ord_ore` |
+| `float8` | `eql_v3.float8` · `eql_v3.float8_eq` · `eql_v3.float8_ord` · `eql_v3.float8_ord_ore` |
+| `numeric` | `eql_v3.numeric` · `eql_v3.numeric_eq` · `eql_v3.numeric_ord` · `eql_v3.numeric_ord_ore` |
+| `date` | `eql_v3.date` · `eql_v3.date_eq` · `eql_v3.date_ord` · `eql_v3.date_ord_ore` |
+| `timestamp` | `eql_v3.timestamp` · `eql_v3.timestamp_eq` · `eql_v3.timestamp_ord` · `eql_v3.timestamp_ord_ore` |
+
+Declare only the capability you query on — each capability stores extra searchable material with defined leakage (see [Searchable encryption](/concepts/searchable-encryption)), and the variant model itself is covered in [Core concepts](/reference/eql/core-concepts):
 
 ```sql
 CREATE TABLE employees (
@@ -35,13 +48,24 @@ CREATE TABLE employees (
 );
 ```
 
+### SEM specifiers
+
+All eight types take the same mechanism specifiers on their orderable variant (the concept is defined in [Core concepts](/reference/eql/core-concepts#sem-specifiers)):
+
+| Specifier | Meaning |
+| --- | --- |
+| `_ord` | Orderable, using EQL's default mechanism (currently ORE). |
+| `_ord_ore` | Orderable via ORE, pinned explicitly. |
+
+The EQL v3 release adds an OPE specifier for every orderable type; unspecified `_ord` columns keep tracking the default.
+
 ## Payload
 
 A value for an `_ord` column carries the shared envelope keys (`v`, `i`, `c` — see [Core concepts](/reference/eql/core-concepts)) plus the `ob` ordering term. Here is a payload for the `eql_v3.int8_ord` `salary` column:
 
 ```json
 {
-  "v": 2,
+  "v": 3,
   "i": { "t": "employees", "c": "salary" },
   "c": "mBbKmsMM%bK#QQOx1yLDBHyD...",
   "ob": [

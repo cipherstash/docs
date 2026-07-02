@@ -13,16 +13,16 @@ Text is the richest encrypted scalar. Beyond the four variants every scalar type
 
 All six are `jsonb`-backed domains. Which one you declare fixes the column's query capability — the variant model itself is covered in [Core concepts](/reference/eql/core-concepts):
 
-| Domain variant | Capability | Index terms carried |
-| --- | --- | --- |
-| `eql_v3.text` | Storage and decryption only. Every comparison operator is blocked — only `IS NULL` / `IS NOT NULL` work. | none |
-| `eql_v3.text_eq` | Equality: `=` and `<>` (plus `IN`, `GROUP BY`, `DISTINCT`, equijoins). | `hm` (HMAC-256) |
-| `eql_v3.text_ord` | Full comparison surface: `=` `<>` `<` `<=` `>` `>=`, `BETWEEN`, `ORDER BY`, `MIN` / `MAX`. | `ob` (ORE block) |
-| `eql_v3.text_ord_ore` | Identical to `text_ord` — a twin name that documents intent. | `ob` (ORE block) |
-| `eql_v3.text_match` | Encrypted free-text token containment via `@>` / `<@`. No equality, no ordering. | `bf` (bloom filter) |
-| `eql_v3.text_search` | Everything: equality, ordering, and token containment combined. | `hm` + `ob` + `bf` |
+| Domain variant | Capability |
+| --- | --- |
+| `eql_v3.text` | Storage and decryption only. |
+| `eql_v3.text_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
+| `eql_v3.text_ord` | Comparisons, `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
+| `eql_v3.text_ord_ore` | As `text_ord`, with the ORE mechanism pinned — see [SEM specifiers](#sem-specifiers). |
+| `eql_v3.text_match` | Free-text token containment: `@>` / `<@`. |
+| `eql_v3.text_search` | Equality + ordering + token containment. |
 
-Declare only the capabilities you query on — each term class reveals different structure to an observer: equality terms reveal value repetition, ORE terms reveal ordering, bloom terms reveal token overlap (see [Searchable encryption](/concepts/searchable-encryption)):
+Declare only the capabilities you query on — each capability stores extra searchable material with defined leakage (see [Searchable encryption](/concepts/searchable-encryption)):
 
 ```sql
 CREATE TABLE users (
@@ -34,13 +34,24 @@ CREATE TABLE users (
 );
 ```
 
+### SEM specifiers
+
+Text takes the same mechanism specifiers as the other orderable types (the concept is defined in [Core concepts](/reference/eql/core-concepts#sem-specifiers)):
+
+| Specifier | Meaning |
+| --- | --- |
+| `_ord` | Orderable, using EQL's default mechanism (currently ORE). |
+| `_ord_ore` | Orderable via ORE, pinned explicitly. |
+
+The EQL v3 release adds an OPE specifier for every orderable type — including `text` — so lexicographic ordering can be pinned to either mechanism; unspecified `_ord` columns keep tracking the default.
+
 ## Payload
 
 A value for a `text_search` column carries the shared envelope keys (`v`, `i`, `c` — see [Core concepts](/reference/eql/core-concepts)) plus all three index terms:
 
 ```json
 {
-  "v": 2,
+  "v": 3,
   "i": { "t": "users", "c": "email" },
   "c": "mBbKmsMM%bK#QQOx1yLDBHyD...",
   "hm": "9c8ec1d2f9932b979b1bf3f09f8a4e2f6a41f8de2f0c8b7a52e1f5c3d4b6a790",

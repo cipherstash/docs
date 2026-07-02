@@ -17,18 +17,28 @@ There is no database-side configuration table. Earlier EQL versions tracked encr
 
 For any scalar type `<T>`, the family looks like this:
 
-| Domain variant | Capability | Index term carried |
-| --- | --- | --- |
-| `eql_v3.<T>` | Storage and decryption only. Every comparison operator is blocked — only `IS NULL` / `IS NOT NULL` work. | none |
-| `eql_v3.<T>_eq` | Equality: `=` and `<>` (plus `IN`, `GROUP BY`, `DISTINCT`, equijoins). | `hm` (`eql_v3.hmac_256`) |
-| `eql_v3.<T>_ord` / `eql_v3.<T>_ord_ore` | Full comparison surface: `=` `<>` `<` `<=` `>` `>=`, `BETWEEN`, `ORDER BY`, and the `eql_v3.min` / `eql_v3.max` aggregates. | `ob` (`eql_v3.ore_block_256`) |
-| `eql_v3.text_match` (text only) | Encrypted free-text token containment via `@>` / `<@`. No equality, no ordering. | `bf` (`eql_v3.bloom_filter`) |
-| `eql_v3.text_search` (text only) | Everything: equality, ordering, and token containment combined. | `hm` + `ob` + `bf` |
+| Domain variant | Capability |
+| --- | --- |
+| `eql_v3.<T>` | Storage and decryption only. |
+| `eql_v3.<T>_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
+| `eql_v3.<T>_ord` | Comparisons (`<` … `>=`), `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
+| `eql_v3.<T>_ord_ore` | As `<T>_ord`, with the ORE mechanism pinned — see [SEM specifiers](#sem-specifiers). |
+| `eql_v3.text_match` (text only) | Free-text token containment: `@>` / `<@`. |
+| `eql_v3.text_search` (text only) | Equality + ordering + token containment. |
 
 Two things worth calling out:
 
 - **The bare variant blocks everything.** `eql_v3.<T>` carries no index term. Querying it with any comparison operator raises an "operator not supported" exception. Use it for columns you only ever store and decrypt — [Booleans](/reference/eql/booleans) covers this pattern in full.
-- **`_ord` and `_ord_ore` are twins.** They are byte-identical surfaces backed by the same ORE block term. Pick the name that documents intent — "ordered" versus "ordered via ORE block". Both support the full ordered surface and `MIN` / `MAX`.
+- **Which index term backs each capability** is an implementation detail of the payload — covered in [Anatomy of an encrypted value](#anatomy-of-an-encrypted-value) below.
+
+### SEM specifiers
+
+A trailing mechanism suffix — the `_ore` in `_ord_ore` — is a **SEM specifier**: it pins *which* searchable-encryption mechanism implements the capability, rather than just declaring the capability itself.
+
+- `eql_v3.<T>_ord` declares *orderable* and leaves the mechanism to EQL's default — currently ORE (order-revealing encryption).
+- `eql_v3.<T>_ord_ore` declares *orderable via ORE, explicitly*. Today the two are byte-identical surfaces backed by the same term.
+
+The distinction earns its keep as mechanisms multiply: the EQL v3 release adds an **OPE** (order-preserving encryption) specifier for every orderable type — including `text` — at which point pinning a specifier documents and freezes a column's mechanism choice, while unspecified variants track the default. Each type page lists its available specifiers under an "SEM specifiers" heading.
 
 Declaring a table is just typing each column as the variant it needs:
 
@@ -55,12 +65,12 @@ Every payload carries three envelope keys. Each `eql_v3` domain's `CHECK` constr
 
 | Key | Contents | Notes |
 | --- | --- | --- |
-| `v` | Payload version | Always exactly `2` on the wire. The domain `CHECK`s assert it and raise on any other value. |
+| `v` | The EQL version | `3` — the payload version matches the EQL major version. The domain `CHECK`s assert it and raise on any other value. |
 | `i` | Ident: `{"t": "<table>", "c": "<column>"}` | Binds the ciphertext to the table and column it was encrypted for. Both keys required. |
 | `c` | Ciphertext | The opaque, non-deterministic encrypted blob (mp_base85-encoded). Never used in comparisons. |
 
 <Callout>
-`eql_v3` names the **SQL schema generation**, not the payload version. The JSON envelope version is still `v: 2` — the wire field names are unchanged from EQL v2, and the domain `CHECK`s assert `v = 2`.
+Payloads produced by EQL v2 clients carried `v: 2`; from 3.0.0 the payload version and the EQL version move together.
 </Callout>
 
 A `k` discriminator (`"ct"` for a scalar ciphertext, `"sv"` for a JSON document) also appears on payloads emitted by the clients, distinguishing the two top-level shapes.
@@ -81,7 +91,7 @@ A scalar payload for an `eql_v3.text_search` column (lookup + ordering + free-te
 
 ```json
 {
-  "v": 2,
+  "v": 3,
   "i": { "t": "users", "c": "email" },
   "c": "mBbKmsMM%bK#QQOx1yLDBHyD...",
   "hm": "9c8ec1d2f9932b979b1bf3f09f8a4e2f6a41f8de2f0c8b7a52e1f5c3d4b6a790",
@@ -102,7 +112,7 @@ Encrypted JSON documents use a different payload shape — an `sv` array with on
 The [EQL repository](https://github.com/cipherstash/encrypt-query-language) publishes the format as JSON Schema in two places:
 
 - **`crates/eql-bindings/schema/`** — one schema per scalar domain (`$id`s under `https://schemas.cipherstash.com/eql/v3/`), generated from the canonical Rust wire types in the `eql-bindings` crate. TypeScript bindings are generated from the same definitions, so every producer and consumer shares one source of truth.
-- **`docs/reference/schema/`** — full-payload schemas covering both the scalar and `sv` document shapes. These files are currently named for the v2.x payload releases (`eql-payload-v2.2.schema.json`, `eql-payload-v2.3.schema.json`) and reference `eql_v2` function names, even though the current SQL surface is `eql_v3` — the v2.3 schema is the applicable document-shape definition, matching the still-`v: 2` envelope.
+- **`docs/reference/schema/`** — full-payload schemas covering both the scalar and `sv` document shapes. These files are still named for the v2.x payload releases (`eql-payload-v2.2.schema.json`, `eql-payload-v2.3.schema.json`); the v2.3 schema describes the document shape, with the payload version field moving to `3` alongside the EQL 3.0.0 release.
 
 ## The typed-operand rule
 
