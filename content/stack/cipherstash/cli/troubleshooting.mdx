@@ -23,7 +23,7 @@ The `install` command checks database permissions before running. On managed dat
 If you still see permission errors:
 
 1. Run `npx stash db test-connection` to verify your database URL is correct.
-2. Run `npx stash db status` to check the current EQL state.
+2. Run `npx stash eql status` to check the current EQL state.
 3. Ensure the connected role has `CREATE` privileges on the database and `public` schema.
 4. For the `pgcrypto` extension, the role needs `SUPERUSER` or extension owner privileges.
 
