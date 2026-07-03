@@ -8,10 +8,12 @@ description: Install or upgrade EQL extensions in Postgres with the stash CLI, c
 Install the CipherStash EQL extensions into your database. Uses bundled SQL by default for offline, deterministic installs.
 
 ```bash
-npx stash db install [options]
+npx stash eql install [options]
 ```
 
-`db install` scaffolds `stash.config.ts` if it is missing. The command:
+`stash db install` is a deprecated alias for `stash eql install` — it still works, but prints a deprecation warning. Use `eql install` going forward.
+
+`eql install` scaffolds `stash.config.ts` if it is missing. The command:
 
 1. **Scaffolds `stash.config.ts`** with the database URL and client path (if the file does not already exist).
 2. **Scaffolds the encryption client file** at the path referenced in `stash.config.ts` if the file does not exist. Uses the same auto-detected integration template as `init` (Drizzle, Supabase, or generic Postgres). Silent, no prompt.
@@ -37,36 +39,36 @@ After a successful install, the CLI prints a summary of what was installed. If y
 Standard install:
 
 ```bash
-npx stash db install
+npx stash eql install
 ```
 
 Dry run to preview changes:
 
 ```bash
-npx stash db install --dry-run
+npx stash eql install --dry-run
 ```
 
 Fetch the latest EQL from GitHub:
 
 ```bash
-npx stash db install --latest
+npx stash eql install --latest
 ```
 
 ### Auto-detection
 
-`db install` auto-detects two things before prompting you:
+`eql install` auto-detects two things before prompting you:
 
 - **Supabase**: If `DATABASE_URL` contains a `*.supabase.co`, `*.supabase.com`, or `*.pooler.supabase.com` host, the CLI uses the Supabase-compatible install automatically. You can still pass `--supabase` explicitly to override.
 - **Drizzle**: If a `drizzle.config.*` file exists or `drizzle-orm`/`drizzle-kit` appears in `package.json`, the CLI generates a Drizzle migration automatically. You can still pass `--drizzle` explicitly.
 
 ### Automatic OPE fallback
 
-On managed databases (Supabase, Neon, RDS), the connected role is often not a superuser. `db install` detects this and automatically uses the no-operator-family (OPE) install variant, logging a line to inform you. You do not need to pass `--exclude-operator-family` manually on these hosts.
+On managed databases (Supabase, Neon, RDS), the connected role is often not a superuser. `eql install` detects this and automatically uses the no-operator-family (OPE) install variant, logging a line to inform you. You do not need to pass `--exclude-operator-family` manually on these hosts.
 
 ### Supabase install
 
 ```bash
-npx stash db install --supabase
+npx stash eql install --supabase
 ```
 
 The `--supabase` flag uses the Supabase-specific SQL variant. It omits `CREATE OPERATOR FAMILY` and grants `USAGE`, table, routine, and sequence permissions on the `eql_v2` schema to `anon`, `authenticated`, and `service_role`.
@@ -83,13 +85,13 @@ The migration-file path writes EQL SQL into `supabase/migrations/00000000000000_
 
 ```bash
 # Write EQL as a migration file
-npx stash db install --supabase --migration
+npx stash eql install --supabase --migration
 
 # Push EQL directly to the database
-npx stash db install --supabase --direct
+npx stash eql install --supabase --direct
 
 # Override the migrations directory
-npx stash db install --supabase --migration --migrations-dir ./db/migrations
+npx stash eql install --supabase --migration --migrations-dir ./db/migrations
 ```
 
 <Callout type="info">
@@ -109,7 +111,7 @@ npx stash db install --supabase --migration --migrations-dir ./db/migrations
 If you use Drizzle ORM and want EQL installation as part of your migration history, use `--drizzle`:
 
 ```bash
-npx stash db install --drizzle
+npx stash eql install --drizzle
 npx drizzle-kit migrate
 ```
 
@@ -122,7 +124,7 @@ This process:
 To customize the migration name and output directory:
 
 ```bash
-npx stash db install --drizzle --name setup-eql --out ./migrations
+npx stash eql install --drizzle --name setup-eql --out ./migrations
 ```
 
 `drizzle-kit` must be installed. The `--out` value must match your Drizzle config.
@@ -130,7 +132,7 @@ npx stash db install --drizzle --name setup-eql --out ./migrations
 You can combine `--drizzle` and `--supabase`:
 
 ```bash
-npx stash db install --drizzle --supabase
+npx stash eql install --drizzle --supabase
 ```
 
 This generates a Supabase-compatible EQL migration file.
@@ -139,7 +141,7 @@ This generates a Supabase-compatible EQL migration file.
 
 When you add `encryptedType` to a Drizzle column that already has data, `drizzle-kit generate` emits an `ALTER TABLE ... ALTER COLUMN ... SET DATA TYPE eql_v2_encrypted` statement. Postgres cannot cast existing data to `eql_v2_encrypted` implicitly, so this migration would fail.
 
-`db install --drizzle` automatically rewrites those statements into a safe `ADD COLUMN / DROP COLUMN / RENAME COLUMN` sequence. The rewrite adds a comment in the migration to remind you to backfill the new column with `encryptModel` before dropping the old one. You are responsible for writing and running that backfill in your application code before applying the DROP step.
+`eql install --drizzle` automatically rewrites those statements into a safe `ADD COLUMN / DROP COLUMN / RENAME COLUMN` sequence. The rewrite adds a comment in the migration to remind you to backfill the new column with `encryptModel` before dropping the old one. You are responsible for writing and running that backfill in your application code before applying the DROP step.
 
 ### Permission pre-checks
 
@@ -168,7 +170,7 @@ npx stash db upgrade [options]
 | `--exclude-operator-family` | Skip operator family creation |
 | `--latest` | Fetch the latest EQL from GitHub instead of using the bundled version |
 
-The EQL install SQL is idempotent and safe to re-run. The CLI checks the current version, re-runs the install SQL, and reports the new version. If EQL is not installed, the CLI suggests running `npx stash db install` instead.
+The EQL install SQL is idempotent and safe to re-run. The CLI checks the current version, re-runs the install SQL, and reports the new version. If EQL is not installed, the CLI suggests running `npx stash eql install` instead.
 
 ## Bundled EQL SQL
 

@@ -80,7 +80,7 @@ For the selected project, the dashboard verifies:
 When project health, EQL, and OIDC are all satisfied, the hub shows a **Stack-ready** badge.
 
 <Callout type="info">
-  EQL detection uses `eql_v2.version()`, not a `pg_extension` lookup. If EQL is missing, run `npx stash db install --supabase --migration` in your application repo.
+  EQL detection uses `eql_v2.version()`, not a `pg_extension` lookup. If EQL is missing, run `npx stash eql install --supabase --migration` in your application repo.
 </Callout>
 
 ### Configure OIDC from the dashboard
@@ -106,7 +106,7 @@ npm install @cipherstash/stack
 npm install -D stash
 npx stash auth login
 npx stash init --supabase
-npx stash db install --supabase --migration
+npx stash eql install --supabase --migration
 ```
 
 It also generates a `.env.local` snippet for the selected project, including:

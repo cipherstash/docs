@@ -7,7 +7,7 @@ description: Searchable field-level encryption for Postgres with Prisma Next, th
 
 CipherStash provides first-class [Prisma Next](https://www.npmjs.com/package/@prisma-next/cli) integration through [`@cipherstash/prisma-next`](https://www.npmjs.com/package/@cipherstash/prisma-next). Declare encrypted columns directly in `schema.prisma` with `cipherstash.Encrypted*()` constructors, and use auto-encrypting query operators that make encrypted queries look like standard Prisma Next code.
 
-The Prisma Next integration has a meaningfully shorter onboarding path than the [Drizzle](/stack/cipherstash/encryption/drizzle) or [Supabase](/stack/cipherstash/encryption/supabase) integrations because the framework's migration system absorbs the database-side install. **You do not run `stash db install` for the EQL bundle** — `prisma-next migration apply` installs the EQL extension in the same control-plane sweep that creates your application tables.
+The Prisma Next integration has a meaningfully shorter onboarding path than the [Drizzle](/stack/cipherstash/encryption/drizzle) or [Supabase](/stack/cipherstash/encryption/supabase) integrations because the framework's migration system absorbs the database-side install. **You do not run `stash eql install` for the EQL bundle** — `prisma-next migration apply` installs the EQL extension in the same control-plane sweep that creates your application tables.
 
 ## Installation
 

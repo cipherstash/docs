@@ -58,7 +58,7 @@ The setup lifecycle has three explicit save-points. Each command can be run stan
 
 ### Manual setup
 
-If you prefer to configure things yourself rather than running `stash init`, you can scaffold the config file manually and run `stash db install` directly.
+If you prefer to configure things yourself rather than running `stash init`, you can scaffold the config file manually and run `stash eql install` directly.
 
 <Steps>
   <Step>
@@ -95,7 +95,7 @@ If you prefer to configure things yourself rather than running `stash init`, you
     ### Install EQL
 
     ```bash
-    npx stash db install
+    npx stash eql install
     ```
   </Step>
 </Steps>
@@ -148,7 +148,7 @@ yarn dlx @cipherstash/wizard  # yarn
 Before running the wizard, your project should have:
 
 - An authenticated CipherStash session (`npx stash auth login`)
-- A `stash.config.ts` (run `npx stash init` or `npx stash db install` to scaffold one)
+- A `stash.config.ts` (run `npx stash init` or `npx stash eql install` to scaffold one)
 - A reachable database via `DATABASE_URL`
 
 ### What the wizard does
@@ -157,7 +157,7 @@ Before running the wizard, your project should have:
 2. Runs health checks against the CipherStash gateway and your database.
 3. Prompts you to pick the tables and columns to encrypt.
 4. Sends a prompt to the Claude Agent SDK, which edits your schema and call sites to use `@cipherstash/stack`'s encryption APIs. The agent runs against a CipherStash-hosted LLM gateway. No Anthropic API key is required.
-5. Runs post-agent steps: package install, `db install`, `db push`, and framework-specific migrations.
+5. Runs post-agent steps: package install, `eql install`, `db push`, and framework-specific migrations.
 6. Scans for remaining call sites that need `encryptModel`/`decryptModel` wiring and prints a summary. These locations are not edited automatically.
 7. Offers to install integration-appropriate [agent skills](/stack/reference/agent-skills) into `./.claude/skills/`.
 

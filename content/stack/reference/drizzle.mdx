@@ -115,12 +115,12 @@ const results = await db
 Run the migration generator after defining your table:
 
 ```bash
-npx @cipherstash/cli db install
+npx @cipherstash/cli eql install
 ```
 
 The CLI reads your Drizzle config and calls `extractEncryptionSchema` internally to determine which columns need EQL indexes. It then produces a timestamped SQL migration file in your Drizzle migrations directory.
 
-See the [CipherStash CLI reference](/stack/cipherstash/cli) for all `db install` options.
+See the [CipherStash CLI reference](/stack/cipherstash/cli) for all `eql install` options.
 
 ## Cross-links
 

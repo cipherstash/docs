@@ -46,7 +46,7 @@ Encrypted values aren't strings or plain JSONB. They're structured ciphertext ob
 
 ### What the CLI installs on Supabase
 
-`db install --supabase` uses a Supabase-compatible EQL variant. It omits `CREATE OPERATOR FAMILY` (which requires superuser), and grants `USAGE`, table, routine, and sequence permissions on the `eql_v2` schema to `anon`, `authenticated`, and `service_role`.
+`eql install --supabase` uses a Supabase-compatible EQL variant. It omits `CREATE OPERATOR FAMILY` (which requires superuser), and grants `USAGE`, table, routine, and sequence permissions on the `eql_v2` schema to `anon`, `authenticated`, and `service_role`.
 
 ## Packages
 
@@ -92,7 +92,7 @@ CipherStash splits its functionality across two packages: a runtime SDK that you
   <Step>
     ### Control how EQL is installed (optional)
 
-    `stash init` installs EQL automatically. If you need to control the install method — for example, to write a Supabase migration file instead of pushing directly — run `stash db install` with explicit flags.
+    `stash init` installs EQL automatically. If you need to control the install method — for example, to write a Supabase migration file instead of pushing directly — run `stash eql install` with explicit flags.
 
     The CLI prompts you to choose how EQL is installed. If a `supabase/migrations/` directory is detected, the migration-file option is pre-selected.
 
@@ -101,7 +101,7 @@ CipherStash splits its functionality across two packages: a runtime SDK that you
     Pass `--migration` to write the EQL SQL into a Supabase migration file, or choose "Create a Supabase migration file" at the prompt.
 
     ```bash
-    npx stash db install --supabase --migration
+    npx stash eql install --supabase --migration
     ```
 
     The CLI writes the EQL SQL to:
@@ -115,7 +115,7 @@ CipherStash splits its functionality across two packages: a runtime SDK that you
     To write the migration file to a different directory, use `--migrations-dir`:
 
     ```bash
-    npx stash db install --supabase --migration --migrations-dir ./db/migrations
+    npx stash eql install --supabase --migration --migrations-dir ./db/migrations
     ```
 
     <Callout type="info">
@@ -127,7 +127,7 @@ CipherStash splits its functionality across two packages: a runtime SDK that you
     Pass `--direct` to push EQL directly to the database without creating a migration file.
 
     ```bash
-    npx stash db install --supabase --direct
+    npx stash eql install --supabase --direct
     ```
 
     <Callout type="warn">

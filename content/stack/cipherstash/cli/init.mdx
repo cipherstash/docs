@@ -17,7 +17,7 @@ Init runs six steps with minimal prompts:
 2. **Resolves the database**: Reads your `DATABASE_URL` and verifies a connection can be made. Detects your Postgres provider (Supabase from the URL host, or generic Postgres).
 3. **Generates the encryption client file**: Auto-detects your integration (Drizzle from `drizzle.config.*` or `drizzle-orm`/`drizzle-kit` in `package.json`, Supabase from the `DATABASE_URL` host, or generic Postgres). Writes a placeholder client to `./src/encryption/index.ts` silently. If that file already exists, it prompts you to keep it or overwrite it.
 4. **Installs dependencies**: Checks whether `@cipherstash/stack` and `stash` are already in `node_modules`. If both are present, skips silently. If either is missing, shows a single combined install prompt. Detects your package manager (npm, pnpm, yarn, bun) automatically.
-5. **Installs EQL**: Runs the same logic as `stash db install`. Scaffolds `stash.config.ts` if missing, detects your provider, and installs the EQL extension into your database. You do not need to run `stash db install` separately after init.
+5. **Installs EQL**: Runs the same logic as `stash eql install`. Scaffolds `stash.config.ts` if missing, detects your provider, and installs the EQL extension into your database. You do not need to run `stash eql install` separately after init.
 6. **Gathers context**: Writes `.cipherstash/context.json` with the detected integration, package manager, schemas, environment keys, and available agents. This file is required by `stash plan` and `stash impl`.
 
 Best case: 0 prompts (already authenticated, both packages installed, no existing client file, database reachable). Worst case: 2 prompts (region selection for first-time login, install confirmation for missing packages).
@@ -73,14 +73,14 @@ Answering yes launches `stash plan` immediately. Answering no (or running non-in
 Next: run `stash plan` to draft your encryption plan.
 ```
 
-## db install flags
+## eql install flags
 
-If you need to run EQL installation with specific flags (for example, writing a Supabase migration file), use `stash db install` directly after init:
+If you need to run EQL installation with specific flags (for example, writing a Supabase migration file), use `stash eql install` directly after init:
 
 ```bash
-npx stash db install --supabase --migration
-npx stash db install --drizzle
-npx stash db install --drizzle --supabase
+npx stash eql install --supabase --migration
+npx stash eql install --drizzle
+npx stash eql install --drizzle --supabase
 ```
 
 > **Good to know**: You can pass `--drizzle` and `--supabase` together. The CLI combines both behaviors: Supabase-compatible SQL output as a Drizzle migration.
