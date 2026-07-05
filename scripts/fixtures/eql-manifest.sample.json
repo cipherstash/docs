@@ -1,0 +1,43 @@
+{
+  "_note": "ILLUSTRATIVE SAMPLE — shape only. Replaced at build time by the real eql-manifest.json from the eql-docs release asset once cipherstash/encrypt-query-language#364 ships. Do not treat these signatures as authoritative.",
+  "$schema": "https://schemas.cipherstash.com/eql/manifest/v1.json",
+  "name": "eql",
+  "version": "3.0.0-sample",
+  "generatedFrom": "doxygen-xml",
+  "counts": { "functions": 3, "public": 3, "private": 0 },
+  "functions": [
+    {
+      "name": "hmac_256",
+      "signature": "hmac_256(jsonb)",
+      "visibility": "public",
+      "brief": "Extract the HMAC-SHA-256 equality term from an encrypted value.",
+      "description": "Backs equality (`=`, `IN`, joins) on `_eq` and `text_search` columns.",
+      "params": [{ "name": "val", "type": "jsonb", "description": "the encrypted value" }],
+      "returns": { "type": "text", "description": "the HMAC term" },
+      "throws": [], "notes": "", "warnings": "", "seeAlso": "",
+      "source": { "file": "src/hmac_256/functions.sql", "line": 12 }
+    },
+    {
+      "name": "bloom_filter",
+      "signature": "bloom_filter(jsonb)",
+      "visibility": "public",
+      "brief": "Extract the bloom-filter match term from an encrypted value.",
+      "description": "Backs token containment (`@>`) on `text_match` / `text_search` columns.",
+      "params": [{ "name": "val", "type": "jsonb", "description": "the encrypted value" }],
+      "returns": { "type": "smallint[]", "description": "the set bit positions" },
+      "throws": [], "notes": "", "warnings": "", "seeAlso": "",
+      "source": { "file": "src/bloom_filter/functions.sql", "line": 20 }
+    },
+    {
+      "name": "ore_block_256",
+      "signature": "ore_block_256(jsonb)",
+      "visibility": "public",
+      "brief": "Extract the ORE ordering term from an encrypted value.",
+      "description": "Backs range and ordering (`<`, `>`, `ORDER BY`) on `_ord` columns.",
+      "params": [{ "name": "val", "type": "jsonb", "description": "the encrypted value" }],
+      "returns": { "type": "eql_v3.ore_block_256", "description": "the ORE term" },
+      "throws": [], "notes": "", "warnings": "", "seeAlso": "",
+      "source": { "file": "src/ore_block_u64_8_256/functions.sql", "line": 8 }
+    }
+  ]
+}
