@@ -39,6 +39,12 @@ let CLI_VERSION = ""; // resolved to the latest published npm version at run tim
 const RUNNER = "npx"; // normalized invocation shown in docs
 const FIXTURE = path.join(process.cwd(), "scripts/fixtures", "stash-help.txt");
 const OUT_DIR = path.join(process.cwd(), "content/docs/reference/cli");
+// Hand-authored per-command prose merged into the generated page (hybrid model):
+// the generated skeleton (synopsis + flags) stays drift-free; a supplement adds
+// rich narrative + curated examples the thin `--help` can't provide. Lives
+// outside content/ so it's never treated as a page or wiped by the clean step.
+// Long-term, migrate these into the CLI's own long-help/examples (see the PR).
+const SUPPLEMENTS_DIR = path.join(process.cwd(), "scripts/cli-supplements");
 
 // ── Types (this shape is the spec for `stash manifest --json`) ──────────────
 interface Flag {
@@ -336,7 +342,16 @@ function renderPage(base: string, cmds: Command[]): { slug: string; body: string
     if (c.examples.length) parts.push("\n## Examples\n", "```bash", c.examples.join("\n"), "```");
   }
 
-  return { slug: base, body: `${parts.join("\n").trimEnd()}\n` };
+  const supplement = readSupplement(base);
+  const body = `${parts.join("\n").trimEnd()}${supplement ? `\n\n${supplement}` : ""}\n`;
+  return { slug: base, body };
+}
+
+// Optional hand-authored prose for a command, merged after its generated
+// reference. Returns "" when no supplement exists.
+function readSupplement(slug: string): string {
+  const file = path.join(SUPPLEMENTS_DIR, `${slug}.md`);
+  return fs.existsSync(file) ? fs.readFileSync(file, "utf8").trim() : "";
 }
 
 function renderIndex(manifest: Manifest, groups: Map<string, string[]>): string {

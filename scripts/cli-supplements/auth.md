@@ -1,30 +1,3 @@
----
-title: stash auth
-description: "Authenticate with CipherStash"
-type: reference
-components: [cli]
-verifiedAgainst:
-  cli: "0.16.0"
----
-
-{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash --help` (v0.16.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
-
-<Callout type="info">
-Generated from **`stash` v0.16.0**. Run `npx stash@0.16.0 --help` to see the live command surface.
-</Callout>
-
-Authenticate with CipherStash
-
-```bash
-npx stash auth
-```
-
-## Examples
-
-```bash
-npx stash auth login
-```
-
 ## How authentication works
 
 `stash auth login` runs the OAuth 2.0 **device authorization flow**:
