@@ -131,13 +131,13 @@ CipherStash splits its functionality across two packages: a runtime SDK that you
     ```
 
     <Callout type="warn">
-      Direct-push installs do not survive `supabase db reset`. The reset command drops the database and reruns only files in `supabase/migrations/`. EQL installed directly is not in migrations and will be wiped. Use the migration-file path for projects that use `supabase db reset`. See [Supabase db reset](/stack/cipherstash/cli/troubleshooting#supabase-db-reset).
+      Direct-push installs do not survive `supabase db reset`. The reset command drops the database and reruns only files in `supabase/migrations/`. EQL installed directly is not in migrations and will be wiped. Use the migration-file path for projects that use `supabase db reset`. See [Supabase db reset](/guides/troubleshooting/cli#supabase-db-reset).
     </Callout>
   </Step>
 </Steps>
 
 <Callout type="info">
-  If you hit issues with `supabase db reset` wiping EQL, see [Supabase db reset removes EQL](/stack/cipherstash/cli/troubleshooting#supabase-db-reset).
+  If you hit issues with `supabase db reset` wiping EQL, see [Supabase db reset removes EQL](/guides/troubleshooting/cli#supabase-db-reset).
 </Callout>
 
 ## Database schema
@@ -252,5 +252,5 @@ Local development uses device-based authentication. Production uses environment 
 - [Supabase JS SDK reference](/stack/cipherstash/encryption/supabase) — Full API for the encryptedSupabase wrapper
 - [Drizzle ORM reference](/stack/cipherstash/encryption/drizzle) — Encrypted column types and operators
 - [Searchable encryption](/stack/cipherstash/encryption/searchable-encryption) — How queries over ciphertext work
-- [Supabase db reset removes EQL](/stack/cipherstash/cli/troubleshooting#supabase-db-reset) — Fix for direct-push installs
+- [Supabase db reset removes EQL](/guides/troubleshooting/cli#supabase-db-reset) — Fix for direct-push installs
 - [Dashboard](https://dashboard.cipherstash.com/workspaces) — Manage keysets, clients, and access keys

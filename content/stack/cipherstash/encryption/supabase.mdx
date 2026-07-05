@@ -6,7 +6,7 @@ description: Encrypt, search, and decrypt data with the encryptedSupabase wrappe
 The `encryptedSupabase` wrapper makes encrypted queries look nearly identical to normal Supabase queries. It automatically handles encryption, decryption, `::jsonb` casts, and search term formatting.
 
 <Callout type="info">
-  Install [EQL](/stack/cipherstash/supabase#how-this-works) in your Supabase database using the [CipherStash CLI](/stack/cipherstash/cli) so encrypted columns can use the `eql_v2_encrypted` type.
+  Install [EQL](/stack/cipherstash/supabase#how-this-works) in your Supabase database using the [CipherStash CLI](/reference/cli) so encrypted columns can use the `eql_v2_encrypted` type.
 </Callout>
 
 ```bash
@@ -416,7 +416,7 @@ If you installed EQL with `npx stash eql install --supabase`, the role grants ar
 Go to [API settings](https://supabase.com/dashboard/project/_/settings/api) and add `eql_v2` to **Exposed schemas**.
 
 <Callout type="info">
-  If you installed EQL manually (without `--supabase`), you also need to grant permissions. See [CipherStash CLI — Supabase install](/stack/cipherstash/cli/install#supabase-install) for the required grants.
+  If you installed EQL manually (without `--supabase`), you also need to grant permissions. See [CipherStash CLI — Supabase install](/reference/cli/install#supabase-install) for the required grants.
 </Callout>
 
 ## How it works

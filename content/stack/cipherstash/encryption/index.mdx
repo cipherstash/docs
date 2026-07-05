@@ -47,7 +47,7 @@ All key management (key generation, derivation, and isolation) is handled by [Ze
 
 ## CipherStash CLI
 
-[CipherStash CLI](/stack/cipherstash/cli) (`stash`) is the dev-time CLI for setting up your database. It handles installing the EQL extension, validating schemas, and managing the encryption lifecycle. Think of it like Drizzle Kit or Prisma CLI: a companion tool that sets up the database while `@cipherstash/stack` handles runtime encryption.
+[CipherStash CLI](/reference/cli) (`stash`) is the dev-time CLI for setting up your database. It handles installing the EQL extension, validating schemas, and managing the encryption lifecycle. Think of it like Drizzle Kit or Prisma CLI: a companion tool that sets up the database while `@cipherstash/stack` handles runtime encryption.
 
 `stash init` scaffolds the encryption client, installs EQL, and writes `.cipherstash/context.json`. Then run `stash plan` to draft an encryption plan and `stash impl` to execute it.
 
@@ -60,8 +60,8 @@ npx stash eql status        # Show EQL installation state
 ```
 
 <Cards>
-  <Card title="Get started with the CLI" href="/stack/cipherstash/cli" description="Install EQL, validate schemas, and manage your database setup." />
-  <Card title="Interactive setup" href="/stack/cipherstash/cli/init" description="Set up the CLI in your project with the interactive init command." />
+  <Card title="Get started with the CLI" href="/reference/cli" description="Install EQL, validate schemas, and manage your database setup." />
+  <Card title="Interactive setup" href="/reference/cli/init" description="Set up the CLI in your project with the interactive init command." />
 </Cards>
 
 ## Next steps

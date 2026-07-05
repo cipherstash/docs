@@ -1,6 +1,8 @@
 ---
 title: Interactive setup
 description: Run stash init to authenticate, resolve your database, scaffold an encryption client, install dependencies, and add the EQL extension to CipherStash.
+type: reference
+components: [cli]
 ---
 
 `npx stash init` is the first step in the CipherStash setup lifecycle. It authenticates you, resolves your database, scaffolds an encryption client, installs dependencies, installs the EQL extension, and writes a context file. When it finishes, it prompts you to continue to `stash plan`.
@@ -85,12 +87,12 @@ npx stash eql install --drizzle --supabase
 
 > **Good to know**: You can pass `--drizzle` and `--supabase` together. The CLI combines both behaviors: Supabase-compatible SQL output as a Drizzle migration.
 
-See [Install and upgrade EQL](/stack/cipherstash/cli/install) for the full flag reference.
+See [Install and upgrade EQL](/reference/cli/install) for the full flag reference.
 
 ## Next steps
 
 <Cards>
-  <Card title="Draft an encryption plan" href="/stack/cipherstash/cli/plan" description="Run stash plan to hand off to a coding agent and produce a reviewable plan." />
-  <Card title="Execute an encryption plan" href="/stack/cipherstash/cli/impl" description="Run stash impl to execute the plan with a local agent." />
+  <Card title="Draft an encryption plan" href="/reference/cli/plan" description="Run stash plan to hand off to a coding agent and produce a reviewable plan." />
+  <Card title="Execute an encryption plan" href="/reference/cli/impl" description="Run stash impl to execute the plan with a local agent." />
   <Card title="Going to production" href="/stack/deploy/going-to-production" description="Transition from device-based auth to environment variables for deployment." />
 </Cards>

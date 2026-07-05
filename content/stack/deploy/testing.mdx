@@ -61,7 +61,7 @@ export function createMockClient() {
 
 For integration tests that verify searchable encryption queries, you need:
 
-1. A PostgreSQL database with [EQL](/stack/reference/eql-guide) installed (see [CipherStash CLI](/stack/cipherstash/cli))
+1. A PostgreSQL database with [EQL](/stack/reference/eql-guide) installed (see [CipherStash CLI](/reference/cli))
 2. A test CipherStash workspace
 3. Your schema definitions
 
@@ -78,7 +78,7 @@ beforeAll(async () => {
 
   // EQL must be installed before running tests.
   // Run `npx stash eql install` against your test database first.
-  // See: /stack/cipherstash/cli
+  // See: /reference/cli
 
   // Initialize encryption client with test credentials
   // Encryption() throws on failure, so wrap in try/catch

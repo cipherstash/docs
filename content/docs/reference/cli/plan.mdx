@@ -1,9 +1,9 @@
 ---
 title: Draft an encryption plan
 description: Run stash plan to hand off to a coding agent that drafts a reviewable encryption plan.md, with column paths, before any code changes are made.
+type: reference
+components: [cli]
 ---
-
-# Draft an encryption plan
 
 `stash plan` is the second step in the setup lifecycle. It hands off to a coding agent, which reads your project and produces a reviewable encryption plan at `.cipherstash/plan.md`. No code is changed. The plan is a checkpoint you review before running `stash impl`.
 
@@ -91,7 +91,7 @@ Before running `stash impl`, open `.cipherstash/plan.md` and verify:
 ## Next steps
 
 <Cards>
-  <Card title="Execute the plan" href="/stack/cipherstash/cli/impl" description="Run stash impl to hand off to an agent and execute the encryption plan." />
-  <Card title="Check project status" href="/stack/cipherstash/cli/status" description="Use stash status to see where you are in the lifecycle." />
-  <Card title="Install and upgrade EQL" href="/stack/cipherstash/cli/install" description="Manually install or upgrade the EQL database extension." />
+  <Card title="Execute the plan" href="/reference/cli/impl" description="Run stash impl to hand off to an agent and execute the encryption plan." />
+  <Card title="Check project status" href="/reference/cli/status" description="Use stash status to see where you are in the lifecycle." />
+  <Card title="Install and upgrade EQL" href="/reference/cli/install" description="Manually install or upgrade the EQL database extension." />
 </Cards>

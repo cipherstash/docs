@@ -1,6 +1,8 @@
 ---
 title: Install and upgrade EQL
 description: Install or upgrade EQL extensions in Postgres with the stash CLI, covering Supabase and Drizzle migrations, auto-detection, and permission fallbacks.
+type: reference
+components: [cli]
 ---
 
 ## install
@@ -99,7 +101,7 @@ npx stash eql install --supabase --migration --migrations-dir ./db/migrations
 </Callout>
 
 <Callout type="warn">
-  EQL installed via direct push does not survive `supabase db reset`. The reset command drops the database and reruns only files in `supabase/migrations/`. If you use `supabase db reset`, install EQL as a migration file instead. See [Supabase db reset removes EQL](/stack/cipherstash/cli/troubleshooting#supabase-db-reset).
+  EQL installed via direct push does not survive `supabase db reset`. The reset command drops the database and reruns only files in `supabase/migrations/`. If you use `supabase db reset`, install EQL as a migration file instead. See [Supabase db reset removes EQL](/guides/troubleshooting/cli#supabase-db-reset).
 </Callout>
 
 <Callout type="warn">

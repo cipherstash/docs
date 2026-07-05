@@ -1,4 +1,16 @@
 {
   "title": "CLI",
-  "pages": ["..."]
+  "pages": [
+    "---Setup---",
+    "init",
+    "plan",
+    "impl",
+    "status",
+    "---Database---",
+    "install",
+    "validate",
+    "push",
+    "---Reference---",
+    "api"
+  ]
 }
