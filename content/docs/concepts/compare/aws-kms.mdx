@@ -1,0 +1,211 @@
+---
+title: CipherStash vs AWS KMS
+description: How CipherStash compares to AWS KMS for application-level encryption — the distributed-trust ZeroKMS key-management architecture, plus a developer-experience comparison covering searchable encryption, identity-aware keys, bulk operations, and type safety.
+type: concept
+components: [zerokms]
+audience: [developer, cto, ciso]
+reviewBy: "2027-01-05"
+---
+
+CipherStash and AWS KMS solve overlapping problems differently. AWS KMS is a centralized key-management service: keys live in AWS-controlled HSMs, and it returns binary ciphertext that you encode and store yourself. CipherStash encrypts application data through a developer SDK backed by **ZeroKMS**, a key-management service that issues a unique key per record and never holds the keys needed to decrypt your data.
+
+This page compares them on two axes: the **architecture and trust model**, and the **developer experience** of encrypting application data.
+
+## What's being compared
+
+| Term | What it is |
+|---|---|
+| **AWS KMS** | AWS's managed key-management service. Keys live in AWS-controlled HSMs; you call `Encrypt`/`Decrypt` and manage ciphertext storage yourself. |
+| **ZeroKMS** | CipherStash's key-management service. Derives a unique key per record on demand from client- and server-side components; no party — including CipherStash — holds a complete data key. |
+| **CipherStash Encryption SDK** (`@cipherstash/stack`) | The TypeScript library that encrypts/decrypts application data and runs searchable queries, backed by ZeroKMS. |
+| **CipherStash Proxy** | A drop-in SQL proxy that applies the same primitives server-side with no application code changes. |
+
+The SDK and Proxy are two deployment shapes of the same primitives; the examples below use the SDK.
+
+## Architecture & trust model
+
+AWS KMS provides managed key management with high availability and deep AWS integration, but key custody and the underlying hardware remain with AWS. Two properties matter for a security evaluation:
+
+- **Shared keys, larger blast radius.** A KMS key (or a derived data key) typically protects many records, so a single key compromise exposes everything it covers.
+- **Provider custody.** AWS controls the HSMs and the IAM boundary around them, so your trust model includes AWS.
+
+ZeroKMS takes a different approach:
+
+- **Unique key per record.** Every value gets its own key, so a compromised key exposes a single record rather than a dataset.
+- **Distributed trust.** Keys are derived on demand by combining client- and server-side components and are never stored. No single party — including CipherStash — can decrypt data unilaterally (CipherStash calls this *zero-knowledge* key management).
+- **Identity-bound access.** Decryption is gated by OIDC identity, with per-record access control, instant revocation, and a real-time audit log of every access.
+- **Performance.** Sub-5ms overhead for most operations ([latency benchmarks](https://app.artillery.io/share/sh_75edb9d22a060633bfdce04777ffd60d1bcfc88989393dc38d3a4924b83fc6cd)). Because ZeroKMS processes a whole batch in one round-trip while AWS KMS has no bulk API, the gap widens with batch size: at a realistic 100-record batch an in-region benchmark measured **~16× lower p95 latency** and, under sustained load, **roughly two orders of magnitude (~85×) higher throughput** before AWS KMS hits its rate limit.
+{/* TODO: ~16× latency / ~85× throughput are from the in-region two-host benchmark in cipherstash/benches (kms-app/REPORT.md). The throughput multiple is at default per-region KMS quotas. Replace with a public-facing citation before relying on the exact figures externally, as the FHE page does for its ORE numbers. */}
+- **Deployment.** Managed service across regions, or self-hosted as a container for jurisdictional control.
+
+The same architecture comparison applies to Google Cloud KMS and Azure Key Vault, which share the provider-custody, shared-key model.
+
+### What about data-key caching?
+
+The standard way to make AWS KMS fast enough for per-record encryption is **data-key caching (reuse)**: generate one data key, encrypt many records with it locally, and call KMS once per *key* instead of once per *value*. It's worth understanding why this doesn't solve the database case.
+
+- **It speeds writes and sequential reads.** Records inserted together share a data key, so an insert and a read of that same contiguous block need only one KMS call between them. This is the best case, and reuse handles it well.
+- **It collapses on real reads.** Production queries don't retrieve rows in insert order — they look up by user, time range, or a secondary index, scattered across the table. A scattered result references roughly *one distinct data key per record*, so decrypting it costs roughly *one KMS `Decrypt` per record* — exactly the per-value cost reuse was meant to avoid. The amortization you buy at write time disappears the moment the read pattern diverges from the write pattern, which is the normal case.
+- **It weakens the security model.** Sharing one key across many records is the shared-key blast radius above, by another name: you lose per-record revocation (revoking one record's key revokes it for every record that shares it) and per-record audit (the log shows one `Decrypt` of a key that unlocks many records, not which record was read).
+
+ZeroKMS reaches the same one-round-trip amortization through its [bulk API](#capabilities-aws-kms-doesnt-provide-without-custom-work) — independent of access pattern, sequential or scattered — while keeping a unique, individually auditable and revocable key per record. You don't trade the security model for the performance.
+
+### Cost
+
+The two services meter cost in fundamentally different ways, and the difference compounds exactly where database encryption spends its time — reads.
+
+- **AWS KMS** is pure usage metering: **$1 per key per month, plus $0.03 per 10,000 requests** ([standard symmetric pricing](https://aws.amazon.com/kms/pricing/)). Critically, it bills **both directions** — every `Encrypt`/`GenerateDataKey` *and* every `Decrypt` is a billable request. Under the per-value security model, that's one billable request per encrypted value, each way.
+- **ZeroKMS** is a [flat subscription](/stack/reference/billing) by encryption operations per month (Free 10k, Pro 50k, Business 500k, Enterprise unlimited), and **decryption is always free** — you're charged for encrypting data, never for reading it back.
+
+Field-level database encryption is read-heavy: a record is encrypted once and decrypted on every read for the rest of its life. So the read path dominates the bill — and it's precisely where the models diverge. Taking the benchmark's read scenario (a query returning 50 records × 3 encrypted fields = 150 `Decrypt` calls under per-value security):
+
+| Read volume (50 records × 3 fields/query) | `Decrypt` calls / month | AWS KMS | ZeroKMS |
+|---|---:|---:|---:|
+| 1 query | 150 | $0.00045 | **$0** |
+| 1M queries / month | 150M | **$450** | **$0** |
+| 10M queries / month | 1.5B | **$4,500** | **$0** |
+
+ZeroKMS reads are free regardless of volume; the encryption side sits under a fixed monthly plan. AWS KMS read cost, by contrast, is **linear and unbounded** in access volume — a hot dataset pays again on every read, forever. (And you hit per-second request quotas, throttling reads, long before the bill becomes the binding constraint.)
+
+The only lever to cut that AWS read cost is **data-key caching** — the same lever from [above](#what-about-data-key-caching), with the same failure mode: it cuts `Decrypt` calls on sequential reads but collapses back to one call per record on scattered (real) reads, and it costs you per-record audit and revocation. On AWS KMS, **cost and performance fail together, for the same architectural reason.** ZeroKMS needs no such lever — decrypts are free *and* bulk-amortized.
+
+## Developer experience
+
+Beyond the trust model, the SDK removes the boilerplate AWS KMS requires. Examples are TypeScript.
+
+### Encrypting and decrypting a value
+
+AWS KMS returns binary ciphertext you must encode, store, and decode yourself:
+
+```typescript
+import { KMSClient, EncryptCommand, DecryptCommand } from "@aws-sdk/client-kms";
+
+const client = new KMSClient({ region: "us-west-2" });
+const keyId = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-...";
+
+const enc = await client.send(
+  new EncryptCommand({ KeyId: keyId, Plaintext: Buffer.from("secret@squirrel.example") }),
+);
+const ciphertext = Buffer.from(enc.CiphertextBlob).toString("base64"); // you store this
+
+const dec = await client.send(
+  new DecryptCommand({ CiphertextBlob: Buffer.from(ciphertext, "base64") }),
+);
+const plaintext = Buffer.from(dec.Plaintext).toString("utf-8");
+```
+
+You manage: key ARNs, buffer/base64 conversions, error handling, AWS credentials, and regions.
+
+The CipherStash SDK returns a JSON payload ready for `JSONB` storage, with key management handled by ZeroKMS and a type-safe `Result` rather than thrown errors:
+
+```typescript
+import { Encryption } from "@cipherstash/stack";
+import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema";
+
+const users = encryptedTable("users", { email: encryptedColumn("email") });
+const client = await Encryption({ schemas: [users] });
+
+const result = await client.encrypt("secret@squirrel.example", { column: users.email, table: users });
+if (result.failure) throw new Error(result.failure.message);
+
+const plaintext = (await client.decrypt(result.data)).data; // type: string
+```
+
+### Capabilities AWS KMS doesn't provide without custom work
+
+**Searchable encryption** — query encrypted data directly in PostgreSQL. AWS KMS requires decrypting in memory or building a custom searchable index.
+
+```typescript
+const users = encryptedTable("users", {
+  email: encryptedColumn("email").freeTextSearch().equality().orderAndRange(),
+});
+
+const terms = await client.encryptQuery("secret", { column: users.email, table: users });
+```
+
+**Identity-aware encryption** — bind encryption to an OIDC identity via `LockContext`. AWS KMS has no built-in equivalent; encryption context is a manual workaround.
+
+```typescript
+import { LockContext } from "@cipherstash/stack/identity";
+
+const lockContext = await new LockContext().identify(userJwt);
+
+await client
+  .encrypt("secret@squirrel.example", { column: users.email, table: users })
+  .withLockContext(lockContext);
+```
+
+**Bulk operations** — native batch API. AWS KMS has no bulk endpoint; you batch and handle rate limits manually.
+
+```typescript
+const result = await client.bulkEncrypt(
+  [{ id: "1", plaintext: "Alice" }, { id: "2", plaintext: "Bob" }],
+  { column: users.name, table: users },
+);
+```
+
+## Comparison
+
+### Architecture
+
+| Property | AWS KMS | CipherStash (ZeroKMS) |
+|---------|---------|------------------------|
+| Key storage | Centralized in provider HSMs | Distributed, derived on demand, never stored |
+| Control model | Provider-managed custody | Distributed trust, no single point of decryption |
+| Key granularity | Shared keys | Per-record keys |
+| Breach impact | All records under the key | Single record |
+| Access control | IAM-based | Identity-based (OIDC), per-record |
+| Audit | CloudTrail (API calls) | Real-time log of every decryption |
+| Performance | Network-dependent, rate-limited | Sub-5ms overhead; ~16× lower latency, up to ~85× throughput |
+| Cost model | Per-request, billed both ways (linear in access volume) | Flat subscription; decryption free |
+| Deployment | AWS regions | Managed service or self-hosted container |
+
+### Developer experience
+
+| Feature | AWS KMS | CipherStash Encryption |
+|---------|---------|------------------------|
+| Basic encryption | Manual buffer/base64 handling | One call, JSON payload |
+| Key management | You manage key ARNs | Automatic, via ZeroKMS |
+| Searchable encryption | Not supported | Built-in for PostgreSQL |
+| Identity-aware encryption | Manual workaround | Built-in `LockContext` |
+| Bulk operations | Manual batching | Native bulk API |
+| Error handling | Try/catch, manual types | Type-safe `Result` |
+| Storage format | Binary (needs encoding) | JSON (`JSONB`-ready) |
+| ORM integration | Manual | Built-in Drizzle support |
+
+## When to use each
+
+**AWS KMS fits when:**
+
+- You're encrypting AWS infrastructure resources (S3, EBS, RDS storage) rather than application records
+- You need envelope encryption at rest with simple key management and no querying over ciphertext
+- A shared-key model and AWS key custody are acceptable for your threat model
+
+**CipherStash fits when:**
+
+- You're encrypting application data in PostgreSQL and need to query it while it stays encrypted
+- You want per-record keys, distributed trust, and instant, identity-based (OIDC) revocation
+- You need real-time audit trails for compliance (SOC 2, HIPAA, GDPR)
+- You're on multi-cloud or hybrid infrastructure and want to avoid provider key custody
+
+**Limits to know:** searchable encryption targets PostgreSQL; identity-aware encryption requires an OIDC provider; and CipherStash encrypts at the application layer, so it complements — rather than replaces — disk- or infrastructure-level encryption (where AWS KMS fits).
+
+## Migration path
+
+Migration from AWS KMS (or any cloud KMS) can be incremental:
+
+1. **Assess** — identify high-value data that benefits from per-record encryption and searchable queries
+2. **Pilot** — start with a new application or a non-critical workload
+3. **Integrate** — connect your existing OIDC identity provider
+4. **Migrate** — move sensitive workloads to ZeroKMS in stages
+5. **Coexist** — keep AWS KMS for infrastructure-level encryption
+
+## Learn more
+
+- [CipherStash Encryption getting started](/stack/quickstart)
+- [ZeroKMS](/stack/cipherstash/kms)
+- [Schema reference](/stack/cipherstash/encryption/schema)
+- [Searchable encryption concepts](/stack/cipherstash/encryption/searchable-encryption)
+- [Security architecture](/stack/reference/security-architecture) — leakage profiles and primitives
+- [ZeroKMS vs Hardware Security Modules](/compare/zerokms-vs-hsm)
+- [AWS KMS documentation](https://docs.aws.amazon.com/kms/)

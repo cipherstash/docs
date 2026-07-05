@@ -1,9 +1,20 @@
 ---
 title: Comparisons
-description: "How CipherStash compares to other approaches to protecting data."
+seoTitle: How CipherStash compares
+description: How CipherStash compares to alternative approaches — homomorphic encryption, cloud KMS, hardware security modules, and HashiCorp Vault.
 type: concept
 ---
 
-This section is being built as part of the docs V2 overhaul ([CIP-3307](https://linear.app/cipherstash/issue/CIP-3307)). Track progress in [IA.md](https://github.com/cipherstash/docs/blob/v2/IA.md).
+Side-by-side breakdowns of CipherStash against the approaches teams most commonly weigh it against. Each page focuses on the same questions: what does each tool actually do, what are the per-operation trade-offs, and where is each one the right fit.
 
-Until it lands, current documentation lives in the [existing docs](/stack).
+<Cards>
+  <Card title="CipherStash vs AWS KMS" href="/compare/aws-kms" description="The zero-trust ZeroKMS architecture plus a developer-experience comparison — searchable queries, identity-aware keys, and bulk operations versus key ARNs and binary buffers." />
+  <Card title="CipherStash vs HashiCorp Vault" href="/compare/hashicorp-vault" description="Per-record keys with plaintext that never leaves the client — versus the trade-off Vault Transit's direct and envelope modes force." />
+  <Card title="ZeroKMS vs Hardware Security Modules" href="/compare/zerokms-vs-hsm" description="Cryptographic custody versus physical custody — how ZeroKMS reduces the cost, complexity, and operational burden of self-managed HSMs." />
+  <Card title="CipherStash vs Homomorphic Encryption" href="/stack/reference/comparisons/fhe" description="Why searchable encryption is 5–6 orders of magnitude faster than FHE for real database workloads — with benchmark numbers." />
+</Cards>
+
+## Related
+
+- [Use cases](/stack/reference/use-cases) — including a comparison against data vaults like Skyflow and VGS.
+- [Security architecture](/stack/reference/security-architecture) — the cryptographic primitives behind every comparison on this page.

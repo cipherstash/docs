@@ -1,0 +1,118 @@
+---
+title: CipherStash vs HashiCorp Vault
+description: How CipherStash ZeroKMS compares to HashiCorp Vault's Transit secrets engine for application-level encryption — trust model, per-record keys, plaintext exposure, and the trade-offs of Vault's direct and envelope modes.
+type: concept
+components: [zerokms]
+audience: [developer, cto, ciso]
+reviewBy: "2027-01-05"
+---
+
+HashiCorp Vault and CipherStash both encrypt application data, but they sit in different places in your architecture. The closest comparison is Vault's **Transit secrets engine** — "encryption as a service," where Vault holds the keys and the application calls it to encrypt and decrypt. CipherStash encrypts application data through a developer SDK backed by **ZeroKMS**, which issues a unique key per record and never holds the keys needed to decrypt your data.
+
+This page compares Transit with ZeroKMS. Vault's other engines (KV secrets storage, PKI, SSH) are out of scope.
+
+## What's being compared
+
+| Term | What it is |
+|---|---|
+| **Vault Transit** | Vault's encryption-as-a-service engine. The app sends data to Vault; Vault encrypts/decrypts with keys it holds and returns the result. Supports a batch API and key derivation. |
+| **Vault Transit `datakey`** | Transit's envelope mode: Vault generates a data key (returns plaintext + a Vault-wrapped copy), analogous to AWS KMS `GenerateDataKey`. You encrypt locally and store the wrapped key. |
+| **ZeroKMS** | CipherStash's key-management service. Derives a unique key per record on demand from client- and server-side components; no party — including CipherStash — holds a complete data key. |
+| **CipherStash Encryption SDK** (`@cipherstash/stack`) | The library that encrypts/decrypts application data and runs searchable queries, backed by ZeroKMS. |
+
+## Two ways to use Vault Transit
+
+Transit can be used in two modes, and the distinction drives the whole comparison.
+
+**Direct encryption** (`/transit/encrypt`, `/transit/decrypt`) — the app sends **plaintext to Vault**, Vault returns ciphertext. It supports a batch API (`batch_input`, many values per call) and can derive a key per *context* (`derived: true`). Fast, but your plaintext transits the Vault server.
+
+**Envelope encryption** (`/transit/datakey`) — Vault generates a data key; the app encrypts locally so **plaintext never leaves the client**. But `datakey` issues one key per call with no batch API, so a unique key per record means one Vault round-trip per record. To go fast you reuse one data key across many records — which puts you straight into data-key-reuse territory (covered below).
+
+## The trilemma
+
+For database field encryption you want three things at once: plaintext that never leaves the client, a unique key per record (so a compromised key exposes one record and access is auditable and revocable per record), and enough throughput to encrypt and decrypt in bulk. **No single Vault Transit configuration delivers all three** — each gives you two:
+
+| Configuration | Plaintext stays client-side | Per-record keys | Bulk-amortized |
+|---|:---:|:---:|:---:|
+| Transit direct, shared key | ✗ | ✗ | ✓ |
+| Transit direct, derived per-record (`context`) | ✗ | ✓ | ✓ |
+| Transit `datakey`, one key per record | ✓ | ✓ | ✗ |
+| Transit `datakey`, key reused across records | ✓ | ✗ | ✓ |
+| **ZeroKMS** | **✓** | **✓** | **✓** |
+
+ZeroKMS occupies the corner none of Vault's modes reach: the SDK encrypts locally (plaintext never sent), every record gets its own key, and a batch of up to 10,000 keys is a single round-trip.
+
+### Reading the table
+
+The trade-off lands in a different place than it does for a cloud KMS, because of one asymmetry in Vault's API: `encrypt` and `decrypt` are batched (`batch_input`), but `datakey` — which mints a data key for envelope mode — is **one key per call, with no batch**.
+
+- **Direct modes are fast both ways, but expose plaintext.** A whole batch encrypts or decrypts in one round-trip — but the plaintext is sent to Vault to be encrypted. Per-record keys are possible via a derived `context`; the exposure remains.
+- **Envelope keeps plaintext client-side, but per-record keys cost you on writes.** A unique key per record means one `datakey` round-trip *per record* on the write path (there is no batched key generation). That's the `✗` in the bulk column — it's a *write*-throughput cost.
+- **Reuse buys back write throughput by sharing a key** across many records. That's a security trade-off, not a free lunch: you lose per-record revocation (revoking one record's key revokes it for every record sharing it) and per-record audit (the log shows one unwrap of a key that opens many records, not which record was read).
+
+Note what does **not** happen: a scattered read does not collapse. Vault unwraps all the distinct data keys in a result with a single batched `transit/decrypt` call, so reads are one round-trip regardless of access pattern. This is where Vault differs from AWS KMS — whose `Decrypt` has no batch API, so a scattered read of N records costs N calls (see [CipherStash vs AWS KMS](/compare/aws-kms)). For Vault, the cost of per-record keys lands on **writes**, and the cost of reuse is the **security model** — not reads.
+
+## Architecture & trust model
+
+- **Plaintext exposure.** In Transit direct mode, plaintext is sent to Vault to be encrypted — Vault (and whoever operates it) sees it in the clear at the moment of encryption. ZeroKMS never receives plaintext: the SDK encrypts locally and ZeroKMS only performs key derivation. Vault's envelope mode also keeps plaintext client-side, but per-record keys then cost a `datakey` round-trip per record on write — or you reuse a key and take the security trade-off above.
+- **Key custody and trust.** Transit keys live in Vault; whoever controls the Vault cluster (your operators, or HashiCorp for HCP Vault) controls the keys. ZeroKMS derives keys on demand by combining client- and server-side components and never stores them — no single party, including CipherStash, can decrypt unilaterally.
+- **Key granularity.** A Transit key is typically shared across many records (shared-key blast radius), or derived per `context` if you build that in. ZeroKMS issues a unique key per record natively.
+- **Access control & audit.** Vault gates Transit operations with its policy system and logs to the audit device, at key/path granularity. ZeroKMS binds decryption to OIDC identity with per-record access control, instant revocation, and a real-time per-record audit log.
+- **Searchable encryption.** Transit's convergent mode makes encryption deterministic (equal plaintexts produce equal ciphertexts), which supports equality matching but not range or ordering. CipherStash provides searchable encryption — equality, range/order, and free-text — over PostgreSQL via EQL.
+
+<Callout title="The core difference" type="info">
+Vault Transit is a service you send data *to*. ZeroKMS is a key service the SDK derives keys *from*, so your plaintext stays in your application and every record gets its own key — without choosing between speed and per-record security.
+</Callout>
+
+## Performance
+
+Unlike AWS KMS, Vault Transit **has a batch API**, so this is not a throughput blowout — batched Transit in-region is fast, and raw speed is not the differentiator. A few things shape a fair comparison:
+
+- Transit caches keys in memory and does not touch storage on the encrypt/decrypt hot path, so a single well-provisioned Vault node fairly represents per-node throughput. Scaling means adding nodes (an operational and cost consideration), where ZeroKMS is a managed service.
+- A fair benchmark must use batch on both sides (Transit `batch_input` vs ZeroKMS bulk), run in-region with a separate load generator, and report Vault's envelope/`datakey` mode separately — its serial write path (per-record keys = one `datakey` round-trip per record, vs a reused key) is where the difference shows, not the batched read path.
+
+{/* TODO: link the in-region benchmark numbers once the `vault-transit` backend run lands (cipherstash/benches kms-app). Until then this section stays qualitative — no unsourced figures. */}
+
+The takeaway isn't that one is dramatically faster; it's that ZeroKMS reaches bulk throughput *without* sending plaintext to a server and *without* giving up per-record keys — the trade-off Vault forces.
+
+## Comparison
+
+| Property | Vault Transit | CipherStash (ZeroKMS) |
+|---|---|---|
+| Encryption location | On the Vault server (direct mode) | In the client (SDK) |
+| Plaintext exposure | Sent to Vault (direct mode) | Never leaves the client |
+| Key custody | In the Vault cluster you (or HCP) run | Derived on demand, never stored |
+| Trust model | Whoever operates Vault holds the keys | Distributed; no single point of decryption |
+| Key granularity | Shared key, or derived per `context` | Per record, native |
+| Per-record revocation & audit | Per key / key version | Per record, identity-bound (OIDC) |
+| Searchable encryption | Equality only (convergent mode) | Equality, range/order, free-text (EQL) |
+| Bulk API | Yes (`batch_input`); `datakey` is one key per call | Yes (up to 10,000 keys per round-trip) |
+| Deployment & ops | Self-host HA (unseal, storage, scaling) or HCP | Managed service, or self-host container |
+
+## When to use each
+
+**Vault Transit fits when:**
+
+- You already run Vault and want encryption-as-a-service alongside your other Vault workloads
+- Sending plaintext to a service you operate is acceptable for your threat model
+- A shared-key model (or context-derived keys you manage) meets your audit and revocation needs
+- You need fully self-hosted, air-gappable infrastructure under your own operation
+
+**CipherStash fits when:**
+
+- Plaintext should never leave your application, even to your key service
+- You want per-record keys, distributed trust, and instant identity-based (OIDC) revocation by default
+- You need to query encrypted data in PostgreSQL while it stays encrypted
+- You want managed key management without operating an HA key cluster
+- You need real-time, per-record audit trails for compliance (SOC 2, HIPAA, GDPR)
+
+Vault and CipherStash can also coexist: Vault for infrastructure secrets and its other engines, CipherStash for application-layer, per-record data encryption and searchable queries.
+
+## Learn more
+
+- [CipherStash Encryption getting started](/stack/quickstart)
+- [ZeroKMS](/stack/cipherstash/kms)
+- [Searchable encryption concepts](/stack/cipherstash/encryption/searchable-encryption)
+- [CipherStash vs AWS KMS](/compare/aws-kms) — the same data-key trade-off in a cloud KMS
+- [All comparisons](/compare)
+- [HashiCorp Vault Transit documentation](https://developer.hashicorp.com/vault/docs/secrets/transit)
