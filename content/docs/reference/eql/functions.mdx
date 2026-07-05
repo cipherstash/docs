@@ -1,0 +1,55 @@
+---
+title: Functions
+description: "Generated catalog of EQL SQL functions and operators (EQL 3.0.0-sample)."
+type: reference
+components: [eql]
+verifiedAgainst:
+  eql: "3.0.0-sample"
+---
+
+{/* GENERATED — do not edit. Produced by scripts/generate-eql-api-docs.ts from the EQL manifest (v3.0.0-sample). */}
+
+<Callout type="info">
+Generated from the **EQL 3.0.0-sample** manifest (the Doxygen'd SQL is the source of truth). For the model behind these — variants, terms, typed operands — see [Core concepts](/reference/eql/core-concepts).
+</Callout>
+
+The complete function surface of the `eql_v3` schema. The type and query pages explain *when* to use these; this page is the exhaustive signature reference they link to.
+
+## Functions
+
+### `hmac_256(jsonb)`
+
+Extract the HMAC-SHA-256 equality term from an encrypted value.
+
+Backs equality (`=`, `IN`, joins) on `_eq` and `text_search` columns.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `val` | `jsonb` | the encrypted value |
+
+
+**Returns:** `text` — the HMAC term
+### `bloom_filter(jsonb)`
+
+Extract the bloom-filter match term from an encrypted value.
+
+Backs token containment (`@>`) on `text_match` / `text_search` columns.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `val` | `jsonb` | the encrypted value |
+
+
+**Returns:** `smallint[]` — the set bit positions
+### `ore_block_256(jsonb)`
+
+Extract the ORE ordering term from an encrypted value.
+
+Backs range and ordering (`<`, `>`, `ORDER BY`) on `_ord` columns.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `val` | `jsonb` | the encrypted value |
+
+
+**Returns:** `eql_v3.ore_block_256` — the ORE term
