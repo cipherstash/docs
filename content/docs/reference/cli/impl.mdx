@@ -1,0 +1,36 @@
+---
+title: stash impl
+description: "Execute the plan with a local agent"
+type: reference
+components: [cli]
+verifiedAgainst:
+  cli: "0.16.0"
+---
+
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash --help` (v0.16.0). Bump CLI_VERSION and re-run `bun run generate-docs:cli`. */}
+
+<Callout type="info">
+Generated from **`stash` v0.16.0**. Run `npx stash@0.16.0 --help` to see the live command surface.
+</Callout>
+
+Execute the plan with a local agent
+
+```bash
+npx stash impl [flags]
+```
+
+### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--continue-without-plan` | Skip planning and go straight to implementation (interactively confirms before proceeding) |
+| `--target <name>` | Skip the agent-target picker and hand off directly to one of claude-code \| codex \| agents-md \| wizard. Safe to call from non-TTY contexts (CI, pipes). Without --target in non-TTY, the command prints a hint and exits cleanly instead of hanging. |
+
+
+## Examples
+
+```bash
+npx stash impl
+npx stash impl --continue-without-plan
+npx stash impl --target claude-code
+```

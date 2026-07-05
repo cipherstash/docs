@@ -1,0 +1,163 @@
+---
+title: stash db
+description: "Reference for the `stash db` commands."
+type: reference
+components: [cli, eql]
+verifiedAgainst:
+  cli: "0.16.0"
+---
+
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash --help` (v0.16.0). Bump CLI_VERSION and re-run `bun run generate-docs:cli`. */}
+
+<Callout type="info">
+Generated from **`stash` v0.16.0**. Run `npx stash@0.16.0 --help` to see the live command surface.
+</Callout>
+
+The `stash db` command group.
+
+### `db install`
+
+Scaffold stash.config.ts (if missing) and install EQL extensions
+
+```bash
+npx stash db install [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--force` | Reinstall / overwrite even if already installed |
+| `--dry-run` | Show what would happen without making changes |
+| `--supabase` | Use Supabase-compatible mode (auto-detected from DATABASE_URL) |
+| `--drizzle` | Generate a Drizzle migration instead of direct install (auto-detected from project) |
+| `--migration` | (requires --supabase) Write a Supabase migration file instead of running SQL directly |
+| `--direct` | (requires --supabase) Run the SQL directly against the database (mutually exclusive with --migration) |
+| `--migrations-dir <path>` | (requires --supabase) Override the Supabase migrations directory (default: supabase/migrations) |
+| `--exclude-operator-family` | Skip operator family creation |
+| `--latest` | Fetch the latest EQL from GitHub |
+| `--database-url <url>` | Override DATABASE_URL for this run only — never written to disk |
+
+
+#### Examples
+
+```bash
+npx stash db install
+```
+
+### `db upgrade`
+
+Upgrade EQL extensions to the latest version
+
+```bash
+npx stash db upgrade [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--dry-run` | Show what would happen without making changes |
+| `--supabase` | Use Supabase-compatible mode (auto-detected from DATABASE_URL) |
+| `--exclude-operator-family` | Skip operator family creation |
+| `--latest` | Fetch the latest EQL from GitHub |
+| `--database-url <url>` | Override DATABASE_URL for this run only — never written to disk |
+
+
+### `db push`
+
+Push encryption schema (writes pending if active config already exists)
+
+```bash
+npx stash db push [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--dry-run` | Show what would happen without making changes |
+| `--database-url <url>` | Override DATABASE_URL for this run only — never written to disk |
+
+
+#### Examples
+
+```bash
+npx stash db push
+```
+
+### `db activate`
+
+Promote pending → active without renames (use after additive db push)
+
+```bash
+npx stash db activate [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--database-url <url>` | Override DATABASE_URL for this run only — never written to disk |
+
+
+### `db validate`
+
+Validate encryption schema
+
+```bash
+npx stash db validate [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--supabase` | Use Supabase-compatible mode (auto-detected from DATABASE_URL) |
+| `--exclude-operator-family` | Skip operator family creation |
+| `--database-url <url>` | Override DATABASE_URL for this run only — never written to disk |
+
+
+### `db migrate`
+
+Run pending encrypt config migrations
+
+```bash
+npx stash db migrate [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--database-url <url>` | Override DATABASE_URL for this run only — never written to disk |
+
+
+### `db status`
+
+Show EQL installation status
+
+```bash
+npx stash db status [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--database-url <url>` | Override DATABASE_URL for this run only — never written to disk |
+
+
+### `db test-connection`
+
+Test database connectivity
+
+```bash
+npx stash db test-connection [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--database-url <url>` | Override DATABASE_URL for this run only — never written to disk |

@@ -1,8 +1,67 @@
 ---
 title: CLI
-description: "CLI documentation — being built as part of the docs V2 overhaul."
+description: "Command reference for the stash CLI, generated from v0.16.0."
+type: reference
+components: [cli]
+verifiedAgainst:
+  cli: "0.16.0"
 ---
 
-This section is being built as part of the docs V2 overhaul ([CIP-3307](https://linear.app/cipherstash/issue/CIP-3307)). Track progress in [IA.md](https://github.com/cipherstash/docs/blob/v2/IA.md).
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash --help` (v0.16.0). Bump CLI_VERSION and re-run `bun run generate-docs:cli`. */}
 
-Until it lands, current documentation lives in the [existing docs](/stack).
+<Callout type="info">
+Generated from **`stash` v0.16.0**. Run `npx stash@0.16.0 --help` to see the live command surface.
+</Callout>
+
+The `stash` CLI. Install with `npx stash@0.16.0`. Every command accepts `--help` and `--version`.
+
+### Setup & workflow
+
+| Command | Description |
+| --- | --- |
+| [`init`](/reference/cli/init) | Initialize CipherStash for your project |
+| [`plan`](/reference/cli/plan) | Draft a reviewable encryption plan at .cipherstash/plan.md |
+| [`impl`](/reference/cli/impl) | Execute the plan with a local agent |
+| [`status`](/reference/cli/status) | Displays implementation status |
+| [`wizard`](/reference/cli/wizard) | AI-guided encryption setup (reads your codebase) |
+
+### Auth
+
+| Command | Description |
+| --- | --- |
+| [`auth`](/reference/cli/auth) | Authenticate with CipherStash |
+
+### Database
+
+| Command | Description |
+| --- | --- |
+| [`db install`](/reference/cli/db#db-install) | Scaffold stash.config.ts (if missing) and install EQL extensions |
+| [`db upgrade`](/reference/cli/db#db-upgrade) | Upgrade EQL extensions to the latest version |
+| [`db push`](/reference/cli/db#db-push) | Push encryption schema (writes pending if active config already exists) |
+| [`db activate`](/reference/cli/db#db-activate) | Promote pending → active without renames (use after additive db push) |
+| [`db validate`](/reference/cli/db#db-validate) | Validate encryption schema |
+| [`db migrate`](/reference/cli/db#db-migrate) | Run pending encrypt config migrations |
+| [`db status`](/reference/cli/db#db-status) | Show EQL installation status |
+| [`db test-connection`](/reference/cli/db#db-test-connection) | Test database connectivity |
+
+### Schema
+
+| Command | Description |
+| --- | --- |
+| [`schema build`](/reference/cli/schema#schema-build) | Build an encryption schema from your database |
+
+### Encrypt
+
+| Command | Description |
+| --- | --- |
+| [`encrypt status`](/reference/cli/encrypt#encrypt-status) | Show per-column migration status (phase, progress, drift) |
+| [`encrypt plan`](/reference/cli/encrypt#encrypt-plan) | Diff intent (.cipherstash/migrations.json) vs observed state |
+| [`encrypt backfill`](/reference/cli/encrypt#encrypt-backfill) | Resumably encrypt plaintext into the encrypted column |
+| [`encrypt cutover`](/reference/cli/encrypt#encrypt-cutover) | Rename swap encrypted → primary column |
+| [`encrypt drop`](/reference/cli/encrypt#encrypt-drop) | Generate a migration to drop the plaintext column |
+
+### Deployment
+
+| Command | Description |
+| --- | --- |
+| [`env`](/reference/cli/env) | (experimental) Print production env vars for deployment |

@@ -13,6 +13,7 @@
     "format": "biome format --write",
     "generate-docs": "tsx scripts/generate-docs.ts",
     "generate-docs:eql": "tsx scripts/generate-eql-docs.ts",
+    "generate-docs:cli": "tsx scripts/generate-cli-docs.ts",
     "validate-links": "tsx scripts/validate-links.ts",
     "validate-redirects": "tsx scripts/validate-v2-redirects.ts"
   },

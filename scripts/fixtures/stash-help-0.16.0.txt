@@ -1,0 +1,98 @@
+◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env.development.local // tip: ⌘ override existing { override: true }
+◇ injected env (0) from .env.development // tip: ⌘ enable debugging { debug: true }
+◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+CipherStash CLI v0.16.0
+
+Usage: bunx stash <command> [options]
+
+Commands:
+  init                 Initialize CipherStash for your project
+  plan                 Draft a reviewable encryption plan at .cipherstash/plan.md
+  impl                 Execute the plan with a local agent
+  status               Displays implementation status
+  auth <subcommand>    Authenticate with CipherStash
+  wizard               AI-guided encryption setup (reads your codebase)
+
+  db install           Scaffold stash.config.ts (if missing) and install EQL extensions
+  db upgrade           Upgrade EQL extensions to the latest version
+  db push              Push encryption schema (writes pending if active config already exists)
+  db activate          Promote pending → active without renames (use after additive db push)
+  db validate          Validate encryption schema
+  db migrate           Run pending encrypt config migrations
+  db status            Show EQL installation status
+  db test-connection   Test database connectivity
+
+  schema build         Build an encryption schema from your database
+
+  encrypt status       Show per-column migration status (phase, progress, drift)
+  encrypt plan         Diff intent (.cipherstash/migrations.json) vs observed state
+  encrypt backfill     Resumably encrypt plaintext into the encrypted column
+  encrypt cutover      Rename swap encrypted → primary column
+  encrypt drop         Generate a migration to drop the plaintext column
+
+  env                  (experimental) Print production env vars for deployment
+
+Options:
+  --help, -h           Show help
+  --version, -v        Show version
+
+Init Flags:
+  --supabase           Use Supabase-specific setup flow
+  --drizzle            Use Drizzle-specific setup flow
+  --prisma-next        Use Prisma Next-specific setup flow (EQL bundle installed via prisma-next migration apply)
+  --proxy              Query encrypted data via CipherStash Proxy
+  --no-proxy           Query encrypted data directly via the SDK (default)
+
+Plan Flags:
+  --complete-rollout       Plan the entire encryption lifecycle (schema-add through drop)
+                           in one document. Skips the production-deploy gate that
+                           normally separates rollout from cutover. Only safe when this
+                           database is not backing a deployed application (local dev,
+                           sandbox, freshly seeded test environment).
+  --target <name>          Skip the agent-target picker and hand off directly to one of
+                           claude-code | codex | agents-md | wizard. Safe to call from
+                           non-TTY contexts (CI, pipes). Without --target in non-TTY,
+                           the command prints a hint and exits cleanly instead of hanging.
+
+Status Flags:
+  --quest                  Force the quest-log output (emoji + progress bars)
+                           even in non-TTY contexts. Default is auto: fancy
+                           in a terminal, plain in CI / pipes / agents.
+  --plain                  Force the plain-text output even in TTY contexts.
+  --json                   Emit a structured JSON document instead.
+
+Impl Flags:
+  --continue-without-plan  Skip planning and go straight to implementation
+                           (interactively confirms before proceeding)
+  --target <name>          Skip the agent-target picker and hand off directly to one of
+                           claude-code | codex | agents-md | wizard. Safe to call from
+                           non-TTY contexts (CI, pipes). Without --target in non-TTY,
+                           the command prints a hint and exits cleanly instead of hanging.
+
+DB Flags:
+  --force                    (install) Reinstall / overwrite even if already installed
+  --dry-run                  (install, push, upgrade) Show what would happen without making changes
+  --supabase                 (install, upgrade, validate) Use Supabase-compatible mode (auto-detected from DATABASE_URL)
+  --drizzle                  (install) Generate a Drizzle migration instead of direct install (auto-detected from project)
+  --migration                (install, requires --supabase) Write a Supabase migration file instead of running SQL directly
+  --direct                   (install, requires --supabase) Run the SQL directly against the database (mutually exclusive with --migration)
+  --migrations-dir <path>    (install, requires --supabase) Override the Supabase migrations directory (default: supabase/migrations)
+  --exclude-operator-family  (install, upgrade, validate) Skip operator family creation
+  --latest                   (install, upgrade) Fetch the latest EQL from GitHub
+  --database-url <url>       (all db / schema commands) Override DATABASE_URL for this run only — never written to disk
+
+Examples:
+  bunx stash init
+  bunx stash init --supabase
+  bunx stash init --prisma-next
+  bunx stash plan
+  bunx stash impl
+  bunx stash impl --continue-without-plan
+  bunx stash impl --target claude-code
+  bunx stash status
+  bunx stash auth login
+  bunx stash wizard
+  bunx stash db install
+  bunx stash db push
+  bunx stash schema build
