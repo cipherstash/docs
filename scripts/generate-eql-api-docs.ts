@@ -51,9 +51,19 @@ interface Fn {
   returns?: { type?: string; description?: string };
   source?: { file?: string; line?: number };
 }
+interface Domain {
+  name: string;
+  type: string;
+  variant: string;
+  base?: string;
+  terms: string[];
+  capabilities: string[];
+  termFunctions?: string[];
+}
 interface Manifest {
   version: string;
   functions: Fn[];
+  domains?: Domain[];
 }
 
 function loadManifest(): Manifest {
@@ -83,6 +93,27 @@ function renderFn(fn: Fn): string {
   return parts.join("\n");
 }
 
+function renderDomains(domains: Domain[]): string {
+  if (!domains.length) return "";
+  const rows = domains
+    .map((d) => {
+      const variant = d.variant ? `\`_${d.variant}\`` : "_(storage only)_";
+      const terms = d.terms.length ? d.terms.map((t) => `\`${t}\``).join(" ") : "—";
+      return `| \`${d.name}\` | ${d.type} | ${variant} | ${d.capabilities.join(", ")} | ${terms} |`;
+    })
+    .join("\n");
+  return [
+    "## Encrypted domains",
+    "",
+    "A column's capability is declared by its **domain variant**, enforced by a `CHECK` on the required index terms (`hm` equality · `ob`/`op` order · `bf` match · `sv` JSON). See [Core concepts](/reference/eql/core-concepts) for the model.",
+    "",
+    "| Domain | Type | Variant | Capabilities | Index terms |",
+    "| --- | --- | --- | --- | --- |",
+    rows,
+    "",
+  ].join("\n");
+}
+
 function render(manifest: Manifest): string {
   const version = manifest.version;
   const publicFns = manifest.functions.filter((f) => f.visibility === "public");
@@ -108,8 +139,9 @@ function render(manifest: Manifest): string {
     `Generated from the **EQL ${version}** manifest (the Doxygen'd SQL is the source of truth). For the model behind these — variants, terms, typed operands — see [Core concepts](/reference/eql/core-concepts).`,
     `</Callout>`,
     "",
-    "The complete function surface of the `eql_v3` schema. The type and query pages explain *when* to use these; this page is the exhaustive signature reference they link to.",
+    "The `eql_v3` schema surface — encrypted domains and the functions behind them. The type and query pages explain *when* to use these; this page is the exhaustive reference they link to.",
     "",
+    renderDomains(manifest.domains ?? []),
     "## Functions",
     "",
     ...publicFns.map(renderFn),
@@ -124,13 +156,18 @@ function render(manifest: Manifest): string {
 
 // ── Drift guard ──────────────────────────────────────────────────────────────
 function driftCheck(manifest: Manifest): string[] {
-  const known = new Set(manifest.functions.map((f) => f.name));
+  // Known = every function AND every domain (short) name.
+  const known = new Set<string>([
+    ...manifest.functions.map((f) => f.name),
+    ...(manifest.domains ?? []).map((d) => d.name.replace(/^eql_v3\./, "")),
+  ]);
   const referenced = new Map<string, Set<string>>(); // symbol -> pages
 
   for (const file of fs.readdirSync(EQL_DIR)) {
     if (!file.endsWith(".mdx") || file === "functions.mdx") continue;
     const text = fs.readFileSync(path.join(EQL_DIR, file), "utf8");
-    for (const m of text.matchAll(/eql_v3\.([a-z0-9_]+)\s*\(/g)) {
+    // Any eql_v3.<symbol> — function call, domain cast, or type reference.
+    for (const m of text.matchAll(/eql_v3\.([a-z0-9_]+)/g)) {
       const sym = m[1];
       if (!referenced.has(sym)) referenced.set(sym, new Set());
       referenced.get(sym)!.add(file);
@@ -156,7 +193,7 @@ function main() {
 
   const unknown = driftCheck(manifest);
   if (unknown.length) {
-    const header = `⚠ ${unknown.length} eql_v3.* function(s) referenced in hand-written pages are not in the manifest:`;
+    const header = `⚠ ${unknown.length} eql_v3.* symbol(s) referenced in hand-written pages are not in the manifest (functions or domains):`;
     console.warn(`\n${header}`);
     for (const u of unknown) console.warn(`  - ${u}`);
     if (STRICT) {
