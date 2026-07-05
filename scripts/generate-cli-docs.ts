@@ -22,23 +22,22 @@
  * that is the point of this prototype.
  *
  * ── Versioning ────────────────────────────────────────────────────────────
- * CLI_VERSION is pinned. Bump it (Renovate can watch the `stash` npm dep),
- * re-run `bun run generate-docs:cli`, commit the regenerated pages. Every page
- * carries `verifiedAgainst.cli` and a visible banner, so readers and agents
- * always know which version the docs describe.
+ * Always generated from the LATEST published `stash` on npm (resolved via
+ * `npm view stash version`), so a new release plus a run of this script — it
+ * runs in `prebuild` — refreshes the docs automatically. Every page carries
+ * `verifiedAgainst.cli` and a visible banner, so readers and agents always
+ * know which version the docs describe. Offline, it falls back to the cached
+ * `scripts/fixtures/stash-help.txt`.
  */
 import { execSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 const CLI_NAME = "stash";
-const CLI_VERSION = "0.16.0"; // pinned; bump + regenerate on each release
+let CLI_VERSION = ""; // resolved to the latest published npm version at run time
 const RUNNER = "npx"; // normalized invocation shown in docs
-const FIXTURE = path.join(
-  process.cwd(),
-  "scripts/fixtures",
-  `stash-help-${CLI_VERSION}.txt`,
-);
+const FIXTURE = path.join(process.cwd(), "scripts/fixtures", "stash-help.txt");
 const OUT_DIR = path.join(process.cwd(), "content/docs/reference/cli");
 
 // ── Types (this shape is the spec for `stash manifest --json`) ──────────────
@@ -103,16 +102,40 @@ const componentsFor = (base: string): string[] =>
   ["db", "schema", "encrypt"].includes(base) ? ["cli", "eql"] : ["cli"];
 
 // ── Source ──────────────────────────────────────────────────────────────────
-function loadHelp(): string {
-  if (fs.existsSync(FIXTURE)) return fs.readFileSync(FIXTURE, "utf8");
-  // Bootstrap: fetch and cache. (Target: `stash manifest --json`.)
-  const out = execSync(`npx --yes ${CLI_NAME}@${CLI_VERSION} --help`, {
-    encoding: "utf8",
-    cwd: require("node:os").tmpdir(),
-  });
-  fs.mkdirSync(path.dirname(FIXTURE), { recursive: true });
-  fs.writeFileSync(FIXTURE, out);
-  return out;
+// Resolve the latest published version so the docs track releases automatically.
+function latestVersion(): string {
+  try {
+    return execSync(`npm view ${CLI_NAME} version`, { encoding: "utf8" }).trim();
+  } catch {
+    const cached = fs.existsSync(FIXTURE)
+      ? fs.readFileSync(FIXTURE, "utf8").match(/CipherStash CLI v([0-9.]+)/)?.[1]
+      : undefined;
+    if (cached) {
+      console.warn(`⚠ npm unreachable; using cached stash v${cached}.`);
+      return cached;
+    }
+    throw new Error("Cannot resolve latest stash version (offline, no fixture).");
+  }
+}
+
+// Run the resolved CLI version and cache its help. (Target: `stash manifest --json`.)
+function loadHelp(version: string): string {
+  try {
+    const out = execSync(`npx --yes ${CLI_NAME}@${version} --help`, {
+      encoding: "utf8",
+      cwd: os.tmpdir(),
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    fs.mkdirSync(path.dirname(FIXTURE), { recursive: true });
+    fs.writeFileSync(FIXTURE, out);
+    return out;
+  } catch {
+    if (fs.existsSync(FIXTURE)) {
+      console.warn(`⚠ Could not run stash@${version}; using cached fixture.`);
+      return fs.readFileSync(FIXTURE, "utf8");
+    }
+    throw new Error(`Could not run stash@${version} and no cached fixture exists.`);
+  }
 }
 
 // Drop dotenvx's env-injection tips and blank leading noise.
@@ -240,7 +263,8 @@ function parseFlagBlock(body: string[]): Flag[] {
 }
 
 // ── Render ───────────────────────────────────────────────────────────────────
-const GENERATED = `{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from \`${CLI_NAME} --help\` (v${CLI_VERSION}). Bump CLI_VERSION and re-run \`bun run generate-docs:cli\`. */}`;
+const generatedMarker = (): string =>
+  `{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from \`${CLI_NAME} --help\` (v${CLI_VERSION}). Re-run \`bun run generate-docs:cli\` to refresh from the latest published CLI. */}`;
 
 function banner(): string {
   return `<Callout type="info">
@@ -297,7 +321,7 @@ function renderPage(base: string, cmds: Command[]): { slug: string; body: string
     "---",
   ].join("\n");
 
-  const parts = [frontmatter, "", GENERATED, "", banner(), ""];
+  const parts = [frontmatter, "", generatedMarker(), "", banner(), ""];
 
   if (isGroup) {
     parts.push(
@@ -346,7 +370,7 @@ function renderIndex(manifest: Manifest, groups: Map<string, string[]>): string 
 
   return `${frontmatter}
 
-${GENERATED}
+${generatedMarker()}
 
 ${banner()}
 
@@ -369,10 +393,11 @@ function renderMeta(groups: Map<string, string[]>): string {
 // ── Main ─────────────────────────────────────────────────────────────────────
 function loadManifest(): Manifest {
   // Swap point: return JSON.parse(execSync(`npx ${CLI_NAME}@${CLI_VERSION} manifest --json`)).
-  return parseHelp(loadHelp());
+  return parseHelp(loadHelp(CLI_VERSION));
 }
 
 function main() {
+  CLI_VERSION = latestVersion();
   const manifest = loadManifest();
 
   // Group top-level commands by base, preserving discovery order.

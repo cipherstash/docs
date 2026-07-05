@@ -1,7 +1,7 @@
-◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
-◇ injected env (0) from .env.development.local // tip: ⌘ override existing { override: true }
-◇ injected env (0) from .env.development // tip: ⌘ enable debugging { debug: true }
-◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+◇ injected env (0) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (0) from .env.development.local // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from .env.development // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
 CipherStash CLI v0.16.0
 
 Usage: bunx stash <command> [options]
