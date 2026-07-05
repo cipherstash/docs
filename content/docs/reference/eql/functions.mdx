@@ -13,7 +13,20 @@ verifiedAgainst:
 Generated from the **EQL 3.0.0-sample** manifest (the Doxygen'd SQL is the source of truth). For the model behind these — variants, terms, typed operands — see [Core concepts](/reference/eql/core-concepts).
 </Callout>
 
-The complete function surface of the `eql_v3` schema. The type and query pages explain *when* to use these; this page is the exhaustive signature reference they link to.
+The `eql_v3` schema surface — encrypted domains and the functions behind them. The type and query pages explain *when* to use these; this page is the exhaustive reference they link to.
+
+## Encrypted domains
+
+A column's capability is declared by its **domain variant**, enforced by a `CHECK` on the required index terms (`hm` equality · `ob`/`op` order · `bf` match · `sv` JSON). See [Core concepts](/reference/eql/core-concepts) for the model.
+
+| Domain | Type | Variant | Capabilities | Index terms |
+| --- | --- | --- | --- | --- |
+| `eql_v3.integer` | integer | _(storage only)_ | storage | — |
+| `eql_v3.integer_eq` | integer | `_eq` | equality | `hm` |
+| `eql_v3.integer_ord` | integer | `_ord` | order | `ob` |
+| `eql_v3.integer_ord_ope` | integer | `_ord_ope` | order | `op` |
+| `eql_v3.text_match` | text | `_match` | match | `bf` |
+| `eql_v3.text_search` | text | `_search` | equality, order, match | `hm` `ob` `bf` |
 
 ## Functions
 
