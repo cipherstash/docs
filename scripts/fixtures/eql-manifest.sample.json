@@ -4,7 +4,7 @@
   "name": "eql",
   "version": "3.0.0-sample",
   "generatedFrom": "doxygen-xml + catalog",
-  "counts": { "functions": 3, "public": 3, "private": 0, "domains": 6 },
+  "counts": { "functions": 3, "public": 3, "private": 0, "domains": 9 },
   "functions": [
     {
       "name": "hmac_256",
@@ -42,17 +42,28 @@
   ],
   "domains": [
     { "name": "eql_v3.integer", "type": "integer", "variant": "", "base": "jsonb",
-      "capabilities": ["storage"], "supportedOperators": [] },
+      "capabilities": ["storage"], "supportedOperators": [], "termFunctions": [] },
     { "name": "eql_v3.integer_eq", "type": "integer", "variant": "eq", "base": "jsonb",
-      "capabilities": ["equality"], "supportedOperators": ["=", "<>"] },
+      "capabilities": ["equality"], "supportedOperators": ["=", "<>"],
+      "termFunctions": ["eql_v3.eq_term"] },
     { "name": "eql_v3.integer_ord", "type": "integer", "variant": "ord", "base": "jsonb",
-      "capabilities": ["equality", "order"], "supportedOperators": ["=", "<>", "<", "<=", ">", ">="] },
+      "capabilities": ["equality", "order"], "supportedOperators": ["=", "<>", "<", "<=", ">", ">="],
+      "termFunctions": ["eql_v3.ord_term"] },
     { "name": "eql_v3.integer_ord_ope", "type": "integer", "variant": "ord_ope", "base": "jsonb",
-      "capabilities": ["equality", "order"], "supportedOperators": ["=", "<>", "<", "<=", ">", ">="] },
+      "capabilities": ["equality", "order"], "supportedOperators": ["=", "<>", "<", "<=", ">", ">="],
+      "termFunctions": ["eql_v3.ord_ope_term"] },
     { "name": "eql_v3.text_match", "type": "text", "variant": "match", "base": "jsonb",
-      "capabilities": ["match"], "supportedOperators": ["@>", "<@"] },
+      "capabilities": ["match"], "supportedOperators": ["@>", "<@"],
+      "termFunctions": ["eql_v3.match_term"] },
     { "name": "eql_v3.text_search", "type": "text", "variant": "search", "base": "jsonb",
       "capabilities": ["equality", "order", "match"],
-      "supportedOperators": ["=", "<>", "<", "<=", ">", ">=", "@>", "<@"] }
+      "supportedOperators": ["=", "<>", "<", "<=", ">", ">=", "@>", "<@"],
+      "termFunctions": ["eql_v3.eq_term", "eql_v3.ord_term", "eql_v3.match_term"] },
+    { "name": "eql_v3.json", "type": "jsonb", "variant": "", "base": "jsonb", "shape": "stevec",
+      "capabilities": ["json"], "supportedOperators": [], "termFunctions": [] },
+    { "name": "eql_v3.jsonb_entry", "type": "jsonb", "variant": "", "base": "jsonb", "shape": "stevec",
+      "capabilities": ["json"], "supportedOperators": [], "termFunctions": [] },
+    { "name": "eql_v3.jsonb_query", "type": "jsonb", "variant": "", "base": "jsonb", "shape": "stevec",
+      "capabilities": ["json"], "supportedOperators": [], "termFunctions": [] }
   ]
 }

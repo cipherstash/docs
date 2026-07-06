@@ -58,6 +58,8 @@ interface Domain {
   base?: string;
   capabilities: string[];
   supportedOperators?: string[];
+  termFunctions?: string[];
+  shape?: string;
 }
 interface Manifest {
   version: string;
@@ -157,10 +159,14 @@ function render(manifest: Manifest): string {
 
 // ── Drift guard ──────────────────────────────────────────────────────────────
 function driftCheck(manifest: Manifest): string[] {
-  // Known = every function AND every domain (short) name.
+  // Known = every function, every domain (short) name, and every domain's
+  // extractor functions (eq_term / ord_term / …, authoritative from the catalog).
   const known = new Set<string>([
     ...manifest.functions.map((f) => f.name),
     ...(manifest.domains ?? []).map((d) => d.name.replace(/^eql_v3\./, "")),
+    ...(manifest.domains ?? []).flatMap((d) =>
+      (d.termFunctions ?? []).map((fn) => fn.replace(/^eql_v3\./, "")),
+    ),
   ]);
   const referenced = new Map<string, Set<string>>(); // symbol -> pages
 
