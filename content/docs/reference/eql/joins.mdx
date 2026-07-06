@@ -21,7 +21,7 @@ Equijoins work on equality-capable variants (`_eq`, `_ord` / `_ord_ore`, `text_s
 SELECT u.*, o.total
 FROM users u
 JOIN orders o ON u.email = o.customer_email;
--- both columns eql_v3.text_eq, encrypted with the same keyset
+-- both columns public.text_eq, encrypted with the same keyset
 ```
 
 No typed-operand cast is needed here — both operands are encrypted columns, so their domain types resolve the encrypted operator directly. All join types (`INNER`, `LEFT`, `RIGHT`, `FULL`) work; `LEFT JOIN` null-extension behaves normally because SQL `NULL`s are not encrypted.
@@ -47,17 +47,17 @@ If the two columns are under different keysets, `IN (subquery)` matches nothing,
 
 ## Worked example
 
-Two tables sharing an encrypted customer identifier, both columns typed `eql_v3.text_eq` and encrypted by the same client configuration (same keyset):
+Two tables sharing an encrypted customer identifier, both columns typed `public.text_eq` and encrypted by the same client configuration (same keyset):
 
 ```sql
 CREATE TABLE users (
   id    BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  email eql_v3.text_eq
+  email public.text_eq
 );
 
 CREATE TABLE orders (
   id             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  customer_email eql_v3.text_eq,
+  customer_email public.text_eq,
   total          BIGINT NOT NULL
 );
 
@@ -72,7 +72,7 @@ Orders per user, filtered by an encrypted lookup on one side:
 SELECT u.id, COUNT(o.id) AS order_count
 FROM users u
 LEFT JOIN orders o ON u.email = o.customer_email
-WHERE u.email = $1::eql_v3.text_eq
+WHERE u.email = $1::public.text_eq
 GROUP BY u.id;
 ```
 
