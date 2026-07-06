@@ -56,9 +56,8 @@ interface Domain {
   type: string;
   variant: string;
   base?: string;
-  terms: string[];
   capabilities: string[];
-  termFunctions?: string[];
+  supportedOperators?: string[];
 }
 interface Manifest {
   version: string;
@@ -98,16 +97,18 @@ function renderDomains(domains: Domain[]): string {
   const rows = domains
     .map((d) => {
       const variant = d.variant ? `\`_${d.variant}\`` : "_(storage only)_";
-      const terms = d.terms.length ? d.terms.map((t) => `\`${t}\``).join(" ") : "—";
-      return `| \`${d.name}\` | ${d.type} | ${variant} | ${d.capabilities.join(", ")} | ${terms} |`;
+      const ops = d.supportedOperators?.length
+        ? d.supportedOperators.map((o) => `\`${o}\``).join(" ")
+        : "—";
+      return `| \`${d.name}\` | ${d.type} | ${variant} | ${d.capabilities.join(", ")} | ${ops} |`;
     })
     .join("\n");
   return [
     "## Encrypted domains",
     "",
-    "A column's capability is declared by its **domain variant**, enforced by a `CHECK` on the required index terms (`hm` equality · `ob`/`op` order · `bf` match · `sv` JSON). See [Core concepts](/reference/eql/core-concepts) for the model.",
+    "A column's capability is declared by its **domain variant**. This matrix comes straight from the Rust catalog (`eql-codegen dump-catalog`) — the source of truth the SQL is generated from. See [Core concepts](/reference/eql/core-concepts) for the model.",
     "",
-    "| Domain | Type | Variant | Capabilities | Index terms |",
+    "| Domain | Type | Variant | Capabilities | Operators |",
     "| --- | --- | --- | --- | --- |",
     rows,
     "",
