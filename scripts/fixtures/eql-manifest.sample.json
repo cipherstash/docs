@@ -3,7 +3,7 @@
   "$schema": "https://schemas.cipherstash.com/eql/manifest/v1.json",
   "name": "eql",
   "version": "3.0.0-sample",
-  "generatedFrom": "doxygen-xml + sql-domains",
+  "generatedFrom": "doxygen-xml + catalog",
   "counts": { "functions": 3, "public": 3, "private": 0, "domains": 6 },
   "functions": [
     {
@@ -42,24 +42,17 @@
   ],
   "domains": [
     { "name": "eql_v3.integer", "type": "integer", "variant": "", "base": "jsonb",
-      "brief": "Encrypted domain eql_v3.integer.", "terms": [], "capabilities": ["storage"],
-      "termFunctions": [], "source": { "file": "src/v3/scalars/integer/integer_types.sql", "line": 14 } },
+      "capabilities": ["storage"], "supportedOperators": [] },
     { "name": "eql_v3.integer_eq", "type": "integer", "variant": "eq", "base": "jsonb",
-      "brief": "Encrypted domain eql_v3.integer_eq.", "terms": ["hm"], "capabilities": ["equality"],
-      "termFunctions": ["eql_v3.hmac_256"], "source": { "file": "src/v3/scalars/integer/integer_types.sql", "line": 29 } },
+      "capabilities": ["equality"], "supportedOperators": ["=", "<>"] },
     { "name": "eql_v3.integer_ord", "type": "integer", "variant": "ord", "base": "jsonb",
-      "brief": "Encrypted domain eql_v3.integer_ord.", "terms": ["ob"], "capabilities": ["order"],
-      "termFunctions": ["eql_v3.ore_block_256"], "source": { "file": "src/v3/scalars/integer/integer_types.sql", "line": 63 } },
+      "capabilities": ["equality", "order"], "supportedOperators": ["=", "<>", "<", "<=", ">", ">="] },
     { "name": "eql_v3.integer_ord_ope", "type": "integer", "variant": "ord_ope", "base": "jsonb",
-      "brief": "Encrypted domain eql_v3.integer_ord_ope.", "terms": ["op"], "capabilities": ["order"],
-      "termFunctions": [], "source": { "file": "src/v3/scalars/integer/integer_types.sql", "line": 81 } },
+      "capabilities": ["equality", "order"], "supportedOperators": ["=", "<>", "<", "<=", ">", ">="] },
     { "name": "eql_v3.text_match", "type": "text", "variant": "match", "base": "jsonb",
-      "brief": "Encrypted domain eql_v3.text_match.", "terms": ["bf"], "capabilities": ["match"],
-      "termFunctions": ["eql_v3.bloom_filter"], "source": { "file": "src/v3/scalars/text/text_types.sql", "line": 44 } },
+      "capabilities": ["match"], "supportedOperators": ["@>", "<@"] },
     { "name": "eql_v3.text_search", "type": "text", "variant": "search", "base": "jsonb",
-      "brief": "Encrypted domain eql_v3.text_search.", "terms": ["hm", "ob", "bf"],
       "capabilities": ["equality", "order", "match"],
-      "termFunctions": ["eql_v3.hmac_256", "eql_v3.ore_block_256", "eql_v3.bloom_filter"],
-      "source": { "file": "src/v3/scalars/text/text_types.sql", "line": 60 } }
+      "supportedOperators": ["=", "<>", "<", "<=", ">", ">=", "@>", "<@"] }
   ]
 }
