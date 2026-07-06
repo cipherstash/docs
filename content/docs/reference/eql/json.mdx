@@ -34,7 +34,7 @@ An encrypted JSON document uses a different payload shape from the scalar types:
 
 The decoded `oc` value starts with a domain-tag byte (`0x00` numeric, `0x01` string) followed by the CLLW ciphertext, so numeric and string values in one column keep a consistent total order. Earlier payload versions split this into two fields — `ocf` (fixed-width, numeric) and `ocv` (variable-width, string) — which consolidated into the single `oc` key; the tag byte now carries the distinction.
 
-A document payload for an `public.json` column:
+A document payload for a `public.json` column:
 
 ```json
 {

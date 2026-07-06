@@ -53,10 +53,10 @@ SELECT COUNT(DISTINCT eql_v3.eq_term(email)) FROM logins;
 EQL ships `min` / `max` aggregates per ord-capable variant of every scalar type. The input type selects the aggregate, and the return type matches the input:
 
 ```sql
-eql_v3.min(eql_v3.<T>_ord)      RETURNS eql_v3.<T>_ord
-eql_v3.max(eql_v3.<T>_ord)      RETURNS eql_v3.<T>_ord
-eql_v3.min(eql_v3.<T>_ord_ore)  RETURNS eql_v3.<T>_ord_ore
-eql_v3.max(eql_v3.<T>_ord_ore)  RETURNS eql_v3.<T>_ord_ore
+eql_v3.min(public.<T>_ord)      RETURNS public.<T>_ord
+eql_v3.max(public.<T>_ord)      RETURNS public.<T>_ord
+eql_v3.min(public.<T>_ord_ore)  RETURNS public.<T>_ord_ore
+eql_v3.max(public.<T>_ord_ore)  RETURNS public.<T>_ord_ore
 ```
 
 Comparison routes through the variant's `<` / `>` operator on the ORE term — no decryption happens in the database, and the result is an encrypted value the client decrypts. `NULL` inputs are skipped; an all-`NULL` input set returns `NULL`, matching native aggregate semantics.

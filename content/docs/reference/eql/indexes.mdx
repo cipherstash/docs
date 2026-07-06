@@ -33,13 +33,13 @@ Type the column as the domain variant that carries the term (see [Core concepts]
 
 ```sql
 -- Equality: hash index on eq_term
--- (columns typed eql_v3.<T>_eq or text_search; equality on _ord columns
+-- (columns typed public.<T>_eq or text_search; equality on _ord columns
 -- compares ORE terms, so the btree on ord_term below serves it)
 CREATE INDEX users_email_eq
   ON users USING hash (eql_v3.eq_term(email));
 
 -- Range / ordering: btree index on ord_term
--- (columns typed eql_v3.<T>_ord or _ord_ore)
+-- (columns typed public.<T>_ord or _ord_ore)
 CREATE INDEX users_created_at_ord
   ON users USING btree (eql_v3.ord_term(created_at));
 
