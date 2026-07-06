@@ -15,10 +15,10 @@ Both types generate the same `jsonb`-backed domain variants. The generic form:
 
 | Domain variant | Capability |
 | --- | --- |
-| `eql_v3.<T>` | Storage and decryption only. |
-| `eql_v3.<T>_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
-| `eql_v3.<T>_ord` | Comparisons, `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
-| `eql_v3.<T>_ord_ore` | As `<T>_ord`, with the ORE mechanism pinned — see [SEM specifiers](#sem-specifiers). |
+| `public.<T>` | Storage and decryption only. |
+| `public.<T>_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
+| `public.<T>_ord` | Comparisons, `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
+| `public.<T>_ord_ore` | As `<T>_ord`, with the ORE mechanism pinned — see [SEM specifiers](#sem-specifiers). |
 
 And every concrete domain this page covers:
 
@@ -75,7 +75,7 @@ A value for an `_ord` column carries the shared envelope keys (`v`, `i`, `c` —
 
 ## Operators
 
-| SQL operator | `eql_v3.<T>` | `<T>_eq` | `<T>_ord` / `<T>_ord_ore` |
+| SQL operator | `public.<T>` | `<T>_eq` | `<T>_ord` / `<T>_ord_ore` |
 | --- | :---: | :---: | :---: |
 | `=` / `<>` | ❌ | ✅ | ✅ |
 | `<` `<=` `>` `>=` | ❌ | ❌ | ✅ |
