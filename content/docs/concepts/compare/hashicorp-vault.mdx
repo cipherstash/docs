@@ -2,7 +2,7 @@
 title: CipherStash vs HashiCorp Vault
 description: How CipherStash ZeroKMS compares to HashiCorp Vault's Transit secrets engine for application-level encryption — trust model, per-record keys, plaintext exposure, and the trade-offs of Vault's direct and envelope modes.
 type: concept
-components: [zerokms]
+components: [platform]
 audience: [developer, cto, ciso]
 reviewBy: "2027-01-05"
 ---
@@ -50,7 +50,7 @@ The trade-off lands in a different place than it does for a cloud KMS, because o
 - **Envelope keeps plaintext client-side, but per-record keys cost you on writes.** A unique key per record means one `datakey` round-trip *per record* on the write path (there is no batched key generation). That's the `✗` in the bulk column — it's a *write*-throughput cost.
 - **Reuse buys back write throughput by sharing a key** across many records. That's a security trade-off, not a free lunch: you lose per-record revocation (revoking one record's key revokes it for every record sharing it) and per-record audit (the log shows one unwrap of a key that opens many records, not which record was read).
 
-Note what does **not** happen: a scattered read does not collapse. Vault unwraps all the distinct data keys in a result with a single batched `transit/decrypt` call, so reads are one round-trip regardless of access pattern. This is where Vault differs from AWS KMS — whose `Decrypt` has no batch API, so a scattered read of N records costs N calls (see [CipherStash vs AWS KMS](/compare/aws-kms)). For Vault, the cost of per-record keys lands on **writes**, and the cost of reuse is the **security model** — not reads.
+Note what does **not** happen: a scattered read does not collapse. Vault unwraps all the distinct data keys in a result with a single batched `transit/decrypt` call, so reads are one round-trip regardless of access pattern. This is where Vault differs from AWS KMS — whose `Decrypt` has no batch API, so a scattered read of N records costs N calls (see [CipherStash vs AWS KMS](/concepts/compare/aws-kms)). For Vault, the cost of per-record keys lands on **writes**, and the cost of reuse is the **security model** — not reads.
 
 ## Architecture & trust model
 
@@ -113,6 +113,6 @@ Vault and CipherStash can also coexist: Vault for infrastructure secrets and its
 - [CipherStash Encryption getting started](/stack/quickstart)
 - [ZeroKMS](/stack/cipherstash/kms)
 - [Searchable encryption concepts](/stack/cipherstash/encryption/searchable-encryption)
-- [CipherStash vs AWS KMS](/compare/aws-kms) — the same data-key trade-off in a cloud KMS
-- [All comparisons](/compare)
+- [CipherStash vs AWS KMS](/concepts/compare/aws-kms) — the same data-key trade-off in a cloud KMS
+- [All comparisons](/concepts/compare)
 - [HashiCorp Vault Transit documentation](https://developer.hashicorp.com/vault/docs/secrets/transit)
