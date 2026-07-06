@@ -251,12 +251,12 @@ export const v2Redirects = [
   },
   {
     source: "/stack/reference/comparisons",
-    destination: "/compare",
+    destination: "/concepts/compare",
     permanent: false,
   },
   {
     source: "/stack/reference/comparisons/:path*",
-    destination: "/compare/:path*",
+    destination: "/concepts/compare/:path*",
     permanent: false,
   },
   {

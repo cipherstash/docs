@@ -39,7 +39,7 @@ export const v2docs = defineDocs({
       // tailored-quickstart picker (CIP-3339). Nav position never depends on
       // these — the sidebar tree comes from meta.json alone.
       components: z
-        .array(z.enum(["encryption", "auth", "zerokms", "eql", "proxy", "cli"]))
+        .array(z.enum(["encryption", "platform", "eql", "proxy", "cli"]))
         .optional(),
       audience: z.array(z.enum(["developer", "cto", "ciso"])).optional(),
       integration: z

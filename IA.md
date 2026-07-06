@@ -335,11 +335,16 @@ Two notes:
 
 ## Comparisons — CIP-3333
 
-- [x] Section scaffold 🚧
-- [ ] `/compare/aws-kms` (port)
-- [ ] `/compare/fhe` (port)
-- [ ] `/compare/rls-and-tde` (new — expand the Supabase-listing RLS contrast)
-- [ ] `/compare/hashicorp-vault` (in flight on `docs/vault-comparison` branch — land there or here, then port)
+Folded into Concepts (see the sidebar spec above): the comparison pages live at
+`/concepts/compare/*`, not a top-level `/compare` tab. `/stack/reference/comparisons`
+and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
+
+- [x] Section scaffold 🚧 (moved under `concepts/`)
+- [ ] `/concepts/compare/aws-kms` (port)
+- [ ] `/concepts/compare/fhe` (port)
+- [ ] `/concepts/compare/zerokms-vs-hsm` (ZeroKMS vs hardware security modules)
+- [ ] `/concepts/compare/rls-and-tde` (new — expand the Supabase-listing RLS contrast)
+- [ ] `/concepts/compare/hashicorp-vault` (in flight on `docs/vault-comparison` branch — land there or here, then port)
 
 ## Guides
 
