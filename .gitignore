@@ -39,3 +39,6 @@ content/stack/reference/drizzle/latest/
 content/stack/reference/drizzle/v*/
 .tmp-*
 .env.local
+
+# EQL release manifest extracted by generate-eql-docs.ts (see generate-eql-api-docs.ts)
+.eql-manifest.release.json

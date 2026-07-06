@@ -39,7 +39,7 @@ Note the trade-off: grouping on `eq_term` returns the *term*, not the encrypted 
 Plain `COUNT(col)` counts non-`NULL` rows — it never compares values, so it works on **any** variant, including storage-only ones:
 
 ```sql
-SELECT COUNT(tax_id) FROM users;   -- works even on bare eql_v3.text
+SELECT COUNT(tax_id) FROM users;   -- works even on bare public.text
 ```
 
 `COUNT(DISTINCT col)` deduplicates, so it needs an equality-capable variant — and the same extractor advice applies:
@@ -74,7 +74,7 @@ SELECT eql_v3.eq_term(department_code) AS dept, eql_v3.max(salary)
 If the column is generic `jsonb` rather than a domain, cast to the right variant at the call site so overload resolution can pick the aggregate:
 
 ```sql
-SELECT eql_v3.min(salary_jsonb::eql_v3.int8_ord) FROM users;
+SELECT eql_v3.min(salary_jsonb::public.bigint_ord) FROM users;
 ```
 
 A btree on `eql_v3.ord_term(col)` serves `MIN` / `MAX` — the [Indexes](/reference/eql/indexes) page has the recipe.

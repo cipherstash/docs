@@ -8,33 +8,44 @@
  *   1. Generates a version-stamped function catalog at
  *      content/docs/reference/eql/functions.mdx — the exhaustive, drift-proof
  *      low-level reference the hand-written pedagogical pages link to.
- *   2. Drift-lints the hand-written pages: every `eql_v3.<fn>(...)` referenced
- *      in them should exist in the manifest for the shipped EQL version. This
- *      is what would have caught the fabricated function names / stale payload
- *      that slipped into the v2 docs.
+ *   2. Drift-lints the hand-written pages: every schema-qualified reference
+ *      (`public.<domain>`, `eql_v3.<fn>`, `eql_v3_internal.<fn>`) must match the
+ *      manifest by schema AND name. This catches fabricated names, stale
+ *      payloads, and right-name/wrong-schema refs (e.g. `eql_v3.text_eq` for a
+ *      domain that lives in `public`) — the classes of drift that slipped into
+ *      the v2 docs.
  *
  * ── Manifest source ────────────────────────────────────────────────────────
- * TODAY: reads a committed illustrative sample (shape only), so the generated
- * format and the lint are reviewable before the EQL side ships.
- * TARGET: once #364 releases, `generate-eql-docs.ts` already downloads the
- * `eql-docs-<tag>` asset — extend it to also extract `json/eql-manifest.json`
- * and point MANIFEST_PATH at it. The renderer and lint stay identical.
+ * Reads the committed illustrative sample by default. Set EQL_MANIFEST_PATH to
+ * a real manifest (the `eql-docs-<tag>` release asset extracted by
+ * `generate-eql-docs.ts`, or a locally-generated one) — the renderer and lint
+ * are identical either way.
  *
- * The drift-lint is REPORT-ONLY against the sample (which is tiny, so most real
- * symbols read as "unknown"); it becomes a failing gate once wired to the real
- * manifest. See STRICT below.
+ * The drift-lint is REPORT-ONLY against the sample (tiny, so most real symbols
+ * read as "unknown"); it becomes a failing gate against a real manifest
+ * (auto-strict when EQL_MANIFEST_PATH is set). See STRICT below.
  */
 import fs from "node:fs";
 import path from "node:path";
 
-const MANIFEST_PATH = path.join(
+// Manifest source, in priority order:
+//   1. EQL_MANIFEST_PATH — explicit override (local testing / CI).
+//   2. .eql-manifest.release.json — extracted from the eql-docs release asset
+//      by generate-eql-docs.ts (present once a release ships the manifest).
+//   3. the committed illustrative sample — offline fallback.
+const SAMPLE_MANIFEST = path.join(
   process.cwd(),
   "scripts/fixtures/eql-manifest.sample.json",
 );
+const RELEASE_MANIFEST = path.join(process.cwd(), ".eql-manifest.release.json");
+const MANIFEST_PATH =
+  process.env.EQL_MANIFEST_PATH ??
+  (fs.existsSync(RELEASE_MANIFEST) ? RELEASE_MANIFEST : SAMPLE_MANIFEST);
 const EQL_DIR = path.join(process.cwd(), "content/docs/reference/eql");
 const OUT_FILE = path.join(EQL_DIR, "functions.mdx");
-// Flip to true once MANIFEST_PATH points at the real release manifest.
-const STRICT = false;
+// Report-only against the illustrative sample; a failing gate against any real
+// manifest (the release asset or an explicit override).
+const STRICT = MANIFEST_PATH !== SAMPLE_MANIFEST;
 
 interface Param {
   name: string;
@@ -83,15 +94,49 @@ function paramsTable(params: Param[]): string {
   return `\n| Parameter | Type | Description |\n| --- | --- | --- |\n${rows}\n`;
 }
 
-function renderFn(fn: Fn): string {
-  const parts = [`### \`${fn.signature}\``, "", fn.brief];
-  if (fn.description && fn.description !== fn.brief) parts.push("", fn.description);
-  if (fn.params.length) parts.push(paramsTable(fn.params));
-  if (fn.returns?.type || fn.returns?.description) {
-    const t = fn.returns.type ? `\`${fn.returns.type}\`` : "";
-    parts.push("", `**Returns:** ${t}${fn.returns.description ? ` — ${fn.returns.description}` : ""}`);
+// Public functions are heavily overloaded — one name per operation with a
+// per-encrypted-type variant, all sharing the same doc. Group by name so the
+// page is one entry per function (its distinct signatures listed) instead of
+// ~hundreds of near-identical overload blocks.
+function renderPublicFunctions(fns: Fn[]): string {
+  const byName = new Map<string, Fn[]>();
+  for (const f of fns) {
+    const g = byName.get(f.name) ?? [];
+    g.push(f);
+    byName.set(f.name, g);
   }
-  return parts.join("\n");
+  const sections: string[] = [];
+  const entries = [...byName.entries()].sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  );
+  for (const [name, overloads] of entries) {
+    const rep =
+      overloads.find((o) => o.params.length || o.brief) ?? overloads[0];
+    const sigs = [...new Set(overloads.map((o) => o.signature))].sort();
+    const parts = [`### \`${name}\``, "", rep.brief];
+    if (rep.description && rep.description !== rep.brief)
+      parts.push("", rep.description);
+    parts.push(
+      "",
+      sigs.length > 1
+        ? `**${sigs.length} overloads** (one per encrypted type):`
+        : "**Signature:**",
+      "",
+      "```sql",
+      ...sigs,
+      "```",
+    );
+    if (rep.params.length) parts.push(paramsTable(rep.params));
+    if (rep.returns?.type || rep.returns?.description) {
+      const t = rep.returns.type ? `\`${rep.returns.type}\`` : "";
+      parts.push(
+        "",
+        `**Returns:** ${t}${rep.returns.description ? ` — ${rep.returns.description}` : ""}`,
+      );
+    }
+    sections.push(parts.join("\n"));
+  }
+  return sections.join("\n\n");
 }
 
 function renderDomains(domains: Domain[]): string {
@@ -119,8 +164,16 @@ function renderDomains(domains: Domain[]): string {
 
 function render(manifest: Manifest): string {
   const version = manifest.version;
-  const publicFns = manifest.functions.filter((f) => f.visibility === "public");
-  const privateFns = manifest.functions.filter((f) => f.visibility === "private");
+  // Operators (`->`, `>`) reach the manifest as pseudo-functions via Doxygen's
+  // operator-name remapping; they render poorly and are already covered by the
+  // domain matrix's Operators column, so keep only real named functions here.
+  const isNamed = (f: Fn) => /^[a-z_][a-z0-9_]*$/.test(f.name);
+  const publicFns = manifest.functions.filter(
+    (f) => f.visibility === "public" && isNamed(f),
+  );
+  const privateFns = manifest.functions.filter(
+    (f) => f.visibility === "private",
+  );
 
   const frontmatter = [
     "---",
@@ -142,48 +195,63 @@ function render(manifest: Manifest): string {
     `Generated from the **EQL ${version}** manifest (the Doxygen'd SQL is the source of truth). For the model behind these — variants, terms, typed operands — see [Core concepts](/reference/eql/core-concepts).`,
     `</Callout>`,
     "",
-    "The `eql_v3` schema surface — encrypted domains and the functions behind them. The type and query pages explain *when* to use these; this page is the exhaustive reference they link to.",
+    "The EQL SQL surface — encrypted domains (in the `public` schema) and the `eql_v3` functions behind them. The type and query pages explain *when* to use these; this page is the exhaustive reference they link to.",
     "",
     renderDomains(manifest.domains ?? []),
     "## Functions",
     "",
-    ...publicFns.map(renderFn),
+    `The public \`eql_v3\` API — ${new Set(publicFns.map((f) => f.name)).size} functions (${publicFns.length} overloads). Internal \`eql_v3_internal\` functions (${privateFns.length}) are implementation detail and omitted.`,
+    "",
+    renderPublicFunctions(publicFns),
   ];
-
-  if (privateFns.length) {
-    body.push("", "## Internal functions", "", ...privateFns.map(renderFn));
-  }
 
   return `${body.join("\n").trimEnd()}\n`;
 }
 
 // ── Drift guard ──────────────────────────────────────────────────────────────
+// The known surface is fully schema-qualified: domains live in `public.`,
+// functions in `eql_v3.` (public) or `eql_v3_internal.` (private), and the
+// per-domain extractor term-functions come pre-qualified from the catalog.
+// Matching schema-AND-name means a right-name/wrong-schema reference — e.g.
+// `eql_v3.text_eq`, whose domain is actually `public.text_eq` — is flagged too,
+// not just fabricated names.
+function knownSymbols(manifest: Manifest): Set<string> {
+  const known = new Set<string>();
+  for (const d of manifest.domains ?? []) {
+    known.add(d.name); // public.<domain>
+    for (const fn of d.termFunctions ?? []) known.add(fn); // eql_v3.<extractor>
+  }
+  for (const f of manifest.functions) {
+    const schema = f.visibility === "private" ? "eql_v3_internal" : "eql_v3";
+    known.add(`${schema}.${f.name}`);
+  }
+  return known;
+}
+
 function driftCheck(manifest: Manifest): string[] {
-  // Known = every function, every domain (short) name, and every domain's
-  // extractor functions (eq_term / ord_term / …, authoritative from the catalog).
-  const known = new Set<string>([
-    ...manifest.functions.map((f) => f.name),
-    ...(manifest.domains ?? []).map((d) => d.name.replace(/^eql_v3\./, "")),
-    ...(manifest.domains ?? []).flatMap((d) =>
-      (d.termFunctions ?? []).map((fn) => fn.replace(/^eql_v3\./, "")),
-    ),
-  ]);
-  const referenced = new Map<string, Set<string>>(); // symbol -> pages
+  const known = knownSymbols(manifest);
+  const referenced = new Map<string, Set<string>>(); // fqn -> pages
 
   for (const file of fs.readdirSync(EQL_DIR)) {
     if (!file.endsWith(".mdx") || file === "functions.mdx") continue;
     const text = fs.readFileSync(path.join(EQL_DIR, file), "utf8");
-    // Any eql_v3.<symbol> — function call, domain cast, or type reference.
-    for (const m of text.matchAll(/eql_v3\.([a-z0-9_]+)/g)) {
-      const sym = m[1];
-      if (!referenced.has(sym)) referenced.set(sym, new Set());
-      referenced.get(sym)!.add(file);
+    // Any schema-qualified reference — function call, domain cast, or type.
+    // A trailing `*` marks a prose family (e.g. `eql_v3.jsonb_path_*`), which
+    // names a set rather than one symbol, so it's skipped.
+    for (const m of text.matchAll(
+      /\b(public|eql_v3_internal|eql_v3)\.([a-z0-9_]+)(\*?)/g,
+    )) {
+      if (m[3] === "*") continue;
+      const fqn = `${m[1]}.${m[2]}`;
+      const pages = referenced.get(fqn) ?? new Set<string>();
+      pages.add(file);
+      referenced.set(fqn, pages);
     }
   }
 
   const unknown: string[] = [];
-  for (const [sym, pages] of referenced) {
-    if (!known.has(sym)) unknown.push(`${sym}  (in ${[...pages].join(", ")})`);
+  for (const [fqn, pages] of referenced) {
+    if (!known.has(fqn)) unknown.push(`${fqn}  (in ${[...pages].join(", ")})`);
   }
   return unknown.sort();
 }
@@ -200,7 +268,7 @@ function main() {
 
   const unknown = driftCheck(manifest);
   if (unknown.length) {
-    const header = `⚠ ${unknown.length} eql_v3.* symbol(s) referenced in hand-written pages are not in the manifest (functions or domains):`;
+    const header = `⚠ ${unknown.length} schema-qualified symbol(s) referenced in hand-written pages are not in the manifest (domains or functions):`;
     console.warn(`\n${header}`);
     for (const u of unknown) console.warn(`  - ${u}`);
     if (STRICT) {
@@ -210,11 +278,13 @@ function main() {
       process.exit(1);
     } else {
       console.warn(
-        "\n(Report-only: using the illustrative sample manifest. Becomes a failing gate once wired to the real release manifest — set STRICT = true.)",
+        "\n(Report-only: using the illustrative sample manifest, which covers only a few symbols. A real manifest — the release asset or EQL_MANIFEST_PATH — makes this a failing gate.)",
       );
     }
   } else {
-    console.log("✓ Drift check: all referenced eql_v3.* functions are in the manifest.");
+    console.log(
+      "✓ Drift check: all schema-qualified symbols resolve against the manifest.",
+    );
   }
 }
 

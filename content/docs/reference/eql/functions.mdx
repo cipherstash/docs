@@ -13,7 +13,7 @@ verifiedAgainst:
 Generated from the **EQL 3.0.0-sample** manifest (the Doxygen'd SQL is the source of truth). For the model behind these — variants, terms, typed operands — see [Core concepts](/reference/eql/core-concepts).
 </Callout>
 
-The `eql_v3` schema surface — encrypted domains and the functions behind them. The type and query pages explain *when* to use these; this page is the exhaustive reference they link to.
+The EQL SQL surface — encrypted domains (in the `public` schema) and the `eql_v3` functions behind them. The type and query pages explain *when* to use these; this page is the exhaustive reference they link to.
 
 ## Encrypted domains
 
@@ -21,51 +21,50 @@ A column's capability is declared by its **domain variant**. This matrix comes s
 
 | Domain | Type | Variant | Capabilities | Operators |
 | --- | --- | --- | --- | --- |
-| `eql_v3.integer` | integer | _(storage only)_ | storage | — |
-| `eql_v3.integer_eq` | integer | `_eq` | equality | `=` `<>` |
-| `eql_v3.integer_ord` | integer | `_ord` | equality, order | `=` `<>` `<` `<=` `>` `>=` |
-| `eql_v3.integer_ord_ope` | integer | `_ord_ope` | equality, order | `=` `<>` `<` `<=` `>` `>=` |
-| `eql_v3.text_match` | text | `_match` | match | `@>` `<@` |
-| `eql_v3.text_search` | text | `_search` | equality, order, match | `=` `<>` `<` `<=` `>` `>=` `@>` `<@` |
-| `eql_v3.json` | jsonb | _(storage only)_ | json | — |
-| `eql_v3.jsonb_entry` | jsonb | _(storage only)_ | json | — |
-| `eql_v3.jsonb_query` | jsonb | _(storage only)_ | json | — |
+| `public.integer` | integer | _(storage only)_ | storage | — |
+| `public.integer_eq` | integer | `_eq` | equality | `=` `<>` |
+| `public.integer_ord` | integer | `_ord` | equality, order | `=` `<>` `<` `<=` `>` `>=` |
+| `public.integer_ord_ope` | integer | `_ord_ope` | equality, order | `=` `<>` `<` `<=` `>` `>=` |
+| `public.text_match` | text | `_match` | match | `@>` `<@` |
+| `public.text_search` | text | `_search` | equality, order, match | `=` `<>` `<` `<=` `>` `>=` `@>` `<@` |
+| `public.json` | jsonb | _(storage only)_ | json | — |
+| `public.jsonb_entry` | jsonb | _(storage only)_ | json | — |
+| `public.jsonb_query` | jsonb | _(storage only)_ | json | — |
 
 ## Functions
 
-### `hmac_256(jsonb)`
+The public `eql_v3` API — 2 functions (2 overloads). Internal `eql_v3_internal` functions (3) are implementation detail and omitted.
 
-Extract the HMAC-SHA-256 equality term from an encrypted value.
+### `jsonb_path_query`
 
-Backs equality (`=`, `IN`, joins) on `_eq` and `text_search` columns.
+Query encrypted JSONB for sv elements matching a selector.
 
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `val` | `jsonb` | the encrypted value |
+Returns one jsonb_entry row per matching encrypted element.
 
+**Signature:**
 
-**Returns:** `text` — the HMAC term
-### `bloom_filter(jsonb)`
-
-Extract the bloom-filter match term from an encrypted value.
-
-Backs token containment (`@>`) on `text_match` / `text_search` columns.
+```sql
+jsonb_path_query(jsonb, text)
+```
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `val` | `jsonb` | the encrypted value |
+| `val` | `jsonb` | encrypted EQL payload with sv |
+| `selector` | `text` | selector hash |
 
 
-**Returns:** `smallint[]` — the set bit positions
-### `ore_block_256(jsonb)`
+**Returns:** `public.jsonb_entry` — matching encrypted entries
 
-Extract the ORE ordering term from an encrypted value.
+### `version`
 
-Backs range and ordering (`<`, `>`, `ORDER BY`) on `_ord` columns.
+Get the installed EQL version string.
 
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `val` | `jsonb` | the encrypted value |
+Returns the version string for the installed EQL library.
 
+**Signature:**
 
-**Returns:** `eql_v3.ore_block_256` — the ORE term
+```sql
+version()
+```
+
+**Returns:** `text` — the version string
