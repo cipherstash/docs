@@ -1,5 +1,12 @@
 {
   "title": "Supabase",
   "icon": "Supabase",
-  "pages": ["database", "auth", "dashboard-experience"]
+  "pages": [
+    "index",
+    "quickstart",
+    "fundamentals",
+    "orms",
+    "auth",
+    "edge-functions"
+  ]
 }

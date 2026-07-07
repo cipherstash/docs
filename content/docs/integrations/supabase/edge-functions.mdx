@@ -1,0 +1,127 @@
+---
+title: Edge Functions
+description: "Run CipherStash encryption inside Supabase Edge Functions using the @cipherstash/stack WebAssembly build, with the CipherStash token cached across invocations in an HTTP-only cookie."
+type: guide
+components: [encryption, platform]
+audience: [developer]
+verifiedAgainst:
+  stack: "0.18.0"
+  auth: "0.41.0"
+---
+
+Encryption and decryption must run somewhere your keys and credentials are safe — never in the browser. Supabase Edge Functions are that place: server-side compute next to your database. CipherStash ships a **WebAssembly build** of the SDK for exactly this runtime, so the same encrypt/decrypt code runs in Deno with no native bindings.
+
+<Callout type="info">
+**Verifying the Supabase wrapper on the edge.** The `@cipherstash/stack/wasm-inline` entry exports the core `Encryption` client (`client.encrypt` / `client.decrypt`), which this page uses. Whether the higher-level [`encryptedSupabase`](/reference/stack/supabase) wrapper is available on the edge build is being confirmed — this page will be updated with the wrapper pattern once verified. Until then, use the core client shown below inside your Edge Function.
+</Callout>
+
+## Why the wasm build
+
+Supabase Edge Functions run on Deno, which loads npm packages through the `node` compatibility layer. The SDK's default entry resolves to native NAPI bindings that don't exist in that runtime, so the edge uses a dedicated entry: `@cipherstash/stack/wasm-inline`. It embeds the WebAssembly module as base64 inside the JS bundle — no separate `.wasm` fetch, no bundler plugins, no `static_files` config. The same applies to the auth package (`@cipherstash/auth/wasm-inline`).
+
+## Set up the function
+
+Map the `wasm-inline` entries in your function's `deno.json`:
+
+```jsonc title="supabase/functions/encrypt/deno.json"
+{
+  "imports": {
+    "@cipherstash/stack/wasm-inline": "npm:@cipherstash/stack@^0.18/wasm-inline",
+    "@cipherstash/auth/wasm-inline":  "npm:@cipherstash/auth@^0.41/wasm-inline",
+    "@cipherstash/auth/cookies":      "npm:@cipherstash/auth@^0.41/cookies"
+  }
+}
+```
+
+Provide the `CS_*` credentials when you serve the function — locally via an env file:
+
+```bash
+supabase functions serve --env-file ./supabase/functions/.env.local
+```
+
+```sh title="supabase/functions/.env.local"
+CS_WORKSPACE_CRN=crn:ap-southeast-2.aws:<workspace-id>
+CS_CLIENT_ID=...
+CS_CLIENT_KEY=...
+CS_CLIENT_ACCESS_KEY=...
+```
+
+For deployed functions, set the same values as [Edge Function secrets](https://supabase.com/dashboard/project/_/settings/functions).
+
+## Encrypt and decrypt in a function
+
+Each invocation builds a fresh client, but the CipherStash service token is cached in an HTTP-only cookie via `cookieStore`, so only the first request per session pays the full round-trip to CipherStash:
+
+```typescript title="supabase/functions/encrypt/index.ts"
+import { Encryption, AccessKeyStrategy, encryptedTable, encryptedColumn } from "@cipherstash/stack/wasm-inline"
+import { cookieStore } from "@cipherstash/auth/cookies"
+
+const patients = encryptedTable("patients", {
+  email: encryptedColumn("email").equality(),
+})
+
+Deno.serve(async (req) => {
+  const responseHeaders = new Headers({ "content-type": "application/json" })
+
+  // Cache the CipherStash token across invocations in an HTTP-only cookie
+  const authStrategy = AccessKeyStrategy.create(
+    Deno.env.get("CS_WORKSPACE_CRN")!,
+    Deno.env.get("CS_CLIENT_ACCESS_KEY")!,
+    { store: cookieStore({ request: req, responseHeaders }) },
+  )
+  if (authStrategy.failure) {
+    return Response.json({ error: authStrategy.failure.type }, { status: 500, headers: responseHeaders })
+  }
+
+  const client = await Encryption({
+    schemas: [patients],
+    config: {
+      authStrategy: authStrategy.data,
+      clientId: Deno.env.get("CS_CLIENT_ID")!,
+      clientKey: Deno.env.get("CS_CLIENT_KEY")!,
+    },
+  })
+
+  const encrypted = await client.encrypt("alice@example.com", { column: patients.email, table: patients })
+  const decrypted = await client.decrypt(encrypted.data)
+
+  return Response.json({ ok: decrypted.data === "alice@example.com" }, { headers: responseHeaders })
+})
+```
+
+Note the `.failure` / `.data` result shape: on the wasm entry, `AccessKeyStrategy.create` returns a `Result` you unwrap (unlike the Node build, where it returns the strategy directly).
+
+## Per-user identity on the edge
+
+To encrypt as the signed-in Supabase user rather than a service credential, swap `AccessKeyStrategy` for `OidcFederationStrategy` — its `getJwt` callback returns the current Supabase session token. The mechanics and the identity-lock layer are covered in [Supabase Auth](/integrations/supabase/auth); the only edge-specific difference is the `wasm-inline` import and the `Result` unwrap:
+
+```typescript
+import { OidcFederationStrategy } from "@cipherstash/stack/wasm-inline"
+import { cookieStore } from "@cipherstash/auth/cookies"
+
+const authStrategy = OidcFederationStrategy.create(
+  Deno.env.get("CS_WORKSPACE_CRN")!,
+  () => getSupabaseSessionToken(req),   // return the current session JWT
+  { store: cookieStore({ request: req, responseHeaders }) },
+)
+```
+
+## Caveats
+
+- **Cold start.** The first request pays the full path: WebAssembly compile, auth round-trip to CipherStash, and ZeroKMS dataset-key initialization. Subsequent requests reuse the cookie-cached token and only pay for the encrypt/decrypt work.
+- **Bundle size.** The inline wasm build is larger than a native binding (the module ships as base64 in the JS). That's the trade for zero runtime config — acceptable for an edge function that boots once per worker.
+- **Server-side only.** These credentials and the session token must never reach the browser. Keep this code in the Edge Function.
+
+## Where to next
+
+<Cards>
+  <Card title="Supabase Auth" href="/integrations/supabase/auth">
+    Federation and identity-locked encryption — the full identity story.
+  </Card>
+  <Card title="Quickstart" href="/integrations/supabase/quickstart">
+    The standard (Node) setup with the encryptedSupabase wrapper.
+  </Card>
+  <Card title="Stack reference" href="/reference/stack">
+    The core Encryption client API used here.
+  </Card>
+</Cards>

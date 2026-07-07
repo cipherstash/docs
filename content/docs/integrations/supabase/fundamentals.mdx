@@ -1,0 +1,186 @@
+---
+title: Fundamentals
+description: "Install and operate EQL on Supabase Postgres — migrations vs the SQL Editor, role grants, column types, functional indexes, RLS — and work with encrypted columns across the Supabase dashboard."
+type: guide
+components: [eql]
+audience: [developer]
+verifiedAgainst:
+  eql: "3.0.0"
+---
+
+EQL installs into Supabase Postgres as plain SQL — no extension packaging, no superuser, no separate Supabase build. This page covers the database side in full — how to install so it survives `supabase db reset`, the grants Supabase's roles need, choosing column types, indexing, and how encryption composes with Row Level Security — then walks through what encrypted columns look like across the Supabase dashboard.
+
+If you just want the fastest path from empty project to encrypted table, start with the [Quickstart](/integrations/supabase/quickstart); this page is the reference behind it.
+
+## Installing EQL
+
+Both paths install the same artefact — the versioned `cipherstash-encrypt.sql` from the [EQL releases page](https://github.com/cipherstash/encrypt-query-language/releases). The script is idempotent: re-running a newer version upgrades the `eql_v3` schema in place.
+
+### Path 1: SQL Editor (fastest)
+
+Paste the script into the [SQL Editor](https://supabase.com/dashboard/project/_/sql/new) and run it. Good for a first look or a hosted-only project.
+
+<Callout type="warn">
+If you use the Supabase CLI locally, `supabase db reset` rebuilds your database *from your migrations directory* — anything installed directly through the SQL Editor is wiped. If you run local resets, use the migration path.
+</Callout>
+
+### Path 2: As a migration (recommended for teams)
+
+Commit the install script as your **earliest** migration, so EQL exists before any migration that references its types:
+
+```sh
+curl -sLo supabase/migrations/00000000000000_install-eql.sql \
+  https://github.com/cipherstash/encrypt-query-language/releases/latest/download/cipherstash-encrypt.sql
+
+supabase db push
+```
+
+The all-zero timestamp prefix sorts it before every real migration. From then on, EQL is part of your schema history: local resets, preview branches, and fresh environments all get it automatically.
+
+## Grants
+
+Supabase's API roles need access to the `eql_v3` schema, because your table columns are typed with its domains and your queries resolve its operators and functions:
+
+```sql
+GRANT USAGE ON SCHEMA eql_v3 TO anon, authenticated, service_role;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA eql_v3 TO anon, authenticated, service_role;
+```
+
+Run this once after install (and after upgrades that add functions). Without `USAGE`, PostgREST queries against tables with encrypted columns fail with a permission error on the schema.
+
+You do **not** need to add `eql_v3` to the *Exposed schemas* list in the [API settings](https://supabase.com/dashboard/project/_/settings/api) for normal queries — your tables live in `public`. Expose it only if you want to call EQL functions directly over the REST API.
+
+## Choosing column types
+
+The column's domain type fixes what it can do, and the [Stack SDK schema](/reference/stack/supabase#declaring-the-schema) must declare the matching capability. The full type catalogue lives in the EQL reference — [numbers](/reference/eql/numbers), [dates & times](/reference/eql/dates-and-times), [text](/reference/eql/text), [JSON](/reference/eql/json), [booleans](/reference/eql/booleans) — but the shape is always the same:
+
+| You query it with | Type the column as | SDK schema capability |
+| --- | --- | --- |
+| Nothing (store/decrypt only) | `eql_v3.<T>` | none |
+| `.eq()` / `.in()` | `eql_v3.<T>_eq` | `.equality()` |
+| Ranges, `.order()` | `eql_v3.<T>_ord` | `.orderAndRange()` |
+| Free-text match | `eql_v3.text_match` | `.freeTextSearch()` |
+| All three (text) | `eql_v3.text_search` | all three |
+| Encrypted JSON | `eql_v3.json` | `.searchableJson()` |
+
+Declare only the capabilities you use: every extra capability stores extra searchable material with defined leakage — see [Searchable encryption](/concepts/searchable-encryption).
+
+## Indexes
+
+Encrypted columns index through **ordinary functional indexes** over EQL's term-extractor functions. This is why EQL works on Supabase unchanged: no custom operator classes (which managed platforms block), just `CREATE INDEX`, which any migration can run:
+
+```sql
+CREATE INDEX patients_email_eq   ON patients USING hash  (eql_v3.eq_term(email));
+CREATE INDEX patients_dob_ord    ON patients USING btree (eql_v3.ord_term(date_of_birth));
+CREATE INDEX patients_name_match ON patients USING gin   (eql_v3.match_term(name));
+ANALYZE patients;
+```
+
+Add them once a table has real row counts (thousands, not dozens). Index selection, `EXPLAIN` verification, and large-table build guidance are in [EQL indexes](/reference/eql/indexes) — all of it applies to Supabase verbatim.
+
+## Row Level Security
+
+Encrypted columns and RLS compose — they solve different problems:
+
+- **RLS** decides *which rows* a role may query. It's enforced in the database, on whatever the database stores.
+- **Encryption** decides *whether a value can be read at all*. Keys stay outside the database, so anything that bypasses RLS — a leaked `service_role` key, an over-broad policy, a stolen backup, direct disk access — yields ciphertext, not plaintext.
+
+Keep writing policies exactly as before; the `encryptedSupabase` wrapper goes through your own supabase-js client, so the caller's JWT and your policies apply to every query. Policies can freely reference *non-encrypted* columns (`user_id`, `tenant_id`, timestamps). Policies **cannot usefully compare encrypted values to plaintext** — the database never sees plaintext, so keep RLS predicates on plaintext columns and encrypted-value filtering in your queries.
+
+One practical pattern: leave your row-ownership predicate on a plaintext `user_id uuid` column, and encrypt the *contents* of the row. RLS scopes the rows to `auth.uid()`; CipherStash makes their contents unreadable to everything except your app. To go one step further and make a row's contents decryptable *only* by its owner — even to your own service role — see [Supabase Auth](/integrations/supabase/auth).
+
+## Connections and pooling
+
+The `encryptedSupabase` wrapper talks to Supabase over PostgREST (your existing `SUPABASE_URL`), so connection pooling concerns don't change — nothing about encryption touches the connection layer. If you also connect to the database directly (migrations, [CipherStash Proxy](/reference/proxy), or an ORM like [Drizzle](/integrations/drizzle)), use the same connection strings you'd use without encryption; EQL is passive SQL and has no session requirements. The direct-connection path is covered in [Data layer](/integrations/supabase/orms).
+
+## Working in the dashboard
+
+Encrypted columns live inside your normal Supabase dashboard — no separate tool. Here's what to expect in each part of it.
+
+### Table Editor
+
+Encrypted columns show **ciphertext payloads**, not plaintext. A `patients` row looks like:
+
+| id | email | name | plan |
+| --- | --- | --- | --- |
+| 1 | `{"v": 3, "i": {"t": "patients", "c": "email"}, "c": "mBbKmsMM%bK#…", "hm": "9c8ec1d2…"}` | `{"v": 3, "i": …, "c": "x7Qq…", "bf": [42, 1290, …]}` | `standard` |
+
+This is the point, not a limitation: what the Table Editor shows is exactly what a backup, a replication stream, a leaked `service_role` key, or a curious operator sees. The payload structure (`v`, `i`, `c`, and the index terms) is documented in [EQL core concepts](/reference/eql/core-concepts) — none of it reveals the plaintext.
+
+Practical consequences:
+
+- **Reading data** happens through your app (or any client using the [Stack SDK](/reference/stack)); the dashboard can't decrypt, because the keys never go near it.
+- **Hand-editing an encrypted cell** in the Table Editor will produce a value that fails the column's `CHECK` constraint or fails to decrypt — treat encrypted columns as read-only in the dashboard.
+- **Filtering and sorting** on encrypted columns in the Table Editor UI operates on the raw payloads, so it won't return meaningful results. Query through your app instead.
+
+### Creating encrypted columns
+
+Use the **SQL Editor** for schema work on encrypted columns:
+
+```sql
+ALTER TABLE patients ADD COLUMN tax_id eql_v3.text_eq;
+```
+
+The `eql_v3` domain types are user-defined types, and the Table Editor's column-type picker doesn't reliably surface custom domains — SQL is the dependable path, and it's what your migrations should contain anyway.
+
+### SQL Editor
+
+Everything in the [EQL reference](/reference/eql) can be run from the SQL Editor — installing EQL, creating indexes, `EXPLAIN`-ing query plans. Two checks worth knowing:
+
+```sql
+-- Is EQL installed, and which version?
+SELECT eql_v3.version();
+
+-- Which columns are encrypted?
+SELECT table_name, column_name, udt_name
+FROM information_schema.columns
+WHERE udt_schema = 'eql_v3';
+```
+
+### API settings
+
+Normal operation needs **no** API-settings changes: your tables are in the `public` schema, and the wrapper's queries are ordinary PostgREST calls. The `eql_v3` schema needs role *grants* (see [Grants](#grants) above), but does **not** need to be in the *Exposed schemas* list unless you want to call EQL functions directly over REST.
+
+## Connecting your project to CipherStash
+
+Connecting is optional — you can set the `CS_*` credentials by hand ([Quickstart](/integrations/supabase/quickstart#install-the-sdk-and-connect-your-workspace)). The CipherStash dashboard's first-class Supabase integration at [dashboard.cipherstash.com](https://dashboard.cipherstash.com) automates it:
+
+<Steps>
+<Step>
+### Connect via OAuth
+
+Authorize CipherStash against your Supabase organization. The integration requests read-only scopes (`projects:read`, `database:read`) — it never sees your database secrets.
+</Step>
+<Step>
+### Pick a project and run the readiness checks
+
+The setup hub verifies EQL is installed (`eql_v3.version()`), checks for encrypted columns, and flags anything missing.
+</Step>
+<Step>
+### Configure identity (optional)
+
+One click registers your project's Supabase Auth issuer (`https://<project-ref>.supabase.co/auth/v1`) with your workspace, enabling [identity-aware encryption](/integrations/supabase/auth).
+</Step>
+<Step>
+### Copy your environment
+
+The hub emits the `CS_*` credentials block for your app's environment, ready to pair with your existing `SUPABASE_URL` and keys.
+</Step>
+</Steps>
+
+## Where to next
+
+<Cards>
+  <Card title="Quickstart" href="/integrations/supabase/quickstart">
+    The end-to-end walkthrough this page backs.
+  </Card>
+  <Card title="EQL indexes" href="/reference/eql/indexes">
+    Full indexing recipes and EXPLAIN verification.
+  </Card>
+  <Card title="Supabase Auth" href="/integrations/supabase/auth">
+    Federate the session and lock decryption to the authenticated user.
+  </Card>
+  <Card title="Encrypt existing data" href="/guides/migration/encrypt-existing-data">
+    Adopt encryption column-by-column on a live table.
+  </Card>
+</Cards>
