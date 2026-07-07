@@ -5,6 +5,7 @@ export function PrismaLogo({ className }: { className?: string }) {
       fill="currentColor"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
+      role="img"
       aria-label="Prisma"
     >
       <path d="M254.313 235.519 148.057 4.5a8.288 8.288 0 0 0-7.215-4.486 8.534 8.534 0 0 0-7.499 4.084L1.296 212.55a8.521 8.521 0 0 0 .1 9.282l54.915 82.731a8.518 8.518 0 0 0 9.687 3.396l181.79-59.7a8.518 8.518 0 0 0 5.282-4.79 8.524 8.524 0 0 0 1.243-7.95Zm-23.077 5.769-156.642 51.45c-2.871.943-5.704-1.689-4.876-4.573l54.45-189.751a3.453 3.453 0 0 1 6.541-.252l103.013 137.317a3.454 3.454 0 0 1-2.486 5.809Z" />
@@ -19,6 +20,8 @@ export function DrizzleLogo({ className }: { className?: string }) {
       fill="currentColor"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
+      role="img"
+      aria-label="Drizzle"
     >
       <rect
         width="5.25365"
@@ -65,6 +68,8 @@ export function SupabaseLogo({ className }: { className?: string }) {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
+      role="img"
+      aria-label="Supabase"
     >
       {/* Wordmark — uses currentColor */}
       <path
@@ -121,6 +126,8 @@ export function DynamoDBLogo({ className }: { className?: string }) {
       height="446"
       viewBox="0 0 561 446"
       className={className}
+      role="img"
+      aria-label="DynamoDB"
     >
       <g fill="none" transform="translate(.311)">
         {/* Wordmark — uses currentColor */}
