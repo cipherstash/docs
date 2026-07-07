@@ -225,4 +225,4 @@ The builder is deferred: method calls record intent, and nothing executes until 
 4. Replays the recorded calls onto the real supabase-js builder
 5. Decrypts encrypted columns in the response
 
-Because the wrapped client is your own `createClient(...)` instance, Supabase Auth sessions and **Row Level Security policies apply unchanged** — RLS decides which rows come back; encryption decides whether what's in them can be read. Database-side setup (installing EQL, column types, grants, indexes) is covered in the [Supabase database guide](/integrations/supabase/database).
+Because the wrapped client is your own `createClient(...)` instance, Supabase Auth sessions and **Row Level Security policies apply unchanged** — RLS decides which rows come back; encryption decides whether what's in them can be read. Database-side setup (installing EQL, column types, grants, indexes) is covered in [Supabase Fundamentals](/integrations/supabase/fundamentals).

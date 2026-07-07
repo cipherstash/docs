@@ -1,9 +1,9 @@
 ---
 title: Supabase
-description: "Add searchable, application-level encryption to a Supabase project: install EQL, declare encrypted columns, and query them with the Supabase.js calls you already use."
-type: tutorial
+description: "Searchable, application-level encryption for your Supabase project: encrypt sensitive fields in your app before they reach Postgres, and keep them queryable with the Supabase.js calls you already use."
+type: concept
 components: [encryption, eql, platform]
-audience: [developer]
+audience: [developer, ciso]
 integration:
   category: platform
   setup: dashboard-required
@@ -13,181 +13,83 @@ verifiedAgainst:
   stack: "0.18.0"
 ---
 
-CipherStash adds application-level encryption to your Supabase project. Sensitive fields are encrypted in your application before they reach Postgres — plaintext never touches your database, its backups, or its replication streams — and the ciphertext stays queryable through the same Supabase.js calls you already use. CipherStash never sees your data or your keys.
+CipherStash adds application-level encryption to your Supabase project. Sensitive fields — names, emails, health records, anything you choose — are encrypted inside your application before they ever reach Postgres, so plaintext never touches your database, its backups, or its replication streams. CipherStash never sees your data or your keys.
 
-This tutorial takes an empty Supabase project to an encrypted, searchable table. It takes about fifteen minutes.
+Unlike ordinary field encryption, the ciphertext stays **fully queryable**. You install [Encrypt Query Language (EQL)](/reference/eql) on your Supabase database, then declare each protected column with the encrypted type that matches the operations you need — and query it with the same `.eq()`, `.order()`, and text-search calls you use today.
+
+<Cards>
+  <Card title="Quickstart" href="/integrations/supabase/quickstart">
+    Empty project to an encrypted, searchable table in about fifteen minutes.
+  </Card>
+  <Card title="Fundamentals" href="/integrations/supabase/fundamentals">
+    Install and operate EQL on Supabase Postgres, and work with encrypted columns in the dashboard.
+  </Card>
+</Cards>
 
 ## How it fits together
 
 Two pieces, one on each side of your Supabase connection:
 
-- **[EQL](/reference/eql)** installs into your Supabase Postgres as plain SQL. It provides encrypted column types — `eql_v3.text_eq`, `eql_v3.date_ord`, `eql_v3.text_match` — where the type name declares what queries the column supports.
-- **[`@cipherstash/stack`](/reference/stack)** runs in your application. Its [`encryptedSupabase` wrapper](/reference/stack/supabase) encrypts values before they're written, encrypts filter terms before they're compared, and decrypts results — around your existing supabase-js client, so Supabase Auth and Row Level Security apply unchanged.
+- **[EQL](/reference/eql)** installs into your Supabase Postgres as plain SQL. It provides encrypted column types — the type name declares what a column can do:
+  - `eql_v3.text_eq` — encrypted text with equality (`=`)
+  - `eql_v3.text_match` — encrypted text with free-text search (token match)
+  - `eql_v3.int4_ord` — encrypted integers with range (`<`, `>`) and `ORDER BY`
+  - `eql_v3.timestamp_ord` — encrypted timestamps with range and ordering
+  - `eql_v3.json` — encrypted JSON with field access (`->`) and containment (`@>`)
+- **[`@cipherstash/stack`](/reference/stack)** runs in your application. Its [`encryptedSupabase` wrapper](/reference/stack/supabase) encrypts values before they're written, encrypts filter terms before they're compared, and decrypts results — around your existing supabase-js client, so Supabase Auth and RLS apply unchanged.
 
-<Steps>
-<Step>
+There are encrypted types for text, integers, floats, numerics, dates, timestamps, booleans, and JSON — so your schema declares intent, queries run with no decryption at the database, and encrypted columns still **index using standard Postgres indexes** ([EQL indexes](/reference/eql/indexes)).
 
-### Install EQL on your database
+## RLS is not encryption
 
-Download the latest EQL install script and run it in the [SQL Editor](https://supabase.com/dashboard/project/_/sql/new):
+Row Level Security controls *who can query* your data; CipherStash controls *whether it can be read at all*. RLS is enforced inside the database on plaintext, so its protection ends the moment that layer is bypassed — a leaked `service_role` key, an over-broad policy, a stolen backup, or direct disk access all expose data in the clear. Because CipherStash encrypts values in your app and keeps the keys outside the database, every one of those cases yields only ciphertext.
 
-```sh
-curl -sLo cipherstash-encrypt.sql https://github.com/cipherstash/encrypt-query-language/releases/latest/download/cipherstash-encrypt.sql
-```
+> **RLS keeps the wrong user out. CipherStash keeps your data safe even when the wrong user gets in.**
 
-Paste and run it — it needs no superuser and completes in seconds, creating the `eql_v3` schema. Then grant your Supabase roles access to it:
+Use both: RLS to authorize access, CipherStash so a bypass never turns into a data breach. How the two compose on Supabase — including where RLS predicates can and can't reference encrypted columns — is covered in [Fundamentals → Row Level Security](/integrations/supabase/fundamentals#row-level-security).
 
-```sql
-GRANT USAGE ON SCHEMA eql_v3 TO anon, authenticated, service_role;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA eql_v3 TO anon, authenticated, service_role;
-```
+## Built for the Supabase stack
 
-If you manage your database with `supabase migrations` instead, commit the script as your earliest migration — the [database guide](/integrations/supabase/database) covers that path and why it survives `supabase db reset`.
+- **Native Supabase.js** — encrypt in your app, then store and query through the same client with the same `.eq()`, `.order()`, and text-search calls. See the [Quickstart](/integrations/supabase/quickstart).
+- **Supabase Auth** — federate the signed-in user's session so encryption authenticates as them, and optionally lock decryption to their identity. See [Supabase Auth](/integrations/supabase/auth).
+- **Edge Functions** — the SDK runs in Supabase Edge Functions via a WebAssembly build. See [Edge Functions](/integrations/supabase/edge-functions).
+- **Row Level Security** — layers on top of your RLS policies rather than replacing them.
+- **Your ORM or framework** — first-class support for Prisma and Drizzle, and frameworks like Next.js, alongside Supabase. See [Data layer](/integrations/supabase/orms).
 
-</Step>
-<Step>
+## Key management and auditing, built in
 
-### Create a table with encrypted columns
+There's no key vault to run and no KMS to wire up. Every value is encrypted with its own key through CipherStash ZeroKMS, and key rotation is handled for you. Decryption events are logged, so you get an [access trail](/security/audit-logging) out of the box. Prefer to hold the root key yourself? Bring Your Own Key roots it in your own KMS.
 
-The column type declares what each column can do. Equality lookups, free-text matching, and range/ordering are different capabilities — declare only what you query:
+## Performance
 
-```sql
-CREATE TABLE patients (
-    id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email         eql_v3.text_eq NOT NULL,   -- exact lookup
-    name          eql_v3.text_match,         -- free-text match
-    date_of_birth eql_v3.date_ord,           -- ranges and ORDER BY
-    plan          text                       -- not sensitive: ordinary column
-);
-```
+Measured on the [`cipherstash/benches`](https://github.com/cipherstash/benches) suite, up to 10M rows:
 
-Which type fits which column — and what each stores — is covered by the [EQL type pages](/reference/eql/core-concepts).
+- **~0.1 ms** median for exact-match lookups
+- **~0.5 ms** median for encrypted range queries
+- Latency stays flat as row counts scale from 10k to 10M
 
-</Step>
-<Step>
+Key operations run through ZeroKMS at **up to 14× the throughput of AWS KMS** (≈615 requests/sec peak), generating up to 10,000 data keys in a single operation — so key handling never becomes the bottleneck.
 
-### Install the SDK and connect your workspace
+## For your security team
 
-```sh
-npm install @cipherstash/stack @supabase/supabase-js
-```
+- **Audit logging** of decryption events
+- **Bring Your Own Key (BYOK)**
+- **FIPS compliance** and **SOC 2 compliance**
+- **Zero plaintext exposure** — CipherStash never sees your data or your keys
 
-Sign up at [dashboard.cipherstash.com](https://dashboard.cipherstash.com), create a workspace, and set its credentials alongside your Supabase keys:
+There's a free developer tier, so you can add encryption from your very first migration. Encryption is far cheaper to design in than to retrofit — building it in now saves re-architecting your data layer later.
 
-```sh
-CS_WORKSPACE_CRN=...
-CS_CLIENT_ID=...
-CS_CLIENT_KEY=...
-CS_CLIENT_ACCESS_KEY=...
-SUPABASE_URL=https://<project-ref>.supabase.co
-SUPABASE_ANON_KEY=...
-```
-
-The CipherStash dashboard's [Supabase integration](/integrations/supabase/dashboard-experience) can generate all of this against your project via OAuth.
-
-</Step>
-<Step>
-
-### Declare the encrypted schema in your app
-
-Mirror the table's encrypted columns, with the capability matching each column type:
-
-```typescript title="lib/schema.ts"
-import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
-
-export const patients = encryptedTable("patients", {
-  email: encryptedColumn("email").equality(),
-  name: encryptedColumn("name").freeTextSearch(),
-  date_of_birth: encryptedColumn("date_of_birth").dataType("date").orderAndRange(),
-})
-```
-
-</Step>
-<Step>
-
-### Wrap your Supabase client
-
-```typescript title="lib/db.ts"
-import { createClient } from "@supabase/supabase-js"
-import { Encryption } from "@cipherstash/stack"
-import { encryptedSupabase } from "@cipherstash/stack/supabase"
-import { patients } from "./schema"
-
-const encryptionClient = await Encryption({ schemas: [patients] })
-
-const supabaseClient = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ANON_KEY!,
-)
-
-export const db = encryptedSupabase({ encryptionClient, supabaseClient })
-```
-
-</Step>
-<Step>
-
-### Write and query encrypted data
-
-```typescript
-import { db } from "./lib/db"
-import { patients } from "./lib/schema"
-
-// Insert — encrypted columns are encrypted before the request leaves your app
-await db.from("patients", patients).insert({
-  email: "alice@example.com",
-  name: "Alice Chen",
-  date_of_birth: "1987-04-12",
-  plan: "standard",
-})
-
-// Exact lookup on an encrypted column
-const { data } = await db.from("patients", patients)
-  .select("id, email, name")
-  .eq("email", "alice@example.com")
-
-// Free-text match (encrypted token containment — not SQL LIKE)
-await db.from("patients", patients)
-  .select("id, name")
-  .ilike("name", "ali")
-
-// Range + newest-first on an encrypted date
-await db.from("patients", patients)
-  .select("id, name, date_of_birth")
-  .gt("date_of_birth", "1980-01-01")
-  .order("date_of_birth", { ascending: false })
-  .limit(20)
-```
-
-The full method surface — filters, upserts, error shapes, identity-locked queries — is in the [`encryptedSupabase` reference](/reference/stack/supabase).
-
-</Step>
-<Step>
-
-### See what the database sees
-
-Open the Table Editor and look at the `patients` rows: every encrypted cell is a ciphertext payload, not plaintext. That's what a backup, a replication stream, or anyone bypassing your app sees — including a leaked `service_role` key. The [dashboard experience guide](/integrations/supabase/dashboard-experience) walks through what encrypted data looks like across the Supabase dashboard.
-
-</Step>
-</Steps>
-
-## Production checklist
-
-- **Indexes** — at real row counts, add functional indexes for the capabilities you query. Two lines of SQL per column: [EQL indexes](/reference/eql/indexes).
-- **RLS** — keep your Row Level Security policies; they compose. RLS controls *who can query* rows, encryption controls *whether their contents can be read at all* — a bypassed policy or leaked key yields only ciphertext.
-- **Identity-locked decryption** — tie decryption to the logged-in Supabase Auth user: [Supabase Auth integration](/integrations/supabase/auth).
-- **Adopt incrementally** — you can encrypt one column at a time; nothing requires a big-bang migration. See [encrypting existing data](/guides/migration/encrypt-existing-data).
-
-## Go deeper
+## Where to next
 
 <Cards>
-  <Card title="Database setup" href="/integrations/supabase/database">
-    Migrations vs SQL Editor, grants, indexes, and RLS interaction in detail.
+  <Card title="Quickstart" href="/integrations/supabase/quickstart">
+    The end-to-end walkthrough: install EQL, wrap your client, query encrypted data.
   </Card>
   <Card title="Supabase Auth" href="/integrations/supabase/auth">
-    Lock decryption to the authenticated user with identity-aware encryption.
+    Federate the Supabase session and lock decryption to the authenticated user.
   </Card>
-  <Card title="Dashboard experience" href="/integrations/supabase/dashboard-experience">
-    What encrypted columns look like in the Table Editor and API settings.
+  <Card title="Edge Functions" href="/integrations/supabase/edge-functions">
+    Run encryption server-side in Supabase Edge Functions.
   </Card>
   <Card title="encryptedSupabase reference" href="/reference/stack/supabase">
     The complete wrapper API: every filter, response shapes, and how it works.

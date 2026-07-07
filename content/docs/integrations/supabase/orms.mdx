@@ -1,0 +1,74 @@
+---
+title: Data layer
+description: "Two ways to reach your Supabase data with CipherStash: the encryptedSupabase wrapper over PostgREST, or a direct Postgres connection through an ORM like Drizzle or Prisma."
+type: guide
+components: [encryption, eql]
+audience: [developer]
+---
+
+There are two ways an application talks to a Supabase database, and CipherStash rides along on both. Which one you use decides where encryption plugs in — so start here before reaching for the ORM-specific guide.
+
+## Two paths to your data
+
+| | PostgREST path | Direct-connection path |
+| --- | --- | --- |
+| **Client** | `supabase-js` (+ `encryptedSupabase`) | Drizzle, Prisma, or raw `pg` |
+| **Transport** | Supabase's REST API (PostgREST) | A Postgres connection (pooler or direct) |
+| **How encryption plugs in** | The [`encryptedSupabase`](/reference/stack/supabase) wrapper encrypts/decrypts around each request | The [Stack SDK](/reference/stack) encrypts values in your app; EQL-typed columns store and search them |
+| **Best for** | Supabase-native apps, Edge Functions, RLS via the user's JWT | Existing ORM codebases, migrations, complex joins |
+
+Both write the **same ciphertext into the same `eql_v3` columns** — the [Fundamentals](/integrations/supabase/fundamentals) database setup is identical either way. The difference is only in how your app connects and where the encrypt/decrypt step lives. You can even mix them: an `encryptedSupabase` client for app queries and Drizzle for migrations against the same tables.
+
+The [Quickstart](/integrations/supabase/quickstart) covers the PostgREST path end-to-end. This page covers the direct-connection path and the Supabase-specific glue it needs.
+
+## Using an ORM
+
+The ORM integrations are **database-agnostic** — Supabase is Postgres, so the encryption mechanics are the same as anywhere else. Follow the canonical guide for your ORM, then apply the Supabase connection notes below:
+
+<Cards>
+  <Card title="Drizzle" href="/integrations/drizzle">
+    Encrypted column types, query operators, and EQL migrations with Drizzle.
+  </Card>
+  <Card title="Prisma" href="/integrations/prisma">
+    Encrypted fields and searchable queries with Prisma.
+  </Card>
+  <Card title="Next.js" href="/integrations/nextjs">
+    Where encryption runs across Server Components, Route Handlers, and Server Actions.
+  </Card>
+</Cards>
+
+## Connecting to Supabase Postgres
+
+An ORM connects over a Postgres connection string, not the REST API. Supabase gives you two, and the choice matters for a serverless or edge deployment:
+
+- **Direct connection** (port `5432`) — one long-lived connection to the database. Use it for migrations and for long-running servers. Not suitable for serverless functions, which open a connection per invocation.
+- **Supavisor pooler** — a connection pooler in front of Postgres:
+  - **Transaction mode** (port `6543`) — a pooled connection per transaction. Use this for serverless / edge / Next.js Route Handlers, where connections are short-lived and numerous.
+  - **Session mode** (port `5432` via the pooler) — pooled but session-scoped, for clients that need session features.
+
+Nothing about encryption changes the connection layer: EQL is passive SQL and the Stack SDK encrypts in your app, so use the **same connection string you'd use without CipherStash**. Point your migration tooling at the direct connection and your app at the transaction pooler, exactly as Supabase recommends.
+
+> **Good to know**: run EQL migrations through the direct connection (or Supabase's migrations directory), not the transaction pooler — DDL and the EQL install script want a real session. See [Fundamentals → Installing EQL](/integrations/supabase/fundamentals#installing-eql).
+
+## Row Level Security on the direct path
+
+RLS composes differently depending on which connection role you use:
+
+- The **`encryptedSupabase` / PostgREST path** carries the end user's JWT, so `auth.uid()` and your policies apply automatically.
+- The **direct-connection path** typically authenticates as a privileged role (a pooler connection string for `postgres` or `service_role`), which **bypasses RLS**. If you rely on RLS for row scoping, either connect as the `authenticated` role with the user's JWT (setting `request.jwt.claims`), or enforce that scoping in your ORM query.
+
+Either way, encryption is unaffected: values are ciphertext regardless of which role reads them. RLS decides *which rows* are returned; CipherStash decides *whether their contents can be read at all* — see [Fundamentals → Row Level Security](/integrations/supabase/fundamentals#row-level-security).
+
+## Where to next
+
+<Cards>
+  <Card title="Quickstart" href="/integrations/supabase/quickstart">
+    The PostgREST path end-to-end with encryptedSupabase.
+  </Card>
+  <Card title="Fundamentals" href="/integrations/supabase/fundamentals">
+    Database setup, grants, indexes, and RLS — shared by both paths.
+  </Card>
+  <Card title="CipherStash Proxy" href="/reference/proxy">
+    Encrypt at the connection layer instead of in the app — an option for some ORM setups.
+  </Card>
+</Cards>
