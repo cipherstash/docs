@@ -39,3 +39,6 @@ content/stack/reference/drizzle/latest/
 content/stack/reference/drizzle/v*/
 .tmp-*
 .env.local
+
+# serena (local MCP tooling state)
+.serena/
