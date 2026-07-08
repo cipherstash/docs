@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * CLI reference generator (CIP-33xx).
+ * CLI reference generator.
  *
  * Generates the `/reference/cli` pages from the `stash` CLI itself, so the
  * reference can never drift from the shipped command surface. Every page is
