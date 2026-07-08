@@ -7,6 +7,8 @@ verifiedAgainst:
   eql: "3.0.0"
 ---
 
+<EqlVersion />
+
 Every filter below is ordinary SQL — the encrypted operators resolve from the column's domain variant, and a functional index on the matching term extractor serves the predicate. One rule applies throughout: **operands must be typed** (`$1::public.text_eq`, not a bare literal), or PostgreSQL falls through to native `jsonb` semantics. See [Core concepts](/reference/eql/core-concepts) for the typed-operand rule and how unsupported operators fail loudly instead of returning wrong rows.
 
 ## Equality: `=` and `<>`

@@ -7,6 +7,8 @@ verifiedAgainst:
   eql: "3.0.0"
 ---
 
+<EqlVersion />
+
 Encrypt Query Language (EQL) is a set of types, operators, and functions for storing and querying encrypted data in PostgreSQL. It installs as a single plain-SQL script — no extension packaging, no superuser, no operator classes — so it runs on Supabase, RDS, Cloud SQL, and self-hosted Postgres alike.
 
 EQL itself never encrypts anything. Encryption and decryption happen in the client, using the [Stack SDK](/reference/stack) or [CipherStash Proxy](/reference/proxy). EQL provides the database-side surface those clients query against: encrypted column types, the operators that compare them, and the term-extractor functions that make indexes work.

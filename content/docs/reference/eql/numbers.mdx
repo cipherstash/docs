@@ -7,6 +7,8 @@ verifiedAgainst:
   eql: "3.0.0"
 ---
 
+<EqlVersion />
+
 Six numeric types share one identical query surface: `int2`, `int4`, `int8`, `float4`, `float8`, and `numeric`. These are the columns you filter by range, sort, and take a `MIN` / `MAX` over — salaries, totals, rates, quantities.
 
 Date and time columns have the same capabilities but their own semantics — see [Dates & times](/reference/eql/dates-and-times). There is no free-text matching for numeric types — `_match` and `_search` are [text-only variants](/reference/eql/text).

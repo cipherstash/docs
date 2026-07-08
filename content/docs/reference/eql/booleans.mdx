@@ -7,6 +7,8 @@ verifiedAgainst:
   eql: "3.0.0"
 ---
 
+<EqlVersion />
+
 Every scalar type has a storage-only variant — for `bool` it's the only one. EQL ships `public.boolean` and nothing else: there is no `bool_eq` and no `bool_ord`. An encrypted boolean column can be stored, decrypted, and null-checked; it cannot be filtered, sorted, grouped, or joined on.
 
 ## Why there are no query variants

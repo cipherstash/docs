@@ -7,6 +7,8 @@ verifiedAgainst:
   eql: "3.0.0"
 ---
 
+<EqlVersion />
+
 Grouping and deduplication need an equality term, so they work on the same variants as `=`: `_eq`, `_ord` / `_ord_ore`, and `text_search`. `MIN` / `MAX` need an ordering term (`_ord` / `_ord_ore`, `text_search`). Arithmetic aggregates don't work at all — that's the last section. As everywhere, operands and call-site casts must be typed; see [Core concepts](/reference/eql/core-concepts).
 
 ## `GROUP BY` and `DISTINCT`

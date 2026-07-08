@@ -7,6 +7,8 @@ verifiedAgainst:
   eql: "3.0.0"
 ---
 
+<EqlVersion />
+
 EQL indexes are ordinary PostgreSQL functional indexes over **term-extractor functions** — never an index or operator class on the column itself. Each extractor returns a small per-row index term whose return type already carries a default operator class:
 
 | Extractor | Index method | Term | Capability |

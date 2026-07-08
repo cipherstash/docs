@@ -7,6 +7,8 @@ verifiedAgainst:
   eql: "3.0.0"
 ---
 
+<EqlVersion />
+
 `public.json` is EQL's encrypted JSON document type, built on structured encryption (**ste_vec**). The document is encrypted as a vector of encrypted entries — one entry per path inside the document — and every path is queryable without decryption: containment, field and array access, and equality or range comparisons on extracted leaves.
 
 Like every EQL type, `public.json` holds ciphertext the database can't read. Encryption, decryption, and selector generation happen in the client — the [Stack SDK](/reference/stack) or [CipherStash Proxy](/reference/proxy). See [Searchable encryption](/concepts/searchable-encryption) for how querying ciphertext works at all.
