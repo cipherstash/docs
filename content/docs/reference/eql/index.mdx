@@ -9,7 +9,7 @@ verifiedAgainst:
 
 <EqlVersion />
 
-Encrypt Query Language (EQL) is a set of types, operators, and functions for storing and querying encrypted data in PostgreSQL. It installs as a single plain-SQL script — no extension packaging, no superuser, no operator classes — so it runs on Supabase, RDS, Cloud SQL, and self-hosted Postgres alike.
+Encrypt Query Language (EQL) is a set of types, operators, and functions for storing and querying encrypted data in PostgreSQL. The [Stash CLI](/reference/cli) installs it over an ordinary database connection — no extension packaging, no superuser, no operator classes — so it runs on Supabase, RDS, Cloud SQL, and self-hosted Postgres alike.
 
 EQL itself never encrypts anything. Encryption and decryption happen in the client, using the [Stack SDK](/reference/stack) or [CipherStash Proxy](/reference/proxy). EQL provides the database-side surface those clients query against: encrypted column types, the operators that compare them, and the term-extractor functions that make indexes work.
 
@@ -20,29 +20,44 @@ Every encrypted column is a `jsonb`-backed domain type in the `public` schema (t
 <Steps>
 <Step>
 
-### Download the install script
+### Run the installer
 
-Each [GitHub release](https://github.com/cipherstash/encrypt-query-language/releases) publishes a versioned `cipherstash-encrypt.sql`:
+Point the [Stash CLI](/reference/cli) at your database and install the `eql_v3` schema:
 
-```sh
-curl -sLo cipherstash-encrypt.sql https://github.com/cipherstash/encrypt-query-language/releases/latest/download/cipherstash-encrypt.sql
+```bash
+npx stash eql install --eql-version 3
 ```
+
+`stash eql install` scaffolds a [`stash.config.ts`](#configuration) if your project doesn't have one, then installs the `eql_v3` schema — all domain types, operators, functions, and aggregates — along with the `cs_migrations` tracking schema that the `stash encrypt` commands depend on. It is idempotent: re-running reports that EQL is already installed and changes nothing. Pass `--force` to reinstall in place.
+
+<Callout>
+`--eql-version 3` selects the native `eql_v3` domain schema this reference documents. Without it the CLI installs EQL v2. v3 installs directly against the database, so the `--drizzle`, `--migration`, and `--latest` flags — all v2-only — don't apply.
+</Callout>
 
 </Step>
 <Step>
 
-### Run it against each database
+### Point it at each database
 
-```sh
-psql -f cipherstash-encrypt.sql
+The CLI reads the connection string from `DATABASE_URL` (your environment or a `.env` file) and prompts if it can't find one. Override it for a single run — handy when installing across several databases — with `--database-url`, which is used for that run only and never written to disk:
+
+```bash
+npx stash eql install --eql-version 3 \
+  --database-url postgres://user:pass@host:5432/mydb
 ```
 
-The script installs the `eql_v3` schema with all domain types, operators, functions, and aggregates. It is idempotent: re-running it upgrades the `eql_v3` surface in place and won't remove anything you've built on top of it. To upgrade, download the latest script and run it again.
+Run the installer against every database that stores encrypted columns.
 
 </Step>
 <Step>
 
 ### Verify
+
+```bash
+npx stash eql status
+```
+
+Or check directly from SQL:
 
 ```sql
 SELECT eql_v3.version();
@@ -52,13 +67,33 @@ SELECT eql_v3.version();
 </Step>
 </Steps>
 
+To pull in a newer EQL release later, run `npx stash eql upgrade --eql-version 3`.
+
 <Callout type="warn">
 To uninstall, drop both EQL schemas: `DROP SCHEMA eql_v3, eql_v3_internal CASCADE`. This removes the encrypted operators and functions, so queries against encrypted columns stop resolving — but your data survives: the `public.*` domain types (and the columns typed as them) live in the `public` schema and are left untouched. Remove those separately only if you intend to drop or re-type the columns.
 </Callout>
 
+### Configuration
+
+`stash eql install` reads a `stash.config.ts` at your project root, scaffolding one on first run if it's missing. The same file is used by the `stash db` and `stash encrypt` commands. It exports a `defineConfig` object with two fields:
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `databaseUrl` | Yes | PostgreSQL connection string. The scaffold sets it to `await resolveDatabaseUrl()`, which resolves from the `--database-url` flag, then `DATABASE_URL` (environment or `.env`), then `supabase status`, then an interactive prompt. The resolved connection string is never written to disk — only the declarative call is. |
+| `client` | No | Path to your encryption client file. Defaults to `./src/encryption/index.ts`. |
+
+```ts filename="stash.config.ts"
+import { defineConfig, resolveDatabaseUrl } from "stash";
+
+export default defineConfig({
+  databaseUrl: await resolveDatabaseUrl(),
+  client: "./src/encryption/index.ts",
+});
+```
+
 ### dbdev
 
-EQL is also published to [dbdev](https://database.dev/cipherstash/eql). The dbdev release can lag behind GitHub releases, so prefer the install script when you need the latest version.
+EQL is also published to [dbdev](https://database.dev/cipherstash/eql). The dbdev release can lag behind GitHub releases, so prefer `stash eql install` when you need the latest version.
 
 ### Docker for local development
 
@@ -100,7 +135,7 @@ Schema changes — adding or removing encrypted columns — always go through th
 
 ## Managed Postgres and Supabase
 
-EQL v3 is designed to install without superuser. There are no custom operator classes (which managed platforms typically block), no `postgresql.conf` changes, and no separate Supabase build — the single install script is the same artefact everywhere. Indexing works through ordinary functional indexes over EQL's term-extractor functions, which any user who can `CREATE INDEX` can build. See the [Supabase integration](/integrations/supabase) for platform-specific setup.
+EQL v3 is designed to install without superuser. There are no custom operator classes (which managed platforms typically block), no `postgresql.conf` changes, and no separate Supabase build — the same schema installs everywhere. When the connected role lacks superuser, `stash eql install` detects it and automatically falls back to the no-operator-family install variant, so it works on Supabase, Neon, and RDS without extra flags. Indexing works through ordinary functional indexes over EQL's term-extractor functions, which any user who can `CREATE INDEX` can build. See the [Supabase integration](/integrations/supabase) for platform-specific setup.
 
 ## Understand
 
