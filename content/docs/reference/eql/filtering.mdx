@@ -74,7 +74,7 @@ Encrypted JSON documents (`public.json`) filter by containment and path existenc
 
 ```sql
 -- Does the document contain this (encrypted) structure?
-SELECT * FROM orders WHERE metadata @> $1::public.jsonb_query;
+SELECT * FROM orders WHERE metadata @> $1::eql_v3.query_jsonb;
 
 -- Does this path exist in the document?
 SELECT * FROM orders WHERE eql_v3.jsonb_path_exists(metadata, 'region_selector');
