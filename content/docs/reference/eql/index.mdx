@@ -7,11 +7,13 @@ verifiedAgainst:
   eql: "3.0.0"
 ---
 
+<EqlVersion />
+
 Encrypt Query Language (EQL) is a set of types, operators, and functions for storing and querying encrypted data in PostgreSQL. It installs as a single plain-SQL script — no extension packaging, no superuser, no operator classes — so it runs on Supabase, RDS, Cloud SQL, and self-hosted Postgres alike.
 
 EQL itself never encrypts anything. Encryption and decryption happen in the client, using the [Stack SDK](/reference/stack) or [CipherStash Proxy](/reference/proxy). EQL provides the database-side surface those clients query against: encrypted column types, the operators that compare them, and the term-extractor functions that make indexes work.
 
-Every encrypted column is a `jsonb`-backed domain type in the `eql_v3` schema, and the domain variant you choose declares what the column can do — the full model is in [Core concepts](/reference/eql/core-concepts).
+Every encrypted column is a `jsonb`-backed domain type in the `public` schema (the functions and operators behind them live in `eql_v3`), and the domain variant you choose declares what the column can do — the full model is in [Core concepts](/reference/eql/core-concepts).
 
 ## Install
 
@@ -51,7 +53,7 @@ SELECT eql_v3.version();
 </Steps>
 
 <Callout type="warn">
-`DROP SCHEMA eql_v3 CASCADE` drops every column typed as an `eql_v3` domain. The domain types live in the schema, and your columns depend on them.
+To uninstall, drop both EQL schemas: `DROP SCHEMA eql_v3, eql_v3_internal CASCADE`. This removes the encrypted operators and functions, so queries against encrypted columns stop resolving — but your data survives: the `public.*` domain types (and the columns typed as them) live in the `public` schema and are left untouched. Remove those separately only if you intend to drop or re-type the columns.
 </Callout>
 
 ### dbdev
@@ -81,7 +83,7 @@ GRANT CREATE ON SCHEMA public TO your_migration_user;
 GRANT ALTER ON ALL TABLES IN SCHEMA public TO your_migration_user;
 ```
 
-`CREATE ON DATABASE` creates the `eql_v3` schema and its types; `CREATE ON SCHEMA` and `ALTER` are needed to add encrypted columns (typed as `eql_v3` domains, with their `CHECK` constraints) to your tables.
+`CREATE ON DATABASE` lets EQL create its schemas (`eql_v3`, `eql_v3_internal`) and the `public.*` domain types; `CREATE ON SCHEMA` and `ALTER` are needed to add encrypted columns (typed as `public.*` domains, with their `CHECK` constraints) to your tables.
 
 **Runtime user** — the application's day-to-day access:
 

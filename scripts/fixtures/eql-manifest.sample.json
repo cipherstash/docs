@@ -1,0 +1,192 @@
+{
+  "_note": "ILLUSTRATIVE SAMPLE — shape only. Replaced at build time by the real eql-manifest.json from the eql-docs release asset (cipherstash/encrypt-query-language). Do not treat these signatures/domains as authoritative. Mirrors the real schema: domains live in `public.`, public functions in `eql_v3.`, internal ctors in `eql_v3_internal.` (visibility: private).",
+  "$schema": "https://schemas.cipherstash.com/eql/manifest/v1.json",
+  "name": "eql",
+  "version": "3.0.0-sample",
+  "generatedFrom": "doxygen-xml + catalog",
+  "counts": { "functions": 5, "public": 2, "private": 3, "domains": 9 },
+  "functions": [
+    {
+      "name": "version",
+      "signature": "version()",
+      "visibility": "public",
+      "brief": "Get the installed EQL version string.",
+      "description": "Returns the version string for the installed EQL library.",
+      "params": [],
+      "returns": { "type": "text", "description": "the version string" },
+      "throws": [],
+      "notes": "",
+      "warnings": "",
+      "seeAlso": "",
+      "source": { "file": "src/v3/version.sql", "line": 28 }
+    },
+    {
+      "name": "jsonb_path_query",
+      "signature": "jsonb_path_query(jsonb, text)",
+      "visibility": "public",
+      "brief": "Query encrypted JSONB for sv elements matching a selector.",
+      "description": "Returns one jsonb_entry row per matching encrypted element.",
+      "params": [
+        {
+          "name": "val",
+          "type": "jsonb",
+          "description": "encrypted EQL payload with sv"
+        },
+        { "name": "selector", "type": "text", "description": "selector hash" }
+      ],
+      "returns": {
+        "type": "public.jsonb_entry",
+        "description": "matching encrypted entries"
+      },
+      "throws": [],
+      "notes": "",
+      "warnings": "",
+      "seeAlso": "",
+      "source": { "file": "src/v3/jsonb/functions.sql", "line": 358 }
+    },
+    {
+      "name": "hmac_256",
+      "signature": "hmac_256(jsonb)",
+      "visibility": "private",
+      "brief": "Extract the HMAC-SHA-256 equality term from an encrypted value.",
+      "description": "Backs equality (`=`, `IN`, joins) on `_eq` and `text_search` columns.",
+      "params": [
+        { "name": "val", "type": "jsonb", "description": "the encrypted value" }
+      ],
+      "returns": { "type": "text", "description": "the HMAC term" },
+      "throws": [],
+      "notes": "",
+      "warnings": "",
+      "seeAlso": "",
+      "source": { "file": "src/v3/sem/hmac_256/functions.sql", "line": 12 }
+    },
+    {
+      "name": "bloom_filter",
+      "signature": "bloom_filter(jsonb)",
+      "visibility": "private",
+      "brief": "Extract the bloom-filter match term from an encrypted value.",
+      "description": "Backs token containment (`@>`) on `text_match` / `text_search` columns.",
+      "params": [
+        { "name": "val", "type": "jsonb", "description": "the encrypted value" }
+      ],
+      "returns": {
+        "type": "smallint[]",
+        "description": "the set bit positions"
+      },
+      "throws": [],
+      "notes": "",
+      "warnings": "",
+      "seeAlso": "",
+      "source": { "file": "src/v3/sem/bloom_filter/functions.sql", "line": 20 }
+    },
+    {
+      "name": "ore_block_256",
+      "signature": "ore_block_256(jsonb)",
+      "visibility": "private",
+      "brief": "Extract the ORE ordering term from an encrypted value.",
+      "description": "Backs range and ordering (`<`, `>`, `ORDER BY`) on `_ord` columns.",
+      "params": [
+        { "name": "val", "type": "jsonb", "description": "the encrypted value" }
+      ],
+      "returns": {
+        "type": "eql_v3_internal.ore_block_256",
+        "description": "the ORE term"
+      },
+      "throws": [],
+      "notes": "",
+      "warnings": "",
+      "seeAlso": "",
+      "source": { "file": "src/v3/sem/ore_block_256/functions.sql", "line": 8 }
+    }
+  ],
+  "domains": [
+    {
+      "name": "public.integer",
+      "type": "integer",
+      "variant": "",
+      "base": "jsonb",
+      "capabilities": ["storage"],
+      "supportedOperators": [],
+      "termFunctions": []
+    },
+    {
+      "name": "public.integer_eq",
+      "type": "integer",
+      "variant": "eq",
+      "base": "jsonb",
+      "capabilities": ["equality"],
+      "supportedOperators": ["=", "<>"],
+      "termFunctions": ["eql_v3.eq_term"]
+    },
+    {
+      "name": "public.integer_ord",
+      "type": "integer",
+      "variant": "ord",
+      "base": "jsonb",
+      "capabilities": ["equality", "order"],
+      "supportedOperators": ["=", "<>", "<", "<=", ">", ">="],
+      "termFunctions": ["eql_v3.ord_term"]
+    },
+    {
+      "name": "public.integer_ord_ope",
+      "type": "integer",
+      "variant": "ord_ope",
+      "base": "jsonb",
+      "capabilities": ["equality", "order"],
+      "supportedOperators": ["=", "<>", "<", "<=", ">", ">="],
+      "termFunctions": ["eql_v3.ord_ope_term"]
+    },
+    {
+      "name": "public.text_match",
+      "type": "text",
+      "variant": "match",
+      "base": "jsonb",
+      "capabilities": ["match"],
+      "supportedOperators": ["@>", "<@"],
+      "termFunctions": ["eql_v3.match_term"]
+    },
+    {
+      "name": "public.text_search",
+      "type": "text",
+      "variant": "search",
+      "base": "jsonb",
+      "capabilities": ["equality", "order", "match"],
+      "supportedOperators": ["=", "<>", "<", "<=", ">", ">=", "@>", "<@"],
+      "termFunctions": [
+        "eql_v3.eq_term",
+        "eql_v3.ord_term",
+        "eql_v3.match_term"
+      ]
+    },
+    {
+      "name": "public.json",
+      "type": "jsonb",
+      "variant": "",
+      "base": "jsonb",
+      "shape": "stevec",
+      "capabilities": ["json"],
+      "supportedOperators": [],
+      "termFunctions": []
+    },
+    {
+      "name": "public.jsonb_entry",
+      "type": "jsonb",
+      "variant": "",
+      "base": "jsonb",
+      "shape": "stevec",
+      "capabilities": ["json"],
+      "supportedOperators": [],
+      "termFunctions": ["eql_v3.eq_term", "eql_v3.ore_cllw"]
+    },
+    {
+      "name": "public.jsonb_query",
+      "type": "jsonb",
+      "variant": "",
+      "base": "jsonb",
+      "shape": "stevec",
+      "capabilities": ["json"],
+      "supportedOperators": [],
+      "termFunctions": []
+    }
+  ]
+}

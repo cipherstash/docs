@@ -7,6 +7,8 @@ verifiedAgainst:
   eql: "3.0.0"
 ---
 
+<EqlVersion />
+
 `ORDER BY` on an encrypted column needs an ORE ordering term: it works on `_ord` / `_ord_ore` variants of every scalar and on `text_search`. ORE terms are order-preserving, so the database sorts ciphertext in exactly the order the plaintext would sort — without decrypting anything. Which variants carry the term is covered in [Numbers](/reference/eql/numbers), [Dates & times](/reference/eql/dates-and-times), and [Text](/reference/eql/text); the variant model itself is in [Core concepts](/reference/eql/core-concepts).
 
 Sorting a variant *without* an ORE term (`_eq`, `text_match`, bare storage variants) won't raise — but the order is meaningless. Type the column as an `_ord` variant when ordering matters.
@@ -33,7 +35,7 @@ CREATE INDEX users_created_at_ord
 ANALYZE users;
 
 SELECT * FROM users
-  WHERE created_at < $1::eql_v3.timestamp_ord
+  WHERE created_at < $1::public.timestamp_ord
   ORDER BY eql_v3.ord_term(created_at) DESC
   LIMIT 10;
 -- Index Scan Backward using users_created_at_ord — no Sort node
@@ -64,7 +66,7 @@ SELECT id, email, created_at FROM users
 
 -- Next page: pass the last row's created_at back, re-encrypted as the cursor
 SELECT id, email, created_at FROM users
-  WHERE created_at < $1::eql_v3.timestamp_ord
+  WHERE created_at < $1::public.timestamp_ord
   ORDER BY eql_v3.ord_term(created_at) DESC
   LIMIT 20;
 ```

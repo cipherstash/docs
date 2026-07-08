@@ -15,6 +15,9 @@ const GITHUB_API_URL =
   "https://api.github.com/repos/cipherstash/encrypt-query-language/releases";
 const TEMP_DIR = ".tmp-eql";
 const OUTPUT_DIR = path.join(process.cwd(), "content/stack/reference/eql");
+// Where the machine-readable manifest is surfaced for the v2 API-reference
+// generator (scripts/generate-eql-api-docs.ts). Gitignored; best-effort.
+const RELEASE_MANIFEST = path.join(process.cwd(), ".eql-manifest.release.json");
 
 /**
  * Check if a tarball URL exists (returns HTTP 200)
@@ -260,6 +263,22 @@ async function main() {
     JSON.stringify({ pages: ["index"] }, null, 2),
     "utf8",
   );
+
+  // Surface the machine-readable manifest for the v2 API-reference generator.
+  // Only releases packaged with the manifest carry it; older ones don't, so
+  // this is best-effort and the generator falls back to the committed sample.
+  const manifestSrc = path.join(extractPath, "json", "eql-manifest.json");
+  try {
+    await fs.copyFile(manifestSrc, RELEASE_MANIFEST);
+    console.log(
+      `✓ Extracted eql-manifest.json → ${path.basename(RELEASE_MANIFEST)}`,
+    );
+  } catch {
+    await fs.rm(RELEASE_MANIFEST, { force: true }); // clear any stale cache
+    console.log(
+      "• No eql-manifest.json in this release; API reference uses the sample.",
+    );
+  }
 
   // Clean up
   console.log("Cleaning up...");
