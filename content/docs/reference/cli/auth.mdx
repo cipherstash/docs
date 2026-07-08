@@ -1,0 +1,88 @@
+---
+title: stash auth
+description: "Reference for the `stash auth` commands."
+type: reference
+components: [cli]
+verifiedAgainst:
+  cli: "0.17.0"
+---
+
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v0.17.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
+
+<Callout type="info">
+Generated from **`stash` v0.17.0** via `npx stash@0.17.0 manifest --json`. Run `npx stash@0.17.0 --help` to see the live command surface.
+</Callout>
+
+The `stash auth` command group.
+
+### `auth login`
+
+Authenticate with CipherStash
+
+```bash
+npx stash auth login [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--region <slug>` | Region to authenticate against (e.g. us-east-1). Skips the interactive region picker. (env: `STASH_REGION`) |
+| `--json` | Emit newline-delimited JSON events instead of prose. The first event (authorization_required) carries the device verification URL for a human to open. Implies no prompt and no browser auto-open. |
+| `--no-open` | Don't auto-open the verification URL in a browser (already implied by --json). |
+| `--supabase` | Track Supabase as the referrer. |
+| `--drizzle` | Track Drizzle as the referrer. |
+
+
+#### Examples
+
+```bash
+npx stash auth login
+npx stash auth login --region us-east-1
+npx stash auth login --supabase
+npx stash auth login --region us-east-1 --json
+```
+
+### `auth regions`
+
+List the regions you can authenticate against
+
+```bash
+npx stash auth regions [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--json` | Emit machine-readable [\{ slug, label \}] instead of a text list. |
+
+
+#### Examples
+
+```bash
+npx stash auth regions
+npx stash auth regions --json
+```
+
+## How authentication works
+
+`stash auth login` runs the OAuth 2.0 **device authorization flow**:
+
+1. You pick a **region** for your CipherStash workspace.
+2. The CLI opens your browser to a verification URL (and prints it, so it also
+   works over SSH or in a headless/agent environment) where you approve the
+   request.
+3. Meanwhile the CLI polls CipherStash until you approve, then receives a
+   short-lived access token (it reports the token's expiry).
+4. Your device is **bound to the workspace's default keyset**, so later commands
+   (`stash eql install`, `stash db push`, …) authenticate without a fresh login.
+
+<Callout title="Good to know">
+Login is device- and workspace-scoped. Authenticating from a new machine, or for a different workspace, re-runs the device flow.
+</Callout>
+
+{/* TODO(verify with product): profiles, multiple workspaces, and switching
+between them (where they're stored and how they're selected) belong here, or
+in a linked CLI concept page. The CLI currently exposes only `auth login`;
+confirm the profile / workspace-switching surface before documenting it. */}

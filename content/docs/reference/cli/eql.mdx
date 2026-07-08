@@ -1,0 +1,77 @@
+---
+title: stash eql
+description: "Reference for the `stash eql` commands."
+type: reference
+components: [cli, eql]
+verifiedAgainst:
+  cli: "0.17.0"
+---
+
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v0.17.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
+
+<Callout type="info">
+Generated from **`stash` v0.17.0** via `npx stash@0.17.0 manifest --json`. Run `npx stash@0.17.0 --help` to see the live command surface.
+</Callout>
+
+The `stash eql` command group.
+
+### `eql install`
+
+Scaffold stash.config.ts (if missing) and install EQL extensions
+
+```bash
+npx stash eql install [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--force` | Reinstall / overwrite even if already installed. |
+| `--dry-run` | Show what would happen without making changes. |
+| `--supabase` | Use Supabase-compatible mode (auto-detected from DATABASE_URL). |
+| `--drizzle` | Generate a Drizzle migration instead of direct install (auto-detected from project). |
+| `--migration` | Write a Supabase migration file instead of running SQL directly (requires --supabase). |
+| `--direct` | Run the SQL directly against the database (requires --supabase; mutually exclusive with --migration). |
+| `--migrations-dir <path>` | Override the Supabase migrations directory (requires --supabase). (default: `supabase/migrations`) |
+| `--exclude-operator-family` | Skip operator family creation. |
+| `--eql-version <2\|3>` | EQL generation to target. v3 is the native eql_v3.* domain schema (direct install only for now). (default: `2`) |
+| `--latest` | Fetch the latest EQL from GitHub (v2 only). |
+| `--name <name>` | With --drizzle: name for the generated migration (defaults to a scaffold name). |
+| `--out <path>` | With --drizzle: directory to write the generated migration into. |
+| `--database-url <url>` | Override DATABASE_URL for this run only — never written to disk. (env: `DATABASE_URL`) |
+
+
+### `eql upgrade`
+
+Upgrade EQL extensions to the latest version
+
+```bash
+npx stash eql upgrade [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--dry-run` | Show what would happen without making changes. |
+| `--supabase` | Use Supabase-compatible mode. |
+| `--exclude-operator-family` | Skip operator family creation. |
+| `--eql-version <2\|3>` | EQL generation to target. (default: `2`) |
+| `--latest` | Fetch the latest EQL from GitHub (v2 only). |
+| `--database-url <url>` | Override DATABASE_URL for this run only — never written to disk. (env: `DATABASE_URL`) |
+
+
+### `eql status`
+
+Show EQL installation status
+
+```bash
+npx stash eql status [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--database-url <url>` | Override DATABASE_URL for this run only — never written to disk. (env: `DATABASE_URL`) |

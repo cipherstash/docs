@@ -1,0 +1,86 @@
+---
+title: stash db
+description: "Reference for the `stash db` commands."
+type: reference
+components: [cli, eql]
+verifiedAgainst:
+  cli: "0.17.0"
+---
+
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v0.17.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
+
+<Callout type="info">
+Generated from **`stash` v0.17.0** via `npx stash@0.17.0 manifest --json`. Run `npx stash@0.17.0 --help` to see the live command surface.
+</Callout>
+
+The `stash db` command group.
+
+### `db push`
+
+Push encryption schema (writes pending if active config already exists)
+
+```bash
+npx stash db push [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--dry-run` | Show what would happen without making changes. |
+| `--database-url <url>` | Override DATABASE_URL for this run only — never written to disk. (env: `DATABASE_URL`) |
+
+
+### `db activate`
+
+Promote pending → active without renames (use after additive db push)
+
+```bash
+npx stash db activate [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--database-url <url>` | Override DATABASE_URL for this run only — never written to disk. (env: `DATABASE_URL`) |
+
+
+### `db validate`
+
+Validate encryption schema
+
+```bash
+npx stash db validate [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--supabase` | Use Supabase-compatible mode. |
+| `--exclude-operator-family` | Skip operator family creation. |
+| `--database-url <url>` | Override DATABASE_URL for this run only — never written to disk. (env: `DATABASE_URL`) |
+
+
+### `db migrate`
+
+Run pending encrypt config migrations (not yet implemented)
+
+```bash
+npx stash db migrate
+```
+
+### `db test-connection`
+
+Test database connectivity
+
+```bash
+npx stash db test-connection [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--database-url <url>` | Override DATABASE_URL for this run only — never written to disk. (env: `DATABASE_URL`) |
