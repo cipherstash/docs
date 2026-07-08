@@ -1,0 +1,73 @@
+---
+title: Benchmarks
+description: "Query latency on encrypted columns versus plaintext PostgreSQL. Exact match and range run within 1.2-1.4x of plaintext and stay flat from 10k to 10M rows."
+type: reference
+components: [eql]
+---
+
+CipherStash encrypts data in your application and queries it in PostgreSQL through [EQL](/reference/eql). These benchmarks measure what that costs: the same query shapes run against encrypted columns and against plaintext tables with equivalent indexes, so every figure is an honest encrypted-versus-plaintext ratio rather than a number in isolation.
+
+All results are medians on **Apple M1 Max, PostgreSQL 17, EQL v3**, across datasets from 10,000 to 10,000,000 rows. The full suite (per-scenario SQL, `EXPLAIN` plans, charts, and the v2-to-v3 regression comparison) lives in [cipherstash/benches](https://github.com/cipherstash/benches).
+
+<Callout title="Headline" type="info">
+On the fast paths, querying encrypted data costs almost nothing. Exact match and OPE range queries run at about **0.12 ms, within 1.2-1.4x of plaintext PostgreSQL, and stay flat from 10k to 10M rows**. Latency tracks the index, not the row count.
+</Callout>
+
+## Query latency
+
+Median latency at 1,000,000 rows, with the ratio to the same query on a plaintext table with an equivalent index.
+
+| Operation | EQL index | Encrypted median | vs plaintext |
+| --- | --- | --- | --- |
+| Exact match (`=`) | B-tree (equality term) | 0.12 ms | 1.3x |
+| Range / `ORDER BY` (OPE) | B-tree (OPE order term) | 0.12 ms | 1.2x |
+| Range / `ORDER BY` (ORE) | B-tree (ORE order term) | 0.52 ms | 5.2x |
+| JSON containment (`@>`) | GIN (SteVec) | 0.40 ms | 1.4x |
+| `GROUP BY` (low cardinality) | B-tree (equality term) | 83 ms | 2.2x |
+
+**Range and ordering have two index options.** The `_ord_ope` variants use order-preserving encryption (OPE): near-plaintext latency, and an index that builds in about 1 s at 1M rows. The `_ord` variants use order-revealing encryption (ORE): roughly 5x plaintext, and the index takes about 44 s to build at 1M. They have different leakage profiles, so the right choice is per column rather than universal, see [Searchable encryption](/concepts/searchable-encryption) for the tradeoff and [Numbers](/reference/eql/numbers) for the variants.
+
+**Free-text match** uses a bloom-filter term (there is no `LIKE` on encrypted text) and runs at about 15.7 ms at 1M rows. What matters most is that the index engages at all: the bloom GIN is **100-400x faster than a sequential scan**. See [Text](/reference/eql/text).
+
+## Scaling
+
+Latency on an indexed encrypted column tracks the index, not the table, so the encrypted-versus-plaintext ratio barely moves as the dataset grows 1000x:
+
+| Operation | 10k | 100k | 1M | 10M |
+| --- | --- | --- | --- | --- |
+| Exact match (`=`) | 0.13 ms (1.4x) | 0.11 ms (1.2x) | 0.12 ms (1.3x) | 0.13 ms (1.4x) |
+| Range (OPE) | 0.12 ms (1.2x) | 0.12 ms (1.2x) | 0.12 ms (1.2x) | 0.12 ms (1.2x) |
+
+Aggregations that scan every matched row, like `GROUP BY`, grow with the number of rows in the group exactly as they do on plaintext: about 2x plaintext throughout (2.1 ms at 10k, 83 ms at 1M).
+
+## Ingest
+
+Encryption happens in your application on write, so insert throughput reflects client-side work rather than database load. On the reference machine, encrypted insert throughput ranges from about **11k rows/s** for exact-match and OPE columns down to about **1.3k rows/s** for the free-text `text_search` domain, which generates a bloom and an order term per value. Batching and parallel writers scale this well past the single-threaded figures here. The per-domain breakdown is in the [ingest report](https://github.com/cipherstash/benches/blob/main/report/BENCHMARK_REPORT.md).
+
+## Methodology
+
+- **Environment:** Apple M1 Max, PostgreSQL 17, EQL v3. Datasets of 10k, 100k, 1M, and 10M rows.
+- **Baseline:** every encrypted scenario is compared to the same query shape on a plaintext table with an equivalent index (`benches/plaintext_v3.rs`). Ratios are encrypted median divided by plaintext median.
+- **Indexes:** queries use functional indexes over EQL's extractor terms, exactly as documented in [Indexes](/reference/eql/indexes). A query that cannot use its index falls back to a sequential scan, as it would on plaintext.
+- **Caveats:** medians are single-machine and single-connection, so absolute numbers on your hardware and under concurrency will differ. One outlier is called out in the report: JSON `contains` at 10M rows uses a query recipe that materializes the full GIN bitmap before `LIMIT` (a documented plan artifact, not the operator's real cost).
+
+## Reproduce
+
+```bash
+git clone https://github.com/cipherstash/benches
+cd benches
+mise run setup-db-v3
+mise run bench:v3:query:all 1000000
+mise run report:v3-compare
+```
+
+## Related
+
+<Cards>
+  <Card title="Searchable encryption" href="/concepts/searchable-encryption">
+    The leakage model behind each index type: what exact, range, and match terms reveal.
+  </Card>
+  <Card title="EQL indexes" href="/reference/eql/indexes">
+    The functional-index recipes these numbers depend on, and what it takes for an index to engage.
+  </Card>
+</Cards>

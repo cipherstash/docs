@@ -434,7 +434,7 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
 - [ ] `/reference/proxy/*` (configuration, message-flow, multitenant, errors)
 - [ ] `/reference/workspace/billing` + `/members` + `/configuration`
 - **Cross-cutting:**
-- [ ] `/reference/benchmarks` — listing numbers + methodology (CIP-3334)
+- [x] `/reference/benchmarks` — listing numbers + methodology (CIP-3334)
 - [ ] `/reference/agent-skills` (port; expand per CIP-3339)
 - [ ] `/reference/glossary` (port)
 - [ ] Repoint `scripts/generate-docs.ts` TypeDoc output → `content/docs/reference/stack`
