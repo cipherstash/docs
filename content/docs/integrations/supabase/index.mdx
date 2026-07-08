@@ -26,19 +26,33 @@ Unlike ordinary field encryption, the ciphertext stays **fully queryable**. You 
   </Card>
 </Cards>
 
-## How it fits together
+## How it works
 
-Two pieces, one on each side of your Supabase connection:
+CipherStash encrypted search is built on the [Encrypted Query Language (EQL)](/reference/eql), which can be installed into any Supabase database. Like regular Postgres, EQL provides a set of common data types and functions, but is designed for working with encrypted data.
 
-- **[EQL](/reference/eql)** installs into your Supabase Postgres as plain SQL. It provides encrypted column types — the type name declares what a column can do:
-  - `eql_v3.text_eq` — encrypted text with equality (`=`)
-  - `eql_v3.text_match` — encrypted text with free-text search (token match)
-  - `eql_v3.int4_ord` — encrypted integers with range (`<`, `>`) and `ORDER BY`
-  - `eql_v3.timestamp_ord` — encrypted timestamps with range and ordering
-  - `eql_v3.json` — encrypted JSON with field access (`->`) and containment (`@>`)
-- **[`@cipherstash/stack`](/reference/stack)** runs in your application. Its [`encryptedSupabase` wrapper](/reference/stack/supabase) encrypts values before they're written, encrypts filter terms before they're compared, and decrypts results — around your existing supabase-js client, so Supabase Auth and RLS apply unchanged.
+Use EQL base types to encrypt table columns containing dates, numbers, text, or JSON. Type modifiers let you specify how you want to query data stored in a column of that type:
 
-There are encrypted types for text, integers, floats, numerics, dates, timestamps, booleans, and JSON — so your schema declares intent, queries run with no decryption at the database, and encrypted columns still **index using standard Postgres indexes** ([EQL indexes](/reference/eql/indexes)).
+- Use `date_eq` to filter encrypted dates with `WHERE`
+- Use `integer_ord` to filter and sort encrypted integers with `WHERE` and `ORDER BY`
+- Use `text_search` for encrypted text search — containment matching (like `LIKE '%term%'`), `WHERE` clauses, and `ORDER BY`
+
+Most types also support `JOIN`, `GROUP BY`, and `UNION` queries. See the [EQL reference](/reference/eql) for a full list.
+
+> **Good to know**: `text_search` containment matching approximates `LIKE '%term%'` — it finds rows whose encrypted text *contains* your search term. It isn't full SQL `LIKE`: there are no wildcards or anchoring (only "contains", not a `term%` prefix or `%term` suffix), it matches substrings above a minimum length rather than arbitrarily short fragments, and it's a probabilistic filter that can occasionally return a false-positive row. Use `text_eq` (`=`) when you need exact matching.
+
+Add EQL columns using the Table Editor in Supabase Studio:
+
+![Supabase Studio Table Editor with EQL column types selected for the name, email, ssn, and medications columns](/images/integrations/supabase-table-editor-eql-columns.png)
+
+Or by specifying an EQL column type in SQL statements or migrations:
+
+```sql filename="migration.sql"
+CREATE TABLE users (
+  id serial,
+  email text_search,
+  dob date_ord
+)
+```
 
 ## RLS is not encryption
 
