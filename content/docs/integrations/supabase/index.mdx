@@ -13,9 +13,9 @@ verifiedAgainst:
   stack: "0.18.0"
 ---
 
-CipherStash adds application-level encryption to your Supabase project. Sensitive fields — names, emails, health records, anything you choose — are encrypted inside your application before they ever reach Postgres, so plaintext never touches your database, its backups, or its replication streams. CipherStash never sees your data or your keys.
+CipherStash adds application-level encryption to your Supabase project. Sensitive fields (names, emails, health records, anything you choose) are encrypted inside your application before they ever reach Postgres, so plaintext never touches your database, its backups, or its replication streams. CipherStash never sees your data or your keys.
 
-Unlike ordinary field encryption, the ciphertext stays **fully queryable**. You install [Encrypt Query Language (EQL)](/reference/eql) on your Supabase database, then declare each protected column with the encrypted type that matches the operations you need — and query it with the same `.eq()`, `.order()`, and text-search calls you use today.
+Unlike ordinary field encryption, the ciphertext stays **fully queryable**. You install [Encrypt Query Language (EQL)](/reference/eql) on your Supabase database, then declare each protected column with the encrypted type that matches the operations you need, then query it with the same `.eq()`, `.order()`, and text-search calls you use today.
 
 <Cards>
   <Card title="Quickstart" href="/integrations/supabase/quickstart">
@@ -30,15 +30,17 @@ Unlike ordinary field encryption, the ciphertext stays **fully queryable**. You 
 
 CipherStash encrypted search is built on the [Encrypted Query Language (EQL)](/reference/eql), which can be installed into any Supabase database. Like regular Postgres, EQL provides a set of common data types and functions, but is designed for working with encrypted data.
 
-Use EQL base types to encrypt table columns containing dates, numbers, text, or JSON. Type modifiers let you specify how you want to query data stored in a column of that type:
+Use EQL `base` types to encrypt table columns containing dates, numbers, text, or JSON. Type modifiers let you specify how you want to query data stored in a column of that type:
 
 - Use `date_eq` to filter encrypted dates with `WHERE`
 - Use `integer_ord` to filter and sort encrypted integers with `WHERE` and `ORDER BY`
-- Use `text_search` for encrypted text search — containment matching (like `LIKE '%term%'`), `WHERE` clauses, and `ORDER BY`
+- Use `text_search` for encrypted text search: containment matching (like `LIKE '%term%'`), `WHERE` clauses, and `ORDER BY`
 
 Most types also support `JOIN`, `GROUP BY`, and `UNION` queries. See the [EQL reference](/reference/eql) for a full list.
 
-> **Good to know**: `text_search` containment matching approximates `LIKE '%term%'` — it finds rows whose encrypted text *contains* your search term. It isn't full SQL `LIKE`: there are no wildcards or anchoring (only "contains", not a `term%` prefix or `%term` suffix), it matches substrings above a minimum length rather than arbitrarily short fragments, and it's a probabilistic filter that can occasionally return a false-positive row. Use `text_eq` (`=`) when you need exact matching.
+<Callout type="info">
+  `text_search` match is *containment* (`LIKE '%term%'`-style), not full SQL `LIKE`: there are no wildcards or anchoring, and it can occasionally return a false positive. Use `text_eq` (`=`) for exact matching.
+</Callout>
 
 Add EQL columns using the Table Editor in Supabase Studio:
 
@@ -54,44 +56,18 @@ CREATE TABLE users (
 )
 ```
 
-## RLS is not encryption
-
-Row Level Security controls *who can query* your data; CipherStash controls *whether it can be read at all*. RLS is enforced inside the database on plaintext, so its protection ends the moment that layer is bypassed — a leaked `service_role` key, an over-broad policy, a stolen backup, or direct disk access all expose data in the clear. Because CipherStash encrypts values in your app and keeps the keys outside the database, every one of those cases yields only ciphertext.
-
-> **RLS keeps the wrong user out. CipherStash keeps your data safe even when the wrong user gets in.**
-
-Use both: RLS to authorize access, CipherStash so a bypass never turns into a data breach. How the two compose on Supabase — including where RLS predicates can and can't reference encrypted columns — is covered in [Fundamentals → Row Level Security](/integrations/supabase/fundamentals#row-level-security).
-
 ## Built for the Supabase stack
 
-- **Native Supabase.js** — encrypt in your app, then store and query through the same client with the same `.eq()`, `.order()`, and text-search calls. See the [Quickstart](/integrations/supabase/quickstart).
-- **Supabase Auth** — federate the signed-in user's session so encryption authenticates as them, and optionally lock decryption to their identity. See [Supabase Auth](/integrations/supabase/auth).
-- **Edge Functions** — the SDK runs in Supabase Edge Functions via a WebAssembly build. See [Edge Functions](/integrations/supabase/edge-functions).
-- **Row Level Security** — layers on top of your RLS policies rather than replacing them.
-- **Your ORM or framework** — first-class support for Prisma and Drizzle, and frameworks like Next.js, alongside Supabase. See [Data layer](/integrations/supabase/orms).
+CipherStash layers onto the tools you already use. Each area has a page that goes deeper:
 
-## Key management and auditing, built in
+- **[Row Level Security](/integrations/supabase/fundamentals#row-level-security):** RLS controls *who can query* your data; CipherStash controls *whether it can be read at all*. Run both, so a bypassed policy, a leaked `service_role` key, or a stolen backup yields only ciphertext.
+- **[Quickstart](/integrations/supabase/quickstart):** encrypt in your app, then store and query through the same Supabase.js client with the `.eq()` and `.order()` calls you use today.
+- **[Supabase Auth](/integrations/supabase/auth):** federate the signed-in session so encryption authenticates as the user, and optionally lock decryption to their identity.
+- **[Edge Functions](/integrations/supabase/edge-functions):** run encryption server-side through the WebAssembly build.
+- **[Data layer](/integrations/supabase/orms):** first-class support for Prisma, Drizzle, and Next.js alongside Supabase.
+- **[Key management and audit logging](/security/audit-logging):** per-value keys and rotation through CipherStash ZeroKMS, a decryption access trail out of the box, and optional Bring Your Own Key.
 
-There's no key vault to run and no KMS to wire up. Every value is encrypted with its own key through CipherStash ZeroKMS, and key rotation is handled for you. Decryption events are logged, so you get an [access trail](/security/audit-logging) out of the box. Prefer to hold the root key yourself? Bring Your Own Key roots it in your own KMS.
-
-## Performance
-
-Measured on the [`cipherstash/benches`](https://github.com/cipherstash/benches) suite, up to 10M rows:
-
-- **~0.1 ms** median for exact-match lookups
-- **~0.5 ms** median for encrypted range queries
-- Latency stays flat as row counts scale from 10k to 10M
-
-Key operations run through ZeroKMS at **up to 14× the throughput of AWS KMS** (≈615 requests/sec peak), generating up to 10,000 data keys in a single operation — so key handling never becomes the bottleneck.
-
-## For your security team
-
-- **Audit logging** of decryption events
-- **Bring Your Own Key (BYOK)**
-- **FIPS compliance** and **SOC 2 compliance**
-- **Zero plaintext exposure** — CipherStash never sees your data or your keys
-
-There's a free developer tier, so you can add encryption from your very first migration. Encryption is far cheaper to design in than to retrofit — building it in now saves re-architecting your data layer later.
+On the [`cipherstash/benches`](https://github.com/cipherstash/benches) suite, exact-match lookups run at roughly 0.1 ms and encrypted range queries at 0.5 ms, staying flat from 10k up to 10M rows. CipherStash never sees your data or your keys, and ships with FIPS and SOC 2 compliance.
 
 ## Where to next
 
