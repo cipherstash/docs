@@ -189,6 +189,13 @@ Generated from **\`${CLI_NAME}\` v${CLI_VERSION}** via \`${RUNNER} ${CLI_NAME}@$
 </Callout>`;
 }
 
+// Escape characters MDX parses as JSX inside prose: `{`/`}` (expression braces —
+// e.g. the `auth regions` flag description "[{ slug, label }]" would otherwise
+// evaluate `slug` and crash the prerender) and stray `<` (tags). Flag names and
+// values render inside code spans, which are literal, so this only applies to
+// manifest-derived prose (descriptions, summaries).
+const escapeMdxText = (s: string): string => s.replace(/([{}<])/g, "\\$1");
+
 function flagsTable(flags: Flag[]): string {
   if (!flags.length) return "";
   const rows = flags
@@ -199,7 +206,8 @@ function flagsTable(flags: Flag[]): string {
         /\|/g,
         "\\|",
       );
-      return `| ${opt} | ${f.description.replace(/\|/g, "\\|")} |`;
+      const description = escapeMdxText(f.description).replace(/\|/g, "\\|");
+      return `| ${opt} | ${description} |`;
     })
     .join("\n");
   return `\n### Flags\n\n| Flag | Description |\n| --- | --- |\n${rows}\n`;
@@ -210,7 +218,7 @@ function commandSection(cmd: Command, level: "##" | "###"): string {
   const parts = [
     `${level} \`${cmd.path}\``,
     "",
-    cmd.summary,
+    escapeMdxText(cmd.summary),
     "",
     "```bash",
     synopsis,
@@ -262,7 +270,7 @@ function renderPage(
   } else {
     const c = cmds[0];
     parts.push(
-      c.summary,
+      escapeMdxText(c.summary),
       "",
       "```bash",
       `${RUNNER} ${CLI_NAME} ${c.path}${c.flags.length ? " [flags]" : ""}`,
@@ -310,7 +318,7 @@ function renderIndex(
             .filter((c) => c.base === base)
             .map((c) => {
               const anchor = c.sub ? `#${c.path.replace(/\s+/g, "-")}` : "";
-              const summary = c.summary.replace(/\|/g, "\\|");
+              const summary = escapeMdxText(c.summary).replace(/\|/g, "\\|");
               return `| [\`${c.path}\`](/reference/cli/${base}${anchor}) | ${summary} |`;
             }),
         )
