@@ -7,6 +7,7 @@ import { BadExample } from "@/components/bad-example";
 import { TrackedCodeBlock } from "@/components/code-block";
 import { EqlFn } from "@/components/eql-fn";
 import { EqlVersion } from "@/components/eql-version";
+import { Faq } from "@/components/faq";
 import { ZeroKmsRegions } from "@/components/zerokms-regions";
 
 /**
@@ -50,6 +51,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     EqlVersion,
     EqlFn,
     ZeroKmsRegions,
+    Faq,
     ...components,
   };
 }

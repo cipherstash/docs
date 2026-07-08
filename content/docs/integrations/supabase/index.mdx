@@ -13,6 +13,8 @@ verifiedAgainst:
   stack: "0.18.0"
 ---
 
+import { faqPrivacy, faqScaling, faqKms, faqRlsVsEncryption, faqFreeTier } from "@/components/faq/shared";
+
 CipherStash adds application-level encryption to your Supabase project. Sensitive fields (names, emails, health records, anything you choose) are encrypted inside your application before they ever reach Postgres, so plaintext never touches your database, its backups, or its replication streams. CipherStash never sees your data or your keys.
 
 Unlike ordinary field encryption, the ciphertext stays **fully queryable**. You install [Encrypt Query Language (EQL)](/reference/eql) on your Supabase database, then declare each protected column with the encrypted type that matches the operations you need, then query it with the same `.eq()`, `.order()`, and text-search calls you use today.
@@ -65,9 +67,47 @@ CipherStash layers onto the tools you already use. Each area has a page that goe
 - **[Supabase Auth](/integrations/supabase/auth):** federate the signed-in session so encryption authenticates as the user, and optionally lock decryption to their identity.
 - **[Edge Functions](/integrations/supabase/edge-functions):** run encryption server-side through the WebAssembly build.
 - **[Data layer](/integrations/supabase/orms):** first-class support for Prisma, Drizzle, and Next.js alongside Supabase.
-- **[Key management and audit logging](/security/audit-logging):** per-value keys and rotation through CipherStash ZeroKMS, a decryption access trail out of the box, and optional Bring Your Own Key.
+- **[Key management and audit logging](/security/audit-logging):** per-value keys and rotation through CipherStash ZeroKMS, a decryption access trail out of the box, optional Bring Your Own Key, and FIPS and SOC 2 compliance.
 
-On the [`cipherstash/benches`](https://github.com/cipherstash/benches) suite, exact-match lookups run at roughly 0.1 ms and encrypted range queries at 0.5 ms, staying flat from 10k up to 10M rows. CipherStash never sees your data or your keys, and ships with FIPS and SOC 2 compliance.
+## FAQ
+
+<Faq
+  items={[
+    faqPrivacy,
+    {
+      title: "Does it work with Supabase Auth and Row Level Security?",
+      answer: (
+        <>
+          Yes. It integrates with Supabase Auth and runs alongside RLS. It
+          complements them; it does not replace them.
+        </>
+      ),
+    },
+    faqRlsVsEncryption,
+    {
+      title: "Do I have to change how I write queries?",
+      answer: (
+        <>
+          No. Query encrypted columns with the same Supabase.js calls you use
+          today.
+        </>
+      ),
+    },
+    {
+      title: "What does migration look like?",
+      answer: (
+        <>
+          Install EQL on your Supabase database, choose which columns to protect,
+          then set their encryption type. Encrypt values in your app before
+          saving them, and update columns one at a time.
+        </>
+      ),
+    },
+    faqKms,
+    faqScaling,
+    faqFreeTier,
+  ]}
+/>
 
 ## Where to next
 
