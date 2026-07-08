@@ -128,8 +128,14 @@ function loadRawManifest(version: string): CliManifest {
       cwd: os.tmpdir(),
       stdio: ["ignore", "pipe", "ignore"],
     });
-    const json = out.slice(out.indexOf("{"), out.lastIndexOf("}") + 1);
-    const manifest = JSON.parse(json) as CliManifest;
+    const start = out.indexOf("{");
+    const end = out.lastIndexOf("}");
+    if (start === -1 || end < start) {
+      throw new Error(
+        `\`${CLI_NAME}@${version} manifest --json\` did not emit a JSON object (got: ${out.trim().slice(0, 120)}…)`,
+      );
+    }
+    const manifest = JSON.parse(out.slice(start, end + 1)) as CliManifest;
     fs.mkdirSync(path.dirname(FIXTURE), { recursive: true });
     fs.writeFileSync(FIXTURE, `${JSON.stringify(manifest, null, 2)}\n`);
     return manifest;
@@ -355,8 +361,13 @@ function loadManifest(): Manifest {
 }
 
 function main() {
+  // latestVersion() picks which published CLI to invoke; the manifest we get
+  // back is authoritative for what to stamp. Reconcile CLI_VERSION to it so
+  // pages never claim a version different from the data they were built from
+  // (e.g. when the live run fails and we fall back to an older cached fixture).
   CLI_VERSION = latestVersion();
   const manifest = loadManifest();
+  CLI_VERSION = manifest.version;
 
   // Group top-level commands by base, preserving discovery order.
   const bases: string[] = [];
