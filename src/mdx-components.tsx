@@ -3,6 +3,7 @@ import { Step, Steps } from "fumadocs-ui/components/steps";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import type { MDXComponents } from "mdx/types";
 import { TrackedCodeBlock } from "@/components/code-block";
+import { Faq } from "@/components/faq";
 
 export function getMDXComponents(components?: MDXComponents): MDXComponents {
   return {
@@ -13,6 +14,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     Callout,
     Steps,
     Step,
+    Faq,
     ...components,
   };
 }
