@@ -28,7 +28,7 @@ Point the [Stash CLI](/reference/cli) at your database and install the `eql_v3` 
 npx stash eql install --eql-version 3
 ```
 
-`stash eql install` scaffolds a `stash.config.ts` if your project doesn't have one, then installs the `eql_v3` schema — all domain types, operators, functions, and aggregates — along with the `cs_migrations` tracking schema that the `stash encrypt` commands depend on. It is idempotent: re-running reports that EQL is already installed and changes nothing. Pass `--force` to reinstall in place.
+`stash eql install` scaffolds a [`stash.config.ts`](#configuration) if your project doesn't have one, then installs the `eql_v3` schema — all domain types, operators, functions, and aggregates — along with the `cs_migrations` tracking schema that the `stash encrypt` commands depend on. It is idempotent: re-running reports that EQL is already installed and changes nothing. Pass `--force` to reinstall in place.
 
 <Callout>
 `--eql-version 3` selects the native `eql_v3` domain schema this reference documents. Without it the CLI installs EQL v2. v3 installs directly against the database, so the `--drizzle`, `--migration`, and `--latest` flags — all v2-only — don't apply.
@@ -72,6 +72,24 @@ To pull in a newer EQL release later, run `npx stash eql upgrade --eql-version 3
 <Callout type="warn">
 To uninstall, drop both EQL schemas: `DROP SCHEMA eql_v3, eql_v3_internal CASCADE`. This removes the encrypted operators and functions, so queries against encrypted columns stop resolving — but your data survives: the `public.*` domain types (and the columns typed as them) live in the `public` schema and are left untouched. Remove those separately only if you intend to drop or re-type the columns.
 </Callout>
+
+### Configuration
+
+`stash eql install` reads a `stash.config.ts` at your project root, scaffolding one on first run if it's missing. The same file is used by the `stash db` and `stash encrypt` commands. It exports a `defineConfig` object with two fields:
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `databaseUrl` | Yes | PostgreSQL connection string. The scaffold sets it to `await resolveDatabaseUrl()`, which resolves from the `--database-url` flag, then `DATABASE_URL` (environment or `.env`), then `supabase status`, then an interactive prompt. The resolved connection string is never written to disk — only the declarative call is. |
+| `client` | No | Path to your encryption client file. Defaults to `./src/encryption/index.ts`. |
+
+```ts filename="stash.config.ts"
+import { defineConfig, resolveDatabaseUrl } from "stash";
+
+export default defineConfig({
+  databaseUrl: await resolveDatabaseUrl(),
+  client: "./src/encryption/index.ts",
+});
+```
 
 ### dbdev
 
