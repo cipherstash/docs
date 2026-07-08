@@ -4,13 +4,13 @@ description: "Reference for the `stash encrypt` commands."
 type: reference
 components: [cli, eql]
 verifiedAgainst:
-  cli: "0.16.0"
+  cli: "0.17.0"
 ---
 
-{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash --help` (v0.16.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v0.17.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
 
 <Callout type="info">
-Generated from **`stash` v0.16.0**. Run `npx stash@0.16.0 --help` to see the live command surface.
+Generated from **`stash` v0.17.0** via `npx stash@0.17.0 manifest --json`. Run `npx stash@0.17.0 --help` to see the live command surface.
 </Callout>
 
 The `stash encrypt` command group.
@@ -36,21 +36,53 @@ npx stash encrypt plan
 Resumably encrypt plaintext into the encrypted column
 
 ```bash
-npx stash encrypt backfill
+npx stash encrypt backfill [flags]
 ```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--table <name>` | Target table. |
+| `--column <name>` | Target column. |
+| `--pk-column <name>` | Primary-key column used to page through rows. |
+| `--chunk-size <n>` | Rows encrypted per batch. |
+| `--encrypted-column <name>` | Destination encrypted column. |
+| `--schema-column-key <key>` | Schema key identifying the column config. |
+| `--confirm-dual-writes-deployed` | Assert the app is dual-writing before backfilling (safety gate). |
+| `--force` | Proceed past non-fatal safety checks. |
+
 
 ### `encrypt cutover`
 
 Rename swap encrypted → primary column
 
 ```bash
-npx stash encrypt cutover
+npx stash encrypt cutover [flags]
 ```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--table <name>` | Target table. |
+| `--column <name>` | Target column. |
+| `--proxy-url <url>` | Proxy URL to verify against. |
+| `--migrations-dir <path>` | Directory to write the rename migration into. |
+
 
 ### `encrypt drop`
 
 Generate a migration to drop the plaintext column
 
 ```bash
-npx stash encrypt drop
+npx stash encrypt drop [flags]
 ```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--table <name>` | Target table. |
+| `--column <name>` | Target column. |
+| `--migrations-dir <path>` | Directory to write the drop migration into. |

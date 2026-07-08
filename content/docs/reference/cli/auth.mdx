@@ -1,28 +1,68 @@
 ---
 title: stash auth
-description: "Authenticate with CipherStash"
+description: "Reference for the `stash auth` commands."
 type: reference
 components: [cli]
 verifiedAgainst:
-  cli: "0.16.0"
+  cli: "0.17.0"
 ---
 
-{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash --help` (v0.16.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v0.17.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
 
 <Callout type="info">
-Generated from **`stash` v0.16.0**. Run `npx stash@0.16.0 --help` to see the live command surface.
+Generated from **`stash` v0.17.0** via `npx stash@0.17.0 manifest --json`. Run `npx stash@0.17.0 --help` to see the live command surface.
 </Callout>
+
+The `stash auth` command group.
+
+### `auth login`
 
 Authenticate with CipherStash
 
 ```bash
-npx stash auth
+npx stash auth login [flags]
 ```
 
-## Examples
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--region <slug>` | Region to authenticate against (e.g. us-east-1). Skips the interactive region picker. (env: `STASH_REGION`) |
+| `--json` | Emit newline-delimited JSON events instead of prose. The first event (authorization_required) carries the device verification URL for a human to open. Implies no prompt and no browser auto-open. |
+| `--no-open` | Don't auto-open the verification URL in a browser (already implied by --json). |
+| `--supabase` | Track Supabase as the referrer. |
+| `--drizzle` | Track Drizzle as the referrer. |
+
+
+#### Examples
 
 ```bash
 npx stash auth login
+npx stash auth login --region us-east-1
+npx stash auth login --supabase
+npx stash auth login --region us-east-1 --json
+```
+
+### `auth regions`
+
+List the regions you can authenticate against
+
+```bash
+npx stash auth regions [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--json` | Emit machine-readable [{ slug, label }] instead of a text list. |
+
+
+#### Examples
+
+```bash
+npx stash auth regions
+npx stash auth regions --json
 ```
 
 ## How authentication works

@@ -4,13 +4,13 @@ description: "Displays implementation status"
 type: reference
 components: [cli]
 verifiedAgainst:
-  cli: "0.16.0"
+  cli: "0.17.0"
 ---
 
-{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash --help` (v0.16.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v0.17.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
 
 <Callout type="info">
-Generated from **`stash` v0.16.0**. Run `npx stash@0.16.0 --help` to see the live command surface.
+Generated from **`stash` v0.17.0** via `npx stash@0.17.0 manifest --json`. Run `npx stash@0.17.0 --help` to see the live command surface.
 </Callout>
 
 Displays implementation status
@@ -23,13 +23,6 @@ npx stash status [flags]
 
 | Flag | Description |
 | --- | --- |
-| `--quest` | Force the quest-log output (emoji + progress bars) even in non-TTY contexts. Default is auto: fancy in a terminal, plain in CI / pipes / agents. |
+| `--quest` | Force the quest-log output (emoji + progress bars) even in non-TTY contexts. |
 | `--plain` | Force the plain-text output even in TTY contexts. |
 | `--json` | Emit a structured JSON document instead. |
-
-
-## Examples
-
-```bash
-npx stash status
-```

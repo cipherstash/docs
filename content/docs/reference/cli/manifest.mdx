@@ -1,6 +1,6 @@
 ---
-title: stash wizard
-description: "AI-guided encryption setup (reads your codebase)"
+title: stash manifest
+description: "Print the structured, versioned command surface"
 type: reference
 components: [cli]
 verifiedAgainst:
@@ -13,8 +13,22 @@ verifiedAgainst:
 Generated from **`stash` v0.17.0** via `npx stash@0.17.0 manifest --json`. Run `npx stash@0.17.0 --help` to see the live command surface.
 </Callout>
 
-AI-guided encryption setup (reads your codebase)
+Print the structured, versioned command surface
 
 ```bash
-npx stash wizard
+npx stash manifest [flags]
+```
+
+### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--json` | Emit the structured JSON manifest instead of a text list. |
+
+
+## Examples
+
+```bash
+npx stash manifest --json
+npx stash manifest
 ```
