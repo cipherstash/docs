@@ -252,7 +252,6 @@ so it lives as facets and links, never as a tree section or a hub.
 | CTS | Identity service in the Platform | `platform` | `/security/cts`, `/reference/auth/*` |
 | `@cipherstash/auth` | Stack package (identity-aware encryption) | `[encryption, platform]` | `/reference/stack/auth` |
 | Proxy stack-auth | How auth works inside the Proxy | `[proxy, platform]` | `/reference/proxy/*`, `/security/proxy` |
-| Next.js adapter | Framework integration | `[encryption, platform]` | `/integrations/nextjs` |
 | Clerk / Auth0 / Okta | Auth-provider integrations | `[platform]` | `/integrations/*` (`category: auth-provider`) |
 
 None of these is filed under an "auth" section, because there isn't one. Each is
@@ -316,7 +315,6 @@ Two notes:
 - [ ] `/integrations/clerk`
 - [ ] `/integrations/auth0` — end-to-end example (Clerk parity)
 - [ ] `/integrations/okta` — end-to-end example (Clerk parity)
-- [ ] `/integrations/nextjs`
 - [ ] `/integrations/typescript` — thin router to Stack SDK reference
 - [ ] `/integrations/serverless` — Vercel/Lambda, bundling, CS_CONFIG_PATH
 - [ ] `/integrations/docker`
