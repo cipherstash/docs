@@ -1,0 +1,129 @@
+---
+title: Data residency
+description: "Meet data residency rules with regional ZeroKMS deployment, a dual-party key split, and multi-region patterns for cross-border access."
+type: concept
+components: [platform, encryption]
+audience: [cto, ciso]
+verifiedAgainst:
+  stack: "0.18.0"
+---
+
+CipherStash provides data residency guarantees through regional key management, encryption that happens entirely in your infrastructure, and cryptographic key splitting. This page covers the deployment patterns for organizations with cross-border data requirements.
+
+## Why the architecture gives you residency
+
+Three properties combine to keep data and key material inside a region:
+
+- **Plaintext never leaves your systems.** Encryption and decryption happen in your infrastructure, in the Stack SDK or Proxy. The cloud service never sees plaintext.
+- **Encrypted values never leave your systems either.** Ciphertext lives in your database.
+- **Data keys are never transmitted.** They are derived locally, not fetched over the network.
+
+## Regional ZeroKMS deployment
+
+ZeroKMS is available in [multiple regions](/stack/cipherstash/kms/regions):
+
+| Area | Region |
+|---|---|
+| Asia Pacific | Sydney (`ap-southeast-2`) |
+| Europe | Frankfurt (`eu-central-1`), Ireland (`eu-west-1`) |
+| US East | N. Virginia (`us-east-1`) |
+| US West | Oregon (`us-west-2`) |
+
+Selecting a ZeroKMS region controls where authority keys are managed. Combined with your application's deployment region, that determines where all key material exists.
+
+## Dual-party key split
+
+CipherStash splits key material between two parties:
+
+1. **Authority key**, managed by ZeroKMS in your chosen region.
+2. **Client key**, managed by your application in your infrastructure.
+
+Neither key alone derives a data key. Both must cooperate. This means ZeroKMS alone cannot access your data, because it holds only half the key material, and your application alone cannot either, because it needs ZeroKMS to derive data keys.
+
+## Deployment patterns
+
+### Single region
+
+Deploy your application and ZeroKMS in the same region.
+
+```
+┌──────────────────────────────────┐
+│        Region: eu-central-1      │
+│                                  │
+│  ┌───────────┐   ┌────────────┐  │
+│  │ Your app  │───│  ZeroKMS   │  │
+│  │ + client  │   │ + authority│  │
+│  │   key     │   │    key     │  │
+│  └─────┬─────┘   └────────────┘  │
+│        │                         │
+│  ┌─────┴──────┐                  │
+│  │ PostgreSQL │                  │
+│  │ (encrypted)│                  │
+│  └────────────┘                  │
+└──────────────────────────────────┘
+```
+
+All key material and data remain in one region. This satisfies most data residency requirements, including GDPR and regional data protection laws.
+
+### Multi-region with regional key isolation
+
+For organizations operating across regions with differing requirements, deploy a separate workspace per region.
+
+```
+┌───────────────────────┐   ┌────────────────────────┐
+│  Region: eu-central-1 │   │ Region: ap-southeast-2 │
+│                       │   │                        │
+│  App + client key     │   │  App + client key      │
+│  ZeroKMS (EU)         │   │  ZeroKMS (APAC)        │
+│  PostgreSQL (EU)      │   │  PostgreSQL (APAC)     │
+└───────────────────────┘   └────────────────────────┘
+```
+
+Each region gets its own ZeroKMS workspace with independent authority keys, client keys that never leave the region, and its own database. Data encrypted in one region cannot be decrypted in another, which enforces the residency boundary cryptographically rather than by policy.
+
+### Cross-border access
+
+When a global team needs to reach encrypted data across regions, construct a client per region with that region's credentials.
+
+```typescript filename="regional-access.ts"
+import { Encryption } from "@cipherstash/stack"
+import { customers } from "./schema"
+
+// A client scoped to the EU workspace
+const euClient = await Encryption({
+  schemas: [customers],
+  config: {
+    workspaceCrn: process.env.CS_EU_WORKSPACE_CRN,
+    clientId: process.env.CS_EU_CLIENT_ID,
+    clientKey: process.env.CS_EU_CLIENT_KEY,
+    accessKey: process.env.CS_EU_ACCESS_KEY,
+  },
+})
+
+// Decrypting EU customer data requires EU credentials
+const result = await euClient.decrypt(encryptedEuRecord)
+
+if (result.failure) {
+  throw new Error(`Decryption failed: ${result.failure.message}`)
+}
+```
+
+Access to each region's data requires that region's credentials, which gives you an auditable, revocable access model. To revoke a team member's access to a region, delete their client credentials in that region's workspace.
+
+## Compliance alignment
+
+| Requirement | How CipherStash addresses it |
+|---|---|
+| Data must not leave the region | Encryption and decryption happen locally; plaintext never leaves your infrastructure |
+| Key material must stay in region | ZeroKMS authority keys are region-bound; client keys deploy with your app |
+| Audit trail for cross-border access | ZeroKMS logs key derivation requests with identity context |
+| Ability to revoke access | Delete client credentials, or revoke [lock context](/solutions/provable-access) identities |
+| Cryptographic enforcement | The dual-party key split means a single party cannot decrypt alone |
+
+This architecture supports compliance with GDPR, regional data protection laws, and industry-specific requirements in healthcare and financial services. See [compliance](/security/compliance) for framework-by-framework detail.
+
+## Next steps
+
+- [Configure ZeroKMS regions](/stack/cipherstash/kms/regions) for your workspaces.
+- [Set up provable access control](/solutions/provable-access) to bind decryption to an identity.
+- [Review disaster recovery](/stack/cipherstash/kms/disaster-recovery) for multi-region key backup.

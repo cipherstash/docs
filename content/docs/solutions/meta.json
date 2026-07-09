@@ -1,5 +1,5 @@
 {
   "title": "Solutions",
   "icon": "Target",
-  "pages": ["..."]
+  "pages": ["index", "...", "ai-and-rag", "data-residency", "provable-access"]
 }

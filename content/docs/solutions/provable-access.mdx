@@ -1,0 +1,132 @@
+---
+title: Provable access control
+description: "Bind decryption to an authenticated identity with lock contexts, so access to data is cryptographically demonstrable rather than merely logged."
+type: concept
+components: [platform, encryption]
+audience: [ciso, cto]
+verifiedAgainst:
+  stack: "0.18.0"
+---
+
+Traditional access control relies on application logic. If a bug or misconfiguration exposes data, there is no way to prove afterwards whether access was unauthorized. CipherStash binds decryption to an authenticated identity, so access leaves cryptographic evidence rather than only a log entry.
+
+## How it works
+
+A **lock context** ties encryption and decryption to an authenticated identity. You exchange a user's JWT for a CTS token, and that token participates in key derivation. Without it, the data keys cannot be derived and the data cannot be decrypted.
+
+That creates a provable access boundary:
+
+- If data was decrypted, the identity token must have been present.
+- ZeroKMS records the identity associated with every key derivation.
+- The record cannot be falsified by tampering with application logs, because the evidence is the derivation itself, not the log line describing it.
+
+<Callout type="info">
+A lock context restricts **who can decrypt**. It does not hide the ciphertext's existence, nor does it prevent a caller who holds a valid token from decrypting the values that token unlocks. It moves the enforcement point out of your application and into key derivation.
+</Callout>
+
+## Identity-aware encryption
+
+Construct a `LockContext`, identify it with the user's JWT, then attach it to an encrypt or decrypt operation with `.withLockContext()`.
+
+### Bind encryption to an identity
+
+```typescript filename="identity-encrypt.ts"
+import { Encryption } from "@cipherstash/stack"
+import { LockContext } from "@cipherstash/stack/identity"
+import { patients } from "./schema"
+
+const client = await Encryption({ schemas: [patients] })
+
+// The JWT identifies the healthcare provider performing the action
+async function encryptDiagnosis(diagnosis: string, providerJwt: string) {
+  const lockContext = await new LockContext().identify(providerJwt)
+
+  if (lockContext.failure) {
+    throw new Error(`Identification failed: ${lockContext.failure.message}`)
+  }
+
+  const result = await client
+    .encrypt(diagnosis, { column: patients.diagnosis, table: patients })
+    .withLockContext(lockContext.data)
+
+  if (result.failure) {
+    throw new Error(`Encryption failed: ${result.failure.message}`)
+  }
+
+  return result.data
+}
+```
+
+`identify()` returns a `Result`, so the CTS token exchange can fail (an expired JWT, an unconfigured OIDC provider) without throwing. Unwrap it before use.
+
+### Decrypt with identity verification
+
+Decryption requires the same lock context that encrypted the value.
+
+```typescript filename="identity-decrypt.ts"
+async function decryptDiagnosis(encryptedDiagnosis: unknown, providerJwt: string) {
+  const lockContext = await new LockContext().identify(providerJwt)
+
+  if (lockContext.failure) {
+    throw new Error(`Identification failed: ${lockContext.failure.message}`)
+  }
+
+  const result = await client
+    .decrypt(encryptedDiagnosis)
+    .withLockContext(lockContext.data)
+
+  if (result.failure) {
+    // Key derivation fails when the identity does not match
+    throw new Error(`Access denied: ${result.failure.message}`)
+  }
+
+  return result.data
+}
+```
+
+## Audit logging
+
+Every encryption and decryption through ZeroKMS produces an audit event:
+
+| Field | Description |
+|---|---|
+| Identity | The authenticated user or service, from the lock context |
+| Operation | Encrypt or decrypt |
+| Timestamp | When the operation occurred |
+| Keyset | Which keyset was used |
+| Application | Which application performed the operation |
+
+### Combining with Proxy audit
+
+[CipherStash Proxy](/reference/proxy) adds statement-level audit on top: statement fingerprinting to identify unique query patterns against encrypted data, SQL redaction to strip sensitive values from logged queries, primary key injection to track which records were touched, and record reconciliation to map access events back to rows. See [Proxy audit](/stack/cipherstash/proxy/audit).
+
+Together these answer who accessed what data, when, and using which query.
+
+## Use cases
+
+### Healthcare: HIPAA audit requirements
+
+HIPAA requires audit controls recording who accessed protected health information. With a lock context, every access to patient data is tied to the authenticated provider, and the ZeroKMS audit log records the identity, the operation, the keyset, and the timestamp for each derivation.
+
+### Financial services: segregation of duties
+
+Encrypt audit records under a compliance-team identity. A trading-team JWT produces a different lock context, so key derivation fails and the records do not decrypt. The separation is enforced at derivation, not by a role check in the application.
+
+### Multi-tenant SaaS: tenant isolation
+
+Bind encryption to a tenant identity so that only that tenant's identity can decrypt its data. For coarser isolation that does not depend on a per-request JWT, separate [keysets](/stack/cipherstash/kms/keysets) may fit better: a keyset boundary is per-connection or per-client, where a lock context is per-identity.
+
+## Compared to application-level access control
+
+| Aspect | Application logic | Lock contexts |
+|---|---|---|
+| Enforcement | A software check, which can be bypassed | Key derivation, which cannot be skipped |
+| Audit trail | Application logs, which can be edited | ZeroKMS derivation records |
+| Proof of access | Circumstantial, from log entries | Direct: decryption required the identity |
+| Blast radius of a bug | Data exposed when the check is bypassed | Data stays encrypted when application logic fails |
+
+## Next steps
+
+- [Data residency](/solutions/data-residency) for revoking access per region.
+- [Proxy audit](/stack/cipherstash/proxy/audit) for statement-level audit logging.
+- [Compliance](/security/compliance) for GDPR, HIPAA, and PCI-DSS mapping.
