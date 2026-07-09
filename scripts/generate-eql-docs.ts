@@ -119,6 +119,12 @@ function escapeMdxSpecials(content: string): string {
         return part
           .replace(/\{/g, "\\{")
           .replace(/\}/g, "\\}")
+          // Strip Doxygen's `<tt>` teletype tags. They're a lowercase-led
+          // "tag" so the `<` rule below leaves them intact, but MDX requires
+          // every tag to be balanced — and mangled SQL-comment source can
+          // emit a stray, unclosed `<tt>` (e.g. eql-3.0.0-alpha.3's API.md),
+          // which fails the whole build. MDX doesn't need the tag, so drop it.
+          .replace(/<\/?tt\b[^>]*>/gi, "")
           // Escape `<` unless it begins a real JSX/HTML tag, a closing
           // tag, or an autolink (followed by a lowercase letter, `_`, `$`,
           // or `/`). Uppercase-led tokens like `<T>` are type placeholders
