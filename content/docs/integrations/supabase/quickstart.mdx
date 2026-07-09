@@ -139,7 +139,7 @@ await db
 ```
 
 <Callout type="warn">
-`.like()` and `.ilike()` throw on encrypted columns. Free-text matching is `.contains()`, which compares encrypted token sets rather than SQL wildcards. With the default match options a substring will not match, so pass the full value. See the [wrapper reference](/reference/stack/supabase#there-is-no-like).
+`.like()` and `.ilike()` throw on encrypted columns. Free-text matching is `.contains()`, which compares encrypted token sets rather than SQL wildcards. **Substring matching is currently broken**: today `.contains()` matches only the full stored value, or a three-character search string. See the [wrapper reference](/reference/stack/supabase#there-is-no-like).
 </Callout>
 
 The full method surface, including filters, upserts, error shapes, and identity-locked queries, is in the [`encryptedSupabaseV3` reference](/reference/stack/supabase).

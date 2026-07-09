@@ -181,8 +181,12 @@ await supabase.from("users").select("*").like("email", "%@example.com")
 await supabase.from("users").select("*").contains("email", "alice@example.com")
 ```
 
+`.contains()` tests whether the stored value's bloom filter contains the query's bloom filter. Both are built from the value's trigrams plus, because `include_original` is on, the whole value as one extra token. Matching is case-insensitive, and false positives are possible while false negatives are not.
+
 <Callout type="warn">
-`.contains()` on a `text_search` or `text_match` column tests whether the stored value's encrypted token set contains the query's encrypted token set. With the default match options, the query term includes the whole query string as one of its tokens, so a **substring does not match**: `contains("email", "alice")` finds nothing on a stored `alice@example.com`. Match against the full value. Matching is case-insensitive, and false positives are possible while false negatives are not.
+**Substring matching is currently broken.** PostgREST cannot cast a filter value to EQL's narrow query domain, and `encryptQuery` does not yet support the v3 scalars, so the wrapper has to send a full *storage* payload as the operand. That payload's bloom carries the whole search string as an `include_original` token, and the stored value's bloom has no such token unless the two strings are equal. `contains("email", "alice")` therefore finds nothing on a stored `alice@example.com`.
+
+In practice `.contains()` matches only when the search string equals the stored value, or is exactly three characters (the trigram length), where its `include_original` token coincides with a trigram the stored value already has. The v3 Drizzle `contains` has the same defect, for the same reason. A fix belongs in EQL and protect-ffi, not in the wrapper.
 </Callout>
 
 ## Ordering and pagination
