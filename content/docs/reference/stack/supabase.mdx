@@ -181,13 +181,7 @@ await supabase.from("users").select("*").like("email", "%@example.com")
 await supabase.from("users").select("*").contains("email", "alice@example.com")
 ```
 
-`.contains()` tests whether the stored value's bloom filter contains the query's bloom filter. Both are built from the value's trigrams plus, because `include_original` is on, the whole value as one extra token. Matching is case-insensitive, and false positives are possible while false negatives are not.
-
-<Callout type="warn">
-**Substring matching is currently broken.** The search string is tokenized as though it were a stored value, so its bloom filter carries the whole search string as an extra token. The stored value's bloom has no such token, so containment fails: `contains("email", "alice")` finds nothing on a stored `alice@example.com`.
-
-In practice `.contains()` matches only when the search string equals the stored value, or is exactly three characters, the trigram length. This is a defect rather than intended behaviour, and a fix is in progress.
-</Callout>
+`.contains()` tests whether the stored value's encrypted token set contains the search string's. Matching is case-insensitive, and false positives are possible while false negatives are not.
 
 ## Ordering and pagination
 
