@@ -35,7 +35,9 @@ CipherStash splits key material between two parties:
 1. **Authority key**, managed by ZeroKMS in your chosen region.
 2. **Client key**, managed by your application in your infrastructure.
 
-Neither key alone derives a data key. Both must cooperate. This means ZeroKMS alone cannot access your data, because it holds only half the key material, and your application alone cannot either, because it needs ZeroKMS to derive data keys.
+Neither key alone derives a data key. ZeroKMS alone cannot access your data, because it holds only half the key material. Your application alone cannot either, because it needs a key seed from ZeroKMS.
+
+The two halves are never brought together in one place. ZeroKMS returns a key seed; your application processes that seed with the client key and derives the data key locally. The client key never leaves your infrastructure, and neither does anything it processes. See [cryptography](/security/cryptography).
 
 ## Deployment patterns
 
@@ -81,7 +83,7 @@ flowchart LR
     euDb -. "cannot be decrypted by" .-x apacApp
 ```
 
-Each region gets its own ZeroKMS workspace with independent authority keys, client keys that never leave the region, and its own database. Data encrypted in one region cannot be decrypted in another, which enforces the residency boundary cryptographically rather than by policy.
+Each region gets its own ZeroKMS workspace with independent authority keys, its own client key (which, like every client key, never leaves your infrastructure), and its own database. Data encrypted in one region cannot be decrypted in another, which enforces the residency boundary cryptographically rather than by policy.
 
 ### Cross-border access
 

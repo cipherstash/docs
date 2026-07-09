@@ -32,7 +32,7 @@ Three distinct things are often all called "the key". Keeping them apart is what
 | **Client key** | Your application or workload | You do (`CS_CLIENT_KEY`) |
 | **Data key** | Your application's memory, briefly | Nothing. It is derived per value and discarded |
 
-The authority key and the client key are two halves of a split. Neither alone derives a data key.
+The authority key and the client key are two halves of a split. Neither alone derives a data key, and the two are never brought together in one place. The key seed travels from ZeroKMS to you. The client key never travels at all.
 
 ## How a data key is produced
 
@@ -40,13 +40,15 @@ The mechanism operates at two layers, and descriptions that name only one of the
 
 ### Layer 1: the key seed, produced server-side
 
-ZeroKMS uses **proxy symmetric re-encryption** (patent pending) to combine the authority key with the client key component and return a **key seed** to your application.
+ZeroKMS uses **proxy symmetric re-encryption** (patent pending) on the authority key to produce a **key seed**, and returns it to your application.
 
-This is the property that makes the architecture zero-knowledge: ZeroKMS produces a seed it cannot itself turn into a data key, because the second half of the input never leaves your infrastructure. ZeroKMS never sees a data key, and no data key crosses the network.
+ZeroKMS does this without the client key. It never receives it, and the request carries no key material of yours. That is what makes the architecture zero-knowledge: ZeroKMS produces a seed it cannot itself turn into a data key.
 
 ### Layer 2: the data key, derived client-side
 
-Your application expands the key seed into a **unique data key per value**, using an **HMAC-based key derivation function**. The data key encrypts the value with AES-256-GCM-SIV, then is discarded from memory.
+Your application **processes the key seed with the client key**, then expands the result into a **unique data key per value** using an **HMAC-based key derivation function**. The data key encrypts the value with AES-256-GCM-SIV, then is discarded from memory.
+
+The client key never leaves your infrastructure, and neither does anything it processes. Only the seed crosses the boundary, and it crosses inward.
 
 ```mermaid
 flowchart TD
@@ -59,19 +61,21 @@ flowchart TD
     end
 
     subgraph you["Your infrastructure"]
-        client["Client key"]
+        client["Client key<br/>never leaves"]
+        processed["Processed seed"]
         datakey["Data key<br/>one per value<br/>discarded after use"]
         ciphertext["Ciphertext"]
+        client -- processes the seed --> processed
+        processed -- "layer 2:<br/>HMAC-based KDF" --> datakey
+        datakey -- AES-256-GCM-SIV --> ciphertext
     end
 
-    client -- derivation input --> seed
-    seed -- "layer 2:<br/>HMAC-based KDF" --> datakey
-    datakey -- AES-256-GCM-SIV --> ciphertext
+    seed -- returned to your app --> processed
 ```
 
-Re-encryption describes how the seed is produced. HMAC key derivation describes how the seed becomes per-value keys. Both are true, at different layers.
+Re-encryption describes how the seed is produced. HMAC key derivation describes how the processed seed becomes per-value keys. Both are true, at different layers.
 
-Note where the boundary falls: the key seed crosses it, and the data key never does.
+Note which way the boundary is crossed. The key seed travels inward, from ZeroKMS to you. Nothing travels outward: not the client key, not the processed seed, not the data key.
 
 ## What is cached, and what is not
 
@@ -95,7 +99,8 @@ The Stack SDK derives per operation and caches nothing.
 An attacker must compromise **both** the ZeroKMS authority key and your client key to derive data keys. Compromising either alone is insufficient.
 
 - CipherStash never sees plaintext. Encryption and decryption run in your process.
-- CipherStash never sees a data key. Data keys are derived in your memory from a seed.
+- CipherStash never sees your client key, nor anything the client key has processed.
+- CipherStash never sees a data key. Data keys are derived in your memory.
 - Ciphertext never has to leave your infrastructure. ZeroKMS handles key material, not data.
 
 ### Shared responsibility
@@ -117,9 +122,9 @@ An attacker must compromise **both** the ZeroKMS authority key and your client k
 ### Write path
 
 1. The application calls `client.encrypt(plaintext, { column, table })`.
-2. The SDK requests a key seed from ZeroKMS over TLS.
-3. ZeroKMS combines the authority key with the client key component and returns a key seed.
-4. The SDK derives a unique data key from the seed, locally.
+2. The SDK requests a key seed from ZeroKMS over TLS. The request carries no key material.
+3. ZeroKMS re-encrypts under the authority key and returns a key seed.
+4. The SDK processes the seed with the client key, then derives a unique data key from the result, locally.
 5. The SDK encrypts the plaintext with AES-256-GCM-SIV.
 6. If the column declares searchable capability, the SDK generates the index terms (HMAC, ORE, Bloom filter).
 7. The SDK packs ciphertext and index terms into an [EQL payload](/reference/eql/core-concepts).
@@ -129,7 +134,7 @@ An attacker must compromise **both** the ZeroKMS authority key and your client k
 ### Read path
 
 1. The application reads the payload and calls `client.decrypt(...)`.
-2. The SDK requests a key seed and derives the data key locally.
+2. The SDK requests a key seed, processes it with the client key, and derives the data key locally.
 3. The SDK decrypts the ciphertext, discards the data key, and returns plaintext.
 
 ### Query path
