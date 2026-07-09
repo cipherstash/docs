@@ -11,10 +11,6 @@ verifiedAgainst:
 
 Encryption and decryption must run somewhere your keys and credentials are safe — never in the browser. Supabase Edge Functions are that place: server-side compute next to your database. CipherStash ships a **WebAssembly build** of the SDK for exactly this runtime, so the same encrypt/decrypt code runs in Deno with no native bindings.
 
-<Callout type="info">
-**Verifying the Supabase wrapper on the edge.** The `@cipherstash/stack/wasm-inline` entry exports the core `Encryption` client (`client.encrypt` / `client.decrypt`), which this page uses. Whether the higher-level [`encryptedSupabaseV3`](/reference/stack/supabase) wrapper is available on the edge build is being confirmed — this page will be updated with the wrapper pattern once verified. Until then, use the core client shown below inside your Edge Function.
-</Callout>
-
 ## Why the wasm build
 
 Supabase Edge Functions run on Deno, which loads npm packages through the `node` compatibility layer. The SDK's default entry resolves to native NAPI bindings that don't exist in that runtime, so the edge uses a dedicated entry: `@cipherstash/stack/wasm-inline`. It embeds the WebAssembly module as base64 inside the JS bundle — no separate `.wasm` fetch, no bundler plugins, no `static_files` config. The same applies to the auth package (`@cipherstash/auth/wasm-inline`).

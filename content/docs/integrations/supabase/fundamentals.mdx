@@ -14,28 +14,25 @@ If you just want the fastest path from empty project to encrypted table, start w
 
 ## Installing EQL
 
-Both paths install the same artefact — the versioned `cipherstash-encrypt.sql` from the [EQL releases page](https://github.com/cipherstash/encrypt-query-language/releases). The script is idempotent: re-running a newer version upgrades the `eql_v3` schema in place.
+The `stash` CLI installs EQL. It reads `DATABASE_URL`, detects that it points at Supabase, and installs directly against the database:
 
-### Path 1: SQL Editor (fastest)
-
-Paste the script into the [SQL Editor](https://supabase.com/dashboard/project/_/sql/new) and run it. Good for a first look or a hosted-only project.
-
-<Callout type="warn">
-If you use the Supabase CLI locally, `supabase db reset` rebuilds your database *from your migrations directory* — anything installed directly through the SQL Editor is wiped. If you run local resets, use the migration path.
-</Callout>
-
-### Path 2: As a migration (recommended for teams)
-
-Commit the install script as your **earliest** migration, so EQL exists before any migration that references its types:
-
-```sh
-curl -sLo supabase/migrations/00000000000000_install-eql.sql \
-  https://github.com/cipherstash/encrypt-query-language/releases/latest/download/cipherstash-encrypt.sql
-
-supabase db push
+```bash example-id="supabase-eql-install"
+npx stash eql install --eql-version 3
 ```
 
-The all-zero timestamp prefix sorts it before every real migration. From then on, EQL is part of your schema history: local resets, preview branches, and fresh environments all get it automatically.
+Pass `--database-url <url>` to override the connection for a single run without writing it to disk. The install is idempotent, so `--force` reinstalls over an existing schema, and `--dry-run` shows what would happen. Check what you ended up with:
+
+```bash
+npx stash eql status
+```
+
+`--eql-version` accepts `2` or `3` and **defaults to `2`**. Pass the flag until v3 becomes the default. The full flag set is in the [CLI reference](/reference/cli/eql).
+
+<Callout type="warn">
+EQL v3 installs **directly against the database only**. `--migration`, `--drizzle`, `--latest`, and `--migrations-dir` are rejected when combined with `--eql-version 3`; they exist for the v2 install paths.
+
+The practical consequence is local resets. `supabase db reset` rebuilds your database from your migrations directory, so it drops a v3 install. Re-run `stash eql install` after each reset.
+</Callout>
 
 ## Grants
 

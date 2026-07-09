@@ -27,20 +27,20 @@ Two pieces, one on each side of your Supabase connection:
 
 ### Install EQL on your database
 
-Download the EQL v3 install script and run it in the [SQL Editor](https://supabase.com/dashboard/project/_/sql/new):
+Point `DATABASE_URL` at your Supabase project, then install EQL with the `stash` CLI:
 
-```sh
-curl -sLo cipherstash-encrypt.sql https://github.com/cipherstash/encrypt-query-language/releases/latest/download/cipherstash-encrypt.sql
+```bash cta cta-type="install" example-id="supabase-quickstart-eql-install"
+npx stash eql install --eql-version 3
 ```
 
-Paste and run it. It needs no superuser and completes in seconds, creating the `eql_v3` schema for functions and operators, and the encrypted column types in `public`. Then grant your Supabase roles access:
+It detects Supabase from the connection string, needs no superuser, and completes in seconds, creating the `eql_v3` schema for functions and operators, and the encrypted column types in `public`. Then grant your Supabase roles access:
 
 ```sql
 GRANT USAGE ON SCHEMA eql_v3 TO anon, authenticated, service_role;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA eql_v3 TO anon, authenticated, service_role;
 ```
 
-If you manage your database with `supabase migrations` instead, commit the script as your earliest migration. [Fundamentals](/integrations/supabase/fundamentals#installing-eql) covers that path and why it survives `supabase db reset`.
+`--eql-version` defaults to `2`, so pass the flag until v3 becomes the default. [Fundamentals](/integrations/supabase/fundamentals#installing-eql) covers the rest, including why a v3 install does not survive `supabase db reset`.
 
 </Step>
 <Step>
