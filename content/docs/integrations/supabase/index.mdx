@@ -44,19 +44,17 @@ Most types also support `JOIN`, `GROUP BY`, and `UNION` queries. See the [EQL re
   `text_search` match is *containment* (`LIKE '%term%'`-style), not full SQL `LIKE`: there are no wildcards or anchoring, and it can occasionally return a false positive. Use `text_eq` (`=`) for exact matching.
 </Callout>
 
-Add EQL columns using the Table Editor in Supabase Studio:
-
-![Supabase Studio Table Editor with EQL column types selected for the name, email, ssn, and medications columns](/images/integrations/supabase-table-editor-eql-columns.png)
-
-Or by specifying an EQL column type in SQL statements or migrations:
+Declare EQL columns in SQL, either in the Supabase Dashboard's SQL Editor or in a migration:
 
 ```sql filename="migration.sql"
 CREATE TABLE users (
   id serial,
-  email text_search,
-  dob date_ord
+  email public.eql_v3_text_search,
+  dob public.eql_v3_date_ord
 )
 ```
+
+EQL's column types are Postgres domains, and the Dashboard's Table Editor does not reliably offer custom domains in its column-type picker, so SQL is the dependable path. It is also what your migrations should contain either way.
 
 ## Built for the Supabase stack
 
