@@ -56,7 +56,11 @@ export const db = await encryptedSupabaseV3(supabaseClient, {
 
 That's the whole integration. Every `db.from(...)` query now encrypts and decrypts under the signed-in user's identity, and your Supabase Auth session and RLS policies apply to the underlying request exactly as before.
 
-> **Good to know**: the federation endpoint issues no refresh token — when the CipherStash token expires, the strategy re-federates by calling `getJwt` again. Because `getJwt` reads from `supabaseClient.auth.getSession()`, supabase-js's own token refresh keeps it valid. This is also why the strategy runs **server-side only** (a Next.js Route Handler / Server Action, an Edge Function) — never in the browser, where it would expose the session token. For the Edge runtime, see [Edge Functions](/integrations/supabase/edge-functions).
+<Callout type="warn">
+Run the federation strategy **server-side only**: a Next.js Route Handler or Server Action, or an Edge Function. Never in the browser, where it would expose the session token. For the Edge runtime, see [Edge Functions](/integrations/supabase/edge-functions).
+
+The federation endpoint issues no refresh token. When the CipherStash token expires, the strategy re-federates by calling `getJwt` again, and because `getJwt` reads from `supabaseClient.auth.getSession()`, supabase-js's own token refresh keeps it valid.
+</Callout>
 
 ## Identity-bound encryption (lock context)
 
