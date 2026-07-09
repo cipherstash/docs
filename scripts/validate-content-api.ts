@@ -62,7 +62,7 @@ const V3_SCOPE = ["content/docs/"];
  * `eql_v2_encrypted` columns and call `eql_v2.add_search_config`. Its page must
  * name those to be correct. Delete this when prisma-next moves to v3.
  */
-const PRISMA_NEXT_IS_V2 = ["content/docs/integrations/prisma.mdx"];
+const PRISMA_NEXT_IS_V2 = ["content/docs/integrations/prisma-next.mdx"];
 
 const RULES: Rule[] = [
   {

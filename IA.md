@@ -301,15 +301,15 @@ Two notes:
 ## Integrations — CIP-3328 (Supabase), CIP-3330 (auth), CIP-3336 (rest)
 
 - [x] Section scaffold 🚧 (index + supabase stub with facet exemplar)
-- [ ] `/integrations` index — category grid w/ setup badges
+- [x] `/integrations` index — category grid w/ setup badges
 - [x] `/integrations/supabase` — flagship tutorial (CIP-3328)
 - [x] `/integrations/supabase/database`
 - [x] `/integrations/supabase/auth`
 - [x] `/integrations/supabase/dashboard-experience` — Table Editor, expose eql schema
 - [ ] ⛔ `/integrations/supabase/edge-functions` — pending Deno/FFI answer
 - [ ] ⛔ `/integrations/supabase/realtime` — pending product verification
-- [ ] `/integrations/drizzle` 🚧 — merge the two divergent Drizzle pages
-- [ ] `/integrations/prisma-next`
+- [x] `/integrations/drizzle`
+- [x] `/integrations/prisma-next` — EQL v2 today; revisit when v3 support lands
 - [ ] `/integrations/aws/rds-aurora` — Proxy path
 - [ ] `/integrations/aws/dynamodb`
 - [ ] `/integrations/clerk`
