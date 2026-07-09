@@ -28,7 +28,7 @@ import GithubSlugger from "github-slugger";
  * prerelease and churning (alpha.3 and alpha.4 shipped a day apart), so this
  * tracks an alpha deliberately rather than by accident.
  */
-const EQL_RELEASE_TAG = process.env.EQL_RELEASE_TAG ?? "eql-3.0.0-alpha.4";
+const EQL_RELEASE_TAG = process.env.EQL_RELEASE_TAG ?? "eql-3.0.0";
 
 const GITHUB_RELEASE_DOWNLOAD =
   "https://github.com/cipherstash/encrypt-query-language/releases/download";

@@ -30,7 +30,7 @@ For any scalar type `<T>`, the family looks like this:
 | `public.eql_v3_text_search` (text only) | Equality + ordering + token containment. |
 | `public.eql_v3_text_search_ore` (text only) | As `text_search`, with block-ORE pinned. |
 
-Every public domain name carries the `eql_v3_` prefix. It keeps EQL's types from shadowing built-in Postgres type names (`public.text`, `public.json`), and gives each EQL version its own column-type namespace so two versions can coexist. Query-operand domains live in the versioned `eql_v3` schema already, so they are unprefixed: `eql_v3.query_text_eq`, `eql_v3.query_jsonb`.
+Every public domain name carries the `eql_v3_` prefix. It keeps EQL's types from shadowing built-in Postgres type names such as `text` and `json`, and gives each EQL version its own column-type namespace so two versions can coexist. Query-operand domains live in the versioned `eql_v3` schema already, so they are unprefixed: `eql_v3.query_text_eq`, `eql_v3.query_jsonb`.
 
 Two things worth calling out:
 
@@ -82,7 +82,7 @@ EQL spreads its surface across three PostgreSQL schemas, and the split is what m
 | `eql_v3` | All **user-callable functions and operators** — the searchable-encryption API (`eql_v3.eq_term`, `eql_v3.jsonb_path_query`, the encrypted `=` / `<` / `@>` operators, `eql_v3.version()`). | Yes — this is the API. |
 | `eql_v3_internal` | The **implementation functions** the domains and operators are built from. | No — never call these directly. |
 
-**Why the types live in `public`, and carry a version prefix.** Your columns are typed as `public.eql_v3_integer_ord`, `public.eql_v3_text_eq`, and so on — never `eql_v3.*`. Types stay in `public` so a column's type resolves without `search_path` games. The `eql_v3_` prefix does two jobs: it stops EQL's types shadowing Postgres built-ins (`public.text`, `public.json`, `public.integer` all exist), and it gives each EQL generation its own column-type namespace, so `eql_v3_text_eq` and a future `eql_v4_text_eq` can sit side by side in one database while you migrate table by table.
+**Why the types live in `public`, and carry a version prefix.** Your columns are typed as `public.eql_v3_integer_ord`, `public.eql_v3_text_eq`, and so on — never `eql_v3.*`. Types stay in `public` so a column's type resolves without `search_path` games. The `eql_v3_` prefix does two jobs: it stops EQL's types shadowing Postgres built-ins, since `text`, `json`, and `integer` already resolve in `public`, and it gives each EQL generation its own column-type namespace, so `eql_v3_text_eq` and a future `eql_v4_text_eq` can sit side by side in one database while you migrate table by table.
 
 **Why `eql_v3` is versioned.** The schema name encodes the major API version and is itself part of the public contract — a breaking change introduces a new `eql_vN` schema *beside* the old one rather than mutating it, so you migrate on your own timeline. Everything in `eql_v3` is fair game to call.
 
