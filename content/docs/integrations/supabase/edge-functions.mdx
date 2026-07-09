@@ -12,7 +12,7 @@ verifiedAgainst:
 Encryption and decryption must run somewhere your keys and credentials are safe — never in the browser. Supabase Edge Functions are that place: server-side compute next to your database. CipherStash ships a **WebAssembly build** of the SDK for exactly this runtime, so the same encrypt/decrypt code runs in Deno with no native bindings.
 
 <Callout type="info">
-**Verifying the Supabase wrapper on the edge.** The `@cipherstash/stack/wasm-inline` entry exports the core `Encryption` client (`client.encrypt` / `client.decrypt`), which this page uses. Whether the higher-level [`encryptedSupabase`](/reference/stack/supabase) wrapper is available on the edge build is being confirmed — this page will be updated with the wrapper pattern once verified. Until then, use the core client shown below inside your Edge Function.
+**Verifying the Supabase wrapper on the edge.** The `@cipherstash/stack/wasm-inline` entry exports the core `Encryption` client (`client.encrypt` / `client.decrypt`), which this page uses. Whether the higher-level [`encryptedSupabaseV3`](/reference/stack/supabase) wrapper is available on the edge build is being confirmed — this page will be updated with the wrapper pattern once verified. Until then, use the core client shown below inside your Edge Function.
 </Callout>
 
 ## Why the wasm build
@@ -119,7 +119,7 @@ const authStrategy = OidcFederationStrategy.create(
     Federation and identity-locked encryption — the full identity story.
   </Card>
   <Card title="Quickstart" href="/integrations/supabase/quickstart">
-    The standard (Node) setup with the encryptedSupabase wrapper.
+    The standard (Node) setup with the encryptedSupabaseV3 wrapper.
   </Card>
   <Card title="Stack reference" href="/reference/stack">
     The core Encryption client API used here.

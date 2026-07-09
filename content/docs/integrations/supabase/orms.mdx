@@ -1,6 +1,6 @@
 ---
 title: Data layer
-description: "Two ways to reach your Supabase data with CipherStash: the encryptedSupabase wrapper over PostgREST, or a direct Postgres connection through an ORM like Drizzle or Prisma."
+description: "Two ways to reach your Supabase data with CipherStash: the encryptedSupabaseV3 wrapper over PostgREST, or a direct Postgres connection through an ORM like Drizzle or Prisma."
 type: guide
 components: [encryption, eql]
 audience: [developer]
@@ -12,12 +12,12 @@ There are two ways an application talks to a Supabase database, and CipherStash 
 
 | | PostgREST path | Direct-connection path |
 | --- | --- | --- |
-| **Client** | `supabase-js` (+ `encryptedSupabase`) | Drizzle, Prisma, or raw `pg` |
+| **Client** | `supabase-js` (+ `encryptedSupabaseV3`) | Drizzle, Prisma, or raw `pg` |
 | **Transport** | Supabase's REST API (PostgREST) | A Postgres connection (pooler or direct) |
-| **How encryption plugs in** | The [`encryptedSupabase`](/reference/stack/supabase) wrapper encrypts/decrypts around each request | The [Stack SDK](/reference/stack) encrypts values in your app; EQL-typed columns store and search them |
+| **How encryption plugs in** | The [`encryptedSupabaseV3`](/reference/stack/supabase) wrapper encrypts/decrypts around each request | The [Stack SDK](/reference/stack) encrypts values in your app; EQL-typed columns store and search them |
 | **Best for** | Supabase-native apps, Edge Functions, RLS via the user's JWT | Existing ORM codebases, migrations, complex joins |
 
-Both write the **same ciphertext into the same `eql_v3` columns** — the [Fundamentals](/integrations/supabase/fundamentals) database setup is identical either way. The difference is only in how your app connects and where the encrypt/decrypt step lives. You can even mix them: an `encryptedSupabase` client for app queries and Drizzle for migrations against the same tables.
+Both write the **same ciphertext into the same EQL columns** — the [Fundamentals](/integrations/supabase/fundamentals) database setup is identical either way. The difference is only in how your app connects and where the encrypt/decrypt step lives. You can even mix them: an `encryptedSupabaseV3` client for app queries and Drizzle for migrations against the same tables.
 
 The [Quickstart](/integrations/supabase/quickstart) covers the PostgREST path end-to-end. This page covers the direct-connection path and the Supabase-specific glue it needs.
 
@@ -54,7 +54,7 @@ Nothing about encryption changes the connection layer: EQL is passive SQL and th
 
 RLS composes differently depending on which connection role you use:
 
-- The **`encryptedSupabase` / PostgREST path** carries the end user's JWT, so `auth.uid()` and your policies apply automatically.
+- The **`encryptedSupabaseV3` / PostgREST path** carries the end user's JWT, so `auth.uid()` and your policies apply automatically.
 - The **direct-connection path** typically authenticates as a privileged role (a pooler connection string for `postgres` or `service_role`), which **bypasses RLS**. If you rely on RLS for row scoping, either connect as the `authenticated` role with the user's JWT (setting `request.jwt.claims`), or enforce that scoping in your ORM query.
 
 Either way, encryption is unaffected: values are ciphertext regardless of which role reads them. RLS decides *which rows* are returned; CipherStash decides *whether their contents can be read at all* — see [Fundamentals → Row Level Security](/integrations/supabase/fundamentals#row-level-security).
@@ -63,7 +63,7 @@ Either way, encryption is unaffected: values are ciphertext regardless of which 
 
 <Cards>
   <Card title="Quickstart" href="/integrations/supabase/quickstart">
-    The PostgREST path end-to-end with encryptedSupabase.
+    The PostgREST path end-to-end with encryptedSupabaseV3.
   </Card>
   <Card title="Fundamentals" href="/integrations/supabase/fundamentals">
     Database setup, grants, indexes, and RLS — shared by both paths.

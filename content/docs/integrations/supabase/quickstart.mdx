@@ -10,7 +10,7 @@ integration:
   pairsWith: [drizzle, prisma-next, clerk, nextjs]
 verifiedAgainst:
   eql: "3.0.0"
-  stack: "0.18.0"
+  stack: "1.0.0"
 ---
 
 This tutorial takes an empty Supabase project to an encrypted, searchable table. It takes about fifteen minutes. For what CipherStash is and why you'd add it, start with the [overview](/integrations/supabase).
@@ -19,47 +19,51 @@ This tutorial takes an empty Supabase project to an encrypted, searchable table.
 
 Two pieces, one on each side of your Supabase connection:
 
-- **[EQL](/reference/eql)** installs into your Supabase Postgres as plain SQL. It provides encrypted column types — `eql_v3.text_eq`, `eql_v3.date_ord`, `eql_v3.text_match` — where the type name declares what queries the column supports.
-- **[`@cipherstash/stack`](/reference/stack)** runs in your application. Its [`encryptedSupabase` wrapper](/reference/stack/supabase) encrypts values before they're written, encrypts filter terms before they're compared, and decrypts results — around your existing supabase-js client, so Supabase Auth and Row Level Security apply unchanged.
+- **[EQL](/reference/eql)** installs into your Supabase Postgres as plain SQL. It provides encrypted column types, such as `public.eql_v3_text_eq` and `public.eql_v3_date_ord`, where the type name declares what queries the column supports.
+- **[`@cipherstash/stack`](/reference/stack)** runs in your application. Its [`encryptedSupabaseV3` wrapper](/reference/stack/supabase) encrypts values before they're written, encrypts filter terms before they're compared, and decrypts results. It wraps your existing supabase-js client, so Supabase Auth and Row Level Security apply unchanged.
 
 <Steps>
 <Step>
 
 ### Install EQL on your database
 
-Download the latest EQL install script and run it in the [SQL Editor](https://supabase.com/dashboard/project/_/sql/new):
+Download the EQL v3 install script and run it in the [SQL Editor](https://supabase.com/dashboard/project/_/sql/new):
 
 ```sh
 curl -sLo cipherstash-encrypt.sql https://github.com/cipherstash/encrypt-query-language/releases/latest/download/cipherstash-encrypt.sql
 ```
 
-Paste and run it — it needs no superuser and completes in seconds, creating the `eql_v3` schema. Then grant your Supabase roles access to it:
+Paste and run it. It needs no superuser and completes in seconds, creating the `eql_v3` schema for functions and operators, and the encrypted column types in `public`. Then grant your Supabase roles access:
 
 ```sql
 GRANT USAGE ON SCHEMA eql_v3 TO anon, authenticated, service_role;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA eql_v3 TO anon, authenticated, service_role;
 ```
 
-If you manage your database with `supabase migrations` instead, commit the script as your earliest migration — [Fundamentals](/integrations/supabase/fundamentals#installing-eql) covers that path and why it survives `supabase db reset`.
+If you manage your database with `supabase migrations` instead, commit the script as your earliest migration. [Fundamentals](/integrations/supabase/fundamentals#installing-eql) covers that path and why it survives `supabase db reset`.
 
 </Step>
 <Step>
 
 ### Create a table with encrypted columns
 
-The column type declares what each column can do. Equality lookups, free-text matching, and range/ordering are different capabilities — declare only what you query:
+The column type declares what each column can do. Equality lookups, free-text matching, and range or ordering queries are different capabilities. Declare only what you query, because each capability stores an extra index term alongside the ciphertext:
 
 ```sql
 CREATE TABLE patients (
     id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email         eql_v3.text_eq NOT NULL,   -- exact lookup
-    name          eql_v3.text_match,         -- free-text match
-    date_of_birth eql_v3.date_ord,           -- ranges and ORDER BY
-    plan          text                       -- not sensitive: ordinary column
+    email         public.eql_v3_text_eq NOT NULL,  -- exact lookup
+    name          public.eql_v3_text_match,        -- free-text match
+    date_of_birth public.eql_v3_date_ord,          -- ranges and ORDER BY
+    plan          text                             -- not sensitive: ordinary column
 );
 ```
 
-Which type fits which column — and what each stores — is covered by the [EQL type pages](/reference/eql/core-concepts).
+Which type fits which column, and what each stores, is covered by the [EQL type pages](/reference/eql/core-concepts).
+
+<Callout type="info">
+Supabase runs the EQL installer as a non-superuser, so the ORE-backed domains (`_ord_ore`, `text_search_ore`) are disabled on Supabase and raise if you use them. Use `_ord` and `text_search`, which order under Postgres's default btree operator class. See [SEM specifiers](/reference/eql/core-concepts#sem-specifiers).
+</Callout>
 
 </Step>
 <Step>
@@ -70,7 +74,7 @@ Which type fits which column — and what each stores — is covered by the [EQL
 npm install @cipherstash/stack @supabase/supabase-js
 ```
 
-Sign up at [dashboard.cipherstash.com](https://dashboard.cipherstash.com), create a workspace, and set its credentials alongside your Supabase keys:
+Sign up at [dashboard.cipherstash.com](https://dashboard.cipherstash.com), create a workspace, and set its credentials alongside your Supabase keys. `DATABASE_URL` is your project's Postgres connection string, which the wrapper uses to introspect your encrypted columns:
 
 ```sh
 CS_WORKSPACE_CRN=...
@@ -79,46 +83,25 @@ CS_CLIENT_KEY=...
 CS_CLIENT_ACCESS_KEY=...
 SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_ANON_KEY=...
+DATABASE_URL=postgresql://postgres:...@db.<project-ref>.supabase.co:5432/postgres
 ```
 
-> **Good to know**: the CipherStash dashboard's Supabase integration can generate this whole block for you — it connects to your project over OAuth, runs readiness checks, and emits the `CS_*` credentials. It's optional; the manual block above works everywhere. See [Fundamentals → Connecting your project](/integrations/supabase/fundamentals#connecting-your-project-to-cipherstash).
-
-</Step>
-<Step>
-
-### Declare the encrypted schema in your app
-
-Mirror the table's encrypted columns, with the capability matching each column type:
-
-```typescript title="lib/schema.ts"
-import { encryptedTable, encryptedColumn } from "@cipherstash/stack/schema"
-
-export const patients = encryptedTable("patients", {
-  email: encryptedColumn("email").equality(),
-  name: encryptedColumn("name").freeTextSearch(),
-  date_of_birth: encryptedColumn("date_of_birth").dataType("date").orderAndRange(),
-})
-```
+> **Good to know**: the CipherStash dashboard's Supabase integration can generate this whole block for you. It connects to your project over OAuth, runs readiness checks, and emits the `CS_*` credentials. It's optional; the manual block above works everywhere. See [Fundamentals → Connecting your project](/integrations/supabase/fundamentals#connecting-your-project-to-cipherstash).
 
 </Step>
 <Step>
 
 ### Wrap your Supabase client
 
+There is no schema to declare. `encryptedSupabaseV3` introspects the database over `DATABASE_URL`, finds the columns typed as EQL domains, and derives each one's encryption config from its type.
+
 ```typescript title="lib/db.ts"
-import { createClient } from "@supabase/supabase-js"
-import { Encryption } from "@cipherstash/stack"
-import { encryptedSupabase } from "@cipherstash/stack/supabase"
-import { patients } from "./schema"
+import { encryptedSupabaseV3 } from "@cipherstash/stack/supabase"
 
-const encryptionClient = await Encryption({ schemas: [patients] })
-
-const supabaseClient = createClient(
+export const db = await encryptedSupabaseV3(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_ANON_KEY!,
 )
-
-export const db = encryptedSupabase({ encryptionClient, supabaseClient })
 ```
 
 </Step>
@@ -128,10 +111,9 @@ export const db = encryptedSupabase({ encryptionClient, supabaseClient })
 
 ```typescript
 import { db } from "./lib/db"
-import { patients } from "./lib/schema"
 
 // Insert — encrypted columns are encrypted before the request leaves your app
-await db.from("patients", patients).insert({
+await db.from("patients").insert({
   email: "alice@example.com",
   name: "Alice Chen",
   date_of_birth: "1987-04-12",
@@ -139,31 +121,35 @@ await db.from("patients", patients).insert({
 })
 
 // Exact lookup on an encrypted column
-const { data } = await db.from("patients", patients)
+const { data } = await db
+  .from("patients")
   .select("id, email, name")
   .eq("email", "alice@example.com")
 
-// Free-text match (encrypted token containment — not SQL LIKE)
-await db.from("patients", patients)
-  .select("id, name")
-  .ilike("name", "ali")
+// Free-text match: encrypted token containment, not SQL LIKE
+await db.from("patients").select("id, name").contains("name", "Alice Chen")
 
-// Range + newest-first on an encrypted date
-await db.from("patients", patients)
+// Range and newest-first on an encrypted date
+await db
+  .from("patients")
   .select("id, name, date_of_birth")
   .gt("date_of_birth", "1980-01-01")
   .order("date_of_birth", { ascending: false })
   .limit(20)
 ```
 
-The full method surface — filters, upserts, error shapes, identity-locked queries — is in the [`encryptedSupabase` reference](/reference/stack/supabase).
+<Callout type="warn">
+`.like()` and `.ilike()` throw on encrypted columns. Free-text matching is `.contains()`, which compares encrypted token sets rather than SQL wildcards. With the default match options a substring will not match, so pass the full value. See the [wrapper reference](/reference/stack/supabase#there-is-no-like).
+</Callout>
+
+The full method surface, including filters, upserts, error shapes, and identity-locked queries, is in the [`encryptedSupabaseV3` reference](/reference/stack/supabase).
 
 </Step>
 <Step>
 
 ### See what the database sees
 
-Open the Table Editor and look at the `patients` rows: every encrypted cell is a ciphertext payload, not plaintext. That's what a backup, a replication stream, or anyone bypassing your app sees — including a leaked `service_role` key. [Fundamentals → Working in the dashboard](/integrations/supabase/fundamentals#working-in-the-dashboard) walks through what encrypted data looks like across the Supabase dashboard.
+Open the Table Editor and look at the `patients` rows: every encrypted cell is a ciphertext payload, not plaintext. That's what a backup, a replication stream, or anyone bypassing your app sees, including a leaked `service_role` key. [Fundamentals → Working in the dashboard](/integrations/supabase/fundamentals#working-in-the-dashboard) walks through what encrypted data looks like across the Supabase dashboard.
 
 </Step>
 </Steps>
@@ -171,7 +157,7 @@ Open the Table Editor and look at the `patients` rows: every encrypted cell is a
 ## Production checklist
 
 - **Indexes** — at real row counts, add functional indexes for the capabilities you query. Two lines of SQL per column: [EQL indexes](/reference/eql/indexes).
-- **RLS** — keep your Row Level Security policies; they compose. RLS controls *who can query* rows, encryption controls *whether their contents can be read at all* — a bypassed policy or leaked key yields only ciphertext.
+- **RLS** — keep your Row Level Security policies; they compose. RLS controls *who can query* rows, encryption controls *whether their contents can be read at all*. A bypassed policy or leaked key yields only ciphertext.
 - **Identity-locked decryption** — tie decryption to the logged-in Supabase Auth user: [Supabase Auth integration](/integrations/supabase/auth).
 - **Adopt incrementally** — you can encrypt one column at a time; nothing requires a big-bang migration. See [encrypting existing data](/guides/migration/encrypt-existing-data).
 
@@ -187,7 +173,7 @@ Open the Table Editor and look at the `patients` rows: every encrypted cell is a
   <Card title="Data layer (ORMs)" href="/integrations/supabase/orms">
     Using Drizzle, Prisma, or a framework against Supabase with CipherStash.
   </Card>
-  <Card title="encryptedSupabase reference" href="/reference/stack/supabase">
+  <Card title="encryptedSupabaseV3 reference" href="/reference/stack/supabase">
     The complete wrapper API: every filter, response shapes, and how it works.
   </Card>
 </Cards>
