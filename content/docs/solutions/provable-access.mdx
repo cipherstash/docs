@@ -5,49 +5,69 @@ type: concept
 components: [platform, encryption]
 audience: [ciso, cto]
 verifiedAgainst:
-  stack: "0.18.0"
+  stack: "0.19.0"
+  auth: "0.42.0"
 ---
 
 Traditional access control relies on application logic. If a bug or misconfiguration exposes data, there is no way to prove afterwards whether access was unauthorized. CipherStash binds decryption to an authenticated identity, so access leaves cryptographic evidence rather than only a log entry.
 
 ## How it works
 
-A **lock context** ties encryption and decryption to an authenticated identity. You exchange a user's JWT for a CTS token, and that token participates in key derivation. Without it, the data keys cannot be derived and the data cannot be decrypted.
+Two pieces combine.
+
+**An auth strategy** decides who the client is when it talks to ZeroKMS. `OidcFederationStrategy` federates a signed-in user's OIDC JWT (from Supabase, Clerk, Auth0, or Okta) into a CipherStash token, so every ZeroKMS request is made *as that user* rather than as your service.
+
+**A lock context** binds a value to a claim from that user's JWT, typically `sub`. ZeroKMS bakes the claim's value into the data key's tag, so only the user who encrypted a value can decrypt it.
+
+The two are layered, not alternatives: lock context requires `OidcFederationStrategy`, but you can use the strategy without lock context. Authenticating as the user gives you an audit trail; adding lock context gives you the cryptographic binding.
 
 That creates a provable access boundary:
 
-- If data was decrypted, the identity token must have been present.
+- If data was decrypted, the user's identity must have been present.
 - ZeroKMS records the identity associated with every key derivation.
 - The record cannot be falsified by tampering with application logs, because the evidence is the derivation itself, not the log line describing it.
 
 <Callout type="info">
-A lock context restricts **who can decrypt**. It does not hide the ciphertext's existence, nor does it prevent a caller who holds a valid token from decrypting the values that token unlocks. It moves the enforcement point out of your application and into key derivation.
+A lock context restricts **who can decrypt**. It does not hide the ciphertext's existence, nor does it prevent a signed-in user from decrypting the values their own claim unlocks. It moves the enforcement point out of your application and into key derivation.
 </Callout>
 
 ## Identity-aware encryption
 
-Construct a `LockContext`, identify it with the user's JWT, then attach it to an encrypt or decrypt operation with `.withLockContext()`.
+Add your identity provider to the workspace first, at [dashboard.cipherstash.com](https://dashboard.cipherstash.com/workspaces/_/oidc-providers).
 
-### Bind encryption to an identity
+### Authenticate as the end user
 
-```typescript filename="identity-encrypt.ts"
-import { Encryption } from "@cipherstash/stack"
-import { LockContext } from "@cipherstash/stack/identity"
+Construct the client with `OidcFederationStrategy`. Pass a function that returns the *current* provider JWT: the strategy re-invokes it when it needs to re-federate, so do not capture a token once.
+
+```typescript filename="client.ts"
+import { Encryption, OidcFederationStrategy } from "@cipherstash/stack"
 import { patients } from "./schema"
 
-const client = await Encryption({ schemas: [patients] })
+// Every ZeroKMS request is authenticated as the signed-in user
+export const client = await Encryption({
+  schemas: [patients],
+  config: {
+    authStrategy: OidcFederationStrategy.create(
+      process.env.CS_WORKSPACE_CRN,
+      () => getProviderJwt(),
+    ),
+  },
+})
+```
 
-// The JWT identifies the healthcare provider performing the action
-async function encryptDiagnosis(diagnosis: string, providerJwt: string) {
-  const lockContext = await new LockContext().identify(providerJwt)
+Both strategies are re-exported by `@cipherstash/stack`, so you do not need a separate import from `@cipherstash/auth` for this.
 
-  if (lockContext.failure) {
-    throw new Error(`Identification failed: ${lockContext.failure.message}`)
-  }
+### Bind encryption to the user's identity
 
+```typescript filename="identity-encrypt.ts"
+import { client } from "./client"
+import { patients } from "./schema"
+
+// The data key is tagged with the authenticated provider's `sub` claim
+async function encryptDiagnosis(diagnosis: string) {
   const result = await client
     .encrypt(diagnosis, { column: patients.diagnosis, table: patients })
-    .withLockContext(lockContext.data)
+    .withLockContext({ identityClaim: ["sub"] })
 
   if (result.failure) {
     throw new Error(`Encryption failed: ${result.failure.message}`)
@@ -57,23 +77,15 @@ async function encryptDiagnosis(diagnosis: string, providerJwt: string) {
 }
 ```
 
-`identify()` returns a `Result`, so the CTS token exchange can fail (an expired JWT, an unconfigured OIDC provider) without throwing. Unwrap it before use.
+### Decrypt with the same identity claim
 
-### Decrypt with identity verification
-
-Decryption requires the same lock context that encrypted the value.
+Decryption requires the same lock context, resolved against whichever user the client is currently authenticated as.
 
 ```typescript filename="identity-decrypt.ts"
-async function decryptDiagnosis(encryptedDiagnosis: unknown, providerJwt: string) {
-  const lockContext = await new LockContext().identify(providerJwt)
-
-  if (lockContext.failure) {
-    throw new Error(`Identification failed: ${lockContext.failure.message}`)
-  }
-
+async function decryptDiagnosis(encryptedDiagnosis: unknown) {
   const result = await client
     .decrypt(encryptedDiagnosis)
-    .withLockContext(lockContext.data)
+    .withLockContext({ identityClaim: ["sub"] })
 
   if (result.failure) {
     // Key derivation fails when the identity does not match
@@ -84,13 +96,19 @@ async function decryptDiagnosis(encryptedDiagnosis: unknown, providerJwt: string
 }
 ```
 
+Lock contexts work with every operation: `encrypt`, `decrypt`, `encryptModel`, `decryptModel`, `bulkEncrypt`, `bulkDecrypt`, `bulkEncryptModels`, and `bulkDecryptModels`.
+
+<Callout type="warn">
+`new LockContext()` and `lockContext.identify(jwt)` are **deprecated**. Per-operation CTS tokens were removed in `protect-ffi` 0.25, and `identify()` no longer affects encryption. Authenticate the client with `OidcFederationStrategy` and pass the claim to `.withLockContext()` instead.
+</Callout>
+
 ## Audit logging
 
 Every encryption and decryption through ZeroKMS produces an audit event:
 
 | Field | Description |
 |---|---|
-| Identity | The authenticated user or service, from the lock context |
+| Identity | The authenticated user or service |
 | Operation | Encrypt or decrypt |
 | Timestamp | When the operation occurred |
 | Keyset | Which keyset was used |
@@ -106,15 +124,15 @@ Together these answer who accessed what data, when, and using which query.
 
 ### Healthcare: HIPAA audit requirements
 
-HIPAA requires audit controls recording who accessed protected health information. With a lock context, every access to patient data is tied to the authenticated provider, and the ZeroKMS audit log records the identity, the operation, the keyset, and the timestamp for each derivation.
+HIPAA requires audit controls recording who accessed protected health information. Authenticating each request as the signed-in provider means the ZeroKMS audit log records the identity, the operation, the keyset, and the timestamp for each derivation, and a lock context ties each patient record to the provider who encrypted it.
 
 ### Financial services: segregation of duties
 
-Encrypt audit records under a compliance-team identity. A trading-team JWT produces a different lock context, so key derivation fails and the records do not decrypt. The separation is enforced at derivation, not by a role check in the application.
+Encrypt audit records under a compliance-team member's identity. Someone on the trading desk, authenticated as themselves, resolves a different claim value, so key derivation fails and the records do not decrypt. The separation is enforced at derivation, not by a role check in the application.
 
 ### Multi-tenant SaaS: tenant isolation
 
-Bind encryption to a tenant identity so that only that tenant's identity can decrypt its data. For coarser isolation that does not depend on a per-request JWT, separate [keysets](/stack/cipherstash/kms/keysets) may fit better: a keyset boundary is per-connection or per-client, where a lock context is per-identity.
+Bind encryption to a per-user claim so only that user's identity can decrypt their data. For coarser isolation that does not depend on a signed-in end user, separate [keysets](/stack/cipherstash/kms/keysets) usually fit better: a keyset boundary is per-client or per-connection, where a lock context is per-identity.
 
 ## Compared to application-level access control
 

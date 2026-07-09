@@ -20,16 +20,13 @@ Three properties combine to keep data and key material inside a region:
 
 ## Regional ZeroKMS deployment
 
-ZeroKMS is available in [multiple regions](/stack/cipherstash/kms/regions):
+ZeroKMS is deployed on AWS only. A workspace is tied to one region, and its region identifier forms part of the workspace CRN (`crn:ap-southeast-2.aws:your-workspace-id`).
 
-| Area | Region |
-|---|---|
-| Asia Pacific | Sydney (`ap-southeast-2`) |
-| Europe | Frankfurt (`eu-central-1`), Ireland (`eu-west-1`) |
-| US East | N. Virginia (`us-east-1`) |
-| US West | Oregon (`us-west-2`) |
+<ZeroKmsRegions />
 
 Selecting a ZeroKMS region controls where authority keys are managed. Combined with your application's deployment region, that determines where all key material exists.
+
+Need a region that is not listed? Contact [support@cipherstash.com](mailto:support@cipherstash.com). See the [regions reference](/stack/cipherstash/kms/regions) for more.
 
 ## Dual-party key split
 
