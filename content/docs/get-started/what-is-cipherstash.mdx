@@ -24,7 +24,7 @@ Three ideas carry the whole product.
 
 **Every value gets its own key.** Not a table key or a column key. A per-value key, derived for one operation and discarded. Compromising one value tells an attacker nothing about the next.
 
-**Ciphertext stays queryable.** Alongside each encrypted value, the client stores index terms that let Postgres compare ciphertext without decrypting it. This is the trade at the heart of the product, and it is not free: see [what the terms reveal](#the-trade).
+**Ciphertext stays queryable.** Alongside each encrypted value, the client stores index terms that let Postgres compare ciphertext without decrypting it. Which terms a column carries is something you choose, and it decides what the database could infer: see [choosing what each column reveals](#choosing-what-each-column-reveals).
 
 ## The pieces
 
@@ -64,13 +64,22 @@ You rarely need all of them at once. The Stack SDK plus EQL is the common case. 
 
 Note that **EQL is only for Postgres**. The SDK also encrypts values that never touch a database, and non-Postgres stores like [DynamoDB](/stack/cipherstash/encryption/dynamodb), with no EQL involved.
 
-## The trade
+## Choosing what each column reveals
 
-Querying ciphertext is possible because each value carries index terms derived from the plaintext. Those terms are not the plaintext, but they are not nothing either.
+Querying ciphertext works because each value carries index terms derived from its plaintext. Those terms are not the plaintext, and what each one reveals is **bounded and published** rather than incidental: each scheme has a formal leakage profile.
 
-An equality term reveals which rows share a value. An ordering term reveals relative order. A free-text term reveals probabilistic token overlap. That is the price of a `WHERE` clause, and whether it is worth paying depends on the column.
+That turns leakage into a design choice rather than a surprise. You decide, per column, which capabilities to declare, and that decides what an observer of the database could infer:
 
-The honest version of this, per term, is in [searchable encryption](/concepts/searchable-encryption). Read it before deciding a column is safe to index. Columns you only store and retrieve can carry no terms at all.
+| You declare | So you can | An observer could infer |
+|---|---|---|
+| Nothing | Store and decrypt | Nothing from the ciphertext |
+| Equality | `WHERE email = ?`, `GROUP BY`, joins | Which rows share a value |
+| Ordering | `ORDER BY`, ranges, `MIN` / `MAX` | The relative order of values |
+| Free-text | Token containment | Probabilistic token overlap |
+
+The engineering is in matching those choices to your threat model. For most columns, knowing that two rows share some unknown value is not an exposure. For a column whose frequency distribution is itself the secret, it might be, and then you encrypt without that capability and filter after decryption.
+
+So the goal is not to eliminate leakage. It is to choose capabilities whose leakage your threat model already tolerates, and to know exactly what you chose. Declare only what you query on. The per-scheme detail is in [searchable encryption](/concepts/searchable-encryption).
 
 ## Which door
 
