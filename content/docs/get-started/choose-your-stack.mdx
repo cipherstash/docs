@@ -29,7 +29,7 @@ EQL installs into any Postgres you can connect to. It needs no extension, no sup
 | Platform | Works | Notes |
 |---|---|---|
 | Supabase | Yes | [Supabase integration](/integrations/supabase). Expose the `eql_v3` schema in the dashboard. |
-| Neon, RDS, Aurora, Cloud SQL | Yes | Nothing special. `stash eql install` detects a non-superuser role and adapts. |
+| Neon, RDS, Aurora, Cloud SQL | Yes | `stash eql install` detects a non-superuser role and adapts. |
 | Self-hosted Postgres | Yes | Full operator-class support, so the ORE ordering mechanism is available. |
 | Postgres behind PgBouncer | Yes | Transaction pooling is fine. Proxy has its own pooling. |
 | DynamoDB | Yes, without EQL | [DynamoDB integration](/stack/cipherstash/encryption/dynamodb). Encrypted attributes and HMAC key lookups; no EQL, because there's no Postgres. |
@@ -51,9 +51,9 @@ Managed platforms usually block custom operator class creation. That's why the d
 
 If you use no ORM, nothing is missing. The SDK's `encrypt` and `encryptQuery` are the whole surface.
 
-## 4. Identity binding, if you need it
+## 4. Identity binding
 
-Most teams start without this. Reach for it when a value should be decryptable only by the user it belongs to, rather than by anything holding the application's credentials.
+Reach for this when a value should be decryptable only by the user it belongs to, rather than by anything holding the application's credentials. It is also what shrinks the blast radius of a compromised application process.
 
 It requires an OIDC provider, registered on the [OIDC providers](https://dashboard.cipherstash.com/workspaces/_/oidc-providers) page in the Dashboard.
 
