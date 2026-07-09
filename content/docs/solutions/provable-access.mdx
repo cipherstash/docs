@@ -99,7 +99,9 @@ async function decryptDiagnosis(encryptedDiagnosis: unknown) {
 Lock contexts work with every operation: `encrypt`, `decrypt`, `encryptModel`, `decryptModel`, `bulkEncrypt`, `bulkDecrypt`, `bulkEncryptModels`, and `bulkDecryptModels`.
 
 <Callout type="warn">
-`new LockContext()` and `lockContext.identify(jwt)` are **deprecated**. Per-operation CTS tokens were removed in `protect-ffi` 0.25, and `identify()` no longer affects encryption. Authenticate the client with `OidcFederationStrategy` and pass the claim to `.withLockContext()` instead.
+`lockContext.identify(jwt)` is **deprecated**. Per-operation CTS tokens were removed in `protect-ffi` 0.25, so `identify()` no longer affects encryption: code that still calls it compiles and logs a deprecation warning, but the token it fetches is unused. Authenticate the client with `OidcFederationStrategy` and pass the claim to `.withLockContext()` instead.
+
+Constructing a `LockContext` is not deprecated, it is simply optional here. `.withLockContext()` accepts either a `LockContext` or a plain `{ identityClaim }`.
 </Callout>
 
 ## Audit logging
