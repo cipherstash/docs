@@ -1,5 +1,16 @@
 {
   "title": "Reference",
   "icon": "Library",
-  "pages": ["..."]
+  "pages": [
+    "index",
+    "eql",
+    "stack",
+    "auth",
+    "cli",
+    "proxy",
+    "workspace",
+    "...",
+    "agent-skills",
+    "glossary"
+  ]
 }

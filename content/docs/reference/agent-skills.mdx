@@ -1,0 +1,111 @@
+---
+title: Agent skills
+description: "Install CipherStash agent skills to give your AI coding assistant accurate knowledge of encryption setup, schema building, and integrations."
+type: reference
+components: [encryption, cli]
+---
+
+CipherStash publishes a set of [agent skills](https://skills.sh/) that give AI coding assistants deep knowledge of the Stack SDK, CLI, and integrations. When installed, your agent can generate encryption schemas, write integration code, and guide you through database setup without hallucinating API surfaces.
+
+Skills work with any AI coding tool that supports the skills protocol, including Claude Code, Cursor, GitHub Copilot, Windsurf, Cline, Gemini, AMP, Goose, Roo, and Trae.
+
+## Install skills
+
+Skills are installed per project. Run this in your project root:
+
+```bash cta cta-type="install" example-id="install-agent-skills"
+npx skills add cipherstash/stack
+```
+
+This installs all six CipherStash skills. Your agent activates the relevant skill based on what you are working on.
+
+### Install via the wizard
+
+`@cipherstash/wizard` offers to copy integration-appropriate skills into `./.claude/skills/` after its post-agent steps:
+
+| Integration | Skills installed |
+|---|---|
+| Drizzle | `stash-encryption`, `stash-drizzle`, `stash-cli` |
+| Supabase | `stash-encryption`, `stash-supabase`, `stash-cli` |
+| Prisma or generic | `stash-encryption`, `stash-cli` |
+
+## Available skills
+
+### stash-encryption
+
+Core field-level encryption with `@cipherstash/stack`. The foundational skill, covering the full encryption API.
+
+**Covers:** schema definition with `encryptedTable` and `encryptedColumn`; single and bulk encrypt/decrypt; model operations (`encryptModel`, `decryptModel`, `bulkEncryptModels`, `bulkDecryptModels`); searchable encryption (equality, free-text search, range queries, encrypted JSONB); identity-aware encryption with `LockContext`; multi-tenant isolation with keysets; error handling with the `Result` pattern; migration from `@cipherstash/protect`.
+
+**Activates when:** you are defining encrypted schemas, writing encrypt/decrypt logic, or working with the `@cipherstash/stack` package.
+
+**Related docs:** [Stack SDK](/reference/stack)
+
+### stash-cli
+
+The CipherStash CLI (`stash`) for database setup, schema management, and project initialization.
+
+**Covers:** `stash.config.ts` configuration; the setup lifecycle (`init`, `plan`, `impl`, `status`); database commands (`db install`, `db upgrade`, `db push`, `db validate`, `db status`, `db test-connection`); `schema build`; `auth login`; the programmatic API (`EQLInstaller`, `loadStashConfig`, `defineConfig`, `loadBundledEqlSql`); Drizzle migration mode (`--drizzle`); Supabase-compatible installs (`--supabase`); automatic Supabase and Drizzle detection; automatic OPE fallback on managed databases.
+
+**Activates when:** you are working with `stash.config.ts`, running CLI commands, or setting up EQL in a database.
+
+**Related docs:** [CLI reference](/reference/cli)
+
+### stash-drizzle
+
+Drizzle ORM integration using `@cipherstash/stack/drizzle`.
+
+**Covers:** the `encryptedType<T>()` column type; `extractEncryptionSchema()`; `createEncryptionOperators()`; query operators (`eq`, `ne`, `like`, `ilike`, `gt`, `gte`, `lt`, `lte`, `between`, `inArray`, `asc`, `desc`); encrypted JSONB operators (`jsonbPathExists`, `jsonbPathQueryFirst`, `jsonbGet`); batched `and()` / `or()` conditions; EQL migration generation; non-encrypted column fallback; Express, Hono, and Next.js examples.
+
+**Activates when:** you are using Drizzle ORM with encrypted columns, or importing from `@cipherstash/stack/drizzle`.
+
+**Related docs:** [Drizzle integration](/stack/cipherstash/encryption/drizzle)
+
+### stash-supabase
+
+Supabase integration using `@cipherstash/stack/supabase`.
+
+**Covers:** the `encryptedSupabase()` wrapper; transparent encryption on `insert`, `update`, and `upsert`; transparent decryption on `select`, `single`, and `maybeSingle`; encrypted query filters (`eq`, `neq`, `like`, `ilike`, `gt`, `gte`, `lt`, `lte`, `in`, `match`, `or`, `not`, `filter`); identity-aware encryption with `.withLockContext()`; audit logging with `.audit()`; response types and error handling; Supabase-specific database setup.
+
+**Activates when:** you are using Supabase with encrypted columns, or importing from `@cipherstash/stack/supabase`.
+
+**Related docs:** [Supabase integration](/integrations/supabase)
+
+### stash-dynamodb
+
+Amazon DynamoDB integration using `@cipherstash/stack/dynamodb`.
+
+**Covers:** the `encryptedDynamoDB()` helper; attribute naming conventions (`__source` and `__hmac` suffixes); single and bulk encrypt/decrypt model operations; querying encrypted partition keys, sort keys, and GSI keys via HMAC attributes; nested object encryption with `encryptedField`; audit logging; table design patterns; examples with `PutCommand`, `GetCommand`, `QueryCommand`, and `BatchWriteCommand`.
+
+**Activates when:** you are using DynamoDB with encrypted attributes, or importing from `@cipherstash/stack/dynamodb`.
+
+**Related docs:** [DynamoDB integration](/stack/cipherstash/encryption/dynamodb)
+
+### stash-secrets
+
+Encrypted secrets management with `@cipherstash/stack`.
+
+**Covers:** the `Secrets` class API (`set`, `get`, `getMany`, `list`, `delete`); environment-based isolation with per-environment keysets; bulk retrieval with `getMany` (2 to 100 secrets per call); error types (`ApiError`, `NetworkError`, `ClientError`, `EncryptionError`, `DecryptionError`); configuration via `CS_*` environment variables or explicit config; patterns for loading secrets at startup.
+
+**Activates when:** you are storing or retrieving secrets, or working with the `Secrets` class from `@cipherstash/stack/secrets`.
+
+**Related docs:** [Secrets](https://cipherstash.com/stack/secrets)
+
+## How skills work
+
+When you ask your agent to help with a CipherStash task, it checks which skills are installed and activates the relevant one. The skill supplies the agent with the complete API surface (method signatures, types, return values), code examples matching the current SDK version, integration-specific patterns, and known limitations.
+
+This means your agent writes accurate CipherStash code on the first try, rather than guessing at API shapes or generating outdated patterns.
+
+## Typical workflow
+
+1. **Initialize your project.** Ask your agent to set up CipherStash and it runs `stash init`, which authenticates you, installs EQL, scaffolds the encryption client, and writes `.cipherstash/context.json`.
+2. **Draft a plan.** `stash plan` produces `.cipherstash/plan.md`, listing the tables and columns to encrypt. Review it before proceeding.
+3. **Execute the plan.** `stash impl` reads the plan and wires up `encryptModel` and `decryptModel` in your codebase.
+4. **Handle edge cases.** The agent knows about searchable encryption constraints, operator family limitations, identity-aware encryption, and multi-tenant keysets.
+
+## Requirements
+
+- An AI coding tool that supports the [skills protocol](https://skills.sh/)
+- Node.js 18 or later
+- A CipherStash account ([sign up](https://dashboard.cipherstash.com/sign-up))

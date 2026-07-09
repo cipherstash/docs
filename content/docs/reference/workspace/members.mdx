@@ -1,0 +1,32 @@
+---
+title: Members
+description: "Manage CipherStash organization members and workspace memberships, and onboard developer devices for local development."
+type: reference
+components: [platform]
+---
+
+There are two types of membership in CipherStash: organization memberships and workspace memberships. Every user belongs to at least one organization, and can be invited to any number of workspaces inside that organization.
+
+## Organization memberships
+
+Organization memberships control which users have access to CipherStash in general. Once a user is added to an organization, they can be granted access to any number of workspaces inside it.
+
+Add a member from **Members** in the Dashboard's organization sidebar.
+
+## Workspace memberships
+
+Workspace memberships control which users have access to a specific workspace. Once a user is added to a workspace, they have full access to managing it, including creating and managing keysets, clients, and access keys.
+
+Add a member from the [workspace settings](https://dashboard.cipherstash.com/workspaces/_/settings) page in the Dashboard.
+
+## Developer device onboarding
+
+After a member is added to an organization and granted workspace access, they initialize their local development environment:
+
+```bash cta cta-type="quickstart" example-id="stash-init-member"
+npx stash init
+```
+
+This creates a unique [device](/reference/glossary#device) and [client key](/reference/glossary#client-key) for that developer, with automatic access to the default [keyset](/reference/glossary#keyset). No environment variables are needed for local development.
+
+See [team onboarding](/stack/deploy/team-onboarding) for the full workflow.

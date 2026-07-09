@@ -1,4 +1,4 @@
 {
   "title": "Workspace & account",
-  "pages": ["..."]
+  "pages": ["index", "configuration", "members", "billing"]
 }

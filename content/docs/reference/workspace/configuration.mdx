@@ -1,0 +1,55 @@
+---
+title: Configuration
+description: "Configure a CipherStash workspace for local development and production: the workspace CRN, client and access keys, and keyset selection."
+type: reference
+components: [platform, encryption]
+---
+
+A workspace is identified by its **CRN** and accessed with a **client key** and an **access key**. How those credentials reach your application differs between local development and production.
+
+## Local development
+
+For local development, credentials are handled automatically by device-based authentication. Run `stash init` to set up your device:
+
+```bash cta cta-type="quickstart" example-id="stash-init-workspace"
+npx stash init
+```
+
+This creates a device-backed client key with access to the workspace's default keyset. No environment variables are needed.
+
+## Production credentials
+
+In production and CI/CD, a workspace is configured with explicit credentials:
+
+| Credential | Description |
+|---|---|
+| Workspace CRN | Identifies your workspace and its region, for example `crn:ap-southeast-2.aws:your-workspace-id` |
+| Client ID | Identifies your application client key |
+| Client key | Your half of the dual-party key split |
+| Access key | Authenticates API calls to CipherStash |
+
+These are the same credentials the [Stack SDK](/reference/stack) and [Proxy](/reference/proxy/configuration) consume. For the full set of environment variables and programmatic options, see the [Stack SDK configuration reference](/reference/stack).
+
+See [going to production](/stack/deploy/going-to-production) for a step-by-step guide to generating them.
+
+## Keysets
+
+A workspace can hold many keysets. Data encrypted under one keyset cannot be decrypted with another, which is what makes keysets the boundary for tenant isolation, environment separation, and regional compliance.
+
+To use a specific keyset, pass the `keyset` option when constructing the client:
+
+```typescript filename="keyset-config.ts"
+const client = await Encryption({
+  schemas: [users],
+  config: {
+    keyset: { name: "tenant-a" },
+  },
+})
+```
+
+Proxy scopes keysets per connection instead. See [multitenant operation](/reference/proxy/multitenant).
+
+## Related
+
+- [Keysets](/stack/cipherstash/kms/keysets) for the isolation model.
+- [Billing](/reference/workspace/billing) for per-plan keyset and client limits.
