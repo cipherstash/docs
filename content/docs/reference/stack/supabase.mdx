@@ -184,11 +184,9 @@ await supabase.from("users").select("*").contains("email", "alice@example.com")
 `.contains()` tests whether the stored value's bloom filter contains the query's bloom filter. Both are built from the value's trigrams plus, because `include_original` is on, the whole value as one extra token. Matching is case-insensitive, and false positives are possible while false negatives are not.
 
 <Callout type="warn">
-**Substring matching is currently broken.** PostgREST cannot cast a filter value to EQL's narrow query domain, and `encryptQuery` does not yet support the v3 scalars, so the wrapper has to send a full *storage* payload as the operand. That payload's bloom carries the whole search string as an `include_original` token, and the stored value's bloom has no such token unless the two strings are equal. `contains("email", "alice")` therefore finds nothing on a stored `alice@example.com`.
+**Substring matching is currently broken.** The search string is tokenized as though it were a stored value, so its bloom filter carries the whole search string as an extra token. The stored value's bloom has no such token, so containment fails: `contains("email", "alice")` finds nothing on a stored `alice@example.com`.
 
-In practice `.contains()` matches only when the search string equals the stored value, or is exactly three characters (the trigram length), where its `include_original` token coincides with a trigram the stored value already has.
-
-The cause is that `text_search` columns always build their match index with `include_original` on, and expose no way to turn it off. The needle is tokenized as if it were a stored value, so its bloom carries the whole needle as an extra token, and the stored value's bloom has no such token. Tracked in [cipherstash/stack#610](https://github.com/cipherstash/stack/issues/610).
+In practice `.contains()` matches only when the search string equals the stored value, or is exactly three characters, the trigram length. This is a defect rather than intended behaviour, and a fix is in progress.
 </Callout>
 
 ## Ordering and pagination
