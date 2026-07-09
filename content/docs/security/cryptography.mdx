@@ -30,7 +30,7 @@ Three distinct things are often all called "the key". Keeping them apart is what
 |---|---|---|
 | **Authority key** | ZeroKMS, server-side | Encrypted at rest under an AWS KMS root key |
 | **Client key** | Your application or workload | You do (`CS_CLIENT_KEY`) |
-| **Data key** | Your application's memory, briefly | Nothing. It is derived per value and discarded |
+| **Data key** | Your application's memory, briefly | Nothing. It is derived per value, identified by a key ID, and discarded |
 
 The authority key and the client key are two halves of a split. Neither alone derives a data key, and the two are never brought together in one place. The key seed travels from ZeroKMS to you. The client key never travels at all.
 
@@ -40,9 +40,11 @@ The mechanism operates at two layers, and descriptions that name only one of the
 
 ### Layer 1: the key seed, produced server-side
 
-ZeroKMS uses **proxy symmetric re-encryption** (patent pending) on the authority key to produce a **key seed**, and returns it to your application.
+Your application requests a key seed by sending a **key ID**. ZeroKMS uses **proxy symmetric re-encryption** (patent pending) on the authority key to produce the **key seed** for that ID, and returns it.
 
-ZeroKMS does this without the client key. It never receives it, and the request carries no key material of yours. That is what makes the architecture zero-knowledge: ZeroKMS produces a seed it cannot itself turn into a data key.
+The ID is what gives every data key a unique identity. It travels with the encrypted value, so the same seed can be requested again to decrypt it.
+
+ZeroKMS does all of this without the client key. It never receives it, and the request carries no key material of yours, only the ID. That is what makes the architecture zero-knowledge: ZeroKMS produces a seed it cannot itself turn into a data key.
 
 ### Layer 2: the data key, derived client-side
 
@@ -61,6 +63,7 @@ flowchart TD
     end
 
     subgraph you["Your infrastructure"]
+        keyid["Key ID<br/>unique per data key"]
         client["Client key<br/>never leaves"]
         processed["Processed seed"]
         datakey["Data key<br/>one per value<br/>discarded after use"]
@@ -70,12 +73,13 @@ flowchart TD
         datakey -- AES-256-GCM-SIV --> ciphertext
     end
 
+    keyid -- "requests a seed<br/>(no key material)" --> auth
     seed -- returned to your app --> processed
 ```
 
 Re-encryption describes how the seed is produced. HMAC key derivation describes how the processed seed becomes per-value keys. Both are true, at different layers.
 
-Note which way the boundary is crossed. The key seed travels inward, from ZeroKMS to you. Nothing travels outward: not the client key, not the processed seed, not the data key.
+Note what crosses the boundary. Outbound: a key ID, which is not key material. Inbound: the key seed. Nothing else leaves your infrastructure, not the client key, not the processed seed, not the data key.
 
 ## What is cached, and what is not
 
@@ -122,9 +126,9 @@ An attacker must compromise **both** the ZeroKMS authority key and your client k
 ### Write path
 
 1. The application calls `client.encrypt(plaintext, { column, table })`.
-2. The SDK requests a key seed from ZeroKMS over TLS. The request carries no key material.
-3. ZeroKMS re-encrypts under the authority key and returns a key seed.
-4. The SDK processes the seed with the client key, then derives a unique data key from the result, locally.
+2. The SDK requests a key seed from ZeroKMS over TLS, sending a unique key ID. The request carries no key material.
+3. ZeroKMS re-encrypts under the authority key and returns the key seed for that ID.
+4. The SDK processes the seed with the client key, then derives the data key from the result, locally.
 5. The SDK encrypts the plaintext with AES-256-GCM-SIV.
 6. If the column declares searchable capability, the SDK generates the index terms (HMAC, ORE, Bloom filter).
 7. The SDK packs ciphertext and index terms into an [EQL payload](/reference/eql/core-concepts).
@@ -134,7 +138,7 @@ An attacker must compromise **both** the ZeroKMS authority key and your client k
 ### Read path
 
 1. The application reads the payload and calls `client.decrypt(...)`.
-2. The SDK requests a key seed, processes it with the client key, and derives the data key locally.
+2. The SDK requests a key seed using the key ID stored with the value, processes it with the client key, and derives the data key locally.
 3. The SDK decrypts the ciphertext, discards the data key, and returns plaintext.
 
 ### Query path
