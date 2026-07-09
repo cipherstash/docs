@@ -322,7 +322,11 @@ The following transform methods are also supported:
 
 Identity-aware encryption has two parts. Authenticate the encryption client as the signed-in user with `OidcFederationStrategy`, then chain `.withLockContext()` to bind values to a claim from that user's JWT.
 
-Register your Supabase project as an OIDC provider in the [Dashboard](https://dashboard.cipherstash.com/workspaces/_/oidc-providers) first.
+Register your Supabase project as an OIDC provider on the [OIDC providers](https://dashboard.cipherstash.com/workspaces/_/oidc-providers) page in the Dashboard first. The `_` in that URL resolves to whichever workspace you have selected.
+
+<Callout type="warn">
+`OidcFederationStrategy` is the only strategy that supports lock contexts. `AccessKeyStrategy` authenticates as your service rather than as an end user, so there is no user identity for ZeroKMS to resolve the claim against.
+</Callout>
 
 ```typescript filename="lib/encryption.ts"
 import { Encryption, OidcFederationStrategy } from "@cipherstash/stack"
@@ -344,6 +348,8 @@ export const encryptionClient = await Encryption({
 ```
 
 Pass a function that returns the **current** access token. The strategy calls it again whenever it re-federates, so a token captured once will go stale.
+
+Build `eSupabase` from that `encryptionClient`. Without its `authStrategy`, `.withLockContext()` has no end-user identity to bind to.
 
 ```typescript filename="app/actions.ts"
 import { LockContext } from "@cipherstash/stack/identity"

@@ -27,7 +27,7 @@ Lock contexts are useful for:
 
 ## Basic usage
 
-Register your identity provider with the workspace first, at [dashboard.cipherstash.com](https://dashboard.cipherstash.com/workspaces/_/oidc-providers).
+Register your identity provider with the workspace first, on the [OIDC providers](https://dashboard.cipherstash.com/workspaces/_/oidc-providers) page in the Dashboard. The `_` in that URL resolves to whichever workspace you have selected.
 
 Construct the client with `OidcFederationStrategy`. Pass a function returning the **current** provider JWT: the strategy calls it again whenever it needs to re-federate, so do not capture a token once.
 
@@ -46,9 +46,13 @@ export const client = await Encryption({
 })
 ```
 
-`OidcFederationStrategy` and `AccessKeyStrategy` are re-exported from `@cipherstash/stack`, so a separate `@cipherstash/auth` import is not needed.
+`OidcFederationStrategy` is re-exported from `@cipherstash/stack`, so a separate `@cipherstash/auth` import is not needed.
 
-Then bind operations to the user's claim:
+<Callout type="warn">
+`OidcFederationStrategy` is the only strategy that supports lock contexts. `AccessKeyStrategy` authenticates as your service rather than as an end user, so there is no user identity for ZeroKMS to resolve the claim against.
+</Callout>
+
+Then bind operations to the user's claim. Every example below uses the `client` above: without its `authStrategy`, `.withLockContext()` has no end-user identity to bind to.
 
 ```typescript filename="identity.ts"
 // Encrypt, binding the data key to the user's `sub` claim
