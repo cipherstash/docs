@@ -1,0 +1,203 @@
+---
+title: Quickstart
+description: "Encrypt, store, query, and decrypt your first field in Postgres, using the stash CLI and @cipherstash/stack."
+type: tutorial
+components: [encryption, eql, cli, platform]
+audience: [developer]
+verifiedAgainst:
+  stack: "0.19.0"
+  cli: "0.17.1"
+  eql: "3.0.0"
+---
+
+CipherStash encrypts your data at the field level. Every value gets its own encryption key, and the database never sees plaintext. A breach, a compromised agent, or a curious insider sees ciphertext.
+
+By the end of this page you will have encrypted a field, stored it in Postgres, queried it **without decrypting it**, and read it back. It takes about ten minutes and works with any Postgres: Supabase, Neon, RDS, or a Docker container.
+
+## Before you start
+
+- Node.js 18 or later.
+- A Postgres database you can connect to.
+- A [CipherStash account](https://dashboard.cipherstash.com/sign-up). The free plan is enough.
+
+<Steps>
+
+<Step>
+
+## Initialize your project
+
+```bash cta cta-type="quickstart" example-id="quickstart-stash-init"
+npx stash init
+```
+
+This opens a browser for device-based authentication, so local development needs no environment variables and no shared secrets. `init` then:
+
+1. Connects to your workspace.
+2. Resolves your database connection and runs `stash eql install`, which installs [EQL](/reference/eql), the Postgres surface that makes encrypted columns queryable.
+3. Installs `@cipherstash/stack` if it isn't already present.
+4. Scaffolds an encryption module at `src/encryption/index.ts`.
+5. Writes `.cipherstash/context.json` with what it detected about your project.
+
+See the [CLI reference](/reference/cli/init) for the flags, including `--supabase`, `--drizzle`, and `--prisma-next`.
+
+</Step>
+
+<Step>
+
+## Install EQL v3
+
+This guide, and the rest of the EQL reference, targets **EQL v3**. `stash init` installs EQL v2 by default today, so ask for v3 explicitly:
+
+```bash example-id="quickstart-eql-v3"
+npx stash eql install --eql-version 3 --force
+```
+
+`--force` reinstalls over the v2 schema that `init` just laid down. On a new database with no encrypted data, that is safe: there is nothing to migrate.
+
+Check what you ended up with:
+
+```bash
+npx stash eql status
+```
+
+<Callout type="info">
+`--eql-version` accepts `2` or `3` and **defaults to `2`** in `stash` 0.17.1. The default becomes `3` in a future release, at which point this step goes away. Pass the flag until then, so you know which generation you are on rather than inheriting a default that is about to change.
+
+v3 installs directly against the database, so the `--drizzle`, `--migration`, and `--latest` flags do not apply to it. See [installing EQL](/reference/eql) for the full options, including installing across several databases.
+</Callout>
+
+</Step>
+
+<Step>
+
+## Define what to encrypt
+
+`init` scaffolds `src/encryption/index.ts`. It declares which columns are encrypted, and exports a ready-to-use client. Edit it to match your table:
+
+```typescript filename="src/encryption/index.ts"
+import { Encryption, encryptedTable, encryptedColumn } from "@cipherstash/stack"
+
+export const users = encryptedTable("users", {
+  email: encryptedColumn("email").equality(),
+})
+
+export const encryptionClient = await Encryption({ schemas: [users] })
+```
+
+`.equality()` declares a **capability**: it is what makes `WHERE email = ?` work later. Add `.orderAndRange()` for `ORDER BY` and comparisons, or `.freeTextSearch()` for token containment. Declare only the capabilities you query on, because each one stores an extra index term alongside the ciphertext.
+
+<Callout type="info">
+Prefer to have an agent do this? `npx stash plan` inspects your project and drafts `.cipherstash/plan.md` listing the columns worth encrypting. Review it, then `npx stash impl` applies it. This page does it by hand so you can see each moving part.
+</Callout>
+
+</Step>
+
+<Step>
+
+## Create the encrypted column
+
+An encrypted column is typed with an EQL domain. The domain you pick has to match the capability you declared: `.equality()` on a text column means `public.text_eq`.
+
+```sql filename="schema.sql"
+CREATE TABLE users (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  email public.text_eq
+);
+```
+
+The type is what fixes the column's searchable surface. There is no separate configuration table. See [core concepts](/reference/eql/core-concepts) for the full variant model.
+
+</Step>
+
+<Step>
+
+## Encrypt a value and store it
+
+```typescript filename="src/encrypt.ts"
+import { encryptionClient, users } from "./encryption"
+
+const encrypted = await encryptionClient.encrypt("alice@example.com", {
+  column: users.email,
+  table: users,
+})
+
+if (encrypted.failure) {
+  throw new Error(`Encryption failed: ${encrypted.failure.message}`)
+}
+
+await db.query("INSERT INTO users (email) VALUES ($1)", [encrypted.data])
+```
+
+Every operation returns a `Result`: either `data` or `failure`, never both. Encryption happens in your process, so the plaintext never leaves it.
+
+</Step>
+
+<Step>
+
+## Query without decrypting
+
+Encrypt the search term, then use it in an ordinary `WHERE` clause.
+
+```typescript filename="src/query.ts"
+import { encryptionClient, users } from "./encryption"
+
+const term = await encryptionClient.encryptQuery("alice@example.com", {
+  column: users.email,
+  table: users,
+})
+
+if (term.failure) {
+  throw new Error(`Query encryption failed: ${term.failure.message}`)
+}
+
+const rows = await db.query(
+  "SELECT id, email FROM users WHERE email = $1::public.text_eq",
+  [term.data],
+)
+```
+
+The cast matters. An encrypted operator only resolves against a **typed operand**, so `$1::public.text_eq` is what tells Postgres to compare encrypted terms rather than fall back to raw `jsonb` semantics. See [typed operands](/reference/eql/core-concepts).
+
+Postgres compares ciphertext against ciphertext. It never sees either plaintext.
+
+<Callout type="warn">
+`LIKE` and `ILIKE` do not work on encrypted columns, in any variant. Free-text matching uses bloom-filter token containment (`@>`) on a `text_match` or `text_search` column instead. See [text](/reference/eql/text).
+</Callout>
+
+</Step>
+
+<Step>
+
+## Decrypt
+
+```typescript filename="src/decrypt.ts"
+const decrypted = await encryptionClient.decrypt(row.email)
+
+if (decrypted.failure) {
+  throw new Error(`Decryption failed: ${decrypted.failure.message}`)
+}
+
+console.log(decrypted.data) // "alice@example.com"
+```
+
+`decrypt` takes the encrypted payload and nothing else. The payload carries the key ID it needs.
+
+</Step>
+
+</Steps>
+
+## What you just built
+
+You encrypted a field, stored it, queried it without decrypting, and read it back. Underneath:
+
+- **ZeroKMS** returned a key seed, which your application processed with its client key to derive a **unique data key for that value**. The data key existed in your memory for one operation and was then discarded. See [cryptography](/security/cryptography).
+- **Your client key** never left your infrastructure. Without it, nothing decrypts, including CipherStash.
+- **Your keyset** is the isolation boundary. Data encrypted under one keyset cannot be decrypted with another, which is how you separate tenants or environments.
+- **The index term** stored alongside the ciphertext is what let Postgres answer the query. Each capability you declare has a bounded, published leakage profile: an equality term lets an observer see which rows share a value, and nothing more. Declare only the capabilities you query on, so that what a column reveals stays within what your threat model already tolerates. See [searchable encryption](/concepts/searchable-encryption).
+
+## Next steps
+
+- **Using an ORM or Supabase?** The [Drizzle](/stack/cipherstash/encryption/drizzle) and [Supabase](/integrations/supabase) integrations wrap your existing client so queries look normal.
+- **No app changes possible?** [CipherStash Proxy](/reference/proxy) sits in front of Postgres and does this transparently.
+- **Bind decryption to a user.** [Provable access control](/solutions/provable-access) ties a value to the identity that encrypted it.
+- **Ready to deploy?** [Going to production](/stack/deploy/going-to-production) covers the switch from device auth to machine credentials.
