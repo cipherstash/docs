@@ -241,7 +241,7 @@ export const v2Redirects = [
   },
   {
     source: "/stack/reference/security-architecture",
-    destination: "/security/architecture",
+    destination: "/security/cryptography",
     permanent: false,
   },
   {

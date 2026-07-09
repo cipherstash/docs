@@ -369,7 +369,7 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
 ## Architecture & security — CIP-3331, CIP-3332 (compliance)
 
 - [x] Section scaffold 🚧
-- [ ] `/security/architecture` — ONE reconciled ZeroKMS mechanism story (kills the 3 conflicting accounts)
+- [x] `/security/cryptography` — ONE reconciled ZeroKMS mechanism story (kills the 3 conflicting accounts)
 - [ ] `/security/zerokms`
 - [ ] `/security/cts` — auth layer architecture (CIP-3330)
 - [ ] `/security/stack-sdk`

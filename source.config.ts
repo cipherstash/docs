@@ -32,6 +32,11 @@ export const v2docs = defineDocs({
   docs: {
     schema: pageSchema.extend({
       seoTitle: z.string().optional(),
+      // Sidebar label, when it should differ from the page's `title` (which is
+      // also the H1). Mainly for section index pages: the folder already names
+      // the section, so repeating it on the index item is noise. Applied to the
+      // page tree in `src/lib/source.ts`; never affects the URL or the H1.
+      navTitle: z.string().optional(),
       // Diátaxis page type. Every page should declare one; enforced by the
       // docs lint (CIP-3337) rather than the schema so stubs can land first.
       type: z.enum(["tutorial", "guide", "concept", "reference"]).optional(),
