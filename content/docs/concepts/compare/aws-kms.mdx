@@ -123,16 +123,23 @@ const users = encryptedTable("users", {
 const terms = await client.encryptQuery("secret", { column: users.email, table: users });
 ```
 
-**Identity-aware encryption** — bind encryption to an OIDC identity via `LockContext`. AWS KMS has no built-in equivalent; encryption context is a manual workaround.
+**Identity-aware encryption** — authenticate as the signed-in user and bind the data key to a claim from their JWT. AWS KMS has no built-in equivalent; encryption context is a manual workaround.
 
 ```typescript
-import { LockContext } from "@cipherstash/stack/identity";
+import { Encryption, OidcFederationStrategy } from "@cipherstash/stack";
 
-const lockContext = await new LockContext().identify(userJwt);
+// Authenticate every ZeroKMS request as the signed-in user
+const client = await Encryption({
+  schemas: [users],
+  config: {
+    authStrategy: OidcFederationStrategy.create(workspaceCrn, () => getUserJwt()),
+  },
+});
 
+// Bind the data key to the user's `sub` claim
 await client
   .encrypt("secret@squirrel.example", { column: users.email, table: users })
-  .withLockContext(lockContext);
+  .withLockContext({ identityClaim: ["sub"] });
 ```
 
 **Bulk operations** — native batch API. AWS KMS has no bulk endpoint; you batch and handle rate limits manually.
