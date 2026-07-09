@@ -4,6 +4,7 @@ import defaultMdxComponents from "fumadocs-ui/mdx";
 import type { MDXComponents } from "mdx/types";
 import { TrackedCodeBlock } from "@/components/code-block";
 import { EqlVersion } from "@/components/eql-version";
+import { ZeroKmsRegions } from "@/components/zerokms-regions";
 
 export function getMDXComponents(components?: MDXComponents): MDXComponents {
   return {
@@ -15,6 +16,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     Steps,
     Step,
     EqlVersion,
+    ZeroKmsRegions,
     ...components,
   };
 }

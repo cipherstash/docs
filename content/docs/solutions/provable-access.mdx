@@ -1,0 +1,160 @@
+---
+title: Provable access control
+description: "Bind decryption to an authenticated identity with lock contexts, so access to data is cryptographically demonstrable rather than merely logged."
+type: concept
+components: [platform, encryption]
+audience: [ciso, cto]
+verifiedAgainst:
+  stack: "0.19.0"
+  auth: "0.42.0"
+---
+
+Traditional access control relies on application logic. If a bug or misconfiguration exposes data, there is no way to prove afterwards whether access was unauthorized. CipherStash binds decryption to an authenticated identity, so access leaves cryptographic evidence rather than only a log entry.
+
+## How it works
+
+Two pieces combine.
+
+**An auth strategy** decides who the client is when it talks to ZeroKMS. `OidcFederationStrategy` federates a signed-in user's OIDC JWT (from Supabase, Clerk, Auth0, or Okta) into a CipherStash token, so every ZeroKMS request is made *as that user* rather than as your service.
+
+**A lock context** binds a value to a claim from that user's JWT, typically `sub`. ZeroKMS bakes the claim's value into the data key's tag, so only the user who encrypted a value can decrypt it.
+
+The two are layered, not alternatives: lock context requires `OidcFederationStrategy`, but you can use the strategy without lock context. Authenticating as the user gives you an audit trail; adding lock context gives you the cryptographic binding.
+
+That creates a provable access boundary:
+
+- If data was decrypted, the user's identity must have been present.
+- ZeroKMS records the identity associated with every key derivation.
+- The record cannot be falsified by tampering with application logs, because the evidence is the derivation itself, not the log line describing it.
+
+<Callout type="info">
+A lock context restricts **who can decrypt**. It does not hide the ciphertext's existence, nor does it prevent a signed-in user from decrypting the values their own claim unlocks. It moves the enforcement point out of your application and into key derivation.
+</Callout>
+
+## Identity-aware encryption
+
+Add your identity provider to the workspace first, on the [OIDC providers](https://dashboard.cipherstash.com/workspaces/_/oidc-providers) page in the Dashboard. The `_` in that URL resolves to whichever workspace you have selected.
+
+### Authenticate as the end user
+
+Construct the client with `OidcFederationStrategy`. Pass a function that returns the *current* provider JWT: the strategy re-invokes it when it needs to re-federate, so do not capture a token once.
+
+```typescript filename="client.ts"
+import { Encryption, OidcFederationStrategy } from "@cipherstash/stack"
+import { patients } from "./schema"
+
+// Every ZeroKMS request is authenticated as the signed-in user
+export const client = await Encryption({
+  schemas: [patients],
+  config: {
+    authStrategy: OidcFederationStrategy.create(
+      process.env.CS_WORKSPACE_CRN,
+      () => getProviderJwt(),
+    ),
+  },
+})
+```
+
+`OidcFederationStrategy` is re-exported by `@cipherstash/stack`, so you do not need a separate import from [`@cipherstash/auth`](https://www.npmjs.com/package/@cipherstash/auth).
+
+<Callout type="warn">
+`OidcFederationStrategy` is the only strategy that supports lock contexts. `AccessKeyStrategy` authenticates as your service rather than as an end user, so there is no user identity for ZeroKMS to resolve the claim against.
+</Callout>
+
+### Bind encryption to the user's identity
+
+Every example below uses the `client` from above. Without its `authStrategy`, `.withLockContext()` has no end-user identity to bind to.
+
+```typescript filename="identity-encrypt.ts"
+// `client` is configured with OidcFederationStrategy, as above
+import { client } from "./client"
+import { patients } from "./schema"
+
+// The data key is tagged with the authenticated provider's `sub` claim
+async function encryptDiagnosis(diagnosis: string) {
+  const result = await client
+    .encrypt(diagnosis, { column: patients.diagnosis, table: patients })
+    .withLockContext({ identityClaim: ["sub"] })
+
+  if (result.failure) {
+    throw new Error(`Encryption failed: ${result.failure.message}`)
+  }
+
+  return result.data
+}
+```
+
+### Decrypt with the same identity claim
+
+Decryption requires the same lock context, resolved against whichever user the client is currently authenticated as.
+
+```typescript filename="identity-decrypt.ts"
+// The same `client`, authenticated as the same user
+async function decryptDiagnosis(encryptedDiagnosis: unknown) {
+  const result = await client
+    .decrypt(encryptedDiagnosis)
+    .withLockContext({ identityClaim: ["sub"] })
+
+  if (result.failure) {
+    // Key derivation fails when the identity does not match
+    throw new Error(`Access denied: ${result.failure.message}`)
+  }
+
+  return result.data
+}
+```
+
+Lock contexts work with every operation: `encrypt`, `decrypt`, `encryptModel`, `decryptModel`, `bulkEncrypt`, `bulkDecrypt`, `bulkEncryptModels`, and `bulkDecryptModels`.
+
+<Callout type="warn">
+`lockContext.identify(jwt)` is **deprecated**. Per-operation CTS tokens were removed in `protect-ffi` 0.25, so `identify()` no longer affects encryption: code that still calls it compiles and logs a deprecation warning, but the token it fetches is unused. Authenticate the client with `OidcFederationStrategy` and pass the claim to `.withLockContext()` instead.
+
+Constructing a `LockContext` is not deprecated, it is simply optional here. `.withLockContext()` accepts either a `LockContext` or a plain `{ identityClaim }`.
+</Callout>
+
+## Audit logging
+
+Every encryption and decryption through ZeroKMS produces an audit event:
+
+| Field | Description |
+|---|---|
+| Identity | The authenticated user or service |
+| Operation | Encrypt or decrypt |
+| Timestamp | When the operation occurred |
+| Keyset | Which keyset was used |
+| Application | Which application performed the operation |
+
+### Combining with Proxy audit
+
+[CipherStash Proxy](/reference/proxy) adds statement-level audit on top: statement fingerprinting to identify unique query patterns against encrypted data, SQL redaction to strip sensitive values from logged queries, primary key injection to track which records were touched, and record reconciliation to map access events back to rows. See [Proxy audit](/stack/cipherstash/proxy/audit).
+
+Together these answer who accessed what data, when, and using which query.
+
+## Use cases
+
+### Healthcare: HIPAA audit requirements
+
+HIPAA requires audit controls recording who accessed protected health information. Authenticating each request as the signed-in provider means the ZeroKMS audit log records the identity, the operation, the keyset, and the timestamp for each derivation, and a lock context ties each patient record to the provider who encrypted it.
+
+### Financial services: segregation of duties
+
+Encrypt audit records under a compliance-team member's identity. Someone on the trading desk, authenticated as themselves, resolves a different claim value, so key derivation fails and the records do not decrypt. The separation is enforced at derivation, not by a role check in the application.
+
+### Multi-tenant SaaS: tenant isolation
+
+Bind encryption to a per-user claim so only that user's identity can decrypt their data. For coarser isolation that does not depend on a signed-in end user, separate [keysets](/stack/cipherstash/kms/keysets) usually fit better: a keyset boundary is per-client or per-connection, where a lock context is per-identity.
+
+## Compared to application-level access control
+
+| Aspect | Application logic | Lock contexts |
+|---|---|---|
+| Enforcement | A software check, which can be bypassed | Key derivation, which cannot be skipped |
+| Audit trail | Application logs, which can be edited | ZeroKMS derivation records |
+| Proof of access | Circumstantial, from log entries | Direct: decryption required the identity |
+| Blast radius of a bug | Data exposed when the check is bypassed | Data stays encrypted when application logic fails |
+
+## Next steps
+
+- [Data residency](/solutions/data-residency) for revoking access per region.
+- [Proxy audit](/stack/cipherstash/proxy/audit) for statement-level audit logging.
+- [Compliance](/security/compliance) for GDPR, HIPAA, and PCI-DSS mapping.

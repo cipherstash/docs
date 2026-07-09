@@ -1,9 +1,46 @@
 ---
 title: Solutions
-description: "What CipherStash solves: PII protection, HIPAA, AI/RAG, data residency, provable access."
+description: "What CipherStash solves: protecting sensitive data, AI and RAG pipelines, data residency, and provable access."
 type: concept
+audience: [cto, ciso]
 ---
 
-This section is being built as part of the docs V2 overhaul ([CIP-3307](https://linear.app/cipherstash/issue/CIP-3307)). Track progress in [IA.md](https://github.com/cipherstash/docs/blob/v2/IA.md).
+CipherStash encrypts sensitive data at the field level, in your infrastructure, while keeping it queryable. This section covers the problems that solves, and what an implementation looks like for each.
 
-Until it lands, current documentation lives in the [existing docs](/stack).
+## In this section
+
+- [Data residency](/solutions/data-residency) covers regional key management and the deployment patterns for cross-border requirements.
+- [Provable access control](/solutions/provable-access) binds decryption to an authenticated identity, so access is cryptographically demonstrable rather than merely logged.
+
+## What data should I protect?
+
+When improving your data security practices, it can be difficult to know what data is important enough to protect. These are the common categories of sensitive data worth encrypting.
+
+### Personally identifiable information (PII)
+
+Any data that could identify a specific individual: names, phone numbers, dates of birth, addresses, emails, IP addresses, social security numbers, license numbers, passport numbers.
+
+**Applicable regulations:** GDPR, CCPA, HIPAA, APP (Australia), PCI-DSS, SOC 2, ISO 27001.
+
+### Protected health information (PHI)
+
+Any information about health status, provision of health care, or payment for health care that can be linked to an individual: medical record numbers, health insurance beneficiary numbers, biometric identifiers, medical conditions, medication histories, payment histories.
+
+**Applicable regulations:** HIPAA, CMIA, GDPR, APP.
+
+### Financial information
+
+Data about money, accounts, and transactions: account numbers and balances, transaction data, TFNs and ITINs, saved payees.
+
+**Applicable regulations:** GDPR, CCPA, PCI-DSS, CDR (Australia), SOC 2, ISO 27001.
+
+### Authentication information
+
+Credentials used to gain access to accounts and services: usernames, passwords (both plaintext and hashed), OAuth tokens, session cookies.
+
+**Applicable regulations:** SOC 2, ISO 27001, PCI-DSS.
+
+## Related
+
+- [Searchable encryption](/concepts/searchable-encryption) for how querying encrypted data works, and what each index term reveals.
+- [Compliance](/security/compliance) for how CipherStash maps onto specific frameworks.
