@@ -1,0 +1,50 @@
+---
+title: Examples
+description: "Runnable example apps: the SDK on its own, Prisma end to end, and encryption inside a Supabase Edge Function."
+type: tutorial
+components: [encryption, eql, proxy]
+audience: [developer]
+---
+
+Working code you can clone and run. Each one is a complete project, not a snippet, and each has its own README with the exact commands.
+
+## Encryption SDK
+
+| Example | What it shows |
+|---|---|
+| [Basic](https://github.com/cipherstash/stack/tree/main/examples/basic) | The smallest possible use of `@cipherstash/stack`. Define a schema, encrypt a value, decrypt it back. No database at all, which makes it the fastest way to see the SDK's shape. |
+| [Prisma](https://github.com/cipherstash/stack/tree/main/examples/prisma) | End to end against a real Postgres, in Docker. One model with a column per encrypted type, exercising insert, equality, free-text search, range, `BETWEEN`, `IN`, sorting, and an amortised bulk read. |
+| [Supabase Edge Function](https://github.com/cipherstash/stack/tree/main/examples/supabase-worker) | Encrypt and decrypt inside a Deno edge runtime, importing `@cipherstash/stack/wasm-inline`. No native bindings, so the same approach works on Cloudflare Workers and Bun. |
+
+The basic example is the one to read first. It is about thirty lines, and the imports match the [Quickstart](/get-started/quickstart) exactly.
+
+## Proxy
+
+CipherStash Proxy ships a working [`docker-compose.yml`](https://github.com/cipherstash/proxy/blob/main/docker-compose.yml) that stands up the proxy alongside a Postgres container. Point `psql` at port 6432 and your queries are encrypted on the wire, with no application code at all.
+
+See [Proxy configuration](/reference/proxy/configuration) for the environment variables it expects.
+
+## Running any of them
+
+Every example needs the same two things:
+
+1. **A workspace.** Sign up at [dashboard.cipherstash.com](https://dashboard.cipherstash.com/sign-up), then `npx stash init` in the project directory. Local development uses device-based auth, so there are no environment variables to copy.
+2. **EQL, for the examples that touch Postgres.** Install it explicitly on v3:
+
+   ```bash
+   npx stash eql install --eql-version 3 --force
+   ```
+
+   The basic example skips this: it never stores anything.
+
+Each README covers the rest, including the credentials the edge-function example needs, since a Deno runtime has no device to authenticate.
+
+## Not here yet
+
+Worth saying plainly, so you do not go looking:
+
+- **Drizzle.** The [Drizzle integration](/stack/cipherstash/encryption/drizzle) is documented and shipped, but there is no runnable example project for it yet.
+- **The Supabase JS client.** The edge-function example uses the SDK directly, not the [`encryptedSupabase` wrapper](/integrations/supabase).
+- **Identity-aware encryption.** None of the examples set up an OIDC provider and bind decryption to a user. See [provable access control](/solutions/provable-access) for what that involves.
+
+If one of these is what you needed, the [Quickstart](/get-started/quickstart) plus the relevant integration page will get you there.
