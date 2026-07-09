@@ -188,7 +188,7 @@ await supabase.from("users").select("*").contains("email", "alice@example.com")
 
 In practice `.contains()` matches only when the search string equals the stored value, or is exactly three characters (the trigram length), where its `include_original` token coincides with a trigram the stored value already has.
 
-The underlying gap is `encryptQuery`, which does not yet build query terms for the v3 scalars, so no client can produce a narrow operand today. Supabase carries a second, structural blocker: EQL defines `eql_v3.contains` against a narrow `eql_v3.query_text_search` operand, but PostgREST cannot cast a filter value to reach it. A fix belongs in protect-ffi and EQL, not in the wrapper.
+The cause is that `text_search` columns always build their match index with `include_original` on, and expose no way to turn it off. The needle is tokenized as if it were a stored value, so its bloom carries the whole needle as an extra token, and the stored value's bloom has no such token. Tracked in [cipherstash/stack#610](https://github.com/cipherstash/stack/issues/610).
 </Callout>
 
 ## Ordering and pagination
