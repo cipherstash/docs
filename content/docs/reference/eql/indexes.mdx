@@ -14,13 +14,14 @@ EQL indexes are ordinary PostgreSQL functional indexes over **term-extractor fun
 | Extractor | Index method | Term | Capability |
 | --- | --- | --- | --- |
 | `eql_v3.eq_term(col)` | `hash` (or `btree`) | `hm` (HMAC-256) | equality |
-| `eql_v3.ord_term(col)` | `btree` | `ob` (ORE block) | range, `ORDER BY`, `MIN` / `MAX` |
+| `eql_v3.ord_term(col)` | `btree` | `op` (CLLW OPE) | range, `ORDER BY`, `MIN` / `MAX` |
+| `eql_v3.ord_term_ore(col)` | `btree` | `ob` (ORE block) | the same, on pinned `_ord_ore` / `text_search_ore` columns |
 | `eql_v3.match_term(col)` | `gin` | `bf` (bloom filter) | text containment |
 
 The extractors are inlinable SQL functions, so the planner rewrites a bare-form predicate into the same expression the index was built on. You don't rewrite queries to use the index:
 
 ```sql
-SELECT * FROM users WHERE email = $1::public.text_eq;
+SELECT * FROM users WHERE email = $1::public.eql_v3_text_eq;
 -- planner inlines `=` to: eql_v3.eq_term(email) = eql_v3.eq_term($1)
 -- Index Cond on USING hash (eql_v3.eq_term(email))
 ```
@@ -35,18 +36,23 @@ Type the column as the domain variant that carries the term (see [Core concepts]
 
 ```sql
 -- Equality: hash index on eq_term
--- (columns typed public.<T>_eq or text_search; equality on _ord columns
--- compares ORE terms, so the btree on ord_term below serves it)
+-- (columns typed public.eql_v3_<T>_eq, any text variant, or text_search; equality on
+-- the non-text _ord columns compares ordering terms, so the btree below serves it)
 CREATE INDEX users_email_eq
   ON users USING hash (eql_v3.eq_term(email));
 
 -- Range / ordering: btree index on ord_term
--- (columns typed public.<T>_ord or _ord_ore)
+-- (columns typed public.eql_v3_<T>_ord, _ord_ope, or text_search)
 CREATE INDEX users_created_at_ord
   ON users USING btree (eql_v3.ord_term(created_at));
 
+-- Range / ordering on a pinned block-ORE column: btree on ord_term_ore
+-- (columns typed public.eql_v3_<T>_ord_ore or text_search_ore)
+CREATE INDEX users_created_at_ord_ore
+  ON users USING btree (eql_v3.ord_term_ore(created_at_ore));
+
 -- Text match: GIN index on match_term
--- (columns typed public.text_match or text_search)
+-- (columns typed public.eql_v3_text_match or text_search)
 CREATE INDEX users_name_match
   ON users USING gin (eql_v3.match_term(name));
 
@@ -61,13 +67,13 @@ Create indexes when the table has a significant number of rows (typically more t
 
 All three must hold:
 
-1. **The value carries the required term.** Equality needs `hm`, range needs `ob`, containment needs `bf`. Which terms travel in a value's payload is decided by the encryption client — a value with only a bloom term will not drive an equality index.
+1. **The value carries the required term.** Range needs `op` (or `ob` on the pinned block-ORE variants), containment needs `bf`, and equality needs `hm`, except on the non-text `_ord` variants, where equality resolves against the ordering term instead. Which terms travel in a value's payload is decided by the encryption client — a value with only a bloom term will not drive an equality index.
 2. **The index was built after the data carried the term.** If you change which terms a column's values carry, recreate the index.
 3. **The query operand is typed.** A typed parameter (`$1`, which CipherStash Proxy supplies) or an explicit cast resolves the encrypted operator; a bare `jsonb` literal falls through to native `jsonb` semantics and skips the index entirely:
 
 ```sql
 -- ✓ resolves the encrypted operator → uses the index
-WHERE email = $1::public.text_eq;
+WHERE email = $1::public.eql_v3_text_eq;
 WHERE email = $1;   -- only when the client (Stack SDK / Proxy) binds $1 typed
 
 -- ✗ falls through to native jsonb semantics
@@ -79,7 +85,7 @@ WHERE email = '{"hm":"abc"}'::jsonb;
 ### Equality
 
 ```sql
-SELECT * FROM users WHERE email = $1::public.text_eq;
+SELECT * FROM users WHERE email = $1::public.eql_v3_text_eq;
 -- Index Scan using users_email_eq
 --   Index Cond: (eql_v3.eq_term(email) = eql_v3.eq_term($1))
 ```
@@ -89,14 +95,14 @@ SELECT * FROM users WHERE email = $1::public.text_eq;
 The `<`, `<=`, `>`, `>=` operators inline to comparisons on `eql_v3.ord_term`, so natural-form range predicates match the btree:
 
 ```sql
-SELECT * FROM users WHERE created_at < $1::public.timestamp_ord;
+SELECT * FROM users WHERE created_at < $1::public.eql_v3_timestamp_ord;
 ```
 
 `ORDER BY` needs care. The planner inlines operators in *predicates* but does not rewrite *sort keys*: `ORDER BY created_at` uses the index for the `WHERE` clause but still adds a `Sort` node, which scales linearly with the rows passing the filter. To stream rows out of the btree already ordered, write the sort key in extractor form:
 
 ```sql
 SELECT * FROM users
-  WHERE created_at < $1::public.timestamp_ord
+  WHERE created_at < $1::public.eql_v3_timestamp_ord
   ORDER BY eql_v3.ord_term(created_at) DESC
   LIMIT 10;
 ```
@@ -121,7 +127,7 @@ SELECT eql_v3.eq_term(email), count(*)
 
 ## Encrypted JSON
 
-Containment (`@>` / `<@`) on `public.json` document columns uses a GIN index over `eql_v3.to_ste_vec_query(col)::jsonb`, and field-level equality and ordering have their own extractor recipes. See [JSON](/reference/eql/json).
+Containment (`@>` / `<@`) on `public.eql_v3_json` document columns uses a GIN index over `eql_v3.to_ste_vec_query(col)::jsonb`, and field-level equality and ordering have their own extractor recipes. See [JSON](/reference/eql/json).
 
 ## Verify with EXPLAIN
 
@@ -177,7 +183,7 @@ Everything above is a functional index over an `IMMUTABLE` SQL function — no o
    FROM users LIMIT 1;
    ```
 
-2. Verify the operand is typed (`$1::public.text_eq`, not `$1::jsonb`).
+2. Verify the operand is typed (`$1::public.eql_v3_text_eq`, not `$1::jsonb`).
 3. Recreate the index if the column's terms changed after it was built.
 4. Run `ANALYZE`. Very small tables may still choose a sequential scan — that's correct.
 

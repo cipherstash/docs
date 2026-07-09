@@ -243,11 +243,13 @@ function driftCheck(manifest: Manifest): string[] {
     const text = fs.readFileSync(path.join(EQL_DIR, file), "utf8");
     // Any schema-qualified reference — function call, domain cast, or type.
     // A trailing `*` marks a prose family (e.g. `eql_v3.jsonb_path_*`), which
-    // names a set rather than one symbol, so it's skipped.
+    // names a set rather than one symbol, so it's skipped. So is a trailing
+    // `<T>` placeholder (e.g. `public.eql_v3_<T>_ord`).
     for (const m of text.matchAll(
       /\b(public|eql_v3_internal|eql_v3)\.([a-z0-9_]+)(\*?)/g,
     )) {
       if (m[3] === "*") continue;
+      if (text[(m.index ?? 0) + m[0].length] === "<") continue;
       const fqn = `${m[1]}.${m[2]}`;
       const pages = referenced.get(fqn) ?? new Set<string>();
       pages.add(file);

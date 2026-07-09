@@ -96,12 +96,12 @@ Prefer to have an agent do this? `npx stash plan` inspects your project and draf
 
 ## Create the encrypted column
 
-An encrypted column is typed with an EQL domain. The domain you pick has to match the capability you declared: `.equality()` on a text column means `public.text_eq`.
+An encrypted column is typed with an EQL domain. The domain you pick has to match the capability you declared: `.equality()` on a text column means `public.eql_v3_text_eq`.
 
 ```sql filename="schema.sql"
 CREATE TABLE users (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  email public.text_eq
+  email public.eql_v3_text_eq
 );
 ```
 
@@ -151,12 +151,12 @@ if (term.failure) {
 }
 
 const rows = await db.query(
-  "SELECT id, email FROM users WHERE email = $1::public.text_eq",
+  "SELECT id, email FROM users WHERE email = $1::public.eql_v3_text_eq",
   [term.data],
 )
 ```
 
-The cast matters. An encrypted operator only resolves against a **typed operand**, so `$1::public.text_eq` is what tells Postgres to compare encrypted terms rather than fall back to raw `jsonb` semantics. See [typed operands](/reference/eql/core-concepts).
+The cast matters. An encrypted operator only resolves against a **typed operand**, so `$1::public.eql_v3_text_eq` is what tells Postgres to compare encrypted terms rather than fall back to raw `jsonb` semantics. See [typed operands](/reference/eql/core-concepts).
 
 Postgres compares ciphertext against ciphertext. It never sees either plaintext.
 
