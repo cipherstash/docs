@@ -1,13 +1,146 @@
 ---
 title: Prisma
-description: "Encrypted columns with Prisma ORM."
+description: "Encrypted columns with Prisma Next: declare them in schema.prisma, and the migration system installs EQL for you."
 type: tutorial
+components: [encryption, eql]
+audience: [developer]
 integration:
   category: orm
   setup: code-only
   pairsWith: [supabase, drizzle]
+verifiedAgainst:
+  prismaNext: "0.3.2"
+  eql: "2"
 ---
 
-This page is being built as part of the docs V2 overhaul ([CIP-3307](https://linear.app/cipherstash/issue/CIP-3307)). Track progress in [IA.md](https://github.com/cipherstash/docs/blob/v2/IA.md).
+`@cipherstash/prisma-next` adds searchable, field-level encryption to [Prisma Next](https://www.npmjs.com/package/prisma-next). You declare encrypted columns in `schema.prisma`, and the framework's migration system installs the EQL bundle in the same sweep that creates your tables. There is no separate "install EQL" step.
 
-Until it lands, the current version lives in the [existing docs](/stack/cipherstash/encryption/prisma-next).
+<Callout type="warn">
+This integration targets **Prisma Next**, not the classic `@prisma/client` ORM. If you are on classic Prisma, there is no extension: use the [Stack SDK](/reference/stack) directly, encrypting before a write and decrypting after a read. Every ORM supports that.
+
+It also targets **EQL v2**, while the rest of these docs target [EQL v3](/reference/eql). Encrypted columns are `eql_v2_encrypted`, and free-text search is `cipherstashIlike` rather than v3's token containment.
+</Callout>
+
+## Install
+
+```bash cta cta-type="install" example-id="install-prisma-next"
+npm install @cipherstash/stack @cipherstash/prisma-next
+```
+
+## Declare encrypted columns
+
+Six column types cover the encryptable surface: string, double, bigint, date, boolean, and JSON.
+
+```prisma filename="prisma/schema.prisma"
+model User {
+  id          String @id
+  email       cipherstash.EncryptedString()
+  salary      cipherstash.EncryptedDouble()
+  birthday    cipherstash.EncryptedDate()
+  preferences cipherstash.EncryptedJson()
+}
+```
+
+Register the extension pack so the framework knows how to plan migrations and encode values:
+
+```typescript filename="prisma-next.config.ts"
+import cipherstash from "@cipherstash/prisma-next/control"
+
+export default defineConfig({
+  // family, target, adapter, contract
+  extensionPacks: [cipherstash],
+})
+```
+
+## Wire up the client
+
+`cipherstashFromStack` builds the encryption client from your emitted contract, so there is no second schema to maintain alongside `schema.prisma`:
+
+```typescript filename="src/db.ts"
+import "dotenv/config"
+import { cipherstashFromStack } from "@cipherstash/prisma-next/stack"
+import postgres from "@prisma-next/postgres/runtime"
+import type { Contract } from "./prisma/contract.d"
+import contractJson from "./prisma/contract.json" with { type: "json" }
+
+const cipherstash = await cipherstashFromStack({ contractJson })
+
+export const db = postgres<Contract>({
+  contractJson,
+  extensions: cipherstash.extensions,
+  middleware: cipherstash.middleware,
+})
+```
+
+## Migrate
+
+`migration apply` installs the EQL bundle alongside your schema:
+
+```bash
+npx stash auth login              # once per developer
+npx prisma-next contract emit
+npx prisma-next migration plan --name initial
+npx prisma-next migration apply   # installs EQL and creates your tables
+```
+
+This is the one place Prisma Next has an advantage over the other integrations: EQL lands inside your migration history, so a rebuilt database has it.
+
+## Read and write
+
+Values are wrapped in an envelope class on the way in, and decrypted explicitly on the way out. Plaintext is redacted from every implicit serialisation path (`toJSON`, `toString`, `util.inspect`), so a stray `console.log` cannot leak it.
+
+```typescript filename="src/queries.ts"
+import { EncryptedString, decryptAll } from "@cipherstash/prisma-next/runtime"
+import { db } from "./db"
+
+await db.orm.User.create({
+  id: "user-0",
+  email: EncryptedString.from("alice@example.com"),
+})
+
+const rows = await db.orm.User
+  .where((u) => u.email.cipherstashIlike("%@example.com"))
+  .all()
+
+await decryptAll(rows)
+console.log(await rows[0]?.email.decrypt())
+```
+
+`decryptAll` decrypts a whole result set in one round trip. A single field decrypts with `await row.email.decrypt()`.
+
+## Query operators
+
+Each operator is a method on the encrypted field, and the search config the column was declared with decides which ones it can answer:
+
+| Operator | Answers |
+| --- | --- |
+| `cipherstashEq`, `cipherstashNe` | Equality |
+| `cipherstashInArray`, `cipherstashNotInArray` | Set membership |
+| `cipherstashGt`, `cipherstashGte`, `cipherstashLt`, `cipherstashLte` | Ranges |
+| `cipherstashBetween`, `cipherstashNotBetween` | Bounded ranges |
+| `cipherstashIlike`, `cipherstashNotIlike` | Free-text match |
+| `cipherstashAsc`, `cipherstashDesc` | Ordering |
+| `cipherstashJsonbGet`, `cipherstashJsonbPathExists`, `cipherstashJsonbPathQueryFirst` | Encrypted JSON path access |
+
+Writes are coalesced: one SDK round trip per `(table, column)` group per query, rather than one per value.
+
+## Authenticating
+
+Local development uses your `stash` profile after `npx stash auth login`. In production, supply the `CS_*` environment variables instead. See [going to production](/stack/deploy/going-to-production).
+
+## Where to next
+
+<Cards>
+  <Card title="Drizzle" href="/integrations/drizzle">
+    The EQL v3 ORM integration, with concrete encrypted column types.
+  </Card>
+  <Card title="Supabase" href="/integrations/supabase">
+    Prisma Next over a Supabase Postgres connection.
+  </Card>
+  <Card title="Stack SDK" href="/reference/stack">
+    Encrypt and decrypt directly, for classic Prisma or any other ORM.
+  </Card>
+  <Card title="Searchable encryption" href="/concepts/searchable-encryption">
+    What each capability reveals, and how to choose.
+  </Card>
+</Cards>

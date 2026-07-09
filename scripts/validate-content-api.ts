@@ -46,11 +46,23 @@ type Rule = {
   fix: string;
   /** Only apply the rule to files under these prefixes. */
   scope: string[];
+  /**
+   * Files that legitimately name the API, and are exempt from this rule. Use
+   * only when a page documents a component that really does still ship it.
+   */
+  exempt?: string[];
 };
 
 const IDENTITY_SCOPE = ["content/docs/", "content/stack/"];
 /** The legacy tree documents EQL v2 throughout; only the v2 IA must be v3-only. */
 const V3_SCOPE = ["content/docs/"];
+
+/**
+ * `@cipherstash/prisma-next` really does target EQL v2 — its migrations create
+ * `eql_v2_encrypted` columns and call `eql_v2.add_search_config`. Its page must
+ * name those to be correct. Delete this when prisma-next moves to v3.
+ */
+const PRISMA_NEXT_IS_V2 = ["content/docs/integrations/prisma.mdx"];
 
 const RULES: Rule[] = [
   {
@@ -81,14 +93,16 @@ const RULES: Rule[] = [
     id: "eql-v2-encrypted-type",
     pattern: /\beql_v2_encrypted\b/,
     message: "The `eql_v2_encrypted` column type was removed in EQL 3.0.0.",
-    fix: "Type the column with an EQL v3 domain variant, e.g. `public.text_eq`. See /reference/eql/core-concepts.",
+    fix: "Type the column with an EQL v3 domain variant, e.g. `public.eql_v3_text_eq`. See /reference/eql/core-concepts.",
     scope: V3_SCOPE,
+    exempt: PRISMA_NEXT_IS_V2,
   },
   {
     id: "eql-v2-schema-functions",
     pattern: /\beql_v2\.\w+\s*\(/,
     message: "The `eql_v2` schema was removed in EQL 3.0.0.",
     fix: "Use the `eql_v3` equivalents, or the encrypted operators directly with a typed operand.",
+    exempt: PRISMA_NEXT_IS_V2,
     scope: V3_SCOPE,
   },
   {
@@ -151,6 +165,7 @@ for (const dir of ["content/docs", "content/stack"]) {
 
       for (const rule of RULES) {
         if (!inScope(relative, rule)) continue;
+        if (rule.exempt?.includes(relative)) continue;
         if (rule.pattern.test(text)) {
           findings.push({
             file: relative,
