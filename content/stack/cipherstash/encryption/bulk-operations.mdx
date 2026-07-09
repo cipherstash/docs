@@ -160,21 +160,18 @@ For the table setup and single-record insert pattern, see [Storing encrypted dat
 
 ## Identity-aware bulk encryption
 
-Lock an entire batch to a user's identity by chaining `.withLockContext()`:
+Lock an entire batch to a user's identity by chaining `.withLockContext()`. The client must be authenticated as that user with `OidcFederationStrategy`.
 
 ```typescript filename="bulk-encrypt-identity.ts"
-import { LockContext } from "@cipherstash/stack/identity"
-
-const lc = new LockContext()
-const lockContext = (await lc.identify(userJwt)).data!
+const claim = { identityClaim: ["sub"] }
 
 const encrypted = await client
   .bulkEncrypt(plaintexts, { column: users.email, table: users })
-  .withLockContext(lockContext)
+  .withLockContext(claim)
 
 const decrypted = await client
   .bulkDecrypt(encrypted.data)
-  .withLockContext(lockContext)
+  .withLockContext(claim)
 ```
 
 See [Identity-aware encryption](/stack/cipherstash/encryption/identity) for the full lock context flow.

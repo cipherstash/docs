@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "prebuild": "bun run generate-docs && bun run generate-docs:eql && bun run generate-docs:eql-api && bun run generate-docs:cli && bun run validate-links && bun run validate-redirects",
+    "prebuild": "bun run generate-docs && bun run generate-docs:eql && bun run generate-docs:eql-api && bun run generate-docs:cli && bun run validate-content && bun run validate-links && bun run validate-redirects",
     "build": "next build",
     "dev": "next dev -p 3001",
     "start": "next start",
@@ -16,7 +16,8 @@
     "generate-docs:eql-api": "tsx scripts/generate-eql-api-docs.ts",
     "generate-docs:cli": "tsx scripts/generate-cli-docs.ts",
     "validate-links": "tsx scripts/validate-links.ts",
-    "validate-redirects": "tsx scripts/validate-v2-redirects.ts"
+    "validate-redirects": "tsx scripts/validate-v2-redirects.ts",
+    "validate-content": "tsx scripts/validate-content-api.ts"
   },
   "dependencies": {
     "fumadocs-core": "16.6.0",

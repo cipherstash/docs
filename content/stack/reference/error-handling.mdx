@@ -27,7 +27,7 @@ if (result.failure) {
 }
 ```
 
-This pattern applies to every async method: `encrypt`, `decrypt`, `encryptModel`, `decryptModel`, `bulkEncrypt`, `bulkDecrypt`, `bulkEncryptModels`, `bulkDecryptModels`, `encryptQuery`, and `LockContext.identify()`. The one exception is `Encryption()` initialization, which throws on failure.
+This pattern applies to every async method: `encrypt`, `decrypt`, `encryptModel`, `decryptModel`, `bulkEncrypt`, `bulkDecrypt`, `bulkEncryptModels`, `bulkDecryptModels`, and `encryptQuery`. The one exception is `Encryption()` initialization, which throws on failure.
 
 ## Error types
 
@@ -119,25 +119,15 @@ if (result.failure) {
 
 ## Handling identity errors
 
-When using [identity-aware encryption](/stack/cipherstash/encryption/identity), errors can occur during JWT identification or when using lock contexts.
+When using [identity-aware encryption](/stack/cipherstash/encryption/identity), errors can occur while federating the user's JWT or while binding a lock context. Both surface on the operation's `Result`.
 
 ```typescript title="identity-error.ts"
-import { LockContext } from "@cipherstash/stack/identity"
+const result = await client
+  .encrypt("sensitive data", { column: users.email, table: users })
+  .withLockContext({ identityClaim: ["sub"] })
 
-const lc = new LockContext()
-const identifyResult = await lc.identify(userJwt)
-
-if (identifyResult.failure) {
-  switch (identifyResult.failure.type) {
-    case "LockContextError":
-      // JWT is invalid or missing required claims
-      console.error("Identity error:", identifyResult.failure.message)
-      break
-    case "CtsTokenError":
-      // Token exchange with CTS failed
-      console.error("CTS error:", identifyResult.failure.message)
-      break
-  }
+if (result.failure) {
+  console.error("Identity-aware encryption failed:", result.failure.message)
 }
 ```
 
@@ -145,9 +135,9 @@ if (identifyResult.failure) {
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `LockContextError` with missing claim | JWT doesn't contain the configured identity claim | Check your JWT contains the `sub` claim (or your custom claims) |
-| `CtsTokenError` with connection error | CTS endpoint unreachable | Verify `CS_CTS_ENDPOINT` is set correctly |
-| `CtsTokenError` with rejection | JWT is expired or not trusted by CTS | Ensure JWT is fresh and from a [configured identity provider](/stack/cipherstash/kms/cts) |
+| Missing claim | The JWT doesn't contain the configured identity claim | Check your JWT contains the `sub` claim (or your custom claims) |
+| Federation rejected | The JWT is expired, or the provider is not registered | Return a live token from the `OidcFederationStrategy` callback, and add the provider to your workspace |
+| Decryption fails for a valid user | The value was encrypted under a different `identityClaim`, or as a different user | Supply the same claim used at encrypt time |
 
 ## Error type constants and utilities
 
