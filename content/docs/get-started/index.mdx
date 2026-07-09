@@ -1,9 +1,34 @@
 ---
 title: Get started
-description: "What CipherStash is, a 10-minute quickstart, and how to choose your integration path."
+navTitle: Overview
+description: "Encrypt your first field in ten minutes, then pick the integration path that matches your stack."
 type: tutorial
+audience: [developer]
 ---
 
-This section is being built as part of the docs V2 overhaul ([CIP-3307](https://linear.app/cipherstash/issue/CIP-3307)). Track progress in [IA.md](https://github.com/cipherstash/docs/blob/v2/IA.md).
+CipherStash encrypts your data at the field level, in your application, and keeps the ciphertext queryable in Postgres. The database never sees plaintext, and neither do we.
 
-Until it lands, current documentation lives in the [existing docs](/stack).
+This section gets you from nothing to an encrypted, queryable field. It owns no mechanics: each page links to the reference that does.
+
+## Start here
+
+The [Quickstart](/get-started/quickstart) takes about ten minutes. You will encrypt a field, store it, query it without decrypting it, and read it back. It works against any Postgres: Supabase, Neon, RDS, or a container.
+
+## Then pick your path
+
+- **Adopting CipherStash into an existing app?** [Integrations](/integrations) covers the platforms, ORMs, frameworks, and auth providers that wrap your existing client, so your queries keep the shape they already have.
+- **Can't change the application?** [CipherStash Proxy](/reference/proxy) sits in front of Postgres and encrypts on the wire.
+- **Want to understand it before you install it?** [Concepts](/concepts) explains searchable encryption, key management, and identity-aware encryption.
+- **Evaluating for a security review?** [Architecture & security](/security) is written to be read end to end, starting with [Cryptography](/security/cryptography).
+
+## The pieces
+
+Three layers, and you rarely need all three at once.
+
+| | What it does |
+|---|---|
+| [Stack SDK](/reference/stack) | Encrypts and decrypts values in your application. The path the Quickstart takes. |
+| [EQL](/reference/eql) | The Postgres surface that makes encrypted columns queryable. Installed once per database. |
+| [Proxy](/reference/proxy) | An alternative to the SDK: speaks EQL for you, so the application needs no changes. |
+
+Underneath all three sits the platform: ZeroKMS derives a unique key for every value, and CTS binds decryption to an authenticated identity when you ask it to. See [cryptography](/security/cryptography).
