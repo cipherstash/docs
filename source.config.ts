@@ -102,6 +102,14 @@ const codeCopyTrackingTransformer: ShikiTransformer = {
   pre(node) {
     node.properties["data-language"] = this.options.lang ?? "plaintext";
 
+    // A ```mermaid fence stays a code fence in the mdast, so the processed
+    // markdown we serve at `.mdx` and in llms.txt keeps the diagram as
+    // readable source. Carry the raw source through to the client, where
+    // `TrackedCodeBlock` swaps the highlighted block for a rendered diagram.
+    if (this.options.lang === "mermaid") {
+      node.properties["data-mermaid"] = this.source;
+    }
+
     const raw =
       typeof this.options.meta?.__raw === "string"
         ? this.options.meta.__raw

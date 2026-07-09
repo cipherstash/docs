@@ -48,23 +48,30 @@ This is the property that makes the architecture zero-knowledge: ZeroKMS produce
 
 Your application expands the key seed into a **unique data key per value**, using an **HMAC-based key derivation function**. The data key encrypts the value with AES-256-GCM-SIV, then is discarded from memory.
 
-```
-  AWS KMS root key
-        │  protects at rest
-        ▼
-  Authority key ──┐
-   (ZeroKMS)      │  proxy symmetric re-encryption
-                  ├──────────────────────────────►  Key seed  ──┐
-  Client key ─────┘        (server-side)                        │
-   (your app)                                                   │  HMAC-based KDF
-                                                                │  (client-side)
-                                                                ▼
-                                                       Data key, per value
-                                                       AES-256-GCM-SIV
-                                                       discarded after use
+```mermaid
+flowchart TD
+    subgraph zerokms["ZeroKMS (CipherStash)"]
+        root["AWS KMS root key"]
+        auth["Authority key"]
+        seed["Key seed"]
+        root -. encrypts at rest .-> auth
+        auth -- "layer 1:<br/>proxy symmetric re-encryption" --> seed
+    end
+
+    subgraph you["Your infrastructure"]
+        client["Client key"]
+        datakey["Data key<br/>one per value<br/>discarded after use"]
+        ciphertext["Ciphertext"]
+    end
+
+    client -- derivation input --> seed
+    seed -- "layer 2:<br/>HMAC-based KDF" --> datakey
+    datakey -- AES-256-GCM-SIV --> ciphertext
 ```
 
-So: re-encryption describes how the seed is produced; HMAC key derivation describes how the seed becomes per-value keys. Both are true, at different layers.
+Re-encryption describes how the seed is produced. HMAC key derivation describes how the seed becomes per-value keys. Both are true, at different layers.
+
+Note where the boundary falls: the key seed crosses it, and the data key never does.
 
 ## What is cached, and what is not
 
