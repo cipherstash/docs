@@ -34,7 +34,7 @@ An encrypted JSON document uses a different payload shape from the scalar types:
 | `hm` **or** `op` | Exactly one, never both — the domain `CHECK` enforces the exclusivity. `hm` (HMAC-256) on Boolean/`null` leaves and Object/Array roots; `op` (CLLW OPE, backed by `eql_v3_internal.ope_cllw`) on String/Number leaves. |
 | `a` | Optional array marker — `true` when the selector points at an array context. |
 
-The decoded `oc` value starts with a domain-tag byte (`0x00` numeric, `0x01` string) followed by the CLLW ciphertext, so numeric and string values in one column keep a consistent total order. Earlier payload versions split this into two fields — `ocf` (fixed-width, numeric) and `ocv` (variable-width, string) — which consolidated into the single `oc` key; the tag byte now carries the distinction.
+The decoded `op` value starts with a domain-tag byte (`0x00` numeric, `0x01` string) followed by the CLLW ciphertext, so numeric and string values in one column keep a consistent total order. Earlier alphas named this key `oc` and backed it with CLLW ORE; `3.0.0-alpha.4` renamed it to `op` and moved it to CLLW OPE, whose term orders under the default btree operator class. Older payload versions split it further, into `ocf` (fixed-width, numeric) and `ocv` (variable-width, string).
 
 A document payload for a `public.json` column:
 
@@ -45,22 +45,22 @@ A document payload for a `public.json` column:
   "i": { "t": "orders", "c": "metadata" },
   "sv": [
     { "s": "2517068c0d1f9d4d41d2c666211f785e", "c": "mBbKmM...", "hm": "b0e0..." },
-    { "s": "f510853a4ab9d4f75f51a533ac264c5d", "c": "mBbKmQ...", "oc": "01a3f2..." },
-    { "s": "33743aed3ae636f6bf05cff11ac4b519", "c": "mBbKmR...", "oc": "004e19..." }
+    { "s": "f510853a4ab9d4f75f51a533ac264c5d", "c": "mBbKmQ...", "op": "01a3f2..." },
+    { "s": "33743aed3ae636f6bf05cff11ac4b519", "c": "mBbKmR...", "op": "004e19..." }
   ]
 }
 ```
 
 - First entry: an object root — `hm` only, equality/containment
-- Second entry: a string leaf — `oc` starting with tag `01`
-- Third entry: a numeric leaf — `oc` starting with tag `00`
+- Second entry: a string leaf — `op` starting with tag `01`
+- Third entry: a numeric leaf — `op` starting with tag `00`
 
 A containment **query** payload (`eql_v3.query_jsonb`) has the same `sv` shape but its entries carry no `c` — containment matches selectors and index terms, never ciphertexts. This is the needle the client builds for a `@>` query:
 
 ```json
 {
   "sv": [
-    { "s": "f510853a4ab9d4f75f51a533ac264c5d", "oc": "01a3f2..." }
+    { "s": "f510853a4ab9d4f75f51a533ac264c5d", "op": "01a3f2..." }
   ]
 }
 ```
@@ -89,10 +89,10 @@ During encryption, the client flattens the document: each unique path gets a det
 | Object | `hm` (HMAC-256) | Yes | No |
 | Array | `hm` (HMAC-256) | Yes | No |
 | Boolean / JSON `null` | `hm` (HMAC-256) | Yes | No |
-| String | `oc` (CLLW ORE, string domain) | Yes | Yes |
-| Number | `oc` (CLLW ORE, numeric domain) | Yes | Yes |
+| String | `op` (CLLW OPE, string domain) | Yes | Yes |
+| Number | `op` (CLLW OPE, numeric domain) | Yes | Yes |
 
-Each entry carries exactly one of `hm` or `oc` — the domain `CHECK` enforces the exclusivity. `hm` is a deterministic hash, so it supports equality only. `oc` is a CLLW ORE term that reveals ordering and, being deterministic, collapses to equality on matching selectors — `eql_v3.eq_term` reads whichever term an entry carries, so equality works uniformly across all node types.
+Each entry carries exactly one of `hm` or `op` — the domain `CHECK` enforces the exclusivity. `hm` is a deterministic hash, so it supports equality only. `op` is a CLLW OPE term that reveals ordering and, being deterministic, collapses to equality on matching selectors — `eql_v3.eq_term` reads whichever term an entry carries, so equality works uniformly across all node types.
 
 JSON `null` here means a `null` literal *inside* the document. A SQL `NULL` column value is not encrypted at all.
 

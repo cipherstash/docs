@@ -97,7 +97,7 @@ SELECT eql_v3.eq_term(metadata -> 'region_selector'::text) AS region, COUNT(*)
   GROUP BY eql_v3.eq_term(metadata -> 'region_selector'::text);
 ```
 
-`eql_v3.eq_term` reads whichever term the entry carries, so this works on every JSON node type. String and Number leaves also support `eql_v3.min` / `eql_v3.max` via their CLLW ORE term. Selectors and node capabilities are in [JSON](/reference/eql/json).
+`eql_v3.eq_term` reads whichever term the entry carries, so this works on every JSON node type. String and Number leaves also support `eql_v3.min` / `eql_v3.max` via their CLLW OPE term. Selectors and node capabilities are in [JSON](/reference/eql/json).
 
 ## Where to go next
 
