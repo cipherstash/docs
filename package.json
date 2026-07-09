@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "prebuild": "bun run generate-docs && bun run generate-docs:eql && bun run validate-links && bun run validate-redirects",
+    "prebuild": "bun run generate-docs && bun run generate-docs:eql && bun run generate-docs:eql-api && bun run generate-docs:cli && bun run validate-content && bun run validate-mermaid && bun run validate-links && bun run validate-redirects",
     "build": "next build",
     "dev": "next dev -p 3001",
     "start": "next start",
@@ -13,8 +13,12 @@
     "format": "biome format --write",
     "generate-docs": "tsx scripts/generate-docs.ts",
     "generate-docs:eql": "tsx scripts/generate-eql-docs.ts",
+    "generate-docs:eql-api": "tsx scripts/generate-eql-api-docs.ts",
+    "generate-docs:cli": "tsx scripts/generate-cli-docs.ts",
     "validate-links": "tsx scripts/validate-links.ts",
-    "validate-redirects": "tsx scripts/validate-v2-redirects.ts"
+    "validate-redirects": "tsx scripts/validate-v2-redirects.ts",
+    "validate-content": "tsx scripts/validate-content-api.ts",
+    "validate-mermaid": "tsx scripts/validate-mermaid.ts"
   },
   "dependencies": {
     "fumadocs-core": "16.6.0",
@@ -22,6 +26,7 @@
     "fumadocs-ui": "16.6.0",
     "github-slugger": "^2.0.0",
     "lucide-react": "^0.563.0",
+    "mermaid": "^11.16.0",
     "next": "16.2.3",
     "posthog-js": "^1.354.0",
     "posthog-node": "^5.26.0",
@@ -32,10 +37,12 @@
   "devDependencies": {
     "@biomejs/biome": "^2.3.14",
     "@tailwindcss/postcss": "^4.1.18",
+    "@types/jsdom": "^28.0.3",
     "@types/mdx": "^2.0.13",
     "@types/node": "^25.2.1",
     "@types/react": "^19.2.13",
     "@types/react-dom": "^19.2.3",
+    "jsdom": "^29.1.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
     "tsx": "^4.0.0",

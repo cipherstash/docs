@@ -7,6 +7,8 @@ verifiedAgainst:
   eql: "3.0.0"
 ---
 
+<EqlVersion />
+
 Text is the richest encrypted scalar. Beyond the four variants every scalar type gets, `text` adds two of its own: `text_match` for encrypted free-text matching, and `text_search` for columns you need to look up, sort, *and* search. Emails, names, tax IDs, addresses — this page is the full surface for all of them.
 
 ## Variants
@@ -15,12 +17,12 @@ All six are `jsonb`-backed domains. Which one you declare fixes the column's que
 
 | Domain variant | Capability |
 | --- | --- |
-| `eql_v3.text` | Storage and decryption only. |
-| `eql_v3.text_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
-| `eql_v3.text_ord` | Comparisons, `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
-| `eql_v3.text_ord_ore` | As `text_ord`, with the ORE mechanism pinned — see [SEM specifiers](#sem-specifiers). |
-| `eql_v3.text_match` | Free-text token containment: `@>` / `<@`. |
-| `eql_v3.text_search` | Equality + ordering + token containment. |
+| `public.text` | Storage and decryption only. |
+| `public.text_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
+| `public.text_ord` | Comparisons, `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
+| `public.text_ord_ore` | As `text_ord`, with the ORE mechanism pinned — see [SEM specifiers](#sem-specifiers). |
+| `public.text_match` | Free-text token containment: `@>` / `<@`. |
+| `public.text_search` | Equality + ordering + token containment. |
 
 Declare only the capabilities you query on — each capability stores extra searchable material with defined leakage (see [Searchable encryption](/concepts/searchable-encryption)).
 
@@ -31,10 +33,10 @@ A users table mixing the variants by how each column is queried:
 ```sql
 CREATE TABLE users (
     id      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email   eql_v3.text_search,   -- lookup, sort, and free-text match
-    name    eql_v3.text_match,    -- free-text match only
-    tax_id  eql_v3.text_eq,       -- exact lookup only
-    notes   eql_v3.text           -- store and decrypt only
+    email   public.text_search,   -- lookup, sort, and free-text match
+    name    public.text_match,    -- free-text match only
+    tax_id  public.text_eq,       -- exact lookup only
+    notes   public.text           -- store and decrypt only
 );
 ```
 
@@ -74,7 +76,7 @@ The narrower variants carry only their own term: a `text_eq` payload carries `hm
 
 ## Operators
 
-| SQL operator | `eql_v3.text` | `text_eq` | `text_ord` / `text_ord_ore` | `text_match` | `text_search` |
+| SQL operator | `public.text` | `text_eq` | `text_ord` / `text_ord_ore` | `text_match` | `text_search` |
 | --- | :---: | :---: | :---: | :---: | :---: |
 | `=` / `<>` | ❌ | ✅ | ✅ | ❌ | ✅ |
 | `<` `<=` `>` `>=` | ❌ | ❌ | ✅ | ❌ | ✅ |
@@ -84,7 +86,7 @@ The narrower variants carry only their own term: a `text_eq` payload carries `hm
 | `ORDER BY` | ❌ | ❌ | ✅ | ❌ | ✅ |
 | `IS NULL` / `IS NOT NULL` | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-Blocked *operator* cells raise an `operator … is not supported` exception — they never silently return wrong rows. `ORDER BY` is the one blocked cell that doesn't raise: it isn't an operator, so sorting a variant without an ordering term runs — but the order is meaningless (see [Sorting](/reference/eql/sorting)). Operands must be typed (`$1::eql_v3.text_eq`), or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one. Both rules are covered in [Core concepts](/reference/eql/core-concepts).
+Blocked *operator* cells raise an `operator … is not supported` exception — they never silently return wrong rows. `ORDER BY` is the one blocked cell that doesn't raise: it isn't an operator, so sorting a variant without an ordering term runs — but the order is meaningless (see [Sorting](/reference/eql/sorting)). Operands must be typed (`$1::public.text_eq`), or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one. Both rules are covered in [Core concepts](/reference/eql/core-concepts).
 
 ## Functions
 
@@ -108,7 +110,7 @@ There are no `like` / `ilike` function forms — encrypted text matching is `eql
 SELECT * FROM users WHERE email LIKE '%alice%';
 
 -- ✅ Encrypted free-text match
-SELECT * FROM users WHERE email @> $1::eql_v3.text_match;
+SELECT * FROM users WHERE email @> $1::public.text_match;
 ```
 
 `@>` / `<@` here is **probabilistic ngram-bloom containment** — it tests whether the encrypted text contains the (encrypted) search terms. It is not JSONB containment and not `LIKE`. The client encrypts the search term into a bloom-filter query value; false positives are possible, false negatives are not. There are no `like` / `ilike` function forms either — text matching is `eql_v3.contains` on a `text_match` value.
@@ -120,10 +122,10 @@ SELECT * FROM users WHERE email @> $1::eql_v3.text_match;
 Equality on a `text_eq` column compares HMAC terms. `IN` desugars to `=`:
 
 ```sql
-SELECT * FROM users WHERE tax_id = $1::eql_v3.text_eq;
+SELECT * FROM users WHERE tax_id = $1::public.text_eq;
 
 SELECT * FROM users
-WHERE tax_id IN ($1::eql_v3.text_eq, $2::eql_v3.text_eq);
+WHERE tax_id IN ($1::public.text_eq, $2::public.text_eq);
 ```
 
 ### Free-text match
@@ -131,10 +133,10 @@ WHERE tax_id IN ($1::eql_v3.text_eq, $2::eql_v3.text_eq);
 The client encrypts the search term into the bloom-filter needle:
 
 ```sql
-SELECT * FROM users WHERE name @> $1::eql_v3.text_match;
+SELECT * FROM users WHERE name @> $1::public.text_match;
 
 -- Function form, for platforms without custom operators
-SELECT * FROM users WHERE eql_v3.contains(name, $1::eql_v3.text_match);
+SELECT * FROM users WHERE eql_v3.contains(name, $1::public.text_match);
 ```
 
 ### The works: `text_search`
@@ -143,8 +145,8 @@ A `text_search` column answers exact lookup, free-text match, and ordering — h
 
 ```sql
 SELECT id, email FROM users
-WHERE email @> $1::eql_v3.text_match       -- token containment on bf
-  AND email <> $2::eql_v3.text_eq          -- exclude an exact value via hm
+WHERE email @> $1::public.text_match       -- token containment on bf
+  AND email <> $2::public.text_eq          -- exclude an exact value via hm
 ORDER BY eql_v3.ord_term(email)            -- sort on ob
 LIMIT 20;
 ```

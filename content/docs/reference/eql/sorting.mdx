@@ -7,6 +7,8 @@ verifiedAgainst:
   eql: "3.0.0"
 ---
 
+<EqlVersion />
+
 `ORDER BY` on an encrypted column needs an ORE ordering term: it works on `_ord` / `_ord_ore` variants of every scalar and on `text_search`. ORE terms are order-preserving, so the database sorts ciphertext in exactly the order the plaintext would sort — without decrypting anything. Which variants carry the term is covered in [Numbers](/reference/eql/numbers), [Dates & times](/reference/eql/dates-and-times), and [Text](/reference/eql/text); the variant model itself is in [Core concepts](/reference/eql/core-concepts).
 
 Sorting a variant *without* an ORE term (`_eq`, `text_match`, bare storage variants) won't raise — but the order is meaningless. Type the column as an `_ord` variant when ordering matters.
@@ -33,7 +35,7 @@ CREATE INDEX users_created_at_ord
 ANALYZE users;
 
 SELECT * FROM users
-  WHERE created_at < $1::eql_v3.timestamp_ord
+  WHERE created_at < $1::public.timestamp_ord
   ORDER BY eql_v3.ord_term(created_at) DESC
   LIMIT 10;
 -- Index Scan Backward using users_created_at_ord — no Sort node
@@ -64,7 +66,7 @@ SELECT id, email, created_at FROM users
 
 -- Next page: pass the last row's created_at back, re-encrypted as the cursor
 SELECT id, email, created_at FROM users
-  WHERE created_at < $1::eql_v3.timestamp_ord
+  WHERE created_at < $1::public.timestamp_ord
   ORDER BY eql_v3.ord_term(created_at) DESC
   LIMIT 20;
 ```
@@ -79,15 +81,15 @@ If you project the column with a cast and sort on it — `SELECT col::jsonb ... 
 
 ## Sorting extracted JSON leaves
 
-String and Number leaves inside an encrypted JSON document carry a CLLW ORE term, so they sort too — the extractor is `eql_v3.ore_cllw` on the extracted entry:
+String and Number leaves inside an encrypted JSON document carry a CLLW OPE term, so they sort too — the extractor is `eql_v3.ord_ope_term` on the extracted entry:
 
 ```sql
 SELECT * FROM orders
-ORDER BY eql_v3.ore_cllw(metadata -> 'total_selector'::text) DESC
+ORDER BY eql_v3.ord_ope_term(metadata -> 'total_selector'::text) DESC
 LIMIT 10;
 ```
 
-A btree on the same `eql_v3.ore_cllw(...)` expression streams this ordered, exactly like `ord_term` on a scalar column. Selectors, node types, and which leaves are orderable are covered in [JSON](/reference/eql/json).
+A btree on the same `eql_v3.ord_ope_term(...)` expression streams this ordered, exactly like `ord_term` on a scalar column. Selectors, node types, and which leaves are orderable are covered in [JSON](/reference/eql/json).
 
 ## Where to go next
 

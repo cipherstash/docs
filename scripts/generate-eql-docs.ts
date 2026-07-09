@@ -2,19 +2,41 @@
 /**
  * Generates EQL (Encrypt Query Language) API reference documentation.
  *
- * Fetches the latest release from the encrypt-query-language repository,
- * downloads the docs tarball, and converts API.md to an MDX page under
- * content/stack/reference/eql/.
+ * Downloads the docs tarball for the pinned EQL release and converts API.md to
+ * an MDX page under content/stack/reference/eql/.
+ *
+ * The release is PINNED. `generate-eql-api-docs.ts` then runs a STRICT drift
+ * check of the hand-written reference against this release's manifest, so an
+ * unpinned "latest release" meant any upstream EQL publish could turn the docs
+ * build red with no commit in this repo — which is exactly what
+ * eql-3.0.0-alpha.4 did when it replaced `eql_v3.ore_cllw`.
+ *
+ * To upgrade: bump EQL_RELEASE_TAG, run `bun run build`, and fix whatever the
+ * drift check reports. That makes an EQL upgrade a deliberate, reviewable
+ * commit rather than an ambush on whoever has a PR open.
+ *
+ * `EQL_RELEASE_TAG=eql-3.0.0 bun run generate-docs:eql` overrides it for a
+ * one-off check against a different release.
  */
 import { execSync } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import GithubSlugger from "github-slugger";
 
-const GITHUB_API_URL =
-  "https://api.github.com/repos/cipherstash/encrypt-query-language/releases";
+/**
+ * The EQL release the docs are written against. EQL 3.0.0 is still in
+ * prerelease and churning (alpha.3 and alpha.4 shipped a day apart), so this
+ * tracks an alpha deliberately rather than by accident.
+ */
+const EQL_RELEASE_TAG = process.env.EQL_RELEASE_TAG ?? "eql-3.0.0-alpha.4";
+
+const GITHUB_RELEASE_DOWNLOAD =
+  "https://github.com/cipherstash/encrypt-query-language/releases/download";
 const TEMP_DIR = ".tmp-eql";
 const OUTPUT_DIR = path.join(process.cwd(), "content/stack/reference/eql");
+// Where the machine-readable manifest is surfaced for the v2 API-reference
+// generator (scripts/generate-eql-api-docs.ts). Gitignored; best-effort.
+const RELEASE_MANIFEST = path.join(process.cwd(), ".eql-manifest.release.json");
 
 /**
  * Check if a tarball URL exists (returns HTTP 200)
@@ -32,37 +54,26 @@ function checkTarballExists(url: string): boolean {
 }
 
 /**
- * Get the latest release that has a docs tarball available
+ * Resolve the docs tarball for the pinned release.
  */
-async function getLatestRelease(): Promise<{
+async function getPinnedRelease(): Promise<{
   tag: string;
   tarballUrl: string;
 }> {
-  console.log("Fetching releases from GitHub...");
-  const response = execSync(`curl -sL ${GITHUB_API_URL}`, {
-    encoding: "utf8",
-  });
+  const tag = EQL_RELEASE_TAG;
+  const tarballUrl = `${GITHUB_RELEASE_DOWNLOAD}/${tag}/eql-docs-${tag}.tar.gz`;
 
-  const releases = JSON.parse(response);
-
-  if (!Array.isArray(releases) || releases.length === 0) {
-    throw new Error("No releases found in GitHub API response");
+  console.log(`Using pinned EQL release: ${tag}`);
+  if (!checkTarballExists(tarballUrl)) {
+    throw new Error(
+      `No docs tarball for pinned EQL release "${tag}".\n` +
+        `  Expected: ${tarballUrl}\n` +
+        "  Update EQL_RELEASE_TAG in scripts/generate-eql-docs.ts, or set the\n" +
+        "  EQL_RELEASE_TAG environment variable to a release that ships one.",
+    );
   }
 
-  for (const release of releases) {
-    const tag = release.tag_name;
-    if (!tag || !tag.startsWith("eql-")) continue;
-
-    const tarballUrl = `https://github.com/cipherstash/encrypt-query-language/releases/download/${tag}/eql-docs-${tag}.tar.gz`;
-
-    console.log(`Checking ${tag}...`);
-    if (checkTarballExists(tarballUrl)) {
-      console.log(`Found docs tarball for ${tag}`);
-      return { tag, tarballUrl };
-    }
-  }
-
-  throw new Error("No release with documentation tarball found");
+  return { tag, tarballUrl };
 }
 
 /**
@@ -116,14 +127,22 @@ function escapeMdxSpecials(content: string): string {
     const escaped = parts
       .map((part, i) => {
         if (i % 2 === 1) return part;
-        return part
-          .replace(/\{/g, "\\{")
-          .replace(/\}/g, "\\}")
-          // Escape `<` unless it begins a real JSX/HTML tag, a closing
-          // tag, or an autolink (followed by a lowercase letter, `_`, `$`,
-          // or `/`). Uppercase-led tokens like `<T>` are type placeholders
-          // in the API reference, not JSX, so they must be escaped too.
-          .replace(/<(?![a-z_$/])/g, "\\<");
+        return (
+          part
+            .replace(/\{/g, "\\{")
+            .replace(/\}/g, "\\}")
+            // Strip Doxygen's `<tt>` teletype tags. They're a lowercase-led
+            // "tag" so the `<` rule below leaves them intact, but MDX requires
+            // every tag to be balanced — and mangled SQL-comment source can
+            // emit a stray, unclosed `<tt>` (e.g. eql-3.0.0-alpha.3's API.md),
+            // which fails the whole build. MDX doesn't need the tag, so drop it.
+            .replace(/<\/?tt\b[^>]*>/gi, "")
+            // Escape `<` unless it begins a real JSX/HTML tag, a closing
+            // tag, or an autolink (followed by a lowercase letter, `_`, `$`,
+            // or `/`). Uppercase-led tokens like `<T>` are type placeholders
+            // in the API reference, not JSX, so they must be escaped too.
+            .replace(/<(?![a-z_$/])/g, "\\<")
+        );
       })
       .join("");
     result.push(escaped);
@@ -225,8 +244,7 @@ async function main() {
   console.log("EQL API Reference Documentation Generator");
   console.log("=".repeat(60));
 
-  const { tag, tarballUrl } = await getLatestRelease();
-  console.log(`Latest release: ${tag}`);
+  const { tag, tarballUrl } = await getPinnedRelease();
 
   const extractPath = await downloadAndExtractDocs(tarballUrl, tag);
 
@@ -252,6 +270,29 @@ async function main() {
     JSON.stringify({ pages: ["index"] }, null, 2),
     "utf8",
   );
+
+  // Surface the machine-readable manifest for the v2 API-reference generator.
+  // Only releases packaged with the manifest carry it; older ones don't, so
+  // this is best-effort and the generator falls back to the committed sample.
+  const manifestSrc = path.join(extractPath, "json", "eql-manifest.json");
+  try {
+    // Prerelease manifests report `"version": "DEV"`, which would surface as
+    // "generated and validated against EQL DEV" in the banner on every
+    // reference page. We know which release we pinned, so say so.
+    const manifest = JSON.parse(await fs.readFile(manifestSrc, "utf8"));
+    if (!manifest.version || manifest.version === "DEV") {
+      manifest.version = tag.replace(/^eql-/, "");
+    }
+    await fs.writeFile(RELEASE_MANIFEST, JSON.stringify(manifest, null, 2));
+    console.log(
+      `✓ Extracted eql-manifest.json → ${path.basename(RELEASE_MANIFEST)} (version: ${manifest.version})`,
+    );
+  } catch {
+    await fs.rm(RELEASE_MANIFEST, { force: true }); // clear any stale cache
+    console.log(
+      "• No eql-manifest.json in this release; API reference uses the sample.",
+    );
+  }
 
   // Clean up
   console.log("Cleaning up...");

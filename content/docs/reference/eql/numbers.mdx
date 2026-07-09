@@ -7,6 +7,8 @@ verifiedAgainst:
   eql: "3.0.0"
 ---
 
+<EqlVersion />
+
 Six numeric types share one identical query surface: `int2`, `int4`, `int8`, `float4`, `float8`, and `numeric`. These are the columns you filter by range, sort, and take a `MIN` / `MAX` over — salaries, totals, rates, quantities.
 
 Date and time columns have the same capabilities but their own semantics — see [Dates & times](/reference/eql/dates-and-times). There is no free-text matching for numeric types — `_match` and `_search` are [text-only variants](/reference/eql/text).
@@ -17,21 +19,21 @@ Each numeric type generates the same `jsonb`-backed domain variants. The generic
 
 | Domain variant | Capability |
 | --- | --- |
-| `eql_v3.<T>` | Storage and decryption only. |
-| `eql_v3.<T>_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
-| `eql_v3.<T>_ord` | Comparisons, `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
-| `eql_v3.<T>_ord_ore` | As `<T>_ord`, with the ORE mechanism pinned — see [SEM specifiers](#sem-specifiers). |
+| `public.<T>` | Storage and decryption only. |
+| `public.<T>_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
+| `public.<T>_ord` | Comparisons, `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
+| `public.<T>_ord_ore` | As `<T>_ord`, with the ORE mechanism pinned — see [SEM specifiers](#sem-specifiers). |
 
 And every concrete domain this page covers:
 
 | Type | Variants |
 | --- | --- |
-| `int2` | `eql_v3.int2` · `eql_v3.int2_eq` · `eql_v3.int2_ord` · `eql_v3.int2_ord_ore` |
-| `int4` | `eql_v3.int4` · `eql_v3.int4_eq` · `eql_v3.int4_ord` · `eql_v3.int4_ord_ore` |
-| `int8` | `eql_v3.int8` · `eql_v3.int8_eq` · `eql_v3.int8_ord` · `eql_v3.int8_ord_ore` |
-| `float4` | `eql_v3.float4` · `eql_v3.float4_eq` · `eql_v3.float4_ord` · `eql_v3.float4_ord_ore` |
-| `float8` | `eql_v3.float8` · `eql_v3.float8_eq` · `eql_v3.float8_ord` · `eql_v3.float8_ord_ore` |
-| `numeric` | `eql_v3.numeric` · `eql_v3.numeric_eq` · `eql_v3.numeric_ord` · `eql_v3.numeric_ord_ore` |
+| `int2` | `public.smallint` · `public.smallint_eq` · `public.smallint_ord` · `public.smallint_ord_ore` |
+| `int4` | `public.integer` · `public.integer_eq` · `public.integer_ord` · `public.integer_ord_ore` |
+| `int8` | `public.bigint` · `public.bigint_eq` · `public.bigint_ord` · `public.bigint_ord_ore` |
+| `float4` | `public.real` · `public.real_eq` · `public.real_ord` · `public.real_ord_ore` |
+| `float8` | `public.double` · `public.double_eq` · `public.double_ord` · `public.double_ord_ore` |
+| `numeric` | `public.numeric` · `public.numeric_eq` · `public.numeric_ord` · `public.numeric_ord_ore` |
 
 Declare only the capability you query on — each capability stores extra searchable material with defined leakage (see [Searchable encryption](/concepts/searchable-encryption)), and the variant model itself is covered in [Core concepts](/reference/eql/core-concepts).
 
@@ -42,9 +44,9 @@ A payroll table mixing the variants by how each column is queried:
 ```sql
 CREATE TABLE employees (
     id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    salary     eql_v3.int8_ord,       -- range queries, ORDER BY, MIN/MAX
-    tax_rate   eql_v3.numeric_eq,     -- exact lookup only
-    net_worth  eql_v3.numeric         -- store and decrypt only, never queried
+    salary     public.bigint_ord,       -- range queries, ORDER BY, MIN/MAX
+    tax_rate   public.numeric_eq,     -- exact lookup only
+    net_worth  public.numeric         -- store and decrypt only, never queried
 );
 ```
 
@@ -61,7 +63,7 @@ The EQL v3 release adds an OPE specifier for every orderable type; unspecified `
 
 ## Payload
 
-A value for an `_ord` column carries the shared envelope keys (`v`, `i`, `c` — see [Core concepts](/reference/eql/core-concepts)) plus the `ob` ordering term. Here is a payload for the `eql_v3.int8_ord` `salary` column:
+A value for an `_ord` column carries the shared envelope keys (`v`, `i`, `c` — see [Core concepts](/reference/eql/core-concepts)) plus the `ob` ordering term. Here is a payload for the `public.bigint_ord` `salary` column:
 
 ```json
 {
@@ -80,7 +82,7 @@ A value for an `_ord` column carries the shared envelope keys (`v`, `i`, `c` —
 
 ## Operators
 
-| SQL operator | `eql_v3.<T>` | `<T>_eq` | `<T>_ord` / `<T>_ord_ore` |
+| SQL operator | `public.<T>` | `<T>_eq` | `<T>_ord` / `<T>_ord_ore` |
 | --- | :---: | :---: | :---: |
 | `=` / `<>` | ❌ | ✅ | ✅ |
 | `<` `<=` `>` `>=` | ❌ | ❌ | ✅ |
@@ -90,7 +92,7 @@ A value for an `_ord` column carries the shared envelope keys (`v`, `i`, `c` —
 | `ORDER BY` | ❌ | ❌ | ✅ |
 | `IS NULL` / `IS NOT NULL` | ✅ | ✅ | ✅ |
 
-Blocked *operator* cells raise an `operator … is not supported` exception — they never silently return wrong rows. `ORDER BY` is the one blocked cell that doesn't raise: it isn't an operator, so sorting a variant without an ordering term runs — but the order is meaningless (see [Sorting](/reference/eql/sorting)). Operands must be typed (`$1::eql_v3.int8_ord`), or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one. Both rules are covered in [Core concepts](/reference/eql/core-concepts).
+Blocked *operator* cells raise an `operator … is not supported` exception — they never silently return wrong rows. `ORDER BY` is the one blocked cell that doesn't raise: it isn't an operator, so sorting a variant without an ordering term runs — but the order is meaningless (see [Sorting](/reference/eql/sorting)). Operands must be typed (`$1::public.bigint_ord`), or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one. Both rules are covered in [Core concepts](/reference/eql/core-concepts).
 
 ## Functions
 
@@ -110,10 +112,10 @@ Every operator has a function form, for managed platforms that disallow custom o
 
 ```sql
 SELECT * FROM employees
-WHERE salary >= $1::eql_v3.int8_ord;
+WHERE salary >= $1::public.bigint_ord;
 
 SELECT * FROM employees
-WHERE salary BETWEEN $1::eql_v3.int8_ord AND $2::eql_v3.int8_ord;
+WHERE salary BETWEEN $1::public.bigint_ord AND $2::public.bigint_ord;
 ```
 
 ### MIN and MAX
@@ -140,7 +142,7 @@ LIMIT 10;
 On a generic `jsonb` column whose payloads already carry the `ob` term, cast to the right domain in the query:
 
 ```sql
-SELECT eql_v3.min(salary_jsonb::eql_v3.int8_ord) FROM employees;
+SELECT eql_v3.min(salary_jsonb::public.bigint_ord) FROM employees;
 ```
 
 ## Where to next

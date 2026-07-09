@@ -77,7 +77,7 @@ DecryptionError: Lock context mismatch
 
 ### Corrupted or tampered ciphertext
 
-If the stored ciphertext has been modified, decryption fails. AES-GCM-SIV provides authenticated encryption, which detects tampering.
+If the stored ciphertext has been modified, decryption fails. AES-256-GCM-SIV provides authenticated encryption, which detects tampering.
 
 **Fix**: Check that no database triggers, application code, or migrations have modified the encrypted column values.
 

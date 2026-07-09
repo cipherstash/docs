@@ -9,6 +9,7 @@ import { slug } from "github-slugger";
 import { usePathname } from "next/navigation";
 import posthog from "posthog-js";
 import { type MouseEvent, useCallback, useEffect, useRef } from "react";
+import { Mermaid } from "@/components/mermaid";
 
 // Build-time metadata is attached to the `<pre>` as `data-*` attributes by the
 // `cipherstash:code-copy-tracking` Shiki transformer (see `source.config.ts`).
@@ -18,6 +19,8 @@ type TrackingProps = {
   "data-filename"?: string;
   "data-cta"?: string;
   "data-cta-type"?: string;
+  /** Raw diagram source, carried through for `mermaid` fences. */
+  "data-mermaid"?: string;
 };
 
 /**
@@ -35,6 +38,15 @@ type TrackingProps = {
 export function TrackedCodeBlock(props: CodeBlockProps) {
   const attrs = props as CodeBlockProps & TrackingProps;
   const language = attrs["data-language"] ?? "plaintext";
+
+  // A ```mermaid fence is a code fence everywhere except on screen: the source
+  // survives in the mdast (so `.mdx` and llms.txt keep it readable), and the
+  // rendered page gets a diagram instead of an overflowing block of syntax.
+  const mermaidChart = attrs["data-mermaid"];
+  if (language === "mermaid" && mermaidChart) {
+    return <Mermaid chart={mermaidChart} />;
+  }
+
   const exampleId = attrs["data-example-id"];
   const isCta = attrs["data-cta"] === "true";
   const ctaType = attrs["data-cta-type"];

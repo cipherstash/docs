@@ -7,11 +7,13 @@ verifiedAgainst:
   eql: "3.0.0"
 ---
 
+<EqlVersion />
+
 Everything in the EQL reference builds on four ideas: columns are typed as **domain variants** that declare what they can do, every value is a **`jsonb` payload** carrying encrypted index terms, **operands must be typed** for the encrypted operators to resolve, and anything a column can't do **fails loudly** instead of returning wrong rows. This page is the canonical home for all four — the per-type and per-query pages link back here rather than restating them.
 
 ## Variants declare capability
 
-EQL ships its searchable-encryption surface as PostgreSQL **domains in the `eql_v3` schema**, all backed by `jsonb`. Each scalar type generates a *family* of domain variants, and the variant you type a column as fixes its query capability. Each domain carries a `CHECK` constraint that validates the encrypted payload on insert, so a malformed or wrong-version value is rejected at write time rather than surfacing at query time.
+EQL ships its searchable-encryption surface as PostgreSQL **domains in the `public` schema**, all backed by `jsonb` (the functions behind them live in `eql_v3` — [The three schemas](#the-three-schemas) explains the split). Each scalar type generates a *family* of domain variants, and the variant you type a column as fixes its query capability. Each domain carries a `CHECK` constraint that validates the encrypted payload on insert, so a malformed or wrong-version value is rejected at write time rather than surfacing at query time.
 
 There is no database-side configuration table. Earlier EQL versions tracked encryption config in the database (`config_add_table`, `config_add_column`, and friends) — those are gone in v3. The searchable surface of a column is fixed by the domain variant you type it as, and which index terms travel in a value's payload is decided by the encryption client (the [Stack SDK](/reference/stack) or [CipherStash Proxy](/reference/proxy)). The domain makes the matching operators resolve; the term in the payload is what makes them answer.
 
@@ -19,39 +21,62 @@ For any scalar type `<T>`, the family looks like this:
 
 | Domain variant | Capability |
 | --- | --- |
-| `eql_v3.<T>` | Storage and decryption only. |
-| `eql_v3.<T>_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
-| `eql_v3.<T>_ord` | Comparisons (`<` … `>=`), `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
-| `eql_v3.<T>_ord_ore` | As `<T>_ord`, with the ORE mechanism pinned — see [SEM specifiers](#sem-specifiers). |
-| `eql_v3.text_match` (text only) | Free-text token containment: `@>` / `<@`. |
-| `eql_v3.text_search` (text only) | Equality + ordering + token containment. |
+| `public.<T>` | Storage and decryption only. |
+| `public.<T>_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
+| `public.<T>_ord` | Comparisons (`<` … `>=`), `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
+| `public.<T>_ord_ore` | As `<T>_ord`, with the ORE mechanism pinned — see [SEM specifiers](#sem-specifiers). |
+| `public.text_match` (text only) | Free-text token containment: `@>` / `<@`. |
+| `public.text_search` (text only) | Equality + ordering + token containment. |
 
 Two things worth calling out:
 
-- **The bare variant blocks everything.** `eql_v3.<T>` carries no index term. Querying it with any comparison operator raises an "operator not supported" exception. Use it for columns you only ever store and decrypt — [Booleans](/reference/eql/booleans) covers this pattern in full.
+- **The bare variant blocks everything.** `public.<T>` carries no index term. Querying it with any comparison operator raises an "operator not supported" exception. Use it for columns you only ever store and decrypt — [Booleans](/reference/eql/booleans) covers this pattern in full.
 - **Which index term backs each capability** is an implementation detail of the payload — covered in [Anatomy of an encrypted value](#anatomy-of-an-encrypted-value) below.
 
 ### SEM specifiers
 
 A trailing mechanism suffix — the `_ore` in `_ord_ore` — is a **SEM specifier**: it pins *which* searchable-encryption mechanism implements the capability, rather than just declaring the capability itself.
 
-- `eql_v3.<T>_ord` declares *orderable* and leaves the mechanism to EQL's default — currently ORE (order-revealing encryption).
-- `eql_v3.<T>_ord_ore` declares *orderable via ORE, explicitly*. Today the two are byte-identical surfaces backed by the same term.
+- `public.<T>_ord` declares *orderable* and leaves the mechanism to EQL's default.
+- `public.<T>_ord_ore` declares *orderable via ORE* (order-revealing encryption), explicitly. Its term is `ob`, extracted with `eql_v3.ord_term`.
+- `public.<T>_ord_ope` declares *orderable via OPE* (order-preserving encryption), explicitly. Its term is `op`, extracted with `eql_v3.ord_ope_term`.
 
-The distinction earns its keep as mechanisms multiply: the EQL v3 release adds an **OPE** (order-preserving encryption) specifier for every orderable type — including `text` — at which point pinning a specifier documents and freezes a column's mechanism choice, while unspecified variants track the default. Each type page lists its available specifiers under an "SEM specifiers" heading.
+The two mechanisms differ in what they demand of the database, not in the capability they declare. An OPE term is a `bytea` domain that orders under Postgres's **default** btree operator class, so a functional index on it works anywhere you can `CREATE INDEX`. An ORE term needs a custom operator class and family, which managed platforms frequently block.
+
+<Callout type="warn">
+The mechanism behind the unpinned `public.<T>_ord` is **changing to OPE** before EQL 3.0.0 stabilizes, so that ordering works on every platform out of the box. ORE remains available, pinned explicitly as `_ord_ore`, on databases that permit operator class and family creation. Pin a specifier if you need to freeze a column's mechanism; leave it off to track the default.
+</Callout>
+
+Each type page lists its available specifiers under an "SEM specifiers" heading.
 
 Declaring a table is just typing each column as the variant it needs:
 
 ```sql
 CREATE TABLE users (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email eql_v3.text_eq,          -- equality only
-    salary eql_v3.int4_ord,        -- equality + range + ORDER BY
-    created_at eql_v3.timestamp_ord
+    email public.text_eq,          -- equality only
+    salary public.integer_ord,        -- equality + range + ORDER BY
+    created_at public.timestamp_ord
 );
 ```
 
-Every scalar type — `int2`, `int4`, `int8`, `numeric`, `float4`, `float8`, `date`, `timestamp`, `text`, and `bool` in EQL 3.0.0 — ships some subset of this family. The per-category pages list exactly which variants each type has and how to choose between them: [Numbers](/reference/eql/numbers), [Dates & times](/reference/eql/dates-and-times), [Text](/reference/eql/text), and [Booleans](/reference/eql/booleans). Encrypted JSON documents use a separate domain, `eql_v3.json`, with its own operator surface — see [JSON](/reference/eql/json).
+Every scalar type — `int2`, `int4`, `int8`, `numeric`, `float4`, `float8`, `date`, `timestamp`, `text`, and `bool` in EQL 3.0.0 — ships some subset of this family. The per-category pages list exactly which variants each type has and how to choose between them: [Numbers](/reference/eql/numbers), [Dates & times](/reference/eql/dates-and-times), [Text](/reference/eql/text), and [Booleans](/reference/eql/booleans). Encrypted JSON documents use a separate domain, `public.json`, with its own operator surface — see [JSON](/reference/eql/json).
+
+## The three schemas
+
+EQL spreads its surface across three PostgreSQL schemas, and the split is what makes EQL **upgradable in place**:
+
+| Schema | Holds | Do you call it? |
+| --- | --- | --- |
+| `public` | The encrypted **domain types** — every `public.<T>` variant you type a column as. | Referenced in your table DDL. |
+| `eql_v3` | All **user-callable functions and operators** — the searchable-encryption API (`eql_v3.eq_term`, `eql_v3.jsonb_path_query`, the encrypted `=` / `<` / `@>` operators, `eql_v3.version()`). | Yes — this is the API. |
+| `eql_v3_internal` | The **implementation functions** the domains and operators are built from. | No — never call these directly. |
+
+**Why the types live in `public`.** Your columns are typed as `public.integer_ord`, `public.text_eq`, and so on — never `eql_v3.*`. Keeping the types in the unversioned `public` schema means an EQL upgrade never rewrites your table definitions: the logic ships in a *versioned* schema (`eql_v3` today, a future `eql_v4` alongside it tomorrow) while the type names your schema depends on stay put. `eql_v2` was removed wholesale in 3.0.0 without any `public.*` type changing.
+
+**Why `eql_v3` is versioned.** The schema name encodes the major API version and is itself part of the public contract — a breaking change introduces a new `eql_vN` schema *beside* the old one rather than mutating it, so you migrate on your own timeline. Everything in `eql_v3` is fair game to call.
+
+**Why `eql_v3_internal` is off-limits.** These are the building blocks — term comparators, unsupported-operator blockers, cast helpers — that the operators and domain `CHECK` constraints wire together. They carry no stability guarantee and can change or disappear between releases. If you're reaching for `eql_v3_internal.*`, there's a `public` type or an `eql_v3` function that does what you want.
 
 ## Anatomy of an encrypted value
 
@@ -77,17 +102,18 @@ A `k` discriminator (`"ct"` for a scalar ciphertext, `"sv"` for a JSON document)
 
 ### Index-term keys
 
-Alongside the envelope, a payload carries the index terms for its column's capability. Each key is backed by a SEM (searchable encrypted metadata) type in the `eql_v3` schema:
+Alongside the envelope, a payload carries the index terms for its column's capability. Each key is backed by a SEM (searchable encrypted metadata) type in the `eql_v3_internal` schema:
 
 | Key | SEM type | Wire shape | Enables | Reveals |
 | --- | --- | --- | --- | --- |
-| `hm` | `eql_v3.hmac_256` (domain over `text`) | Hex string (HMAC-SHA-256) | `=`, `<>` on `_eq` and `text_search` domains | Whether two values are equal — nothing else |
-| `ob` | `eql_v3.ore_block_256` (composite: array of `bytea` block terms) | Array of hex-encoded ORE blocks (block count varies by scalar width) | `<`, `<=`, `>`, `>=`, `ORDER BY` on `_ord` / `_ord_ore` domains — and `=` / `<>`, since ORE comparison collapses to equality | The relative order of two values |
-| `bf` | `eql_v3.bloom_filter` (domain over `smallint[]`) | Array of set bit positions (**signed** 16-bit — large filters emit negative positions) | `@>` / `<@` token containment on `_match` domains | Probabilistic token overlap between values |
+| `hm` | `eql_v3_internal.hmac_256` (domain over `text`) | Hex string (HMAC-SHA-256) | `=`, `<>` on `_eq` and `text_search` domains | Whether two values are equal — nothing else |
+| `ob` | `eql_v3_internal.ore_block_256` (composite: array of `bytea` block terms) | Array of hex-encoded ORE blocks (block count varies by scalar width) | `<`, `<=`, `>`, `>=`, `ORDER BY` on `_ord` / `_ord_ore` domains — and `=` / `<>`, since ORE comparison collapses to equality | The relative order of two values |
+| `op` | `eql_v3_internal.ope_cllw` (domain over `bytea`) | Hex-encoded CLLW OPE ciphertext | `<`, `<=`, `>`, `>=`, `ORDER BY` on `_ord_ope` domains, and on String / Number leaves of `public.json` | The relative order of two values |
+| `bf` | `eql_v3_internal.bloom_filter` (domain over `smallint[]`) | Array of set bit positions (**signed** 16-bit — large filters emit negative positions) | `@>` / `<@` token containment on `_match` domains | Probabilistic token overlap between values |
 
-The capability is encoded as **required keys**: the payload for an `eql_v3.text_eq` column must carry `hm`; an `eql_v3.int4_ord` payload must carry `ob` (and only `ob`); a `text_match` payload must carry `bf`; a `text_search` payload carries all three. A payload missing its term key fails the domain `CHECK` — and fails to deserialize in the client bindings.
+The capability is encoded as **required keys**: the payload for a `public.text_eq` column must carry `hm`; a `public.integer_ord` payload must carry `ob` (and only `ob`); a `text_match` payload must carry `bf`; a `text_search` payload carries all three. A payload missing its term key fails the domain `CHECK` — and fails to deserialize in the client bindings.
 
-A scalar payload for an `eql_v3.text_search` column (lookup + ordering + free-text match, so all three terms are required):
+A scalar payload for a `public.text_search` column (lookup + ordering + free-text match, so all three terms are required):
 
 ```json
 {
@@ -124,10 +150,10 @@ The `eql_v3` domains are backed by `jsonb`. When an operand has no known type �
 SELECT * FROM users WHERE email = $1;
 
 -- ✅ Right: typed operand — the encrypted `=` resolves.
-SELECT * FROM users WHERE email = $1::eql_v3.text_eq;
+SELECT * FROM users WHERE email = $1::public.text_eq;
 ```
 
-Always type the operand: a typed parameter (`$1::eql_v3.text_eq`) or an explicit cast (`'…'::eql_v3.int4_ord`). The [Stack SDK](/reference/stack) and [CipherStash Proxy](/reference/proxy) type bound parameters automatically — raw SQL must do it by hand.
+Always type the operand: a typed parameter (`$1::public.text_eq`) or an explicit cast (`'…'::public.integer_ord`). The [Stack SDK](/reference/stack) and [CipherStash Proxy](/reference/proxy) type bound parameters automatically — raw SQL must do it by hand.
 
 This is the one place where a mistake is *silent*. Everything else fails loudly:
 
@@ -136,9 +162,9 @@ This is the one place where a mistake is *silent*. Everything else fails loudly:
 Unsupported operators are not silent no-ops. Every operator that a variant doesn't support is still *defined* — it routes to a blocker function that raises an `operator … is not supported` exception. A mis-typed query fails loudly instead of silently returning wrong results:
 
 ```sql
--- salary is eql_v3.int8_eq (equality only)
-SELECT * FROM users WHERE salary > $1::eql_v3.int8_eq;
--- ERROR: operator > is not supported for eql_v3.int8_eq
+-- salary is public.bigint_eq (equality only)
+SELECT * FROM users WHERE salary > $1::public.bigint_eq;
+-- ERROR: operator > is not supported for public.bigint_eq
 ```
 
 A `NULL` operand still raises — the blockers are deliberately not `STRICT`, so PostgreSQL can't skip the check. (A SQL `NULL` column value is not encrypted, so `IS NULL` / `IS NOT NULL` themselves always work, on every variant.)

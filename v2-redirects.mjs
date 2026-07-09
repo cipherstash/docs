@@ -241,7 +241,7 @@ export const v2Redirects = [
   },
   {
     source: "/stack/reference/security-architecture",
-    destination: "/security/architecture",
+    destination: "/security/cryptography",
     permanent: false,
   },
   {
@@ -265,8 +265,11 @@ export const v2Redirects = [
     permanent: false,
   },
   {
+    // The AI/RAG page is not part of the v2 tree yet (it needs a rewrite before
+    // it can be republished), so send its legacy URL to the Solutions index
+    // rather than a page that does not exist.
     source: "/stack/reference/use-cases/ai-rag",
-    destination: "/solutions/ai-and-rag",
+    destination: "/solutions",
     permanent: false,
   },
   {
