@@ -1,0 +1,156 @@
+---
+title: Glossary
+description: "Definitions of key CipherStash concepts and terms, from ZeroKMS, keysets, and client keys to EQL, HMAC, and searchable encryption."
+type: reference
+---
+
+## A
+
+### ABAC (Attribute Based Access Control)
+
+A dynamic security model that makes access decisions based on a variety of attributes, including user characteristics, resource details, and environmental factors. Unlike [RBAC](#rbac-role-based-access-control), which relies solely on a user's assigned role, ABAC offers more granular and context-aware policies that adapt to changing conditions.
+
+### Access key
+
+A persistent authentication credential used for communication with [ZeroKMS](#zerokms) or [CTS](#cts-cipherstash-token-service). See [access keys](/stack/cipherstash/kms/access-keys).
+
+### Account management
+
+Activities to administer your CipherStash account, such as billing and adding or removing users. See [billing](/reference/workspace/billing) and [members](/reference/workspace/members).
+
+## C
+
+### Ciphertext
+
+An encrypted version of plaintext, produced by applying an encryption algorithm (a cipher). It is unreadable without a cipher to decrypt it.
+
+See also: [plaintext](#plaintext).
+
+### CipherStash CLI
+
+The command line tool (`stash`) for interacting with CipherStash services. See the [CLI reference](/reference/cli).
+
+### CipherStash Proxy
+
+A database proxy that sits between an application and a database, adding encryption in use. Proxy works alongside your existing infrastructure and is fully contained within your environment. See the [Proxy reference](/reference/proxy).
+
+### Client key
+
+The cryptographic credential assigned to a programmatic access point for a [keyset](#keyset). A client key can have access to many keysets, and a keyset can be shared by multiple client keys.
+
+There are two types:
+
+- **Device-backed client keys** are created automatically by `stash init` and tied to a developer's [device](#device). Used for local development.
+- **Application client keys** are created in the Dashboard for production and CI/CD. Identified by a [client ID](#client-id) and client key value, set via environment variables.
+
+See [client keys](/stack/cipherstash/kms/clients).
+
+### Client ID
+
+A unique identifier for a [client key](#client-key). Each client key and client ID is unique to your app.
+
+### Client key value
+
+The secret credential set via `CS_CLIENT_KEY`. Together with the [client ID](#client-id), it forms the credential pair for a [client key](#client-key). The client key value is sensitive and must be kept secret.
+
+### CTS (CipherStash Token Service)
+
+CTS manages the trust relationships between a workspace and third-party or customer identity providers. It brokers secure access to CipherStash services such as ZeroKMS, ensuring that only authenticated and authorized users gain entry. See [CTS](/stack/cipherstash/kms/cts).
+
+## D
+
+### Dashboard
+
+The web interface for managing CipherStash Cloud primitives: workspaces, client keys, keysets, access keys, devices, and members. Available at [dashboard.cipherstash.com](https://dashboard.cipherstash.com/).
+
+The Dashboard manages cloud infrastructure. Product-specific configuration (encryption schemas, secrets, proxy rules) is handled by the SDKs and CLI.
+
+### Data access event
+
+An event triggered by execution of SQL statements by CipherStash Proxy. Includes metadata of statements executed and records accessed.
+
+### Device
+
+A unique identity tied to a developer's device and user account, created by `stash init`. Each device has an associated [client key](#client-key) that is automatically granted access to the default [keyset](#keyset).
+
+Devices are used for local development authentication, with no environment variables required. Production environments use application [client keys](#client-key) instead. See the [quickstart](/stack/quickstart).
+
+## E
+
+### EQL (Encrypt Query Language)
+
+Our [open-source library](https://github.com/cipherstash/encrypt-query-language) for PostgreSQL users. EQL provides the database-side surface for querying encrypted data: encrypted column types, the operators that compare them, and the term-extractor functions that make indexes work. EQL itself never encrypts anything. See the [EQL reference](/reference/eql).
+
+## H
+
+### HMAC (Hash-based Message Authentication Code)
+
+A cryptographic technique that combines a hash function with a secret key to verify both the integrity and authenticity of a message. Unlike raw hash functions such as SHA-256, HMAC requires a secret key, so only parties with the key can generate valid HMACs. This prevents attackers from pre-computing hash tables (rainbow tables) or guessing values.
+
+In searchable encryption, HMACs create encrypted search tokens. The key stays on the application side, so the server can match encrypted search tokens without ever learning the plaintext or being able to generate new tokens. See [searchable encryption](/concepts/searchable-encryption) for what an HMAC term does and does not reveal.
+
+## I
+
+### IdP (Identity Provider)
+
+A third-party identity provider, such as Auth0, Okta, or Clerk.
+
+## J
+
+### JWT (JSON Web Token)
+
+A compact, URL-safe means of representing claims between two parties as a JSON object, typically used for authentication and authorization. JWTs are digitally signed to ensure the integrity and authenticity of the information, allowing systems to verify user identity without maintaining server-side sessions.
+
+## K
+
+### Keyset
+
+A core CipherStash Cloud primitive for cryptographic isolation, managed by [ZeroKMS](#zerokms). Each keyset maintains its own set of data encryption keys, and data encrypted under one keyset cannot be decrypted with another.
+
+Use keysets for tenant isolation, environment separation, regional compliance, or any cryptographic boundary your architecture requires. A [client key](#client-key) can access many keysets, and a keyset can be shared by multiple client keys. In the Secrets SDK, environments map directly to keysets.
+
+See [keysets](/stack/cipherstash/kms/keysets).
+
+## O
+
+### OIDC (OpenID Connect)
+
+An identity layer built on top of the OAuth 2.0 protocol that enables applications to verify user identity through an [identity provider](#idp-identity-provider). It facilitates secure single sign-on and standardizes how the identity provider shares identity information, using RESTful APIs and [JSON Web Tokens](#jwt-json-web-token).
+
+### ORE (Order Revealing Encryption)
+
+A searchable encryption technique allowing comparison and sorting of encrypted data without decryption. ORE terms reveal the relative order of the values they encode. See [sorting](/reference/eql/sorting) and [searchable encryption](/concepts/searchable-encryption).
+
+## P
+
+### Plaintext
+
+Unencrypted information, readable by humans and computers.
+
+## R
+
+### RBAC (Role Based Access Control)
+
+A security model that assigns access permissions based on a user's role within an organization, streamlining the management of access rights by grouping permissions into predefined roles. Unlike [ABAC](#abac-attribute-based-access-control), which evaluates policies based on a range of attributes, RBAC relies solely on roles.
+
+## S
+
+### Searchable encrypted metadata
+
+An encrypted data structure for finding records in encrypted columns, carried in the value's payload alongside the ciphertext. It replaces the need for full table scans, and supports range, exact, and match queries.
+
+See [core concepts](/reference/eql/core-concepts) for payload anatomy, and [searchable encryption](/concepts/searchable-encryption) for what each index term reveals.
+
+## W
+
+### Workspace
+
+A workspace contains [keysets](#keyset), client keys, and configuration. A workspace can separate environments (such as dev and prod), be shared with other users, and be associated with a custom identity provider.
+
+See [workspace and account](/reference/workspace).
+
+## Z
+
+### ZeroKMS
+
+CipherStash's key management service. ZeroKMS provides high-performance batch encryption and decryption, enabling a unique encryption key per field. See [ZeroKMS](/stack/cipherstash/kms).

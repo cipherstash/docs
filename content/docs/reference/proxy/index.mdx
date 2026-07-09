@@ -1,8 +1,22 @@
 ---
 title: Proxy
-description: "Proxy documentation — being built as part of the docs V2 overhaul."
+description: "Configuration, message flow, multitenant operation, and error reference for CipherStash Proxy."
+type: reference
+components: [proxy]
 ---
 
-This section is being built as part of the docs V2 overhaul ([CIP-3307](https://linear.app/cipherstash/issue/CIP-3307)). Track progress in [IA.md](https://github.com/cipherstash/docs/blob/v2/IA.md).
+CipherStash Proxy sits between your application and PostgreSQL, encrypting query parameters on the way in and decrypting results on the way out. Your application connects to Proxy exactly as it connects to PostgreSQL, so adopting encryption needs no application changes.
 
-Until it lands, current documentation lives in the [existing docs](/stack).
+Proxy speaks the PostgreSQL wire protocol (it is based on [pgcat](https://github.com/pgcat/pgcat)) and is distributed as a [container image](https://hub.docker.com/r/cipherstash/proxy) on Docker Hub. It is an [EQL](/reference/eql) client: it produces the encrypted payloads EQL stores, and types the bound parameters EQL's operators resolve against.
+
+## In this section
+
+- [Configuration](/reference/proxy/configuration) covers installation, the TOML and environment-variable options, logging, Prometheus metrics, and the CLI.
+- [Message flow](/reference/proxy/message-flow) explains how Proxy intercepts the extended query protocol, for debugging unmappable statements.
+- [Multitenant operation](/reference/proxy/multitenant) covers per-connection keyset scoping and encrypted mapping.
+- [Errors](/reference/proxy/errors) lists the errors Proxy returns, with causes and remediation.
+
+## Related
+
+- [EQL reference](/reference/eql) for the database-side surface Proxy queries against.
+- [Stack SDK](/reference/stack) for the application-level alternative to Proxy.
