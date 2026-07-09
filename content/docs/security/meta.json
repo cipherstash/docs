@@ -1,5 +1,5 @@
 {
   "title": "Architecture & security",
   "icon": "Shield",
-  "pages": ["..."]
+  "pages": ["index", "architecture", "...", "compliance"]
 }
