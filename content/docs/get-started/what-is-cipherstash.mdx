@@ -80,6 +80,18 @@ The honest version of this, per term, is in [searchable encryption](/concepts/se
 
 **You are deciding whether this is the right tool.** [Concepts](/concepts) explains how it works and where it does not apply. The [comparisons](/concepts/compare) are written to be honest about what CipherStash is not.
 
+## Performance
+
+Encryption in use is usually assumed to be slow. It is, if you do it with fully homomorphic encryption. Searchable encryption is a different trade: bounded, published leakage in exchange for the database doing ordinary index work on ciphertext.
+
+| | |
+|---|---|
+| Query overhead | Sub-millisecond. The encrypted operators inline into functional indexes, so Postgres does a normal index scan. |
+| vs fully homomorphic encryption | [410,000x faster](https://github.com/cipherstash/tfhe-ore-bench) on the per-row primitives a database actually executes. |
+| vs AWS KMS | Up to 14x the throughput, because ZeroKMS derives keys in bulk rather than one call per value. |
+
+The FHE comparison is an open benchmark harness you can run yourself. See [CipherStash vs FHE](/stack/reference/comparisons/fhe) for the methodology, and for the workloads where FHE is genuinely the right tool.
+
 ## What it protects against
 
 | Threat | What happens |
