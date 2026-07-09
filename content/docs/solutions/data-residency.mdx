@@ -43,21 +43,15 @@ Neither key alone derives a data key. Both must cooperate. This means ZeroKMS al
 
 Deploy your application and ZeroKMS in the same region.
 
-```
-┌──────────────────────────────────┐
-│        Region: eu-central-1      │
-│                                  │
-│  ┌───────────┐   ┌────────────┐  │
-│  │ Your app  │───│  ZeroKMS   │  │
-│  │ + client  │   │ + authority│  │
-│  │   key     │   │    key     │  │
-│  └─────┬─────┘   └────────────┘  │
-│        │                         │
-│  ┌─────┴──────┐                  │
-│  │ PostgreSQL │                  │
-│  │ (encrypted)│                  │
-│  └────────────┘                  │
-└──────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph region["Region: eu-central-1.aws"]
+        app["Your app<br/>+ client key"]
+        zerokms["ZeroKMS<br/>+ authority key"]
+        db[("PostgreSQL<br/>encrypted")]
+        app <-- key seed --> zerokms
+        app -- ciphertext --> db
+    end
 ```
 
 All key material and data remain in one region. This satisfies most data residency requirements, including GDPR and regional data protection laws.
@@ -66,14 +60,25 @@ All key material and data remain in one region. This satisfies most data residen
 
 For organizations operating across regions with differing requirements, deploy a separate workspace per region.
 
-```
-┌───────────────────────┐   ┌────────────────────────┐
-│  Region: eu-central-1 │   │ Region: ap-southeast-2 │
-│                       │   │                        │
-│  App + client key     │   │  App + client key      │
-│  ZeroKMS (EU)         │   │  ZeroKMS (APAC)        │
-│  PostgreSQL (EU)      │   │  PostgreSQL (APAC)     │
-└───────────────────────┘   └────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph eu["Region: eu-central-1.aws"]
+        euApp["App<br/>+ client key"]
+        euKms["ZeroKMS (EU)"]
+        euDb[("PostgreSQL (EU)")]
+        euApp <-- key seed --> euKms
+        euApp -- ciphertext --> euDb
+    end
+
+    subgraph apac["Region: ap-southeast-2.aws"]
+        apacApp["App<br/>+ client key"]
+        apacKms["ZeroKMS (APAC)"]
+        apacDb[("PostgreSQL (APAC)")]
+        apacApp <-- key seed --> apacKms
+        apacApp -- ciphertext --> apacDb
+    end
+
+    euDb -. "cannot be decrypted by" .-x apacApp
 ```
 
 Each region gets its own ZeroKMS workspace with independent authority keys, client keys that never leave the region, and its own database. Data encrypted in one region cannot be decrypted in another, which enforces the residency boundary cryptographically rather than by policy.

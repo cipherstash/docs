@@ -21,6 +21,7 @@ export function Mermaid({ chart }: { chart: string }) {
   // `useId` yields colons, which are not valid in a DOM id passed to Mermaid.
   const id = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [svg, setSvg] = useState<string>("");
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,9 +43,10 @@ export function Mermaid({ chart }: { chart: string }) {
         const { svg } = await mermaid.render(`mermaid-${id}`, chart);
         if (!cancelled) setSvg(svg);
       } catch {
-        // A malformed diagram should not blank the page; the fence's text is
-        // still in the source and in the markdown output.
-        if (!cancelled) setSvg("");
+        // A malformed diagram falls back to its source rather than blanking the
+        // page. `scripts/validate-mermaid.ts` fails the build before this can
+        // reach production, so in practice this covers only the render step.
+        if (!cancelled) setFailed(true);
       }
     }
 
@@ -63,8 +65,17 @@ export function Mermaid({ chart }: { chart: string }) {
     };
   }, [chart, id]);
 
+  if (failed) {
+    return (
+      <pre className="my-6 overflow-x-auto rounded-lg border border-fd-border bg-fd-card p-4 text-sm">
+        <code>{chart}</code>
+      </pre>
+    );
+  }
+
   if (!svg) {
-    // Reserve nothing: an empty diagram is better than a layout jump.
+    // Nothing to reserve: the diagram appears once Mermaid resolves, and a
+    // placeholder box would only add a layout jump.
     return null;
   }
 
