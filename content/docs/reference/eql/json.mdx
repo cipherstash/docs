@@ -31,7 +31,7 @@ An encrypted JSON document uses a different payload shape from the scalar types:
 | --- | --- |
 | `s` | Selector — a deterministic hash of the JSON path. Required; entry matching compares selectors first. |
 | `c` | Ciphertext for the node at that path. |
-| `hm` **or** `oc` | Exactly one, never both — the domain `CHECK` enforces the exclusivity. `hm` (HMAC-256) on Boolean/`null` leaves and Object/Array roots; `oc` (CLLW ORE, backed by `eql_v3.ore_cllw`) on String/Number leaves. |
+| `hm` **or** `op` | Exactly one, never both — the domain `CHECK` enforces the exclusivity. `hm` (HMAC-256) on Boolean/`null` leaves and Object/Array roots; `op` (CLLW OPE, backed by `eql_v3_internal.ope_cllw`) on String/Number leaves. |
 | `a` | Optional array marker — `true` when the selector points at an array context. |
 
 The decoded `oc` value starts with a domain-tag byte (`0x00` numeric, `0x01` string) followed by the CLLW ciphertext, so numeric and string values in one column keep a consistent total order. Earlier payload versions split this into two fields — `ocf` (fixed-width, numeric) and `ocv` (variable-width, string) — which consolidated into the single `oc` key; the tag byte now carries the distinction.
@@ -150,7 +150,7 @@ SELECT metadata -> 0 FROM orders;
 The extracted `public.jsonb_entry` is itself comparable:
 
 - `=` / `<>` resolve via `eql_v3.eq_term` — works on every node type
-- `<` / `<=` / `>` / `>=` resolve via `eql_v3.ore_cllw` — String and Number leaves only
+- `<` / `<=` / `>` / `>=` resolve via `eql_v3.ord_ope_term` — String and Number leaves only
 - `MIN` / `MAX` over an extracted ordered leaf use the `eql_v3.min` / `eql_v3.max` aggregates
 
 ```sql
@@ -164,7 +164,7 @@ FROM orders
 GROUP BY eql_v3.eq_term(metadata -> 'region_selector'::text);
 ```
 
-A hash index on `eql_v3.eq_term(col -> '<selector>'::text)` engages the equality lookup; a btree on `eql_v3.ore_cllw(...)` engages range and `ORDER BY`. See [Indexes](/reference/eql/indexes).
+A hash index on `eql_v3.eq_term(col -> '<selector>'::text)` engages the equality lookup; a btree on `eql_v3.ord_ope_term(...)` engages range and `ORDER BY`. The OPE term is a `bytea` domain that orders under the default btree operator class, so this index needs no custom operator class. See [Indexes](/reference/eql/indexes).
 
 ## Path queries and array helpers
 

@@ -37,10 +37,17 @@ Two things worth calling out:
 
 A trailing mechanism suffix — the `_ore` in `_ord_ore` — is a **SEM specifier**: it pins *which* searchable-encryption mechanism implements the capability, rather than just declaring the capability itself.
 
-- `public.<T>_ord` declares *orderable* and leaves the mechanism to EQL's default — currently ORE (order-revealing encryption).
-- `public.<T>_ord_ore` declares *orderable via ORE, explicitly*. Today the two are byte-identical surfaces backed by the same term.
+- `public.<T>_ord` declares *orderable* and leaves the mechanism to EQL's default.
+- `public.<T>_ord_ore` declares *orderable via ORE* (order-revealing encryption), explicitly. Its term is `ob`, extracted with `eql_v3.ord_term`.
+- `public.<T>_ord_ope` declares *orderable via OPE* (order-preserving encryption), explicitly. Its term is `op`, extracted with `eql_v3.ord_ope_term`.
 
-The distinction earns its keep as mechanisms multiply: the EQL v3 release adds an **OPE** (order-preserving encryption) specifier for every orderable type — including `text` — at which point pinning a specifier documents and freezes a column's mechanism choice, while unspecified variants track the default. Each type page lists its available specifiers under an "SEM specifiers" heading.
+The two mechanisms differ in what they demand of the database, not in the capability they declare. An OPE term is a `bytea` domain that orders under Postgres's **default** btree operator class, so a functional index on it works anywhere you can `CREATE INDEX`. An ORE term needs a custom operator class and family, which managed platforms frequently block.
+
+<Callout type="warn">
+The mechanism behind the unpinned `public.<T>_ord` is **changing to OPE** before EQL 3.0.0 stabilizes, so that ordering works on every platform out of the box. ORE remains available, pinned explicitly as `_ord_ore`, on databases that permit operator class and family creation. Pin a specifier if you need to freeze a column's mechanism; leave it off to track the default.
+</Callout>
+
+Each type page lists its available specifiers under an "SEM specifiers" heading.
 
 Declaring a table is just typing each column as the variant it needs:
 
@@ -101,6 +108,7 @@ Alongside the envelope, a payload carries the index terms for its column's capab
 | --- | --- | --- | --- | --- |
 | `hm` | `eql_v3_internal.hmac_256` (domain over `text`) | Hex string (HMAC-SHA-256) | `=`, `<>` on `_eq` and `text_search` domains | Whether two values are equal — nothing else |
 | `ob` | `eql_v3_internal.ore_block_256` (composite: array of `bytea` block terms) | Array of hex-encoded ORE blocks (block count varies by scalar width) | `<`, `<=`, `>`, `>=`, `ORDER BY` on `_ord` / `_ord_ore` domains — and `=` / `<>`, since ORE comparison collapses to equality | The relative order of two values |
+| `op` | `eql_v3_internal.ope_cllw` (domain over `bytea`) | Hex-encoded CLLW OPE ciphertext | `<`, `<=`, `>`, `>=`, `ORDER BY` on `_ord_ope` domains, and on String / Number leaves of `public.json` | The relative order of two values |
 | `bf` | `eql_v3_internal.bloom_filter` (domain over `smallint[]`) | Array of set bit positions (**signed** 16-bit — large filters emit negative positions) | `@>` / `<@` token containment on `_match` domains | Probabilistic token overlap between values |
 
 The capability is encoded as **required keys**: the payload for a `public.text_eq` column must carry `hm`; a `public.integer_ord` payload must carry `ob` (and only `ob`); a `text_match` payload must carry `bf`; a `text_search` payload carries all three. A payload missing its term key fails the domain `CHECK` — and fails to deserialize in the client bindings.
