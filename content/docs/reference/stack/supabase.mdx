@@ -186,7 +186,9 @@ await supabase.from("users").select("*").contains("email", "alice@example.com")
 <Callout type="warn">
 **Substring matching is currently broken.** PostgREST cannot cast a filter value to EQL's narrow query domain, and `encryptQuery` does not yet support the v3 scalars, so the wrapper has to send a full *storage* payload as the operand. That payload's bloom carries the whole search string as an `include_original` token, and the stored value's bloom has no such token unless the two strings are equal. `contains("email", "alice")` therefore finds nothing on a stored `alice@example.com`.
 
-In practice `.contains()` matches only when the search string equals the stored value, or is exactly three characters (the trigram length), where its `include_original` token coincides with a trigram the stored value already has. The v3 Drizzle `contains` has the same defect, for the same reason. A fix belongs in EQL and protect-ffi, not in the wrapper.
+In practice `.contains()` matches only when the search string equals the stored value, or is exactly three characters (the trigram length), where its `include_original` token coincides with a trigram the stored value already has.
+
+The underlying gap is `encryptQuery`, which does not yet build query terms for the v3 scalars, so no client can produce a narrow operand today. Supabase carries a second, structural blocker: EQL defines `eql_v3.contains` against a narrow `eql_v3.query_text_search` operand, but PostgREST cannot cast a filter value to reach it. A fix belongs in protect-ffi and EQL, not in the wrapper.
 </Callout>
 
 ## Ordering and pagination
