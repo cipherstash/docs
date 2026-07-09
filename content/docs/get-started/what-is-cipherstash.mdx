@@ -1,0 +1,92 @@
+---
+title: What is CipherStash?
+description: "Field-level encryption that stays queryable in Postgres: the mental model, the pieces, and which door to walk through."
+type: concept
+components: [encryption, platform, eql, proxy]
+audience: [developer, cto, ciso]
+---
+
+CipherStash encrypts individual fields in your application, before they reach the database, and keeps them queryable in Postgres. The database stores ciphertext and can still answer `WHERE`, `ORDER BY`, and containment queries against it.
+
+A breach yields ciphertext. So does a compromised agent, an over-permissioned service, and a curious insider.
+
+## The problem
+
+Encrypting a column has always meant losing the query. So teams encrypt at rest, which protects the disk and nothing else: the moment a query runs, the database has plaintext, and so does anyone who reached the database.
+
+That was tolerable when the thing reading your data was a person. It is less so now that it is an agent running on application credentials, at machine speed, one prompt injection away from exfiltration.
+
+## The mental model
+
+Three ideas carry the whole product.
+
+**Encryption happens in your process.** Not in the database, not on our infrastructure. Plaintext never leaves your application.
+
+**Every value gets its own key.** Not a table key or a column key. A per-value key, derived for one operation and discarded. Compromising one value tells an attacker nothing about the next.
+
+**Ciphertext stays queryable.** Alongside each encrypted value, the client stores index terms that let Postgres compare ciphertext without decrypting it. This is the trade at the heart of the product, and it is not free: see [what the terms reveal](#the-trade).
+
+## The pieces
+
+```mermaid
+flowchart TB
+    subgraph app["Your application"]
+        sdk["Stack SDK<br/>encrypt / decrypt"]
+    end
+
+    subgraph db["Your Postgres"]
+        eql["EQL<br/>encrypted column types<br/>and operators"]
+    end
+
+    subgraph platform["CipherStash platform"]
+        zerokms["ZeroKMS<br/>key seeds"]
+        cts["CTS<br/>identity tokens"]
+    end
+
+    proxy["Proxy<br/>speaks EQL for you"]
+
+    sdk -- ciphertext + index terms --> eql
+    proxy -- ciphertext + index terms --> eql
+    sdk <-- key seed --> zerokms
+    proxy <-- key seed --> zerokms
+    cts -. binds decryption<br/>to an identity .-> sdk
+```
+
+| Piece | What it does | When you need it |
+|---|---|---|
+| [Stack SDK](/reference/stack) | Encrypts and decrypts values in your application | The default path. Start here. |
+| [EQL](/reference/eql) | The Postgres surface: encrypted column types, operators, and term extractors | Always, if the data lives in Postgres. Installed once per database. |
+| [Proxy](/reference/proxy) | Sits in front of Postgres and speaks EQL for you | When you cannot change the application |
+| ZeroKMS | Returns a key seed per value; never sees your client key or a data key | Always. See [cryptography](/security/cryptography). |
+| CTS | Federates your identity provider so decryption can be bound to a user | Only for [identity-aware encryption](/solutions/provable-access) |
+
+You rarely need all of them at once. The Stack SDK plus EQL is the common case. Proxy is the alternative to the SDK, not an addition to it.
+
+Note that **EQL is only for Postgres**. The SDK also encrypts values that never touch a database, and non-Postgres stores like [DynamoDB](/stack/cipherstash/encryption/dynamodb), with no EQL involved.
+
+## The trade
+
+Querying ciphertext is possible because each value carries index terms derived from the plaintext. Those terms are not the plaintext, but they are not nothing either.
+
+An equality term reveals which rows share a value. An ordering term reveals relative order. A free-text term reveals probabilistic token overlap. That is the price of a `WHERE` clause, and whether it is worth paying depends on the column.
+
+The honest version of this, per term, is in [searchable encryption](/concepts/searchable-encryption). Read it before deciding a column is safe to index. Columns you only store and retrieve can carry no terms at all.
+
+## Which door
+
+**You are building.** Start with the [Quickstart](/get-started/quickstart), then [choose your stack](/get-started/choose-your-stack) to find the integration that matches your platform and ORM.
+
+**You are evaluating.** [Architecture & security](/security) is self-contained for a vendor review, starting with [cryptography](/security/cryptography). [Solutions](/solutions) covers the problems teams bring us.
+
+**You are deciding whether this is the right tool.** [Concepts](/concepts) explains how it works and where it does not apply. The [comparisons](/concepts/compare) are written to be honest about what CipherStash is not.
+
+## What it protects against
+
+| Threat | What happens |
+|---|---|
+| Database breach | Ciphertext. The keys were never in the database. |
+| Compromised application credentials | Ciphertext, unless the attacker also holds the client key. |
+| AI agent exfiltration | The agent reaches the database and decrypts nothing, because its credentials are not the user's keys. |
+| Curious insider | Every decryption is a key derivation, and ZeroKMS records who performed it. |
+
+What it does **not** protect against: an attacker who has compromised your running application process, holding the client key and able to call `decrypt`. Encryption in the application means the application can decrypt. See [cryptography](/security/cryptography) for the full trust model.

@@ -12,7 +12,9 @@ This section gets you from nothing to an encrypted, queryable field. It owns no 
 
 ## Start here
 
-The [Quickstart](/get-started/quickstart) takes about ten minutes. You will encrypt a field, store it, query it without decrypting it, and read it back. It works against any Postgres: Supabase, Neon, RDS, or a container.
+- **[What is CipherStash?](/get-started/what-is-cipherstash)** is the mental model. What the pieces are, what the trade is, and which door to walk through.
+- **[Quickstart](/get-started/quickstart)** is ten minutes of typing. Encrypt a field, store it, query it without decrypting it, and read it back. It works against any Postgres: Supabase, Neon, RDS, or a container.
+- **[Choose your stack](/get-started/choose-your-stack)** picks your integration path: SDK or Proxy, your platform, your ORM, and your identity provider.
 
 ## Then pick your path
 
@@ -20,15 +22,3 @@ The [Quickstart](/get-started/quickstart) takes about ten minutes. You will encr
 - **Can't change the application?** [CipherStash Proxy](/reference/proxy) sits in front of Postgres and encrypts on the wire.
 - **Want to understand it before you install it?** [Concepts](/concepts) explains searchable encryption, key management, and identity-aware encryption.
 - **Evaluating for a security review?** [Architecture & security](/security) is written to be read end to end, starting with [Cryptography](/security/cryptography).
-
-## The pieces
-
-Three layers, and you rarely need all three at once.
-
-| | What it does |
-|---|---|
-| [Stack SDK](/reference/stack) | Encrypts and decrypts values in your application. The path the Quickstart takes. |
-| [EQL](/reference/eql) | The Postgres surface that makes encrypted columns queryable. Installed once per database. |
-| [Proxy](/reference/proxy) | An alternative to the SDK: speaks EQL for you, so the application needs no changes. |
-
-Underneath all three sits the platform: ZeroKMS derives a unique key for every value, and CTS binds decryption to an authenticated identity when you ask it to. See [cryptography](/security/cryptography).

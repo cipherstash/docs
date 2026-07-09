@@ -1,5 +1,11 @@
 {
   "title": "Get started",
   "icon": "Rocket",
-  "pages": ["index", "quickstart", "..."]
+  "pages": [
+    "index",
+    "what-is-cipherstash",
+    "quickstart",
+    "choose-your-stack",
+    "..."
+  ]
 }
