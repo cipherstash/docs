@@ -333,6 +333,16 @@ const config = {
         destination: "/stack/cipherstash/kms",
         permanent: false,
       },
+      // === Pre-publish placeholder for the v2 docs restructure ===
+      // The v2 branch will host the Supabase docs at /docs/integrations/supabase,
+      // but that branch isn't published yet. Until it ships, temporarily (307)
+      // point the future URL at the current Supabase overview page so external
+      // links to it resolve. Remove this once v2 owns /integrations/supabase.
+      {
+        source: "/integrations/supabase",
+        destination: "/stack/cipherstash/supabase",
+        permanent: false,
+      },
     ];
   },
   async rewrites() {
