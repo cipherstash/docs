@@ -88,7 +88,7 @@ Every encryption and decryption operation through ZeroKMS produces an audit even
 
 ### Integrity controls (§ 164.312(c))
 
-CipherStash's authenticated encryption (AES-256-GCM) detects any tampering with encrypted data during decryption. The operation fails if the ciphertext has been modified.
+CipherStash's authenticated encryption (AES-256-GCM-SIV) detects any tampering with encrypted data during decryption. The operation fails if the ciphertext has been modified.
 
 ## PCI-DSS compliance patterns
 
@@ -119,7 +119,7 @@ CipherStash's audit logging provides cryptographic proof of data access. Every d
 | Regulation | Key requirements | CipherStash features |
 |---|---|---|
 | **GDPR** | Encryption, data minimization, right to erasure | Searchable encryption, Lock Contexts, crypto-shredding |
-| **HIPAA** | Access controls, audit trails, integrity | Identity-aware encryption, ZeroKMS audit logs, AES-256-GCM |
+| **HIPAA** | Access controls, audit trails, integrity | Identity-aware encryption, ZeroKMS audit logs, AES-256-GCM-SIV |
 | **PCI-DSS** | Protect cardholder data, access monitoring | Application-layer encryption, audit logging |
 | **SOC2** | Encryption at rest and in use, access controls | Encryption-in-use, role-based key access |
 | **ISO 27001** | Information security management | End-to-end encryption, key management, audit trails |

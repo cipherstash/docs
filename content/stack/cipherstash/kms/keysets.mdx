@@ -49,7 +49,7 @@ Secrets environments map directly to keysets. When you specify an `environment`,
 
 ## How it works
 
-When you specify a keyset, ZeroKMS derives all data encryption keys from that keyset's root key.
+When you specify a keyset, every key seed ZeroKMS returns is scoped to that keyset's authority key, so the data keys your application derives are scoped to it too.
 This means:
 
 - Data encrypted under keyset A cannot be decrypted with keyset B.
