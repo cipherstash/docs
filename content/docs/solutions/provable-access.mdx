@@ -33,7 +33,7 @@ A lock context restricts **who can decrypt**. It does not hide the ciphertext's 
 
 ## Identity-aware encryption
 
-Add your identity provider to the workspace first, at [dashboard.cipherstash.com](https://dashboard.cipherstash.com/workspaces/_/oidc-providers).
+Add your identity provider to the workspace first, on the [OIDC providers](https://dashboard.cipherstash.com/workspaces/_/oidc-providers) page in the Dashboard. The `_` in that URL resolves to whichever workspace you have selected.
 
 ### Authenticate as the end user
 
@@ -55,11 +55,18 @@ export const client = await Encryption({
 })
 ```
 
-Both strategies are re-exported by `@cipherstash/stack`, so you do not need a separate import from `@cipherstash/auth` for this.
+`OidcFederationStrategy` is re-exported by `@cipherstash/stack`, so you do not need a separate import from [`@cipherstash/auth`](https://www.npmjs.com/package/@cipherstash/auth).
+
+<Callout type="warn">
+`OidcFederationStrategy` is the only strategy that supports lock contexts. `AccessKeyStrategy` authenticates as your service rather than as an end user, so there is no user identity for ZeroKMS to resolve the claim against.
+</Callout>
 
 ### Bind encryption to the user's identity
 
+Every example below uses the `client` from above. Without its `authStrategy`, `.withLockContext()` has no end-user identity to bind to.
+
 ```typescript filename="identity-encrypt.ts"
+// `client` is configured with OidcFederationStrategy, as above
 import { client } from "./client"
 import { patients } from "./schema"
 
@@ -82,6 +89,7 @@ async function encryptDiagnosis(diagnosis: string) {
 Decryption requires the same lock context, resolved against whichever user the client is currently authenticated as.
 
 ```typescript filename="identity-decrypt.ts"
+// The same `client`, authenticated as the same user
 async function decryptDiagnosis(encryptedDiagnosis: unknown) {
   const result = await client
     .decrypt(encryptedDiagnosis)
