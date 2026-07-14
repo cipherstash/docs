@@ -142,9 +142,14 @@ export function getVersionsToGenerate(
     }
   }
 
+  // Only the latest major. The module layout diverged across majors — Stack 1.0
+  // moved the Drizzle/Supabase adapters to their own packages and dropped
+  // secrets — so a single `entryPoints` config (which must match the layout it
+  // documents) can only correctly generate one line. The launch documents 1.0;
+  // older-major reference lives on the previous docs site.
   const majorVersions = Array.from(versionMap.keys())
     .sort((a, b) => b - a)
-    .slice(0, 3);
+    .slice(0, 1);
 
   return majorVersions.map((major, index) => {
     const tag = versionMap.get(major);
@@ -180,7 +185,11 @@ export async function generateDocsForTag(
 
   // Checkout the tag (skip if using local path)
   if (!localPath) {
+    // A prior tag's `bun install` rewrites the tracked package.json, which would
+    // block switching tags. Discard any working-tree changes first so the
+    // checkout is always clean (harmless on the first/only tag).
     console.log(`Checking out ${tag}...`);
+    execSync("git checkout -- .", { cwd: workingDir, stdio: "inherit" });
     execSync(`git checkout ${tag}`, { cwd: workingDir, stdio: "inherit" });
 
     console.log("Cleaning node_modules...");
@@ -314,7 +323,13 @@ export async function generateDocsForTag(
     sanitizeComments: true,
     fileExtension: ".mdx",
     entryFileName: "index",
-    skipErrorChecking: false,
+    // We document external source we don't control, installed here with a
+    // different package manager than the upstream monorepo uses. That can leave
+    // cross-package type references (e.g. @cipherstash/protect-ffi's ProtectError)
+    // unresolved for the isolated typecheck even though the source is correct,
+    // which would otherwise fail the whole build. TypeDoc still emits accurate
+    // signatures from the source AST, so tolerate type errors rather than block.
+    skipErrorChecking: true,
     sort: ["source-order"],
     kindSortOrder: [
       "Interface",
