@@ -17,13 +17,14 @@ const stackConfig: DocsConfig = {
   repoUrl: "https://github.com/cipherstash/stack.git",
   tempDirName: ".tmp-stack",
   baseOutputDir: path.join(process.cwd(), "content/stack/reference/stack"),
+  // Stack 1.0 split the Drizzle and Supabase adapters into their own packages
+  // (@cipherstash/stack-drizzle, @cipherstash/stack-supabase) and removed the
+  // secrets module, so those three entry points no longer exist under
+  // packages/stack/src. Keep only the modules @cipherstash/stack still ships.
   entryPoints: [
     "./packages/stack/src/encryption/index.ts",
-    "./packages/stack/src/secrets/index.ts",
     "./packages/stack/src/schema/index.ts",
-    "./packages/stack/src/drizzle/index.ts",
     "./packages/stack/src/dynamodb/index.ts",
-    "./packages/stack/src/supabase/index.ts",
     "./packages/stack/src/identity/index.ts",
     "./packages/stack/src/types-public.ts",
     "./packages/stack/src/client.ts",

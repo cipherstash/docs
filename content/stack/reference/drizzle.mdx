@@ -3,18 +3,18 @@ title: Drizzle adapter reference
 description: Encrypted query operators, schema extraction, EQL migration generation, and API surface for @cipherstash/stack/drizzle.
 ---
 
-`@cipherstash/stack/drizzle` integrates CipherStash field-level encryption with Drizzle ORM. It provides a custom column type for encrypted fields and drop-in query operators that encrypt search values before they reach PostgreSQL. This page covers the operators, batching patterns, and migration generation. The step-by-step integration guide is at [Drizzle integration guide](/stack/cipherstash/encryption/drizzle). Full type signatures live in the [auto-generated API reference](/stack/reference/stack/latest/packages/stack/src/drizzle).
+`@cipherstash/stack/drizzle` integrates CipherStash field-level encryption with Drizzle ORM. It provides a custom column type for encrypted fields and drop-in query operators that encrypt search values before they reach PostgreSQL. This page covers the operators, batching patterns, and migration generation. The step-by-step integration guide is at [Drizzle integration guide](/stack/cipherstash/encryption/drizzle). Full type signatures live in the auto-generated API reference.
 
 ## Public entry points
 
 | Export | Purpose |
 |---|---|
-| [`encryptedType`](/stack/reference/stack/latest/packages/stack/src/drizzle/functions/encryptedType) | Custom Drizzle column type for an encrypted field. Accepts a `dataType` and index config. |
-| [`extractEncryptionSchema`](/stack/reference/stack/latest/packages/stack/src/drizzle/functions/extractEncryptionSchema) | Converts a Drizzle `pgTable` definition into a CipherStash `EncryptedTable` schema for the SDK. |
-| [`createEncryptionOperators`](/stack/reference/stack/latest/packages/stack/src/drizzle/functions/createEncryptionOperators) | Returns an object with all Drizzle query operators wrapped for encrypted columns. |
-| [`EncryptedColumnConfig`](/stack/reference/stack/latest/packages/stack/src/drizzle/type-aliases/EncryptedColumnConfig) | Type alias for the column configuration object (`dataType`, `equality`, `freeTextSearch`, `orderAndRange`, `searchableJson`). |
-| [`EncryptionConfigError`](/stack/reference/stack/latest/packages/stack/src/drizzle/classes/EncryptionConfigError) | Thrown when a column lacks the index required by an operator. |
-| [`EncryptionOperatorError`](/stack/reference/stack/latest/packages/stack/src/drizzle/classes/EncryptionOperatorError) | Thrown for operator-level failures (invalid arguments, unsupported operations). |
+| `encryptedType` | Custom Drizzle column type for an encrypted field. Accepts a `dataType` and index config. |
+| `extractEncryptionSchema` | Converts a Drizzle `pgTable` definition into a CipherStash `EncryptedTable` schema for the SDK. |
+| `createEncryptionOperators` | Returns an object with all Drizzle query operators wrapped for encrypted columns. |
+| `EncryptedColumnConfig` | Type alias for the column configuration object (`dataType`, `equality`, `freeTextSearch`, `orderAndRange`, `searchableJson`). |
+| `EncryptionConfigError` | Thrown when a column lacks the index required by an operator. |
+| `EncryptionOperatorError` | Thrown for operator-level failures (invalid arguments, unsupported operations). |
 
 ## Encrypted query operators
 
@@ -131,10 +131,9 @@ See the [CipherStash CLI reference](/stack/cipherstash/cli) for all `db install`
 
 ## Full API surface
 
-Everything else is in the auto-generated TypeDoc reference:
+The Drizzle adapter now ships as its own package, `@cipherstash/stack-drizzle`. The EQL v3 dialect is on `@cipherstash/stack-drizzle/v3`. See the [Drizzle integration](/integrations/drizzle) for the current, EQL v3 surface:
 
-- [Drizzle module](/stack/reference/stack/latest/packages/stack/src/drizzle) — all exports
-- [`encryptedType`](/stack/reference/stack/latest/packages/stack/src/drizzle/functions/encryptedType) — column builder
-- [`extractEncryptionSchema`](/stack/reference/stack/latest/packages/stack/src/drizzle/functions/extractEncryptionSchema) — schema conversion
-- [`createEncryptionOperators`](/stack/reference/stack/latest/packages/stack/src/drizzle/functions/createEncryptionOperators) — operator factory
-- [`EncryptedColumnConfig`](/stack/reference/stack/latest/packages/stack/src/drizzle/type-aliases/EncryptedColumnConfig) — column config type
+- `encryptedType` — column builder
+- `extractEncryptionSchema` — schema conversion
+- `createEncryptionOperators` — operator factory
+- `EncryptedColumnConfig` — column config type
