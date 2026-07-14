@@ -43,6 +43,12 @@ const MANIFEST_PATH =
   (fs.existsSync(RELEASE_MANIFEST) ? RELEASE_MANIFEST : SAMPLE_MANIFEST);
 const EQL_DIR = path.join(process.cwd(), "content/docs/reference/eql");
 const OUT_FILE = path.join(EQL_DIR, "functions.mdx");
+// Per-type function fragments embedded into the hand-written type pages via
+// Fumadocs' `<include>` directive. They live OUTSIDE the two content
+// collections (content/docs, content/stack) so they never become routes, and
+// are included cwd-relative (`<include cwd>content/partials/…`). Generated, so
+// the per-type "which functions apply" tables can't drift from the manifest.
+const FRAGMENT_DIR = path.join(process.cwd(), "content/partials/eql");
 // Single source for the EQL version the whole reference is built against: the
 // release manifest's own `version`. Written here so the <EqlVersion> banner on
 // every EQL page reads the same release-derived value (no hardcoded constant).
@@ -214,6 +220,129 @@ function render(manifest: Manifest): string {
   return `${body.join("\n").trimEnd()}\n`;
 }
 
+// ── Per-type function fragments ──────────────────────────────────────────────
+// Each hand-written type page (numbers, text, dates-and-times) carries a
+// "Functions available on this type" table. Those tables are mechanical — one
+// row per operator-function, and an "Available on" column listing the variants
+// that expose it — so they're generated from the manifest and `<include>`d into
+// the page rather than hand-maintained (where they silently drifted).
+//
+// json and booleans are intentionally NOT here: json's surface is containment /
+// path functions (a bespoke story, not the eq/ord/min-max matrix), and booleans
+// are storage-only with no query functions.
+interface FragmentSpec {
+  page: string;
+  // Which manifest domain `type`s belong on this page.
+  match: (type: string) => boolean;
+  // Variant naming in the "Available on" column. A single-type page names the
+  // concrete domain (`text_eq`); a type-family page uses the generic suffix
+  // (`_eq`) that stands for the eq variant of whichever numeric/date type.
+  prefix: string;
+}
+
+const FRAGMENT_SPECS: FragmentSpec[] = [
+  {
+    page: "numbers",
+    prefix: "",
+    match: (t) =>
+      /(^|\b)(small|big)?int|integer|numeric|decimal|real|double|float/.test(t),
+  },
+  { page: "text", prefix: "text", match: (t) => t === "text" },
+  { page: "dates-and-times", prefix: "", match: (t) => /date|time/.test(t) },
+];
+
+// One row per operator-function, keyed by the domain capability that enables it.
+// Order matches the hand-written tables (equality, range, containment, aggregate).
+const FUNCTION_ROWS: { fns: string; equiv: string; capability: string }[] = [
+  {
+    fns: "`eql_v3.eq(a, b)` / `eql_v3.neq(a, b)`",
+    equiv: "`=` / `<>`",
+    capability: "equality",
+  },
+  {
+    fns: "`eql_v3.lt` / `lte` / `gt` / `gte`",
+    equiv: "`<` `<=` `>` `>=`",
+    capability: "order",
+  },
+  {
+    fns: "`eql_v3.contains(a, b)` / `eql_v3.contained_by(a, b)`",
+    equiv: "`@>` / `<@`",
+    capability: "match",
+  },
+  {
+    fns: "`eql_v3.min(col)` / `eql_v3.max(col)`",
+    equiv: "aggregate `MIN` / `MAX`",
+    capability: "order",
+  },
+];
+
+// Collapse the variants that expose a capability into a readable "Available on"
+// cell: variants sharing a base (`ord`, `ord_ope`, `ord_ore`) render as "all
+// `_ord` variants"; a lone variant renders as its own token.
+function availabilityCell(
+  domains: Domain[],
+  capability: string,
+  prefix: string,
+): string {
+  const variants = new Set(
+    domains
+      .filter((d) => d.capabilities.includes(capability) && d.variant)
+      .map((d) => d.variant),
+  );
+  const baseOf = (v: string) =>
+    v === "eq"
+      ? "eq"
+      : v.startsWith("ord")
+        ? "ord"
+        : v.startsWith("search")
+          ? "search"
+          : v === "match"
+            ? "match"
+            : v;
+  const byBase = new Map<string, Set<string>>();
+  for (const v of variants) {
+    const b = baseOf(v);
+    (byBase.get(b) ?? byBase.set(b, new Set()).get(b))?.add(v);
+  }
+  const parts: string[] = [];
+  for (const base of ["eq", "ord", "match", "search"]) {
+    const members = byBase.get(base);
+    if (!members) continue;
+    const token = prefix ? `${prefix}_${base}` : `_${base}`;
+    parts.push(members.size > 1 ? `all \`${token}\` variants` : `\`${token}\``);
+  }
+  return parts.join(", ");
+}
+
+function renderFragment(domains: Domain[], spec: FragmentSpec): string {
+  const scoped = domains.filter((d) => spec.match(d.type));
+  const header = `{/* GENERATED — do not edit. Produced by scripts/generate-eql-api-docs.ts from the EQL manifest. Edit the generator, not this file. */}`;
+  const intro =
+    "Every operator has a function form, for managed platforms that disallow custom operators — same typed arguments, identical resolution. The `MIN` / `MAX` aggregates only exist as functions:";
+  if (!scoped.length) {
+    return `${header}\n\n${intro}\n\n_No matching encrypted domains in this EQL manifest._\n`;
+  }
+  const rows = FUNCTION_ROWS.map((r) => ({
+    ...r,
+    cell: availabilityCell(scoped, r.capability, spec.prefix),
+  })).filter((r) => r.cell);
+  const table = [
+    "| Function | Equivalent | Available on |",
+    "| --- | --- | --- |",
+    ...rows.map((r) => `| ${r.fns} | ${r.equiv} | ${r.cell} |`),
+  ].join("\n");
+  return `${header}\n\n${intro}\n\n${table}\n`;
+}
+
+function writeFragments(manifest: Manifest): void {
+  fs.mkdirSync(FRAGMENT_DIR, { recursive: true });
+  for (const spec of FRAGMENT_SPECS) {
+    const out = path.join(FRAGMENT_DIR, `functions-${spec.page}.mdx`);
+    fs.writeFileSync(out, renderFragment(manifest.domains ?? [], spec));
+    console.log(`✓ Generated ${path.relative(process.cwd(), out)}`);
+  }
+}
+
 // ── Drift guard ──────────────────────────────────────────────────────────────
 // The known surface is fully schema-qualified: domains live in `public.`,
 // functions in `eql_v3.` (public) or `eql_v3_internal.` (private), and the
@@ -284,6 +413,9 @@ function main() {
 
   fs.mkdirSync(EQL_DIR, { recursive: true });
   fs.writeFileSync(OUT_FILE, render(manifest));
+
+  // Per-type function fragments included into the hand-written type pages.
+  writeFragments(manifest);
 
   // Emit the release version for the <EqlVersion> banner (shared by every EQL
   // reference page, hand-written and generated alike).

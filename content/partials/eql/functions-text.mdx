@@ -1,0 +1,10 @@
+{/* GENERATED — do not edit. Produced by scripts/generate-eql-api-docs.ts from the EQL manifest. Edit the generator, not this file. */}
+
+Every operator has a function form, for managed platforms that disallow custom operators — same typed arguments, identical resolution. The `MIN` / `MAX` aggregates only exist as functions:
+
+| Function | Equivalent | Available on |
+| --- | --- | --- |
+| `eql_v3.eq(a, b)` / `eql_v3.neq(a, b)` | `=` / `<>` | `text_eq`, all `text_ord` variants, all `text_search` variants |
+| `eql_v3.lt` / `lte` / `gt` / `gte` | `<` `<=` `>` `>=` | all `text_ord` variants, all `text_search` variants |
+| `eql_v3.contains(a, b)` / `eql_v3.contained_by(a, b)` | `@>` / `<@` | `text_match`, all `text_search` variants |
+| `eql_v3.min(col)` / `eql_v3.max(col)` | aggregate `MIN` / `MAX` | all `text_ord` variants, all `text_search` variants |

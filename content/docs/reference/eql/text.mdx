@@ -101,14 +101,7 @@ Blocked *operator* cells raise an `operator … is not supported` exception — 
 
 ## Functions
 
-Every operator has a function form, for managed platforms that disallow custom operators — same typed arguments, identical resolution. The `MIN` / `MAX` aggregates only exist as functions:
-
-| Function | Equivalent | Available on |
-| --- | --- | --- |
-| `eql_v3.eq(a, b)` / `eql_v3.neq(a, b)` | `=` / `<>` | `text_eq`, all `text_ord` variants, all `text_search` variants |
-| `eql_v3.lt` / `lte` / `gt` / `gte` | `<` `<=` `>` `>=` | all `text_ord` variants, all `text_search` variants |
-| `eql_v3.contains(a, b)` / `eql_v3.contained_by(a, b)` | `@>` / `<@` | `text_match`, all `text_search` variants |
-| `eql_v3.min(col)` / `eql_v3.max(col)` | aggregate `MIN` / `MAX` | all `text_ord` variants, all `text_search` variants |
+<include cwd>content/partials/eql/functions-text.mdx</include>
 
 There are no `like` / `ilike` function forms — encrypted text matching is `eql_v3.contains` on a `text_match` value.
 

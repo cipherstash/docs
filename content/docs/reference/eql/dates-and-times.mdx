@@ -95,13 +95,7 @@ Blocked *operator* cells raise an `operator … is not supported` exception — 
 
 ## Functions
 
-Every operator has a function form, for managed platforms that disallow custom operators — same typed arguments, identical resolution. The `MIN` / `MAX` aggregates only exist as functions:
-
-| Function | Equivalent | Available on |
-| --- | --- | --- |
-| `eql_v3.eq(a, b)` / `eql_v3.neq(a, b)` | `=` / `<>` | `_eq`, all `_ord` variants |
-| `eql_v3.lt` / `lte` / `gt` / `gte` | `<` `<=` `>` `>=` | all `_ord` variants |
-| `eql_v3.min(col)` / `eql_v3.max(col)` | aggregate `MIN` / `MAX` | all `_ord` variants |
+<include cwd>content/partials/eql/functions-dates-and-times.mdx</include>
 
 ## Example queries
 
