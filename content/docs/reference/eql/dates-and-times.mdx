@@ -1,0 +1,153 @@
+---
+title: Dates & times
+description: "The complete reference for encrypted date and timestamp columns: the domain variants, the ORE-backed payload, and time-window, newest-first, and MIN/MAX queries."
+type: reference
+components: [eql]
+verifiedAgainst:
+  eql: "3.0.0"
+---
+
+<EqlVersion />
+
+`date` and `timestamp` columns carry the same capabilities as [encrypted numbers](/reference/eql/numbers) — equality, ranges, ordering, `MIN` / `MAX` — but the queries they serve are temporal: time windows, newest-first listings, retention cutoffs, "when did this last happen".
+
+## Variants
+
+Both types generate the same `jsonb`-backed domain variants. The generic form:
+
+| Domain variant | Capability |
+| --- | --- |
+| `public.<T>` | Storage and decryption only. |
+| `public.<T>_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
+| `public.<T>_ord` | Comparisons, `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
+| `public.<T>_ord_ore` | As `<T>_ord`, with the ORE mechanism pinned — see [SEM specifiers](#sem-specifiers). |
+
+And every concrete domain this page covers:
+
+| Type | Variants |
+| --- | --- |
+| `date` | `public.date` · `public.date_eq` · `public.date_ord` · `public.date_ord_ore` |
+| `timestamp` | `public.timestamp` · `public.timestamp_eq` · `public.timestamp_ord` · `public.timestamp_ord_ore` |
+
+Time columns are nearly always ranged and sorted, so `_ord` is the usual choice. Declare only the capability you query on — each capability stores extra searchable material with defined leakage (see [Searchable encryption](/concepts/searchable-encryption)), and the variant model itself is covered in [Core concepts](/reference/eql/core-concepts).
+
+### Example
+
+An audit-events table where the timestamps drive time-window queries and sorting:
+
+```sql
+CREATE TABLE audit_events (
+    id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    occurred_at public.timestamp_ord,  -- time windows, newest-first, MIN/MAX
+    review_due  public.date_ord,       -- range filters
+    sealed_on   public.date            -- store and decrypt only
+);
+```
+
+### SEM specifiers
+
+Both types take the same mechanism specifiers on their orderable variant (the concept is defined in [Core concepts](/reference/eql/core-concepts#sem-specifiers)):
+
+| Specifier | Meaning |
+| --- | --- |
+| `_ord` | Orderable, using EQL's default mechanism (currently ORE). |
+| `_ord_ore` | Orderable via ORE, pinned explicitly. |
+
+The EQL v3 release adds an OPE specifier for every orderable type; unspecified `_ord` columns keep tracking the default.
+
+## Payload
+
+A value for an `_ord` column carries the shared envelope keys (`v`, `i`, `c` — see [Core concepts](/reference/eql/core-concepts)) plus the `ob` ordering term. Here is a payload for the `public.timestamp_ord` `occurred_at` column:
+
+```json
+{
+  "v": 3,
+  "i": { "t": "audit_events", "c": "occurred_at" },
+  "c": "mBbKmsMM%bK#QQOx1yLDBHyD...",
+  "ob": [
+    "7a1fd0c2...", "d24c9be1...", "03fa66b8...", "91b7e04d...",
+    "5c28aa19...", "e6f3071c...", "48d92ab5...", "0b64cf37...",
+    "2ce8b1f4...", "a90d57e2...", "6f13c8ba...", "d4720e95..."
+  ]
+}
+```
+
+- **`ob` is the only index term.** An `_ord` payload carries no `hm`: equality on `_ord` variants compares ORE terms, which collapse to equality — see [Core concepts](/reference/eql/core-concepts).
+- **The `ob` block count varies with the plaintext width** — `timestamp` values carry 12 blocks.
+
+## Operators
+
+| SQL operator | `public.<T>` | `<T>_eq` | `<T>_ord` / `<T>_ord_ore` |
+| --- | :---: | :---: | :---: |
+| `=` / `<>` | ❌ | ✅ | ✅ |
+| `<` `<=` `>` `>=` | ❌ | ❌ | ✅ |
+| `BETWEEN` (desugars to `>=` and `<=`) | ❌ | ❌ | ✅ |
+| `IN` (desugars to `=`) | ❌ | ✅ | ✅ |
+| `GROUP BY` / `DISTINCT` | ❌ | ✅ | ✅ |
+| `ORDER BY` | ❌ | ❌ | ✅ |
+| `IS NULL` / `IS NOT NULL` | ✅ | ✅ | ✅ |
+
+Blocked *operator* cells raise an `operator … is not supported` exception — they never silently return wrong rows. `ORDER BY` is the one blocked cell that doesn't raise: it isn't an operator, so sorting a variant without an ordering term runs — but the order is meaningless (see [Sorting](/reference/eql/sorting)). Operands must be typed (`$1::public.timestamp_ord`), or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one. Both rules are covered in [Core concepts](/reference/eql/core-concepts).
+
+## Functions
+
+Every operator has a function form, for managed platforms that disallow custom operators — same typed arguments, identical resolution. The `MIN` / `MAX` aggregates only exist as functions:
+
+| Function | Equivalent | Available on |
+| --- | --- | --- |
+| `eql_v3.eq(a, b)` / `eql_v3.neq(a, b)` | `=` / `<>` | `_eq`, `_ord` / `_ord_ore` |
+| `eql_v3.lt` / `lte` / `gt` / `gte` | `<` `<=` `>` `>=` | `_ord` / `_ord_ore` |
+| `eql_v3.min(col)` / `eql_v3.max(col)` | aggregate `MIN` / `MAX` | `_ord` / `_ord_ore` |
+
+## Example queries
+
+### Time window
+
+```sql
+SELECT * FROM audit_events
+WHERE occurred_at BETWEEN $1::public.timestamp_ord AND $2::public.timestamp_ord;
+
+SELECT * FROM audit_events
+WHERE review_due BETWEEN $1::public.date_ord AND $2::public.date_ord;
+```
+
+### Retention cutoff
+
+```sql
+SELECT id FROM audit_events
+WHERE occurred_at < $1::public.timestamp_ord;
+```
+
+### Newest-first listing
+
+Write the sort key in extractor form to stream rows out of the index already ordered — at large row counts this is the difference between seconds and milliseconds (see [Sorting](/reference/eql/sorting)):
+
+```sql
+SELECT * FROM audit_events
+WHERE occurred_at >= $1::public.timestamp_ord
+ORDER BY eql_v3.ord_term(occurred_at) DESC
+LIMIT 10;
+```
+
+### First and last event
+
+```sql
+SELECT eql_v3.min(occurred_at), eql_v3.max(occurred_at) FROM audit_events;
+```
+
+## Where to next
+
+<Cards>
+  <Card title="Numbers" href="/reference/eql/numbers">
+    The same capabilities on int, float, and numeric columns.
+  </Card>
+  <Card title="Indexes" href="/reference/eql/indexes">
+    Btree recipes on `eql_v3.ord_term` for range, ORDER BY, and MIN/MAX.
+  </Card>
+  <Card title="Sorting" href="/reference/eql/sorting">
+    Why the extractor-form sort key matters, and how to verify with EXPLAIN.
+  </Card>
+  <Card title="Filtering" href="/reference/eql/filtering">
+    WHERE-clause patterns across all encrypted types.
+  </Card>
+</Cards>

@@ -1,0 +1,105 @@
+---
+title: Choose your stack
+description: "Pick an integration path: SDK or Proxy, your Postgres platform, your ORM, and your identity provider."
+type: guide
+components: [encryption, proxy, eql, platform]
+audience: [developer, cto]
+---
+
+Four decisions, in order. The first one matters most; the rest usually follow from what you already run.
+
+## 1. SDK or Proxy
+
+|  | [Stack SDK](/reference/stack) | [Proxy](/reference/proxy) |
+|---|---|---|
+| Where encryption happens | In your application process | In the proxy, which you run |
+| Application changes | Encrypt and decrypt calls, or an ORM wrapper that adds them for you | Point your connection string at the proxy |
+| Best when | You own the code and want fine-grained control | You cannot change the application, or it isn't TypeScript |
+| Language | TypeScript / JavaScript | Any. It speaks the Postgres wire protocol |
+| Runs where | Your app | A container or sidecar in your infrastructure |
+
+Both produce the same ciphertext and both speak [EQL](/reference/eql), so this is not a one-way door. You can move a table from one to the other without re-encrypting it.
+
+Start with the SDK unless you already know you can't change the application.
+
+## 2. Your Postgres
+
+EQL installs into any Postgres you can connect to. It needs no extension, no superuser, and no `postgresql.conf` changes.
+
+| Platform | Works | Notes |
+|---|---|---|
+| Supabase | Yes | [Supabase integration](/integrations/supabase). Expose the `eql_v3` schema in the dashboard. |
+| Neon, RDS, Aurora, Cloud SQL | Yes | `stash eql install` detects a non-superuser role and adapts. |
+| Self-hosted Postgres | Yes | Full operator-class support, so the ORE ordering mechanism is available. |
+| Postgres behind PgBouncer | Yes | Transaction pooling is fine. Proxy has its own pooling. |
+| DynamoDB | Yes, without EQL | [DynamoDB integration](/stack/cipherstash/encryption/dynamodb). Encrypted attributes and HMAC key lookups; no EQL, because there's no Postgres. |
+| MySQL, MongoDB, others | Not yet | The SDK still encrypts values for you, but nothing is queryable server-side. |
+
+<Callout type="info">
+Managed platforms usually block custom operator class creation. That's why the default ordering mechanism is moving to OPE, which indexes under Postgres's default btree operator class. See [SEM specifiers](/reference/eql/core-concepts#sem-specifiers).
+</Callout>
+
+## 3. Your ORM
+
+| Query layer | Path | What it looks like |
+|---|---|---|
+| Drizzle | [Drizzle integration](/stack/cipherstash/encryption/drizzle) | An `encryptedType` column and typed query operators. Your Drizzle code keeps its shape. |
+| Supabase JS | [Supabase integration](/integrations/supabase) | `encryptedSupabase` wraps the client. `.eq()`, `.like()`, `.gt()` keep working. |
+| Prisma | [Prisma integration](/stack/cipherstash/encryption/prisma-next) | Encrypt in the data layer around Prisma calls. |
+| Raw SQL | [Quickstart](/get-started/quickstart) | Encrypt the value, insert it, cast the query operand. |
+| An ORM we don't list | The SDK | Encrypt before write, decrypt after read. Every ORM supports that. |
+
+If you use no ORM, nothing is missing. The SDK's `encrypt` and `encryptQuery` are the whole surface.
+
+## 4. Identity binding
+
+Reach for this when a value should be decryptable only by the user it belongs to, rather than by anything holding the application's credentials. It is also what shrinks the blast radius of a compromised application process.
+
+It requires an OIDC provider, registered on the [OIDC providers](https://dashboard.cipherstash.com/workspaces/_/oidc-providers) page in the Dashboard.
+
+| Provider | Supported |
+|---|---|
+| Supabase Auth | Yes |
+| Clerk | Yes |
+| Auth0 | Yes |
+| Okta | Yes |
+| Any OIDC issuer | Yes, if it publishes a discovery endpoint |
+
+See [provable access control](/solutions/provable-access) for what this buys you, and what it does not.
+
+## Where CipherStash sits among the encryption you already have
+
+Encryption at rest and in transit are not alternatives to this. They protect different things, and you should keep both.
+
+| | At rest | In transit | In use |
+|---|---|---|---|
+| Protects the disk | Yes | No | Yes |
+| Protects the wire | No | Yes | Yes |
+| Protects during a query | No | No | Yes |
+| Plaintext visible to the database | Yes | Yes | **No** |
+| Queryable without decrypting | n/a | n/a | Yes |
+
+A database breach defeats encryption at rest, because the database decrypts on read. That is the gap this fills.
+
+## From development to production
+
+| Stage | Credentials | Setup |
+|---|---|---|
+| Local development | Device-based | `stash init` per developer. No environment variables. |
+| CI and staging | Machine | An application client key, plus `CS_*` environment variables. |
+| Production | Machine | Same, with the client key held in your secret manager. |
+
+Device auth gives each developer their own identity, so local decryptions are attributable. There's no interactive device in CI, hence the switch. See [going to production](/stack/deploy/going-to-production).
+
+## Still not sure
+
+A [discovery session](https://cipherstash.com/contact) is a 60-minute conversation with our engineering team. No slides. Bring whoever owns the data layer, and a compliance lead if that's someone else.
+
+Worth thinking through beforehand:
+
+- Which fields are sensitive, and which regulations cover them.
+- Whether you need those fields **searchable**, or only stored and retrieved. Encrypt-only columns carry no index terms and leak nothing.
+- Whether you need per-user decryption, or per-tenant isolation, or both.
+- Your database, ORM, and deployment target, plus any restriction on native Node modules.
+
+You'll leave with a recommended path and answers to whatever is blocking you.

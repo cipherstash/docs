@@ -1,0 +1,31 @@
+---
+title: stash schema
+description: "Reference for the `stash schema` commands."
+type: reference
+components: [cli, eql]
+verifiedAgainst:
+  cli: "0.17.0"
+---
+
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v0.17.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
+
+<Callout type="info">
+Generated from **`stash` v0.17.0** via `npx stash@0.17.0 manifest --json`. Run `npx stash@0.17.0 --help` to see the live command surface.
+</Callout>
+
+The `stash schema` command group.
+
+### `schema build`
+
+Build an encryption schema from your database
+
+```bash
+npx stash schema build [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--supabase` | Use Supabase-compatible mode. |
+| `--database-url <url>` | Override DATABASE_URL for this run only — never written to disk. (env: `DATABASE_URL`) |

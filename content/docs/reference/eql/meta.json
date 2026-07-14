@@ -1,0 +1,23 @@
+{
+  "title": "EQL",
+  "pages": [
+    "core-concepts",
+    "---Types---",
+    "numbers",
+    "dates-and-times",
+    "text",
+    "json",
+    "booleans",
+    "---Indexes---",
+    "indexes",
+    "---Queries---",
+    "filtering",
+    "sorting",
+    "grouping-and-aggregates",
+    "joins",
+    "---Reference---",
+    "functions",
+    "---Previous versions---",
+    "v2"
+  ]
+}

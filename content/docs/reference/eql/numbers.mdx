@@ -1,0 +1,163 @@
+---
+title: Numbers
+description: "The complete reference for encrypted numeric columns: the int, float, and numeric domain variants, the ORE-backed payload they carry, and range, ORDER BY, and MIN/MAX queries."
+type: reference
+components: [eql]
+verifiedAgainst:
+  eql: "3.0.0"
+---
+
+<EqlVersion />
+
+Six numeric types share one identical query surface: `int2`, `int4`, `int8`, `float4`, `float8`, and `numeric`. These are the columns you filter by range, sort, and take a `MIN` / `MAX` over — salaries, totals, rates, quantities.
+
+Date and time columns have the same capabilities but their own semantics — see [Dates & times](/reference/eql/dates-and-times). There is no free-text matching for numeric types — `_match` and `_search` are [text-only variants](/reference/eql/text).
+
+## Variants
+
+Each numeric type generates the same `jsonb`-backed domain variants. The generic form:
+
+| Domain variant | Capability |
+| --- | --- |
+| `public.<T>` | Storage and decryption only. |
+| `public.<T>_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
+| `public.<T>_ord` | Comparisons, `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
+| `public.<T>_ord_ore` | As `<T>_ord`, with the ORE mechanism pinned — see [SEM specifiers](#sem-specifiers). |
+
+And every concrete domain this page covers:
+
+| Type | Variants |
+| --- | --- |
+| `int2` | `public.smallint` · `public.smallint_eq` · `public.smallint_ord` · `public.smallint_ord_ore` |
+| `int4` | `public.integer` · `public.integer_eq` · `public.integer_ord` · `public.integer_ord_ore` |
+| `int8` | `public.bigint` · `public.bigint_eq` · `public.bigint_ord` · `public.bigint_ord_ore` |
+| `float4` | `public.real` · `public.real_eq` · `public.real_ord` · `public.real_ord_ore` |
+| `float8` | `public.double` · `public.double_eq` · `public.double_ord` · `public.double_ord_ore` |
+| `numeric` | `public.numeric` · `public.numeric_eq` · `public.numeric_ord` · `public.numeric_ord_ore` |
+
+Declare only the capability you query on — each capability stores extra searchable material with defined leakage (see [Searchable encryption](/concepts/searchable-encryption)), and the variant model itself is covered in [Core concepts](/reference/eql/core-concepts).
+
+### Example
+
+A payroll table mixing the variants by how each column is queried:
+
+```sql
+CREATE TABLE employees (
+    id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    salary     public.bigint_ord,       -- range queries, ORDER BY, MIN/MAX
+    tax_rate   public.numeric_eq,     -- exact lookup only
+    net_worth  public.numeric         -- store and decrypt only, never queried
+);
+```
+
+### SEM specifiers
+
+All six types take the same mechanism specifiers on their orderable variant (the concept is defined in [Core concepts](/reference/eql/core-concepts#sem-specifiers)):
+
+| Specifier | Meaning |
+| --- | --- |
+| `_ord` | Orderable, using EQL's default mechanism (currently ORE). |
+| `_ord_ore` | Orderable via ORE, pinned explicitly. |
+
+The EQL v3 release adds an OPE specifier for every orderable type; unspecified `_ord` columns keep tracking the default.
+
+## Payload
+
+A value for an `_ord` column carries the shared envelope keys (`v`, `i`, `c` — see [Core concepts](/reference/eql/core-concepts)) plus the `ob` ordering term. Here is a payload for the `public.bigint_ord` `salary` column:
+
+```json
+{
+  "v": 3,
+  "i": { "t": "employees", "c": "salary" },
+  "c": "mBbKmsMM%bK#QQOx1yLDBHyD...",
+  "ob": [
+    "7a1fd0c2...", "d24c9be1...", "03fa66b8...", "91b7e04d...",
+    "5c28aa19...", "e6f3071c...", "48d92ab5...", "0b64cf37..."
+  ]
+}
+```
+
+- **`ob` is the only index term.** An `_ord` payload carries no `hm`: equality on `_ord` variants compares ORE terms, which collapse to equality — see [Core concepts](/reference/eql/core-concepts). Only `_eq` payloads carry `hm` (a single hex HMAC-SHA-256 string) instead of `ob`.
+- **The `ob` block count varies with the plaintext width**: 8 blocks for the int types, 14 for `numeric`.
+
+## Operators
+
+| SQL operator | `public.<T>` | `<T>_eq` | `<T>_ord` / `<T>_ord_ore` |
+| --- | :---: | :---: | :---: |
+| `=` / `<>` | ❌ | ✅ | ✅ |
+| `<` `<=` `>` `>=` | ❌ | ❌ | ✅ |
+| `BETWEEN` (desugars to `>=` and `<=`) | ❌ | ❌ | ✅ |
+| `IN` (desugars to `=`) | ❌ | ✅ | ✅ |
+| `GROUP BY` / `DISTINCT` | ❌ | ✅ | ✅ |
+| `ORDER BY` | ❌ | ❌ | ✅ |
+| `IS NULL` / `IS NOT NULL` | ✅ | ✅ | ✅ |
+
+Blocked *operator* cells raise an `operator … is not supported` exception — they never silently return wrong rows. `ORDER BY` is the one blocked cell that doesn't raise: it isn't an operator, so sorting a variant without an ordering term runs — but the order is meaningless (see [Sorting](/reference/eql/sorting)). Operands must be typed (`$1::public.bigint_ord`), or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one. Both rules are covered in [Core concepts](/reference/eql/core-concepts).
+
+## Functions
+
+Every operator has a function form, for managed platforms that disallow custom operators — same typed arguments, identical resolution. The `MIN` / `MAX` aggregates only exist as functions:
+
+| Function | Equivalent | Available on |
+| --- | --- | --- |
+| `eql_v3.eq(a, b)` / `eql_v3.neq(a, b)` | `=` / `<>` | `_eq`, `_ord` / `_ord_ore` |
+| `eql_v3.lt` / `lte` / `gt` / `gte` | `<` `<=` `>` `>=` | `_ord` / `_ord_ore` |
+| `eql_v3.min(col)` / `eql_v3.max(col)` | aggregate `MIN` / `MAX` | `_ord` / `_ord_ore` |
+
+**`SUM`, `AVG`, and other arithmetic aggregates are not supported** on encrypted columns — they would require homomorphic encryption. `MIN` / `MAX` work because they only need comparison; for sums and averages, decrypt at the application boundary and aggregate client-side.
+
+## Example queries
+
+### Range filter
+
+```sql
+SELECT * FROM employees
+WHERE salary >= $1::public.bigint_ord;
+
+SELECT * FROM employees
+WHERE salary BETWEEN $1::public.bigint_ord AND $2::public.bigint_ord;
+```
+
+### MIN and MAX
+
+`eql_v3.min` / `eql_v3.max` compare ORE terms — no decryption happens in the database, and the encrypted result decrypts in the client. `NULL` inputs are skipped; an all-`NULL` input set returns `NULL`:
+
+```sql
+SELECT eql_v3.min(salary) FROM employees;
+SELECT eql_v3.max(salary) FROM employees;
+```
+
+### Sorted listing
+
+Write the sort key in extractor form to stream rows out of the index already ordered (see [Sorting](/reference/eql/sorting) for why):
+
+```sql
+SELECT * FROM employees
+ORDER BY eql_v3.ord_term(salary) DESC
+LIMIT 10;
+```
+
+### Cast at the call site
+
+On a generic `jsonb` column whose payloads already carry the `ob` term, cast to the right domain in the query:
+
+```sql
+SELECT eql_v3.min(salary_jsonb::public.bigint_ord) FROM employees;
+```
+
+## Where to next
+
+<Cards>
+  <Card title="Dates & times" href="/reference/eql/dates-and-times">
+    The same capabilities on date and timestamp columns.
+  </Card>
+  <Card title="Indexes" href="/reference/eql/indexes">
+    Btree recipes on `eql_v3.ord_term` for range, ORDER BY, and MIN/MAX.
+  </Card>
+  <Card title="Filtering" href="/reference/eql/filtering">
+    WHERE-clause patterns across all encrypted types.
+  </Card>
+  <Card title="Grouping & aggregates" href="/reference/eql/grouping-and-aggregates">
+    GROUP BY, DISTINCT, and the aggregate surface on encrypted columns.
+  </Card>
+</Cards>

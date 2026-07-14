@@ -1,5 +1,5 @@
 import { getPostHogClient } from "@/lib/posthog/server";
-import { source } from "@/lib/source";
+import { source, v2source } from "@/lib/source";
 
 export const revalidate = false;
 
@@ -21,7 +21,8 @@ export async function GET(request: Request) {
   const lines: string[] = [];
   lines.push("# Documentation");
   lines.push("");
-  for (const page of source.getPages()) {
+  // V2 tree first: it's the canonical IA once the migration completes.
+  for (const page of [...v2source.getPages(), ...source.getPages()]) {
     lines.push(`- [${page.data.title}](${page.url}): ${page.data.description}`);
   }
   return new Response(lines.join("\n"));

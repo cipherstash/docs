@@ -1,0 +1,41 @@
+---
+title: stash init
+description: "Initialize CipherStash for your project"
+type: reference
+components: [cli]
+verifiedAgainst:
+  cli: "0.17.0"
+---
+
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v0.17.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
+
+<Callout type="info">
+Generated from **`stash` v0.17.0** via `npx stash@0.17.0 manifest --json`. Run `npx stash@0.17.0 --help` to see the live command surface.
+</Callout>
+
+Initialize CipherStash for your project
+
+```bash
+npx stash init [flags]
+```
+
+### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--supabase` | Use Supabase-specific setup flow. |
+| `--drizzle` | Use Drizzle-specific setup flow. |
+| `--prisma-next` | Use Prisma Next-specific setup flow (EQL bundle installed via prisma-next migration apply). |
+| `--proxy` | Query encrypted data via CipherStash Proxy. |
+| `--no-proxy` | Query encrypted data directly via the SDK. (default: `true`) |
+| `--region <slug>` | Region to authenticate against (e.g. us-east-1). Skips the interactive region picker. Required for non-interactive init when not already logged in. (env: `STASH_REGION`) |
+
+
+## Examples
+
+```bash
+npx stash init
+npx stash init --supabase
+npx stash init --prisma-next
+npx stash init --region us-east-1
+```

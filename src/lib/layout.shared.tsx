@@ -9,11 +9,13 @@ export const gitConfig = {
 function Logo() {
   return (
     <div className="flex items-center gap-3">
+      {/* biome-ignore lint/performance/noImgElement: static SVG logo; next/image gives no benefit for SVGs and would need extra config */}
       <img
         src="/docs/images/cipherstash-logo-dark.svg"
         alt="CipherStash"
         className="h-5 w-5 hidden dark:block"
       />
+      {/* biome-ignore lint/performance/noImgElement: static SVG logo; next/image gives no benefit for SVGs and would need extra config */}
       <img
         src="/docs/images/cipherstash-logo-light.svg"
         alt="CipherStash"

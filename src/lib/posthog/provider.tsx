@@ -1,13 +1,13 @@
 "use client";
 
-import posthog from "posthog-js";
 import { usePathname, useSearchParams } from "next/navigation";
+import posthog from "posthog-js";
 import {
-  Suspense,
   createContext,
+  type ReactNode,
+  Suspense,
   useContext,
   useEffect,
-  type ReactNode,
 } from "react";
 
 const PostHogContext = createContext<typeof posthog | null>(null);

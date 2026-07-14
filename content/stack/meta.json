@@ -1,8 +1,3 @@
 {
-  "pages": [
-    "quickstart",
-    "cipherstash",
-    "deploy",
-    "reference"
-  ]
+  "pages": ["quickstart", "cipherstash", "deploy", "reference"]
 }

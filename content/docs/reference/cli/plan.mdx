@@ -1,0 +1,35 @@
+---
+title: stash plan
+description: "Draft a reviewable encryption plan at .cipherstash/plan.md"
+type: reference
+components: [cli]
+verifiedAgainst:
+  cli: "0.17.0"
+---
+
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v0.17.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
+
+<Callout type="info">
+Generated from **`stash` v0.17.0** via `npx stash@0.17.0 manifest --json`. Run `npx stash@0.17.0 --help` to see the live command surface.
+</Callout>
+
+Draft a reviewable encryption plan at .cipherstash/plan.md
+
+```bash
+npx stash plan [flags]
+```
+
+### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--complete-rollout` | Plan the entire encryption lifecycle (schema-add through drop) in one document. Skips the production-deploy gate; only safe when this database is not backing a deployed application. |
+| `--target <name>` | Skip the agent-target picker and hand off directly to one of claude-code \| codex \| agents-md \| wizard. Safe in non-TTY contexts. |
+
+
+## Examples
+
+```bash
+npx stash plan
+npx stash plan --target claude-code
+```

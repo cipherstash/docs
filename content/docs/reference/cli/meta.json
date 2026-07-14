@@ -1,0 +1,25 @@
+{
+  "title": "CLI",
+  "pages": [
+    "---Setup & workflow---",
+    "init",
+    "plan",
+    "impl",
+    "status",
+    "wizard",
+    "doctor",
+    "manifest",
+    "---Auth---",
+    "auth",
+    "---EQL---",
+    "eql",
+    "---Database---",
+    "db",
+    "---Schema---",
+    "schema",
+    "---Encrypt---",
+    "encrypt",
+    "---Experimental---",
+    "env"
+  ]
+}
