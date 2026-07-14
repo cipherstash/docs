@@ -1,0 +1,137 @@
+---
+title: Supabase Auth
+description: "Federate the Supabase Auth session into CipherStash so encryption authenticates as the signed-in user — then, optionally, lock decryption to that user's identity."
+type: guide
+components: [encryption, platform]
+audience: [developer]
+verifiedAgainst:
+  stack: "1.0.0-rc.0"
+  auth: "0.41.0"
+---
+
+Supabase Auth already knows who your user is. This page connects that identity to CipherStash in two layers you can adopt independently:
+
+1. **Federation** — exchange the user's Supabase session for a CipherStash token, so every encryption and decryption request authenticates *as that user* instead of as a shared service credential. This is the foundation.
+2. **Identity-bound encryption (lock context)** — an optional layer on top of federation that binds a value to the user's identity claim, so only that user can decrypt it — enforced by ZeroKMS, not by your application code.
+
+Federation is useful on its own. Lock context requires it. Start with federation; add lock context where per-user secrecy matters.
+
+## Register Supabase as an OIDC provider
+
+CipherStash needs to trust your Supabase project as an OIDC issuer before it will accept a Supabase session token. Add the provider once, in the CipherStash dashboard at [dashboard.cipherstash.com/workspaces/_/oidc-providers](https://dashboard.cipherstash.com/workspaces/_/oidc-providers) (the `_` resolves to whichever workspace you select). A Supabase project's issuer is:
+
+```
+https://<project-ref>.supabase.co/auth/v1
+```
+
+> **Good to know**: the dashboard's [Supabase integration](/integrations/supabase/fundamentals#connecting-your-project-to-cipherstash) can register this for you in one click while it's connected to your project over OAuth. Manual OIDC configuration is covered in the [auth reference](/reference/auth).
+
+## Federate the Supabase session
+
+Authenticate the `Encryption` client with an `OidcFederationStrategy`. It takes your workspace CRN and a `getJwt` callback that returns the user's **current** Supabase access token — the strategy calls it on first use and again on every re-federation, so return a fresh token each time rather than capturing one:
+
+```typescript title="lib/db.ts"
+import { createClient } from "@supabase/supabase-js"
+import { OidcFederationStrategy } from "@cipherstash/stack"
+import { encryptedSupabaseV3 } from "@cipherstash/stack-supabase"
+
+const supabaseClient = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!,
+)
+
+// Return the current Supabase session token — re-invoked on every re-federation.
+const getJwt = async () => {
+  const { data: { session } } = await supabaseClient.auth.getSession()
+  if (!session) throw new Error("No active Supabase session")
+  return session.access_token
+}
+
+export const db = await encryptedSupabaseV3(supabaseClient, {
+  config: {
+    authStrategy: OidcFederationStrategy.create(process.env.CS_WORKSPACE_CRN!, getJwt),
+  },
+})
+```
+
+That's the whole integration. Every `db.from(...)` query now encrypts and decrypts under the signed-in user's identity, and your Supabase Auth session and RLS policies apply to the underlying request exactly as before.
+
+<Callout type="warn">
+Run the federation strategy **server-side only**: a Next.js Route Handler or Server Action, or an Edge Function. Never in the browser, where it would expose the session token. For the Edge runtime, see [Edge Functions](/integrations/supabase/edge-functions).
+
+The federation endpoint issues no refresh token. When the CipherStash token expires, the strategy re-federates by calling `getJwt` again, and because `getJwt` reads from `supabaseClient.auth.getSession()`, supabase-js's own token refresh keeps it valid.
+</Callout>
+
+## Identity-bound encryption (lock context)
+
+Federation authenticates *as* the user. **Lock context** goes further: it bakes a claim from the user's JWT (by default `sub`, which for Supabase Auth is the user's UUID) into the data key, so a value can only be decrypted by presenting the same identity. Even your own backend — holding valid workspace credentials — cannot decrypt another user's locked values.
+
+<Callout type="warn">
+Lock context requires the client to be authenticated with `OidcFederationStrategy` (above). It cannot be used with `AccessKeyStrategy`, which authenticates a *service*, not a user — there is no user `sub` claim to bind to. Lock context also requires a Business or Enterprise workspace plan.
+</Callout>
+
+Attach a lock context to any [`encryptedSupabaseV3`](/reference/stack/supabase) query with `.withLockContext()`. The query builder takes a `LockContext` **instance**. `sub` is the Supabase user's UUID:
+
+```typescript
+import { LockContext } from "@cipherstash/stack/identity"
+import { db } from "./lib/db"
+
+const lockContext = new LockContext({ context: { identityClaim: ["sub"] } })
+
+// Insert — the value is bound to the signed-in user's `sub` claim
+await db.from("patients")
+  .insert({ email: "alice@example.com", name: "Alice Chen" })
+  .withLockContext(lockContext)
+
+// Read — the same user must be authenticated
+const { data } = await db.from("patients")
+  .select("id, email, name")
+  .eq("email", "alice@example.com")
+  .withLockContext(lockContext)
+```
+
+<Callout type="info">
+The query builder's `.withLockContext()` takes a `LockContext` instance. The core `Encryption` client's operations take a plain object instead, as `.withLockContext({ identityClaim: ["sub"] })`. The two surfaces differ.
+</Callout>
+
+ZeroKMS resolves the claim's *value* from the token that authenticated the request — the federated Supabase identity — so no separate identify step or per-operation token is needed. Reading a locked value without a matching context, or as a different user, fails with an encryption error regardless of what RLS allows.
+
+<Callout type="info">
+Earlier releases used `new LockContext().identify(jwt)` to fetch a per-operation token. `identify()` and `getLockContext()` are **deprecated** — per-operation CTS tokens were removed in protect-ffi 0.25. The `LockContext` constructor itself is not deprecated. Authenticate the client with `OidcFederationStrategy` and pass the context straight to `.withLockContext()`, as above.
+</Callout>
+
+## Where it fits
+
+- **Per-user data** (a user's own medical history, messages, documents): lock to `sub`. The row is useless to anyone but its owner — including operators with database access and your own service role.
+- **Shared / tenant data** (a support queue, org-wide records): don't lock it, or you'll be unable to decrypt it outside a user session. Federation alone still authenticates access as the user; RLS scopes which rows they see.
+- **Server-side jobs** that must read locked data need the owning user's session — by design. If a background job must read a field, that field shouldn't be identity-locked.
+
+## Errors
+
+Both federation and lock context surface failures as values, not throws.
+
+| Scenario | What you see |
+| --- | --- |
+| Provider not registered with the workspace | Federation fails — register the Supabase OIDC issuer first |
+| Expired or invalid Supabase session | `getJwt` throws / returns no session; federation cannot proceed |
+| CipherStash token expired mid-request | Strategy re-federates automatically via `getJwt` |
+| Decrypting another user's locked value | `encryptionError` on the [query response](/reference/stack/supabase#responses-and-errors) |
+
+The strategy's own factory and token errors follow the `@cipherstash/auth` `Result` shape (`failure.type`); see the [auth reference](/reference/auth).
+
+## Where to next
+
+<Cards>
+  <Card title="Identity-aware encryption" href="/concepts/identity-aware-encryption">
+    The concept: federation, lock contexts, and what identity binding proves.
+  </Card>
+  <Card title="Edge Functions" href="/integrations/supabase/edge-functions">
+    Run the federation strategy server-side in Supabase Edge Functions.
+  </Card>
+  <Card title="encryptedSupabaseV3 reference" href="/reference/stack/supabase">
+    `.withLockContext()` and `.audit()` on the query builder.
+  </Card>
+  <Card title="Auth reference" href="/reference/auth">
+    OIDC providers, federation strategies, and access keys.
+  </Card>
+</Cards>

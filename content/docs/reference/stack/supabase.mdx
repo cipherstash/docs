@@ -1,0 +1,257 @@
+---
+title: Supabase wrapper
+description: "The canonical encryptedSupabaseV3 reference: connect-time introspection, the full query-builder surface, and how each filter maps to an encrypted index term."
+type: reference
+components: [encryption, eql]
+audience: [developer]
+verifiedAgainst:
+  stack: "1.0.0-rc.0"
+  eql: "3.0.0"
+---
+
+`encryptedSupabaseV3` wraps a `@supabase/supabase-js` client so that queries on encrypted columns work like queries on plaintext ones. Mutations are encrypted before they leave your app, filter values are encrypted into the matching index term, and results are decrypted on the way back. You keep writing `.eq()`, `.gt()`, `.order()`, and the wrapper handles the encryption on both sides of every call.
+
+This page is the single source of truth for the wrapper's API. The [Supabase integration](/integrations/supabase) shows it in context; the [EQL reference](/reference/eql) covers the database side it queries against.
+
+The wrapper ships as its own package, `@cipherstash/stack-supabase`, which depends on `@cipherstash/stack`:
+
+```bash
+npm install @cipherstash/stack @cipherstash/stack-supabase @supabase/supabase-js
+```
+
+## Setup
+
+`encryptedSupabaseV3` **introspects your database when you call it**. It reads the column types, finds the ones typed as EQL v3 domains, and derives each column's encryption config from the domain. The database already records which columns are encrypted and what they can do, so you do not declare it a second time.
+
+That makes it async, and it makes `.from()` take a table name and nothing else.
+
+```typescript
+import { encryptedSupabaseV3 } from "@cipherstash/stack-supabase"
+
+const supabase = await encryptedSupabaseV3(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!,
+)
+
+const { data, error } = await supabase
+  .from("users")
+  .select("id, email")
+  .eq("email", "alice@example.com")
+```
+
+Introspection needs a direct Postgres connection, which is a different credential from the Supabase URL and anon key. It reads `DATABASE_URL` from the environment, or `options.databaseUrl` if you pass it.
+
+```typescript
+const supabase = await encryptedSupabaseV3(supabaseUrl, supabaseKey, {
+  databaseUrl: process.env.PG_URL,
+})
+```
+
+Pass an existing client instead of a URL and key when you already build one, for example to attach a Supabase Auth session:
+
+```typescript
+const supabase = await encryptedSupabaseV3(supabaseClient, {
+  databaseUrl: process.env.PG_URL,
+})
+```
+
+### Options
+
+| Option | Type | Purpose |
+| --- | --- | --- |
+| `databaseUrl` | `string` | Postgres connection string used for introspection. Defaults to `process.env.DATABASE_URL`. |
+| `config` | `ClientConfig` | Passed through to the encryption client. `eqlVersion` is forced to `3`. |
+| `schemas` | `Record<string, V3Table>` | Optional declared tables. Adds compile-time types and startup verification. |
+
+### `.from(tableName)`
+
+Returns a query builder that mirrors the supabase-js builder. Columns that are not EQL domains pass through untouched, so mixed plaintext and encrypted tables are the normal case.
+
+<Callout type="warn">
+A table containing an EQL column that this SDK cannot model throws when you name it in `.from()`. The introspector identifies EQL domains by their Postgres comment, so an EQL column from a newer bundle than your SDK is detected, reported, and refused rather than silently read back as raw ciphertext.
+</Callout>
+
+## Declaring columns in the database
+
+The column's domain type is the schema. Declare the capability you query on and nothing more, because each capability stores an extra index term alongside the ciphertext.
+
+```sql
+CREATE TABLE users (
+  id    bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  email public.eql_v3_text_search,  -- equality, ordering, free-text match
+  age   public.eql_v3_integer_ord,  -- equality, ordering
+  name  text                        -- plaintext, untouched
+);
+```
+
+The capability model is the same one the database enforces through [EQL's domain variants](/reference/eql/core-concepts):
+
+| Domain | Enables | EQL term |
+| --- | --- | --- |
+| `public.eql_v3_<T>` | Store and decrypt only | none |
+| `public.eql_v3_<T>_eq` | `.eq()`, `.neq()`, `.in()` | `hm` |
+| `public.eql_v3_<T>_ord` | `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.order()`, plus equality | `op` |
+| `public.eql_v3_text_match` | `.contains()` | `bf` |
+| `public.eql_v3_text_search` | All of the above, on text | `hm`, `op`, `bf` |
+| `public.eql_v3_json` | Encrypted JSON documents | `sv` |
+
+## Optional schemas: types and startup verification
+
+Without `schemas`, rows are `Record<string, unknown>` and any table name is accepted. Declare a table and `.from()` returns a typed builder for it, with row types, filter-value types, and capability-narrowed methods. Declared tables are also verified against the live database before the client is handed back, so a column that was dropped or retyped fails at startup rather than at the first query.
+
+```typescript
+import { encryptedSupabaseV3 } from "@cipherstash/stack-supabase"
+import { encryptedTable, types } from "@cipherstash/stack/eql/v3"
+
+const users = encryptedTable("users", {
+  email: types.TextSearch("email"),
+  age: types.IntegerOrd("age"),
+})
+
+const supabase = await encryptedSupabaseV3(supabaseUrl, supabaseKey, {
+  schemas: { users },
+})
+
+// `.gt` is offered on `age`, and rejected on `email`, at compile time
+await supabase.from("users").select("id, email").gt("age", 21)
+```
+
+Each key in `schemas` must equal its table's name. Declaring a table changes what TypeScript knows about it, never how its values are encrypted: a declared and an introspected column build byte-identically.
+
+## Writing data
+
+`insert`, `update`, and `upsert` encrypt every encrypted column before the request leaves your process. All values in a batch are encrypted in a single ZeroKMS round trip, so large inserts do not multiply key-service calls.
+
+```typescript
+await supabase.from("users").insert({
+  email: "alice@example.com",  // encrypted
+  age: 30,                     // encrypted
+  name: "Alice Chen",          // plaintext column, passes through
+})
+
+await supabase.from("users").update({ age: 31 }).eq("email", "alice@example.com")
+
+await supabase.from("users").delete().eq("email", "alice@example.com")
+```
+
+`insert` and `upsert` accept a single row or an array. `upsert` supports `onConflict` and `ignoreDuplicates` as in supabase-js.
+
+## Reading data
+
+Encrypted columns in the result are decrypted before `data` is returned to you. `select('*')` and a no-argument `select()` both work: the wrapper expands them from the column list it introspected.
+
+```typescript
+const { data, error } = await supabase
+  .from("users")
+  .select("*")
+  .eq("email", "alice@example.com")
+```
+
+## Filters
+
+Every filter value on an encrypted column is encrypted client-side into the term that capability queries, then sent in place of the plaintext. The database only ever compares ciphertext. Filters on plaintext columns pass through to supabase-js unchanged.
+
+| Method | Requires | What the database compares |
+| --- | --- | --- |
+| `.eq()` / `.neq()` | `_eq`, `_ord`, or `text_search` | Equality terms |
+| `.in(col, values)` | `_eq`, `_ord`, or `text_search` | Each element encrypted separately |
+| `.gt()` `.gte()` `.lt()` `.lte()` | `_ord` or `text_search` | Ordering terms |
+| `.contains(col, value)` | `text_match` or `text_search` | Bloom-filter token containment |
+| `.is(col, null)` | any column | Passed through. SQL `NULL` is never encrypted |
+| `.match({ col: value })` | per column | Each pair applied as `.eq()` |
+| `.or(filters)` | per column | Encrypted values inside the filter string are encrypted in place |
+| `.not(col, op, value)` | per operator | Value is encrypted, operator passes through |
+| `.filter(col, op, value)` | per operator | Escape hatch, same as `.not()` |
+
+```typescript
+// Range on an _ord column
+await supabase.from("users").select("id, age").gt("age", 21)
+
+// Encrypted and plaintext filters compose freely
+await supabase
+  .from("users")
+  .select("id, email")
+  .eq("email", "alice@example.com")  // encrypted comparison
+  .eq("name", "Alice Chen")          // ordinary supabase-js filter
+```
+
+### There is no `.like()`
+
+`.like()` and `.ilike()` **throw** on an encrypted column. SQL pattern matching is meaningless on ciphertext, and EQL's free-text search is token containment rather than wildcard matching. They still work on plaintext columns in the same table.
+
+```typescript
+// ❌ throws: "like" is not supported on encrypted column "email"
+await supabase.from("users").select("*").like("email", "%@example.com")
+
+// ✅ encrypted token containment
+await supabase.from("users").select("*").contains("email", "alice@example.com")
+```
+
+`.contains()` tests whether the stored value's encrypted token set contains the search string's. Matching is case-insensitive, and false positives are possible while false negatives are not.
+
+## Ordering and pagination
+
+`.order()` on an `_ord` or `text_search` column sorts on the encrypted ordering terms, which is exactly what that capability exists for. See [ordering encrypted values](/reference/eql/sorting). `.limit()`, `.range()`, `.single()`, `.maybeSingle()`, and `.csv()` behave as in supabase-js.
+
+```typescript
+await supabase.from("users").select("id, email, age").order("age", { ascending: false }).limit(20)
+```
+
+Ordering a column without an ordering term does not error. It sorts on the raw stored payload, which is meaningless.
+
+## Identity and audit
+
+Two methods have no supabase-js equivalent:
+
+```typescript
+await supabase
+  .from("users")
+  .select("id, email")
+  .eq("email", "alice@example.com")
+  .withLockContext(lockContext)
+  .audit({ metadata: { reason: "support-lookup" } })
+```
+
+`.withLockContext(lockContext)` scopes every encrypt and decrypt in the query to an identity-locked context. See the [Supabase Auth integration](/integrations/supabase/auth) for wiring it to Supabase Auth sessions. `.audit(config)` attaches metadata to the query's decryption events in the [audit log](/security/audit-logging).
+
+`.abortSignal()`, `.throwOnError()`, and `.returns<T>()` pass through as in supabase-js.
+
+## Responses and errors
+
+Awaiting the builder resolves to the supabase-js response shape, extended with encryption context:
+
+```typescript
+type EncryptedSupabaseResponse<T> = {
+  data: T | null
+  error: EncryptedSupabaseError | null
+  count: number | null
+  status: number
+  statusText: string
+}
+
+type EncryptedSupabaseError = {
+  message: string
+  details?: string
+  hint?: string
+  code?: string
+  encryptionError?: EncryptionError  // set when encrypt/decrypt failed, not the query
+}
+```
+
+Check `error.encryptionError` to distinguish an encryption failure (bad workspace credentials, unreachable ZeroKMS, a payload that fails validation) from an ordinary PostgREST error.
+
+## How it works
+
+The builder is deferred: method calls record intent, and nothing executes until you `await`. At that point the wrapper, in order:
+
+1. Encrypts mutation payloads, all rows in one ZeroKMS call
+2. Encrypts every filter value on an encrypted column into its index term
+3. Adds `::jsonb` casts to encrypted columns in the `select` list
+4. Replays the recorded calls onto the real supabase-js builder
+5. Decrypts encrypted columns in the response
+
+Because the wrapped client is your own `createClient(...)` instance, Supabase Auth sessions and **Row Level Security policies apply unchanged**. RLS decides which rows come back; encryption decides whether what is in them can be read. Database-side setup (installing EQL, column types, grants, indexes) is covered in [Supabase fundamentals](/integrations/supabase/fundamentals).
+
+## The v2 wrapper
+
+`encryptedSupabase` is the EQL v2 dialect. It ships from the same `@cipherstash/stack-supabase` package and is unchanged from before the 1.0 split. It is synchronous, takes `{ encryptionClient, supabaseClient }`, requires `.from(tableName, schema)` with the schema as a second argument, rejects `select('*')`, and uses `.like()` / `.ilike()` for free-text search. Pick the dialect by function: v2 targets the EQL v2 composite type, v3 targets the `public.eql_v3_*` domains. New work should use `encryptedSupabaseV3`.
