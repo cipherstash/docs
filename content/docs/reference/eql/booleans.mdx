@@ -1,6 +1,6 @@
 ---
 title: Booleans
-description: "Encrypted booleans are storage-only by design: public.boolean stores and decrypts, carries no index terms, and blocks every comparison."
+description: "Encrypted booleans are storage-only by design: public.eql_v3_boolean stores and decrypts, carries no index terms, and blocks every comparison."
 type: reference
 components: [eql]
 verifiedAgainst:
@@ -9,7 +9,7 @@ verifiedAgainst:
 
 <EqlVersion />
 
-Every scalar type has a storage-only variant — for `bool` it's the only one. EQL ships `public.boolean` and nothing else: there is no `bool_eq` and no `bool_ord`. An encrypted boolean column can be stored, decrypted, and null-checked; it cannot be filtered, sorted, grouped, or joined on.
+Every scalar type has a storage-only variant — for `bool` it's the only one. EQL ships `public.eql_v3_boolean` and nothing else: there is no `bool_eq` and no `bool_ord`. An encrypted boolean column can be stored, decrypted, and null-checked; it cannot be filtered, sorted, grouped, or joined on.
 
 ## Why there are no query variants
 
@@ -17,11 +17,11 @@ A two-value column has too little cardinality for any searchable index to be saf
 
 ## What works, what raises
 
-`public.boolean` follows the bare-variant contract described in [Core concepts](/reference/eql/core-concepts#variants-declare-capability): it carries no index terms, so `IS NULL` / `IS NOT NULL` are the only predicates that work. Every comparison operator routes to a blocker and raises — the [fail-loud behavior](/reference/eql/core-concepts#unsupported-operations-fail-loudly) shared by all encrypted variants:
+`public.eql_v3_boolean` follows the bare-variant contract described in [Core concepts](/reference/eql/core-concepts#variants-declare-capability): it carries no index terms, so `IS NULL` / `IS NOT NULL` are the only predicates that work. Every comparison operator routes to a blocker and raises — the [fail-loud behavior](/reference/eql/core-concepts#unsupported-operations-fail-loudly) shared by all encrypted variants:
 
 ```sql
--- ❌ Raises: operator = is not supported for public.boolean
-SELECT * FROM users WHERE is_active = $1::public.boolean;
+-- ❌ Raises: operator = is not supported for public.eql_v3_boolean
+SELECT * FROM users WHERE is_active = $1::public.eql_v3_boolean;
 
 -- ✅ Works: NULL columns are not encrypted
 SELECT * FROM users WHERE is_active IS NOT NULL;
@@ -34,16 +34,16 @@ Query on other columns, decrypt the boolean in your application, and filter ther
 ```sql
 CREATE TABLE users (
     id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email       public.text_eq,       -- exact lookup
-    created_at  public.timestamp_ord, -- range queries, ORDER BY
-    is_active   public.boolean           -- storage only (by design)
+    email       public.eql_v3_text_eq,       -- exact lookup
+    created_at  public.eql_v3_timestamp_ord, -- range queries, ORDER BY
+    is_active   public.eql_v3_boolean        -- storage only (by design)
 );
 ```
 
 ```sql
 -- Narrow the result set with the columns that do carry index terms…
 SELECT id, email, is_active FROM users
-WHERE created_at >= $1::public.timestamp_ord;
+WHERE created_at >= $1::public.eql_v3_timestamp_ord;
 -- …then decrypt is_active in the client and filter on the plaintext.
 ```
 
@@ -53,12 +53,12 @@ If a boolean genuinely needs to be a server-side predicate, that is a data-model
 
 ## Storing without querying
 
-`bool` is the forced case of a pattern available to every scalar type: the bare variant `public.<T>` (for example `public.integer`, `public.text`, `public.timestamp`) is storage-and-decryption only. It carries no index terms, and every comparison operator raises — use it for columns you only ever store and decrypt, so the database holds no searchable material for them at all.
+`bool` is the forced case of a pattern available to every scalar type: the bare variant `public.eql_v3_<T>` (for example `public.eql_v3_integer`, `public.eql_v3_text`, `public.eql_v3_timestamp`) is storage-and-decryption only. It carries no index terms, and every comparison operator raises — use it for columns you only ever store and decrypt, so the database holds no searchable material for them at all.
 
 For every type other than `bool`, storage-only is a choice you can walk back. If you later need to query, retype the column as a query variant — or, if the payloads already carry the needed term (the client decides which terms travel in the payload), cast at the call site:
 
 ```sql
-SELECT * FROM readings WHERE value::public.integer_ord > $1::public.integer_ord;
+SELECT * FROM readings WHERE value::public.eql_v3_integer_ord > $1::public.eql_v3_integer_ord;
 ```
 
 The variant families and what each one enables are covered in [Core concepts](/reference/eql/core-concepts); the per-type specifics live in [Numbers](/reference/eql/numbers), [Dates & times](/reference/eql/dates-and-times), and [Text](/reference/eql/text).

@@ -1,6 +1,6 @@
 ---
 title: Dates & times
-description: "The complete reference for encrypted date and timestamp columns: the domain variants, the ORE-backed payload, and time-window, newest-first, and MIN/MAX queries."
+description: "The complete reference for encrypted date and timestamp columns: the domain variants, the payload they carry, and time-window, newest-first, and MIN/MAX queries."
 type: reference
 components: [eql]
 verifiedAgainst:
@@ -17,17 +17,20 @@ Both types generate the same `jsonb`-backed domain variants. The generic form:
 
 | Domain variant | Capability |
 | --- | --- |
-| `public.<T>` | Storage and decryption only. |
-| `public.<T>_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
-| `public.<T>_ord` | Comparisons, `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
-| `public.<T>_ord_ore` | As `<T>_ord`, with the ORE mechanism pinned — see [SEM specifiers](#sem-specifiers). |
+| `public.eql_v3_<T>` | Storage and decryption only. |
+| `public.eql_v3_<T>_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
+| `public.eql_v3_<T>_ord` | Comparisons, `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
+| `public.eql_v3_<T>_ord_ope` | The byte-identical twin of `<T>_ord`, with OPE pinned. See [SEM specifiers](#sem-specifiers). |
+| `public.eql_v3_<T>_ord_ore` | As `<T>_ord`, with the ORE mechanism pinned. |
+
+`<T>` is the encrypted type name from the table below, so `public.eql_v3_<T>_ord` is `public.eql_v3_timestamp_ord` for `timestamp`.
 
 And every concrete domain this page covers:
 
 | Type | Variants |
 | --- | --- |
-| `date` | `public.date` · `public.date_eq` · `public.date_ord` · `public.date_ord_ore` |
-| `timestamp` | `public.timestamp` · `public.timestamp_eq` · `public.timestamp_ord` · `public.timestamp_ord_ore` |
+| `date` | `public.eql_v3_date` · `public.eql_v3_date_eq` · `public.eql_v3_date_ord` · `public.eql_v3_date_ord_ope` · `public.eql_v3_date_ord_ore` |
+| `timestamp` | `public.eql_v3_timestamp` · `public.eql_v3_timestamp_eq` · `public.eql_v3_timestamp_ord` · `public.eql_v3_timestamp_ord_ope` · `public.eql_v3_timestamp_ord_ore` |
 
 Time columns are nearly always ranged and sorted, so `_ord` is the usual choice. Declare only the capability you query on — each capability stores extra searchable material with defined leakage (see [Searchable encryption](/concepts/searchable-encryption)), and the variant model itself is covered in [Core concepts](/reference/eql/core-concepts).
 
@@ -38,9 +41,9 @@ An audit-events table where the timestamps drive time-window queries and sorting
 ```sql
 CREATE TABLE audit_events (
     id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    occurred_at public.timestamp_ord,  -- time windows, newest-first, MIN/MAX
-    review_due  public.date_ord,       -- range filters
-    sealed_on   public.date            -- store and decrypt only
+    occurred_at public.eql_v3_timestamp_ord,  -- time windows, newest-first, MIN/MAX
+    review_due  public.eql_v3_date_ord,       -- range filters
+    sealed_on   public.eql_v3_date            -- store and decrypt only
 );
 ```
 
@@ -48,36 +51,37 @@ CREATE TABLE audit_events (
 
 Both types take the same mechanism specifiers on their orderable variant (the concept is defined in [Core concepts](/reference/eql/core-concepts#sem-specifiers)):
 
-| Specifier | Meaning |
-| --- | --- |
-| `_ord` | Orderable, using EQL's default mechanism (currently ORE). |
-| `_ord_ore` | Orderable via ORE, pinned explicitly. |
+| Specifier | Mechanism | Ordering term | Extractor |
+| --- | --- | --- | --- |
+| `_ord` | The default, currently CLLW OPE | `op` | `eql_v3.ord_term` |
+| `_ord_ope` | CLLW OPE, pinned explicitly | `op` | `eql_v3.ord_term` |
+| `_ord_ore` | Block-ORE, pinned explicitly | `ob` | `eql_v3.ord_term_ore` |
 
-The EQL v3 release adds an OPE specifier for every orderable type; unspecified `_ord` columns keep tracking the default.
+`<T>_ord` and `<T>_ord_ope` are byte-identical today. Pin `_ord_ope` when you want a column's mechanism frozen against a future change of the default.
+
+<Callout type="warn">
+Block-ORE terms sort only under a custom btree operator class, and creating one requires superuser. Where the EQL installer runs as a non-superuser, which is the case on most managed Postgres including cloud Supabase, it cannot create the class, so it **disables every ORE-backed domain** rather than let them install half-working. `<T>_ord_ore` then raises `feature_not_supported` on the first value written to it. Use `<T>_ord` there.
+</Callout>
 
 ## Payload
 
-A value for an `_ord` column carries the shared envelope keys (`v`, `i`, `c` — see [Core concepts](/reference/eql/core-concepts)) plus the `ob` ordering term. Here is a payload for the `public.timestamp_ord` `occurred_at` column:
+A value for an `_ord` column carries the shared envelope keys (`v`, `i`, `c` — see [Core concepts](/reference/eql/core-concepts)) plus the `op` ordering term. Here is a payload for the `public.eql_v3_timestamp_ord` `occurred_at` column:
 
 ```json
 {
   "v": 3,
   "i": { "t": "audit_events", "c": "occurred_at" },
   "c": "mBbKmsMM%bK#QQOx1yLDBHyD...",
-  "ob": [
-    "7a1fd0c2...", "d24c9be1...", "03fa66b8...", "91b7e04d...",
-    "5c28aa19...", "e6f3071c...", "48d92ab5...", "0b64cf37...",
-    "2ce8b1f4...", "a90d57e2...", "6f13c8ba...", "d4720e95..."
-  ]
+  "op": "5f2b1a9e4c07d38b6ea15c92..."
 }
 ```
 
-- **`ob` is the only index term.** An `_ord` payload carries no `hm`: equality on `_ord` variants compares ORE terms, which collapse to equality — see [Core concepts](/reference/eql/core-concepts).
-- **The `ob` block count varies with the plaintext width** — `timestamp` values carry 12 blocks.
+- **`op` is the only index term.** It is a hex-encoded CLLW OPE ciphertext, which Postgres sorts by native `bytea` comparison. An `_ord` payload carries no `hm`, because ordering over a date or timestamp is equality-lossless: `=` and `<>` resolve against the same term.
+- **An `_ord_ore` payload carries `ob` in place of `op`**: an array of block-ORE ciphertexts, 12 blocks for a `timestamp`.
 
 ## Operators
 
-| SQL operator | `public.<T>` | `<T>_eq` | `<T>_ord` / `<T>_ord_ore` |
+| SQL operator | `public.eql_v3_<T>` | `<T>_eq` | `<T>_ord` variants |
 | --- | :---: | :---: | :---: |
 | `=` / `<>` | ❌ | ✅ | ✅ |
 | `<` `<=` `>` `>=` | ❌ | ❌ | ✅ |
@@ -87,7 +91,7 @@ A value for an `_ord` column carries the shared envelope keys (`v`, `i`, `c` —
 | `ORDER BY` | ❌ | ❌ | ✅ |
 | `IS NULL` / `IS NOT NULL` | ✅ | ✅ | ✅ |
 
-Blocked *operator* cells raise an `operator … is not supported` exception — they never silently return wrong rows. `ORDER BY` is the one blocked cell that doesn't raise: it isn't an operator, so sorting a variant without an ordering term runs — but the order is meaningless (see [Sorting](/reference/eql/sorting)). Operands must be typed (`$1::public.timestamp_ord`), or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one. Both rules are covered in [Core concepts](/reference/eql/core-concepts).
+Blocked *operator* cells raise an `operator … is not supported` exception — they never silently return wrong rows. `ORDER BY` is the one blocked cell that doesn't raise: it isn't an operator, so sorting a variant without an ordering term runs — but the order is meaningless (see [Sorting](/reference/eql/sorting)). Operands must be typed (`$1::public.eql_v3_timestamp_ord`), or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one. Both rules are covered in [Core concepts](/reference/eql/core-concepts).
 
 ## Functions
 
@@ -95,9 +99,9 @@ Every operator has a function form, for managed platforms that disallow custom o
 
 | Function | Equivalent | Available on |
 | --- | --- | --- |
-| `eql_v3.eq(a, b)` / `eql_v3.neq(a, b)` | `=` / `<>` | `_eq`, `_ord` / `_ord_ore` |
-| `eql_v3.lt` / `lte` / `gt` / `gte` | `<` `<=` `>` `>=` | `_ord` / `_ord_ore` |
-| `eql_v3.min(col)` / `eql_v3.max(col)` | aggregate `MIN` / `MAX` | `_ord` / `_ord_ore` |
+| `eql_v3.eq(a, b)` / `eql_v3.neq(a, b)` | `=` / `<>` | `_eq`, all `_ord` variants |
+| `eql_v3.lt` / `lte` / `gt` / `gte` | `<` `<=` `>` `>=` | all `_ord` variants |
+| `eql_v3.min(col)` / `eql_v3.max(col)` | aggregate `MIN` / `MAX` | all `_ord` variants |
 
 ## Example queries
 
@@ -105,17 +109,17 @@ Every operator has a function form, for managed platforms that disallow custom o
 
 ```sql
 SELECT * FROM audit_events
-WHERE occurred_at BETWEEN $1::public.timestamp_ord AND $2::public.timestamp_ord;
+WHERE occurred_at BETWEEN $1::public.eql_v3_timestamp_ord AND $2::public.eql_v3_timestamp_ord;
 
 SELECT * FROM audit_events
-WHERE review_due BETWEEN $1::public.date_ord AND $2::public.date_ord;
+WHERE review_due BETWEEN $1::public.eql_v3_date_ord AND $2::public.eql_v3_date_ord;
 ```
 
 ### Retention cutoff
 
 ```sql
 SELECT id FROM audit_events
-WHERE occurred_at < $1::public.timestamp_ord;
+WHERE occurred_at < $1::public.eql_v3_timestamp_ord;
 ```
 
 ### Newest-first listing
@@ -124,7 +128,7 @@ Write the sort key in extractor form to stream rows out of the index already ord
 
 ```sql
 SELECT * FROM audit_events
-WHERE occurred_at >= $1::public.timestamp_ord
+WHERE occurred_at >= $1::public.eql_v3_timestamp_ord
 ORDER BY eql_v3.ord_term(occurred_at) DESC
 LIMIT 10;
 ```

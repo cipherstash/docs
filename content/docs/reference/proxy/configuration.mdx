@@ -53,7 +53,7 @@ For local development, create a client key and access key in the [Dashboard](htt
 
 ## Setting up the database schema
 
-Proxy queries encrypted data through [EQL](/reference/eql), which must be installed in the target database. Encrypted columns are typed with an EQL domain such as `public.text_eq`, and that type is what fixes the column's searchable capability. There is no database-side configuration table.
+Proxy queries encrypted data through [EQL](/reference/eql), which must be installed in the target database. Encrypted columns are typed with an EQL domain such as `public.eql_v3_text_eq`, and that type is what fixes the column's searchable capability. There is no database-side configuration table.
 
 - [Install EQL](/reference/eql) covers the install itself, including the permissions split and Supabase.
 - [Core concepts](/reference/eql/core-concepts) covers the variant model and which domain type to choose.

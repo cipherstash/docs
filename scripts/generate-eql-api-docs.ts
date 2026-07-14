@@ -243,11 +243,13 @@ function driftCheck(manifest: Manifest): string[] {
     const text = fs.readFileSync(path.join(EQL_DIR, file), "utf8");
     // Any schema-qualified reference — function call, domain cast, or type.
     // A trailing `*` marks a prose family (e.g. `eql_v3.jsonb_path_*`), which
-    // names a set rather than one symbol, so it's skipped.
+    // names a set rather than one symbol, so it's skipped. So is a trailing
+    // `<T>` placeholder (e.g. `public.eql_v3_<T>_ord`).
     for (const m of text.matchAll(
       /\b(public|eql_v3_internal|eql_v3)\.([a-z0-9_]+)(\*?)/g,
     )) {
       if (m[3] === "*") continue;
+      if (text[(m.index ?? 0) + m[0].length] === "<") continue;
       const fqn = `${m[1]}.${m[2]}`;
       const pages = referenced.get(fqn) ?? new Set<string>();
       pages.add(file);
@@ -257,10 +259,24 @@ function driftCheck(manifest: Manifest): string[] {
 
   const unknown: string[] = [];
   for (const [fqn, pages] of referenced) {
-    if (!known.has(fqn)) unknown.push(`${fqn}  (in ${[...pages].join(", ")})`);
+    if (known.has(fqn) || MANIFEST_BLIND_SPOTS.has(fqn)) continue;
+    unknown.push(`${fqn}  (in ${[...pages].join(", ")})`);
   }
   return unknown.sort();
 }
+
+// Symbols that EQL really ships but the manifest's catalog does not list, so
+// the drift check would reject a correct reference.
+//
+// The scalar query-operand domains (`eql_v3.query_text_eq`, and 39 siblings)
+// are created inside a `DO ... EXECUTE` block in the install SQL, which the
+// catalog generator does not walk — `eql_v3.query_jsonb`, created at the top
+// level, IS in the manifest. Verified present in the 3.0.0 install SQL:
+//   grep -c "CREATE DOMAIN eql_v3.query_" cipherstash-encrypt.sql  # => 40
+//
+// Keep this list minimal, and delete entries as the manifest grows to cover
+// them.
+const MANIFEST_BLIND_SPOTS = new Set(["eql_v3.query_text_eq"]);
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 function main() {

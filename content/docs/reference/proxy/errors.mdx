@@ -152,7 +152,7 @@ When Proxy decrypts data, it casts and encodes the result as the PostgreSQL repr
 Proxy has no encrypted-column mapping for this column. In EQL v3 a column's searchable capability is fixed by the [domain variant](/reference/eql/core-concepts) it is typed as, so a column Proxy cannot map is usually one that was never given an EQL type:
 
 ```sql
-ALTER TABLE users ALTER COLUMN email TYPE public.text_eq;
+ALTER TABLE users ALTER COLUMN email TYPE public.eql_v3_text_eq;
 ```
 
 Proxy reloads the database schema on the interval set by `CS_DATABASE__SCHEMA_RELOAD_INTERVAL` (60 seconds by default), so a newly typed column may take up to that long to become mappable.
