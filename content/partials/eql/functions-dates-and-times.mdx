@@ -2,48 +2,12 @@
 
 Every operator has a function form, for managed platforms that disallow custom operators — same typed arguments, identical resolution. Each lists the encrypted domains it applies to; the `MIN` / `MAX` aggregates only exist as functions.
 
-<EqlFn name="eql_v3.eq(a, b)" ops="=" domains="date_eq,date_ord,date_ord_ope,date_ord_ore,timestamp_eq,timestamp_ord,timestamp_ord_ope,timestamp_ord_ore">
+<EqlFn id="fn-eq" name="eql_v3.eq(a, b)" ops="=" domains="date_eq,date_ord,date_ord_ope,date_ord_ore,timestamp_eq,timestamp_ord,timestamp_ord_ope,timestamp_ord_ore" />
 
-```sql
-SELECT * FROM events
-WHERE eql_v3.eq(occurred_at, $1::public.eql_v3_timestamp_eq);
-```
+<EqlFn id="fn-neq" name="eql_v3.neq(a, b)" ops="<>" domains="date_eq,date_ord,date_ord_ope,date_ord_ore,timestamp_eq,timestamp_ord,timestamp_ord_ope,timestamp_ord_ore" />
 
-</EqlFn>
+<EqlFn id="fn-comparison" name="eql_v3.lt / lte / gt / gte" ops="<,<=,>,>=" domains="date_ord,date_ord_ope,date_ord_ore,timestamp_ord,timestamp_ord_ope,timestamp_ord_ore" />
 
-<EqlFn name="eql_v3.neq(a, b)" ops="<>" domains="date_eq,date_ord,date_ord_ope,date_ord_ore,timestamp_eq,timestamp_ord,timestamp_ord_ope,timestamp_ord_ore">
+<EqlFn id="fn-min" name="eql_v3.min(col)" ops="MIN" agg domains="date_ord,date_ord_ope,date_ord_ore,timestamp_ord,timestamp_ord_ope,timestamp_ord_ore" />
 
-```sql
-SELECT * FROM events
-WHERE eql_v3.neq(occurred_at, $1::public.eql_v3_timestamp_eq);
-```
-
-</EqlFn>
-
-<EqlFn name="eql_v3.lt / lte / gt / gte" ops="<,<=,>,>=" grouped domains="date_ord,date_ord_ope,date_ord_ore,timestamp_ord,timestamp_ord_ope,timestamp_ord_ore">
-
-```sql
--- a range uses two of the four
-SELECT * FROM events
-WHERE eql_v3.gte(occurred_at, $1::public.eql_v3_timestamp_ord)
-  AND eql_v3.lt(occurred_at, $2::public.eql_v3_timestamp_ord);
-```
-
-</EqlFn>
-
-<EqlFn name="eql_v3.min(col)" ops="MIN" agg domains="date_ord,date_ord_ope,date_ord_ore,timestamp_ord,timestamp_ord_ope,timestamp_ord_ore">
-
-```sql
--- compares ordering terms; result decrypts client-side
-SELECT eql_v3.min(occurred_at) FROM events;
-```
-
-</EqlFn>
-
-<EqlFn name="eql_v3.max(col)" ops="MAX" agg domains="date_ord,date_ord_ope,date_ord_ore,timestamp_ord,timestamp_ord_ope,timestamp_ord_ore">
-
-```sql
-SELECT eql_v3.max(occurred_at) FROM events;
-```
-
-</EqlFn>
+<EqlFn id="fn-max" name="eql_v3.max(col)" ops="MAX" agg domains="date_ord,date_ord_ope,date_ord_ore,timestamp_ord,timestamp_ord_ope,timestamp_ord_ore" />

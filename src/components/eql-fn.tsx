@@ -1,22 +1,21 @@
 "use client";
 
+import { Link2 } from "lucide-react";
 import { useState } from "react";
 
 interface EqlFnProps {
   /** Function name or grouped signature, e.g. `eql_v3.eq(a, b)`. */
   name: string;
+  /** Stable anchor id for deep linking, e.g. `fn-eq`. */
+  id: string;
   /** Comma-separated operator equivalents, e.g. `<,<=,>,>=`. */
   ops: string;
   /** Comma-separated short domain names the function applies to. */
   domains?: string;
   /** Aggregate function (MIN/MAX): renders an "aggregate" tag, no operator. */
   agg?: boolean;
-  /** One card standing in for several related functions (the comparison set). */
-  grouped?: boolean;
   /** How many domains to show before the "Show all" toggle. */
   initial?: number;
-  /** The example code block. */
-  children: React.ReactNode;
 }
 
 /**
@@ -24,19 +23,18 @@ interface EqlFnProps {
  * content/partials/eql, produced by scripts/generate-eql-api-docs.ts).
  *
  * Renders the function signature, its operator equivalents, and the domains it
- * applies to as a card. The domain list is the drift-prone part, so it comes
- * from the manifest via the `domains` prop; only the first few show, with the
- * rest behind a reader-controlled toggle. The example is passed as children so
- * it keeps the site's normal syntax highlighting and copy button.
+ * applies to. The domain list is the drift-prone part, so it comes from the
+ * manifest via the `domains` prop; only the first few show, with the rest
+ * behind a reader-controlled toggle. Worked examples live in each page's own
+ * "Example queries" section, not here.
  */
 export function EqlFn({
   name,
+  id,
   ops,
   domains,
   agg,
-  grouped,
   initial = 2,
-  children,
 }: EqlFnProps) {
   const opList = ops.split(",").filter(Boolean);
   const domainList = domains ? domains.split(",").filter(Boolean) : [];
@@ -46,16 +44,20 @@ export function EqlFn({
 
   return (
     <div
-      className={`my-4 rounded-lg border p-4 ${
-        grouped
-          ? "border-fd-primary/40 bg-fd-primary/5"
-          : "border-fd-border bg-fd-card"
-      }`}
+      id={id}
+      className="my-4 scroll-mt-24 rounded-lg border border-fd-border bg-fd-card p-4"
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="font-mono text-[0.95rem] font-semibold text-fd-primary">
+        <a
+          href={`#${id}`}
+          className="group/anchor inline-flex items-center gap-2 font-mono text-[0.95rem] font-semibold text-fd-primary no-underline"
+        >
           {name}
-        </span>
+          <Link2
+            aria-hidden
+            className="size-3.5 opacity-0 transition-opacity group-hover/anchor:opacity-60"
+          />
+        </a>
         <span className="ml-auto flex flex-wrap gap-1.5">
           {agg ? (
             <span className="rounded-md border border-fd-border px-2 py-0.5 text-xs font-medium text-fd-muted-foreground">
@@ -100,8 +102,6 @@ export function EqlFn({
           ) : null}
         </div>
       ) : null}
-
-      <div className="mt-3 [&>*]:!my-0">{children}</div>
     </div>
   );
 }
