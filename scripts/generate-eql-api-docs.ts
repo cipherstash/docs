@@ -222,116 +222,171 @@ function render(manifest: Manifest): string {
 
 // ── Per-type function fragments ──────────────────────────────────────────────
 // Each hand-written type page (numbers, text, dates-and-times) carries a
-// "Functions available on this type" table. Those tables are mechanical — one
-// row per operator-function, and an "Available on" column listing the variants
-// that expose it — so they're generated from the manifest and `<include>`d into
-// the page rather than hand-maintained (where they silently drifted).
+// per-function reference: one card per EQL function, listing its operator
+// equivalents, the domains it applies to, and a worked example. These are
+// generated from the manifest and `<include>`d into the page (via the `<EqlFn>`
+// component) rather than hand-maintained, where the domain lists silently
+// drifted. The example is the one authored part — templated by capability, not
+// pulled from the manifest — and the domain list, the drift-prone part, is not.
 //
 // json and booleans are intentionally NOT here: json's surface is containment /
-// path functions (a bespoke story, not the eq/ord/min-max matrix), and booleans
+// path functions (a bespoke story, not the eq/ord/min-max set), and booleans
 // are storage-only with no query functions.
 interface FragmentSpec {
   page: string;
   // Which manifest domain `type`s belong on this page.
   match: (type: string) => boolean;
-  // Variant naming in the "Available on" column. A single-type page names the
-  // concrete domain (`text_eq`); a type-family page uses the generic suffix
-  // (`_eq`) that stands for the eq variant of whichever numeric/date type.
-  prefix: string;
+  // Illustrative context for the generated examples.
+  table: string;
+  col: string;
+  // Representative concrete type the example casts to, e.g. `bigint` →
+  // `public.eql_v3_bigint_ord`. One of the page's family, for a realistic cast.
+  castType: string;
+  // On text, ranges are unusual and sorting is the point, so the comparison
+  // example demonstrates ORDER BY. Elsewhere a range filter reads best.
+  orderByExample: boolean;
 }
 
 const FRAGMENT_SPECS: FragmentSpec[] = [
   {
     page: "numbers",
-    prefix: "",
     match: (t) =>
       /(^|\b)(small|big)?int|integer|numeric|decimal|real|double|float/.test(t),
-  },
-  { page: "text", prefix: "text", match: (t) => t === "text" },
-  { page: "dates-and-times", prefix: "", match: (t) => /date|time/.test(t) },
-];
-
-// One row per operator-function, keyed by the domain capability that enables it.
-// Order matches the hand-written tables (equality, range, containment, aggregate).
-const FUNCTION_ROWS: { fns: string; equiv: string; capability: string }[] = [
-  {
-    fns: "`eql_v3.eq(a, b)` / `eql_v3.neq(a, b)`",
-    equiv: "`=` / `<>`",
-    capability: "equality",
+    table: "payments",
+    col: "amount",
+    castType: "bigint",
+    orderByExample: false,
   },
   {
-    fns: "`eql_v3.lt` / `lte` / `gt` / `gte`",
-    equiv: "`<` `<=` `>` `>=`",
-    capability: "order",
+    page: "text",
+    match: (t) => t === "text",
+    table: "users",
+    col: "email",
+    castType: "text",
+    orderByExample: true,
   },
   {
-    fns: "`eql_v3.contains(a, b)` / `eql_v3.contained_by(a, b)`",
-    equiv: "`@>` / `<@`",
-    capability: "match",
-  },
-  {
-    fns: "`eql_v3.min(col)` / `eql_v3.max(col)`",
-    equiv: "aggregate `MIN` / `MAX`",
-    capability: "order",
+    page: "dates-and-times",
+    match: (t) => /date|time/.test(t),
+    table: "events",
+    col: "occurred_at",
+    castType: "timestamp",
+    orderByExample: false,
   },
 ];
 
-// Collapse the variants that expose a capability into a readable "Available on"
-// cell: variants sharing a base (`ord`, `ord_ope`, `ord_ore`) render as "all
-// `_ord` variants"; a lone variant renders as its own token.
-function availabilityCell(
-  domains: Domain[],
-  capability: string,
-  prefix: string,
-): string {
-  const variants = new Set(
-    domains
-      .filter((d) => d.capabilities.includes(capability) && d.variant)
-      .map((d) => d.variant),
-  );
-  const baseOf = (v: string) =>
-    v === "eq"
-      ? "eq"
-      : v.startsWith("ord")
-        ? "ord"
-        : v.startsWith("search")
-          ? "search"
-          : v === "match"
-            ? "match"
-            : v;
-  const byBase = new Map<string, Set<string>>();
-  for (const v of variants) {
-    const b = baseOf(v);
-    (byBase.get(b) ?? byBase.set(b, new Set()).get(b))?.add(v);
+// The EQL function set, in reading order. `cap` is the domain capability that
+// exposes the function, so a function only renders when the page has a domain
+// with that capability. `lt`/`lte`/`gt`/`gte` are one grouped card: same
+// capability, same domains, same example shape.
+interface FuncDef {
+  kind: string;
+  name: string;
+  ops: string[];
+  cap: string;
+  agg?: boolean;
+  grouped?: boolean;
+}
+const FUNCS: FuncDef[] = [
+  { kind: "eq", name: "eql_v3.eq(a, b)", ops: ["="], cap: "equality" },
+  { kind: "neq", name: "eql_v3.neq(a, b)", ops: ["<>"], cap: "equality" },
+  {
+    kind: "cmp",
+    name: "eql_v3.lt / lte / gt / gte",
+    ops: ["<", "<=", ">", ">="],
+    cap: "order",
+    grouped: true,
+  },
+  {
+    kind: "contains",
+    name: "eql_v3.contains(a, b)",
+    ops: ["@>"],
+    cap: "match",
+  },
+  {
+    kind: "contained_by",
+    name: "eql_v3.contained_by(a, b)",
+    ops: ["<@"],
+    cap: "match",
+  },
+  {
+    kind: "min",
+    name: "eql_v3.min(col)",
+    ops: ["MIN"],
+    cap: "order",
+    agg: true,
+  },
+  {
+    kind: "max",
+    name: "eql_v3.max(col)",
+    ops: ["MAX"],
+    cap: "order",
+    agg: true,
+  },
+];
+
+// `public.eql_v3_text_eq` → `text_eq`.
+const shortDomain = (name: string) => name.replace(/^public\.(eql_v3_)?/, "");
+
+// The example for one function, templated from the page's illustrative context.
+// The `::public.eql_v3_<type>_<variant>` casts use real domain names, so they
+// stay correct; the table and column names are illustrative.
+function exampleFor(kind: string, spec: FragmentSpec): string {
+  const { table, col, castType } = spec;
+  const dom = (variant: string) => `public.eql_v3_${castType}_${variant}`;
+  switch (kind) {
+    case "eq":
+      return `SELECT * FROM ${table}\nWHERE eql_v3.eq(${col}, $1::${dom("eq")});`;
+    case "neq":
+      return `SELECT * FROM ${table}\nWHERE eql_v3.neq(${col}, $1::${dom("eq")});`;
+    case "cmp":
+      return spec.orderByExample
+        ? `-- any of the four; ordering is the usual reason to index text\nSELECT id, ${col} FROM ${table}\nWHERE eql_v3.gt(${col}, $1::${dom("ord")})\nORDER BY eql_v3.ord_term(${col});`
+        : `-- a range uses two of the four\nSELECT * FROM ${table}\nWHERE eql_v3.gte(${col}, $1::${dom("ord")})\n  AND eql_v3.lt(${col}, $2::${dom("ord")});`;
+    case "contains":
+      return `-- token containment on the bloom-filter term\nSELECT * FROM ${table}\nWHERE eql_v3.contains(${col}, $1::${dom("match")});`;
+    case "contained_by":
+      return `SELECT * FROM ${table}\nWHERE eql_v3.contained_by(${col}, $1::${dom("match")});`;
+    case "min":
+      return `-- compares ordering terms; result decrypts client-side\nSELECT eql_v3.min(${col}) FROM ${table};`;
+    case "max":
+      return `SELECT eql_v3.max(${col}) FROM ${table};`;
+    default:
+      return "";
   }
-  const parts: string[] = [];
-  for (const base of ["eq", "ord", "match", "search"]) {
-    const members = byBase.get(base);
-    if (!members) continue;
-    const token = prefix ? `${prefix}_${base}` : `_${base}`;
-    parts.push(members.size > 1 ? `all \`${token}\` variants` : `\`${token}\``);
-  }
-  return parts.join(", ");
 }
 
 function renderFragment(domains: Domain[], spec: FragmentSpec): string {
   const scoped = domains.filter((d) => spec.match(d.type));
   const header = `{/* GENERATED — do not edit. Produced by scripts/generate-eql-api-docs.ts from the EQL manifest. Edit the generator, not this file. */}`;
   const intro =
-    "Every operator has a function form, for managed platforms that disallow custom operators — same typed arguments, identical resolution. The `MIN` / `MAX` aggregates only exist as functions:";
+    "Every operator has a function form, for managed platforms that disallow custom operators — same typed arguments, identical resolution. Each lists the encrypted domains it applies to; the `MIN` / `MAX` aggregates only exist as functions.";
   if (!scoped.length) {
     return `${header}\n\n${intro}\n\n_No matching encrypted domains in this EQL manifest._\n`;
   }
-  const rows = FUNCTION_ROWS.map((r) => ({
-    ...r,
-    cell: availabilityCell(scoped, r.capability, spec.prefix),
-  })).filter((r) => r.cell);
-  const table = [
-    "| Function | Equivalent | Available on |",
-    "| --- | --- | --- |",
-    ...rows.map((r) => `| ${r.fns} | ${r.equiv} | ${r.cell} |`),
-  ].join("\n");
-  return `${header}\n\n${intro}\n\n${table}\n`;
+
+  const blocks: string[] = [];
+  for (const fn of FUNCS) {
+    const applies = scoped
+      .filter((d) => d.capabilities.includes(fn.cap) && d.variant)
+      .map((d) => shortDomain(d.name));
+    if (!applies.length) continue;
+    const attrs = [
+      `name="${fn.name}"`,
+      `ops="${fn.ops.join(",")}"`,
+      fn.agg ? "agg" : "",
+      fn.grouped ? "grouped" : "",
+      `domains="${applies.join(",")}"`,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const example = exampleFor(fn.kind, spec);
+    blocks.push(
+      `<EqlFn ${attrs}>\n\n\`\`\`sql\n${example}\n\`\`\`\n\n</EqlFn>`,
+    );
+  }
+
+  return `${header}\n\n${intro}\n\n${blocks.join("\n\n")}\n`;
 }
 
 function writeFragments(manifest: Manifest): void {
