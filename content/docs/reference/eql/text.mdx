@@ -119,58 +119,6 @@ SELECT * FROM users WHERE email @> $1::public.eql_v3_text_match;
 
 `@>` / `<@` here is **probabilistic ngram-bloom containment** — it tests whether the encrypted text contains the (encrypted) search terms. It is not JSONB containment and not `LIKE`. The client encrypts the search term into a bloom-filter query value; false positives are possible, false negatives are not. There are no `like` / `ilike` function forms either — text matching is `eql_v3.contains` on a `text_match` value.
 
-## Example queries
-
-### Exact lookup
-
-Equality on a `text_eq` column compares HMAC terms. `IN` desugars to `=`:
-
-```sql
-SELECT * FROM users WHERE tax_id = $1::public.eql_v3_text_eq;
-
-SELECT * FROM users
-WHERE tax_id IN ($1::public.eql_v3_text_eq, $2::public.eql_v3_text_eq);
-```
-
-### Free-text match
-
-The client encrypts the search term into the bloom-filter needle:
-
-```sql
-SELECT * FROM users WHERE name @> $1::public.eql_v3_text_match;
-
--- Function form, for platforms without custom operators
-SELECT * FROM users WHERE eql_v3.contains(name, $1::public.eql_v3_text_match);
-```
-
-### The works: `text_search`
-
-A `text_search` column answers exact lookup, free-text match, and ordering — here, all three in one query:
-
-```sql
-SELECT id, email FROM users
-WHERE email @> $1::public.eql_v3_text_match       -- token containment on bf
-  AND email <> $2::public.eql_v3_text_eq          -- exclude an exact value via hm
-ORDER BY eql_v3.ord_term(email)            -- sort on ob
-LIMIT 20;
-```
-
-### Sorting text
-
-Ordering terms are order-preserving, so `ORDER BY` sorts encrypted text correctly. Write the sort key in extractor form so a btree index can do the ordering instead of a `Sort` node — see [Sorting](/reference/eql/sorting):
-
-```sql
-SELECT * FROM users
-ORDER BY eql_v3.ord_term(email)
-LIMIT 50;
-```
-
-`MIN` / `MAX` work on any ord-capable text column too:
-
-```sql
-SELECT eql_v3.min(email) FROM users;
-```
-
 ## Where to next
 
 <Cards>

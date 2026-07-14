@@ -105,45 +105,6 @@ Blocked *operator* cells raise an `operator … is not supported` exception — 
 
 **`SUM`, `AVG`, and other arithmetic aggregates are not supported** on encrypted columns — they would require homomorphic encryption. `MIN` / `MAX` work because they only need comparison; for sums and averages, decrypt at the application boundary and aggregate client-side.
 
-## Example queries
-
-### Range filter
-
-```sql
-SELECT * FROM employees
-WHERE salary >= $1::public.eql_v3_bigint_ord;
-
-SELECT * FROM employees
-WHERE salary BETWEEN $1::public.eql_v3_bigint_ord AND $2::public.eql_v3_bigint_ord;
-```
-
-### MIN and MAX
-
-`eql_v3.min` / `eql_v3.max` compare ordering terms — no decryption happens in the database, and the encrypted result decrypts in the client. `NULL` inputs are skipped; an all-`NULL` input set returns `NULL`:
-
-```sql
-SELECT eql_v3.min(salary) FROM employees;
-SELECT eql_v3.max(salary) FROM employees;
-```
-
-### Sorted listing
-
-Write the sort key in extractor form to stream rows out of the index already ordered (see [Sorting](/reference/eql/sorting) for why):
-
-```sql
-SELECT * FROM employees
-ORDER BY eql_v3.ord_term(salary) DESC
-LIMIT 10;
-```
-
-### Cast at the call site
-
-On a generic `jsonb` column whose payloads already carry the `op` term, cast to the right domain in the query:
-
-```sql
-SELECT eql_v3.min(salary_jsonb::public.eql_v3_bigint_ord) FROM employees;
-```
-
 ## Where to next
 
 <Cards>

@@ -223,11 +223,11 @@ function render(manifest: Manifest): string {
 // ── Per-type function fragments ──────────────────────────────────────────────
 // Each hand-written type page (numbers, text, dates-and-times) carries a
 // per-function reference: one card per EQL function, listing its operator
-// equivalents and the domains it applies to. These are generated from the
-// manifest and `<include>`d into the page (via the `<EqlFn>` component) rather
-// than hand-maintained, where the domain lists silently drifted. Worked
-// examples are NOT here — each page's own "Example queries" section covers
-// those, so a per-card example would only duplicate them.
+// equivalents, the domains it applies to, and a worked example. These are
+// generated from the manifest and `<include>`d into the page (via the `<EqlFn>`
+// component) rather than hand-maintained, where the domain lists silently
+// drifted. The example is the one authored part — templated by capability, not
+// pulled from the manifest — and the domain list, the drift-prone part, is not.
 //
 // json and booleans are intentionally NOT here: json's surface is containment /
 // path functions (a bespoke story, not the eq/ord/min-max set), and booleans
@@ -236,6 +236,15 @@ interface FragmentSpec {
   page: string;
   // Which manifest domain `type`s belong on this page.
   match: (type: string) => boolean;
+  // Illustrative context for the generated examples.
+  table: string;
+  col: string;
+  // Representative concrete type the example casts to, e.g. `bigint` →
+  // `public.eql_v3_bigint_ord`. One of the page's family, for a realistic cast.
+  castType: string;
+  // On text, ranges are unusual and sorting is the point, so the comparison
+  // example demonstrates ORDER BY. Elsewhere a range filter reads best.
+  orderByExample: boolean;
 }
 
 const FRAGMENT_SPECS: FragmentSpec[] = [
@@ -243,9 +252,27 @@ const FRAGMENT_SPECS: FragmentSpec[] = [
     page: "numbers",
     match: (t) =>
       /(^|\b)(small|big)?int|integer|numeric|decimal|real|double|float/.test(t),
+    table: "payments",
+    col: "amount",
+    castType: "bigint",
+    orderByExample: false,
   },
-  { page: "text", match: (t) => t === "text" },
-  { page: "dates-and-times", match: (t) => /date|time/.test(t) },
+  {
+    page: "text",
+    match: (t) => t === "text",
+    table: "users",
+    col: "email",
+    castType: "text",
+    orderByExample: true,
+  },
+  {
+    page: "dates-and-times",
+    match: (t) => /date|time/.test(t),
+    table: "events",
+    col: "occurred_at",
+    castType: "timestamp",
+    orderByExample: false,
+  },
 ];
 
 // The EQL function set, in reading order. `cap` is the domain capability that
@@ -299,6 +326,34 @@ const FUNCS: FuncDef[] = [
 // `public.eql_v3_text_eq` → `text_eq`.
 const shortDomain = (name: string) => name.replace(/^public\.(eql_v3_)?/, "");
 
+// The example for one function, keyed by its anchor id and templated from the
+// page's illustrative context. The `::public.eql_v3_<type>_<variant>` casts use
+// real domain names, so they stay correct; the table and column are illustrative.
+function exampleFor(id: string, spec: FragmentSpec): string {
+  const { table, col, castType } = spec;
+  const dom = (variant: string) => `public.eql_v3_${castType}_${variant}`;
+  switch (id) {
+    case "fn-eq":
+      return `SELECT * FROM ${table}\nWHERE eql_v3.eq(${col}, $1::${dom("eq")});`;
+    case "fn-neq":
+      return `SELECT * FROM ${table}\nWHERE eql_v3.neq(${col}, $1::${dom("eq")});`;
+    case "fn-comparison":
+      return spec.orderByExample
+        ? `-- any of the four; ordering is the usual reason to index text\nSELECT id, ${col} FROM ${table}\nWHERE eql_v3.gt(${col}, $1::${dom("ord")})\nORDER BY eql_v3.ord_term(${col});`
+        : `-- a range uses two of the four\nSELECT * FROM ${table}\nWHERE eql_v3.gte(${col}, $1::${dom("ord")})\n  AND eql_v3.lt(${col}, $2::${dom("ord")});`;
+    case "fn-contains":
+      return `-- token containment on the bloom-filter term\nSELECT * FROM ${table}\nWHERE eql_v3.contains(${col}, $1::${dom("match")});`;
+    case "fn-contained_by":
+      return `SELECT * FROM ${table}\nWHERE eql_v3.contained_by(${col}, $1::${dom("match")});`;
+    case "fn-min":
+      return `-- compares ordering terms; result decrypts client-side\nSELECT eql_v3.min(${col}) FROM ${table};`;
+    case "fn-max":
+      return `SELECT eql_v3.max(${col}) FROM ${table};`;
+    default:
+      return "";
+  }
+}
+
 function renderFragment(domains: Domain[], spec: FragmentSpec): string {
   const scoped = domains.filter((d) => spec.match(d.type));
   const header = `{/* GENERATED — do not edit. Produced by scripts/generate-eql-api-docs.ts from the EQL manifest. Edit the generator, not this file. */}`;
@@ -323,7 +378,10 @@ function renderFragment(domains: Domain[], spec: FragmentSpec): string {
     ]
       .filter(Boolean)
       .join(" ");
-    blocks.push(`<EqlFn ${attrs} />`);
+    const example = exampleFor(fn.id, spec);
+    blocks.push(
+      `<EqlFn ${attrs}>\n\n\`\`\`sql\n${example}\n\`\`\`\n\n</EqlFn>`,
+    );
   }
 
   return `${header}\n\n${intro}\n\n${blocks.join("\n\n")}\n`;

@@ -16,17 +16,19 @@ interface EqlFnProps {
   agg?: boolean;
   /** How many domains to show before the "Show all" toggle. */
   initial?: number;
+  /** The worked example (a fenced code block). */
+  children: React.ReactNode;
 }
 
 /**
  * One entry in a generated EQL function reference (see the fragments under
  * content/partials/eql, produced by scripts/generate-eql-api-docs.ts).
  *
- * Renders the function signature, its operator equivalents, and the domains it
- * applies to. The domain list is the drift-prone part, so it comes from the
- * manifest via the `domains` prop; only the first few show, with the rest
- * behind a reader-controlled toggle. Worked examples live in each page's own
- * "Example queries" section, not here.
+ * Renders the function signature, its operator equivalents, the domains it
+ * applies to, and a worked example. The domain list is the drift-prone part,
+ * so it comes from the manifest via the `domains` prop; only the first few
+ * show, with the rest behind a reader-controlled toggle. The example is passed
+ * as children so it keeps the site's syntax highlighting and copy button.
  */
 export function EqlFn({
   name,
@@ -35,6 +37,7 @@ export function EqlFn({
   domains,
   agg,
   initial = 2,
+  children,
 }: EqlFnProps) {
   const opList = ops.split(",").filter(Boolean);
   const domainList = domains ? domains.split(",").filter(Boolean) : [];
@@ -102,6 +105,8 @@ export function EqlFn({
           ) : null}
         </div>
       ) : null}
+
+      <div className="mt-3 [&>*]:!my-0">{children}</div>
     </div>
   );
 }
