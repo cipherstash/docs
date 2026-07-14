@@ -5,7 +5,7 @@ type: guide
 components: [encryption, platform]
 audience: [developer]
 verifiedAgainst:
-  stack: "1.0.0"
+  stack: "1.0.0-rc.0"
   auth: "0.41.0"
 ---
 
@@ -33,7 +33,7 @@ Authenticate the `Encryption` client with an `OidcFederationStrategy`. It takes 
 ```typescript title="lib/db.ts"
 import { createClient } from "@supabase/supabase-js"
 import { OidcFederationStrategy } from "@cipherstash/stack"
-import { encryptedSupabaseV3 } from "@cipherstash/stack/supabase"
+import { encryptedSupabaseV3 } from "@cipherstash/stack-supabase"
 
 const supabaseClient = createClient(
   process.env.SUPABASE_URL!,

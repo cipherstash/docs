@@ -17,7 +17,7 @@ If you just want the fastest path from empty project to encrypted table, start w
 The `stash` CLI installs EQL. It reads `DATABASE_URL`, detects that it points at Supabase, and installs directly against the database:
 
 ```bash example-id="supabase-eql-install"
-npx stash eql install --eql-version 3
+npx stash eql install
 ```
 
 Pass `--database-url <url>` to override the connection for a single run without writing it to disk. The install is idempotent, so `--force` reinstalls over an existing schema, and `--dry-run` shows what would happen. Check what you ended up with:
@@ -26,10 +26,10 @@ Pass `--database-url <url>` to override the connection for a single run without 
 npx stash eql status
 ```
 
-`--eql-version` accepts `2` or `3` and **defaults to `2`**. Pass the flag until v3 becomes the default. The full flag set is in the [CLI reference](/reference/cli/eql).
+The install targets **EQL v3 by default**; `--eql-version 2` opts back to v2. The full flag set is in the [CLI reference](/reference/cli/eql).
 
 <Callout type="warn">
-EQL v3 installs **directly against the database only**. `--migration`, `--drizzle`, `--latest`, and `--migrations-dir` are rejected when combined with `--eql-version 3`; they exist for the v2 install paths.
+EQL v3 installs **directly against the database only**. `--migration`, `--drizzle`, `--latest`, and `--migrations-dir` are rejected for a v3 install; they exist for the v2 install paths.
 
 The practical consequence is local resets. `supabase db reset` rebuilds your database from your migrations directory, so it drops a v3 install. Re-run `stash eql install` after each reset.
 </Callout>

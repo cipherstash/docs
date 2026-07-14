@@ -5,8 +5,8 @@ type: tutorial
 components: [encryption, eql, cli, platform]
 audience: [developer]
 verifiedAgainst:
-  stack: "0.19.0"
-  cli: "0.17.1"
+  stack: "1.0.0-rc.0"
+  cli: "1.0.0-rc.0"
   eql: "3.0.0"
 ---
 
@@ -33,38 +33,20 @@ npx stash init
 This opens a browser for device-based authentication, so local development needs no environment variables and no shared secrets. `init` then:
 
 1. Connects to your workspace.
-2. Resolves your database connection and runs `stash eql install`, which installs [EQL](/reference/eql), the Postgres surface that makes encrypted columns queryable.
+2. Resolves your database connection and runs `stash eql install`, which installs [EQL](/reference/eql) v3, the Postgres surface that makes encrypted columns queryable.
 3. Installs `@cipherstash/stack` if it isn't already present.
 4. Scaffolds an encryption module at `src/encryption/index.ts`.
 5. Writes `.cipherstash/context.json` with what it detected about your project.
 
 See the [CLI reference](/reference/cli/init) for the flags, including `--supabase`, `--drizzle`, and `--prisma-next`.
 
-</Step>
+EQL v3 is the default, so `init` installs it directly against the database. Confirm what you ended up with:
 
-<Step>
-
-## Install EQL v3
-
-This guide, and the rest of the EQL reference, targets **EQL v3**. `stash init` installs EQL v2 by default today, so ask for v3 explicitly:
-
-```bash example-id="quickstart-eql-v3"
-npx stash eql install --eql-version 3 --force
-```
-
-`--force` reinstalls over the v2 schema that `init` just laid down. On a new database with no encrypted data, that is safe: there is nothing to migrate.
-
-Check what you ended up with:
-
-```bash
+```bash example-id="quickstart-eql-status"
 npx stash eql status
 ```
 
-<Callout type="info">
-`--eql-version` accepts `2` or `3` and **defaults to `2`** in `stash` 0.17.1. The default becomes `3` in a future release, at which point this step goes away. Pass the flag until then, so you know which generation you are on rather than inheriting a default that is about to change.
-
-v3 installs directly against the database, so the `--drizzle`, `--migration`, and `--latest` flags do not apply to it. See [installing EQL](/reference/eql) for the full options, including installing across several databases.
-</Callout>
+This guide, and the rest of the EQL reference, targets EQL v3.
 
 </Step>
 

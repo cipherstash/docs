@@ -9,7 +9,7 @@ integration:
   setup: code-only
   pairsWith: [supabase, prisma-next]
 verifiedAgainst:
-  stack: "1.0.0"
+  stack: "1.0.0-rc.0"
   eql: "3.0.0"
 ---
 
@@ -18,17 +18,17 @@ Drizzle keeps its shape. You declare each encrypted column with a concrete EQL t
 ## Install
 
 ```bash cta cta-type="install" example-id="install-drizzle"
-npm install @cipherstash/stack drizzle-orm
+npm install @cipherstash/stack @cipherstash/stack-drizzle drizzle-orm
 ```
 
 Then install EQL into your database:
 
 ```bash
-npx stash eql install --eql-version 3
+npx stash eql install
 ```
 
 <Callout type="warn">
-`--eql-version 3` installs directly against the database and cannot generate a Drizzle migration: `--drizzle` is rejected alongside it. EQL is therefore not part of your migration history, so a database rebuilt from migrations will not have it. Re-run the install after a rebuild.
+The v3 install (the default) runs directly against the database and cannot generate a Drizzle migration: `--drizzle` is rejected for a v3 install. EQL is therefore not part of your migration history, so a database rebuilt from migrations will not have it. Re-run the install after a rebuild.
 </Callout>
 
 ## Declare the table
@@ -37,7 +37,7 @@ The column type *is* the capability. There are no flags to configure. `TextEq` a
 
 ```typescript filename="src/schema.ts"
 import { pgTable, integer } from "drizzle-orm/pg-core"
-import { types } from "@cipherstash/stack/eql/v3/drizzle"
+import { types } from "@cipherstash/stack-drizzle/v3"
 
 export const users = pgTable("users", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
@@ -72,7 +72,7 @@ import { drizzle } from "drizzle-orm/postgres-js"
 import {
   createEncryptionOperatorsV3,
   extractEncryptionSchemaV3,
-} from "@cipherstash/stack/eql/v3/drizzle"
+} from "@cipherstash/stack-drizzle/v3"
 import { EncryptionV3 } from "@cipherstash/stack/v3"
 import { users } from "./schema"
 

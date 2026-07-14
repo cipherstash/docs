@@ -53,21 +53,21 @@ The CipherStash CLI (`stash`) for database setup, schema management, and project
 
 ### stash-drizzle
 
-Drizzle ORM integration using `@cipherstash/stack/drizzle`.
+Drizzle ORM integration using `@cipherstash/stack-drizzle`, covering both EQL v2 and the EQL v3 dialect on `@cipherstash/stack-drizzle/v3`.
 
 **Covers:** the `encryptedType<T>()` column type; `extractEncryptionSchema()`; `createEncryptionOperators()`; query operators (`eq`, `ne`, `like`, `ilike`, `gt`, `gte`, `lt`, `lte`, `between`, `inArray`, `asc`, `desc`); encrypted JSONB operators (`jsonbPathExists`, `jsonbPathQueryFirst`, `jsonbGet`); batched `and()` / `or()` conditions; EQL migration generation; non-encrypted column fallback; Express, Hono, and Next.js examples.
 
-**Activates when:** you are using Drizzle ORM with encrypted columns, or importing from `@cipherstash/stack/drizzle`.
+**Activates when:** you are using Drizzle ORM with encrypted columns, or importing from `@cipherstash/stack-drizzle`.
 
-**Related docs:** [Drizzle integration](/stack/cipherstash/encryption/drizzle)
+**Related docs:** [Drizzle integration](/integrations/drizzle)
 
 ### stash-supabase
 
-Supabase integration using `@cipherstash/stack/supabase`.
+Supabase integration using `@cipherstash/stack-supabase`.
 
 **Covers:** the `encryptedSupabase()` wrapper; transparent encryption on `insert`, `update`, and `upsert`; transparent decryption on `select`, `single`, and `maybeSingle`; encrypted query filters (`eq`, `neq`, `like`, `ilike`, `gt`, `gte`, `lt`, `lte`, `in`, `match`, `or`, `not`, `filter`); identity-aware encryption with `.withLockContext()`; audit logging with `.audit()`; response types and error handling; Supabase-specific database setup.
 
-**Activates when:** you are using Supabase with encrypted columns, or importing from `@cipherstash/stack/supabase`.
+**Activates when:** you are using Supabase with encrypted columns, or importing from `@cipherstash/stack-supabase`.
 
 **Related docs:** [Supabase integration](/integrations/supabase)
 
@@ -81,15 +81,13 @@ Amazon DynamoDB integration using `@cipherstash/stack/dynamodb`.
 
 **Related docs:** [DynamoDB integration](/stack/cipherstash/encryption/dynamodb)
 
-### stash-secrets
+### stash-supply-chain-security
 
-Encrypted secrets management with `@cipherstash/stack`.
+Supply-chain security controls for a project that depends on `@cipherstash/stack`.
 
-**Covers:** the `Secrets` class API (`set`, `get`, `getMany`, `list`, `delete`); environment-based isolation with per-environment keysets; bulk retrieval with `getMany` (2 to 100 secrets per call); error types (`ApiError`, `NetworkError`, `ClientError`, `EncryptionError`, `DecryptionError`); configuration via `CS_*` environment variables or explicit config; patterns for loading secrets at startup.
+**Covers:** post-install script policy (`onlyBuiltDependencies`); install cooldown (`minimumReleaseAge`); lockfile integrity (`blockExoticSubdeps` and the lockfile registry check); frozen-lockfile CI; registry pinning via `.npmrc`; Dependabot cooldown; and `CODEOWNERS`.
 
-**Activates when:** you are storing or retrieving secrets, or working with the `Secrets` class from `@cipherstash/stack/secrets`.
-
-**Related docs:** [Secrets](https://cipherstash.com/stack/secrets)
+**Activates when:** you are modifying CI workflows, pnpm config, dependency updates, `.github/dependabot.yml`, or anything that changes how packages enter your build.
 
 ## How skills work
 

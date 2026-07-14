@@ -10,7 +10,7 @@ integration:
   pairsWith: [drizzle, prisma-next, clerk]
 verifiedAgainst:
   eql: "3.0.0"
-  stack: "1.0.0"
+  stack: "1.0.0-rc.0"
 ---
 
 This tutorial takes an empty Supabase project to an encrypted, searchable table. It takes about fifteen minutes. For what CipherStash is and why you'd add it, start with the [overview](/integrations/supabase).
@@ -30,7 +30,7 @@ Two pieces, one on each side of your Supabase connection:
 Point `DATABASE_URL` at your Supabase project, then install EQL with the `stash` CLI:
 
 ```bash cta cta-type="install" example-id="supabase-quickstart-eql-install"
-npx stash eql install --eql-version 3
+npx stash eql install
 ```
 
 It detects Supabase from the connection string, needs no superuser, and completes in seconds, creating the `eql_v3` schema for functions and operators, and the encrypted column types in `public`. Then grant your Supabase roles access:
@@ -40,7 +40,7 @@ GRANT USAGE ON SCHEMA eql_v3 TO anon, authenticated, service_role;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA eql_v3 TO anon, authenticated, service_role;
 ```
 
-`--eql-version` defaults to `2`, so pass the flag until v3 becomes the default. [Fundamentals](/integrations/supabase/fundamentals#installing-eql) covers the rest, including why a v3 install does not survive `supabase db reset`.
+The install targets EQL v3 by default. [Fundamentals](/integrations/supabase/fundamentals#installing-eql) covers the rest, including why a v3 install does not survive `supabase db reset`.
 
 </Step>
 <Step>
@@ -71,7 +71,7 @@ Supabase runs the EQL installer as a non-superuser, so the ORE-backed domains (`
 ### Install the SDK and connect your workspace
 
 ```sh
-npm install @cipherstash/stack @supabase/supabase-js
+npm install @cipherstash/stack @cipherstash/stack-supabase @supabase/supabase-js
 ```
 
 Sign up at [dashboard.cipherstash.com](https://dashboard.cipherstash.com), create a workspace, and set its credentials alongside your Supabase keys. `DATABASE_URL` is your project's Postgres connection string, which the wrapper uses to introspect your encrypted columns:
@@ -96,7 +96,7 @@ DATABASE_URL=postgresql://postgres:...@db.<project-ref>.supabase.co:5432/postgre
 There is no schema to declare. `encryptedSupabaseV3` introspects the database over `DATABASE_URL`, finds the columns typed as EQL domains, and derives each one's encryption config from its type.
 
 ```typescript title="lib/db.ts"
-import { encryptedSupabaseV3 } from "@cipherstash/stack/supabase"
+import { encryptedSupabaseV3 } from "@cipherstash/stack-supabase"
 
 export const db = await encryptedSupabaseV3(
   process.env.SUPABASE_URL!,

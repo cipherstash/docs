@@ -5,13 +5,19 @@ type: reference
 components: [encryption, eql]
 audience: [developer]
 verifiedAgainst:
-  stack: "1.0.0"
+  stack: "1.0.0-rc.0"
   eql: "3.0.0"
 ---
 
 `encryptedSupabaseV3` wraps a `@supabase/supabase-js` client so that queries on encrypted columns work like queries on plaintext ones. Mutations are encrypted before they leave your app, filter values are encrypted into the matching index term, and results are decrypted on the way back. You keep writing `.eq()`, `.gt()`, `.order()`, and the wrapper handles the encryption on both sides of every call.
 
 This page is the single source of truth for the wrapper's API. The [Supabase integration](/integrations/supabase) shows it in context; the [EQL reference](/reference/eql) covers the database side it queries against.
+
+The wrapper ships as its own package, `@cipherstash/stack-supabase`, which depends on `@cipherstash/stack`:
+
+```bash
+npm install @cipherstash/stack @cipherstash/stack-supabase @supabase/supabase-js
+```
 
 ## Setup
 
@@ -20,7 +26,7 @@ This page is the single source of truth for the wrapper's API. The [Supabase int
 That makes it async, and it makes `.from()` take a table name and nothing else.
 
 ```typescript
-import { encryptedSupabaseV3 } from "@cipherstash/stack/supabase"
+import { encryptedSupabaseV3 } from "@cipherstash/stack-supabase"
 
 const supabase = await encryptedSupabaseV3(
   process.env.SUPABASE_URL!,
@@ -94,7 +100,7 @@ The capability model is the same one the database enforces through [EQL's domain
 Without `schemas`, rows are `Record<string, unknown>` and any table name is accepted. Declare a table and `.from()` returns a typed builder for it, with row types, filter-value types, and capability-narrowed methods. Declared tables are also verified against the live database before the client is handed back, so a column that was dropped or retyped fails at startup rather than at the first query.
 
 ```typescript
-import { encryptedSupabaseV3 } from "@cipherstash/stack/supabase"
+import { encryptedSupabaseV3 } from "@cipherstash/stack-supabase"
 import { encryptedTable, types } from "@cipherstash/stack/eql/v3"
 
 const users = encryptedTable("users", {
@@ -248,4 +254,4 @@ Because the wrapped client is your own `createClient(...)` instance, Supabase Au
 
 ## The v2 wrapper
 
-`encryptedSupabase` is the EQL v2 dialect and is unchanged. It is synchronous, takes `{ encryptionClient, supabaseClient }`, requires `.from(tableName, schema)` with the schema as a second argument, rejects `select('*')`, and uses `.like()` / `.ilike()` for free-text search. Pick the dialect by function: v2 targets `eql_v2_encrypted` columns, v3 targets the `public.eql_v3_*` domains. New work should use `encryptedSupabaseV3`.
+`encryptedSupabase` is the EQL v2 dialect. It ships from the same `@cipherstash/stack-supabase` package and is unchanged from before the 1.0 split. It is synchronous, takes `{ encryptionClient, supabaseClient }`, requires `.from(tableName, schema)` with the schema as a second argument, rejects `select('*')`, and uses `.like()` / `.ilike()` for free-text search. Pick the dialect by function: v2 targets the EQL v2 composite type, v3 targets the `public.eql_v3_*` domains. New work should use `encryptedSupabaseV3`.
