@@ -9,7 +9,7 @@ bun install
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the docs.
+Open [http://localhost:3001/docs](http://localhost:3001/docs) to view the docs.
 
 ## Commands
 
