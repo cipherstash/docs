@@ -194,25 +194,25 @@ function cipherstashTheme(
 
 const cipherstashDark = cipherstashTheme("cipherstash-dark", "dark", {
   bg: "#0b0b0a",
-  fg: "#e7e2d4",
-  com: "#6b6559",
-  kw: "#b7e64f",
-  fn: "#5ec8b8",
+  fg: "#eae8dd",
+  com: "#8f8f8f",
+  kw: "#d77595",
+  fn: "#d2a8ff",
   typ: "#7fd0c4",
-  str: "#d9b36a",
-  num: "#e0a35c",
+  str: "#c8f031",
+  num: "#f4dd63",
   pun: "#9a9486",
 });
 
 const cipherstashLight = cipherstashTheme("cipherstash-light", "light", {
   bg: "#faf9f4",
   fg: "#2b2822",
-  com: "#8b8676",
-  kw: "#567d0d",
-  fn: "#15776a",
+  com: "#7a7a7a",
+  kw: "#a63057",
+  fn: "#8250df",
   typ: "#1c8577",
-  str: "#946618",
-  num: "#9a5f18",
+  str: "#567d0d",
+  num: "#977c11",
   pun: "#6b6559",
 });
 
