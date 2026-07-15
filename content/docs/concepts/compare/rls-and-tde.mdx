@@ -1,0 +1,102 @@
+---
+title: RLS and TDE
+description: "How CipherStash relates to Postgres Row-Level Security and Transparent Data Encryption: different threats, and how they combine."
+type: concept
+components: [encryption]
+audience: [cto, ciso]
+reviewBy: "2027-01-15"
+---
+
+Row-Level Security (RLS) and Transparent Data Encryption (TDE) are the two controls most teams already have when they start thinking about protecting sensitive data in Postgres. Both are useful. Neither does what CipherStash does, and CipherStash does not replace either. This page draws the lines: what each control protects, what it leaves exposed, and how the three fit together.
+
+The short version: RLS decides **which rows** a caller may see. TDE encrypts the database **files on disk**. CipherStash encrypts the **values themselves**, before they reach the database, and keeps them queryable. They sit at three different layers, so the useful question is not "which one" but "which threats each closes".
+
+## At a glance
+
+| | Row-Level Security | Transparent Data Encryption | CipherStash |
+| --- | --- | --- | --- |
+| Layer | Access control, in the database | At-rest encryption, under the database | Application-level encryption, above the database |
+| What it protects | Which rows a role can read or write | Data files, and usually backups | The contents of individual columns |
+| Data visible to a DBA / superuser | Yes, plaintext | Yes, plaintext | No, ciphertext only |
+| Data in logs, replicas, backups | Plaintext | Plaintext in replicas and logs; encrypted backup files | Ciphertext everywhere |
+| Still queryable | Yes | Yes | Yes, via EQL |
+| Threat it closes | Over-broad row access | Stolen disk or backup media | Database compromise, insider access, leaked replicas and logs |
+
+The rows in this table are the whole point: the three controls do not overlap much, so you generally want more than one.
+
+## What TDE protects, and what it does not
+
+Transparent Data Encryption encrypts the database's data files on disk. The database decrypts pages as it reads them, so from the perspective of any SQL query the data is plaintext. That transparency is the feature and the limit at the same time.
+
+TDE closes exactly one threat: someone walks off with the **physical media**, a decommissioned drive, or a raw backup file, and tries to read it outside the running database. Against that, it works well.
+
+It does nothing about the threats that account for most real exposure, because every one of them goes through the running database, where data is already decrypted:
+
+- A DBA, a compromised application, or a SQL-injection payload reads the tables directly.
+- A logical replica, a read replica, or a change-data-capture stream carries plaintext downstream.
+- Query logs, `EXPLAIN` output, error reports, and debug snapshots capture plaintext.
+
+<Callout type="info">
+TDE is "encryption at rest" in the narrowest sense: at rest on disk, decrypted the moment the database touches it. It is worth having, and it is not a confidentiality control against anyone who can talk to the database.
+</Callout>
+
+## What RLS protects, and what it does not
+
+Row-Level Security is **authorization**, not encryption. An RLS policy attaches a predicate to a table so that a given role only sees, or only modifies, the rows that match. It is the right tool for multi-tenant isolation and per-user visibility: a policy like `tenant_id = current_setting('app.tenant')` keeps one tenant's rows away from another's.
+
+What RLS does not do is protect the **contents** of the rows a caller is allowed to see. Inside those rows, every column is plaintext. And RLS only applies while queries flow through the policy engine, so it is bypassed by:
+
+- A superuser, or any role with `BYPASSRLS`.
+- Direct file access, backups, and replicas, which carry the raw plaintext with no policy attached.
+- Any path that reads the table outside the policy's assumptions, including many admin and migration tools.
+
+RLS answers "may this caller see this row". It has nothing to say about "is the data readable if the database itself is compromised".
+
+## What CipherStash adds
+
+CipherStash encrypts each sensitive value in your application, before it is sent to Postgres, and stores ciphertext plus searchable index terms. The database never holds the plaintext, so the surfaces that defeat TDE and RLS see ciphertext instead:
+
+- A DBA, a leaked backup, a replica, or a query log contains ciphertext, not readable data.
+- Decryption happens only in your application, after key-bound decryption through [ZeroKMS](/security).
+
+The part that makes this practical is that the ciphertext stays **queryable**. Through [EQL](/reference/eql), encrypted columns still answer equality, range, ordering, and free-text containment, using standard SQL and standard Postgres indexes. You do not trade query capability for confidentiality the way "just encrypt the column with `pgcrypto`" forces you to.
+
+What CipherStash deliberately does not do is decide *which* rows a caller sees. That is an access-control question, and RLS already answers it well.
+
+## Use them together
+
+Because the three controls close different threats, the strong design is to combine them rather than choose one. On a managed platform like Supabase this is the common pattern:
+
+- **RLS** decides which rows come back for the authenticated caller.
+- **CipherStash** decides whether the contents of those rows can be read at all.
+- **TDE**, provided by the platform, covers the stolen-media case underneath.
+
+RLS and CipherStash compose especially cleanly: RLS policies run against the plaintext columns you authorize on (typically `user_id` or `tenant_id`, which are not secret), while the sensitive columns stay encrypted. One control narrows the rows; the other protects their contents. See the [Supabase integration](/integrations/supabase) for this exact combination in practice.
+
+## Choosing
+
+| If your concern is... | Reach for |
+| --- | --- |
+| One tenant or user seeing another's rows | RLS |
+| A stolen drive or backup file | TDE (usually on by default in managed Postgres) |
+| The database itself being untrusted: insiders, leaked replicas and logs, breach | CipherStash |
+| All of the above | All three, composed |
+
+If you only adopt one new control, make it the one that matches your actual threat model. For most teams handling regulated or high-value data, the gap that TDE and RLS leave open, the database seeing plaintext, is the one that matters, and it is the gap CipherStash closes.
+
+## Where to next
+
+<Cards>
+  <Card title="What is CipherStash" href="/get-started/what-is-cipherstash">
+    The model behind application-level searchable encryption.
+  </Card>
+  <Card title="Searchable encryption" href="/concepts/searchable-encryption">
+    How encrypted values stay queryable, and what each index term reveals.
+  </Card>
+  <Card title="Supabase integration" href="/integrations/supabase">
+    RLS and encryption composed on a managed Postgres platform.
+  </Card>
+  <Card title="Security overview" href="/security">
+    The full threat model and the trust boundary CipherStash draws.
+  </Card>
+</Cards>
