@@ -3,8 +3,11 @@
 import { useState } from "react";
 
 interface EqlFnProps {
-  /** Comma-separated operator equivalents, e.g. `<,<=,>,>=`. */
-  ops: string;
+  /**
+   * Comma-separated operator equivalents, e.g. `<,<=,>,>=`. Omit for pure
+   * functions with no operator form (e.g. `eql_v3.jsonb_path_query`).
+   */
+  ops?: string;
   /** Comma-separated short domain names the function applies to. */
   domains?: string;
   /** Aggregate function (MIN/MAX): labels the row "Aggregate". */
@@ -35,7 +38,7 @@ export function EqlFn({
   initial = 2,
   children,
 }: EqlFnProps) {
-  const opList = ops.split(",").filter(Boolean);
+  const opList = ops ? ops.split(",").filter(Boolean) : [];
   const domainList = domains ? domains.split(",").filter(Boolean) : [];
   const [expanded, setExpanded] = useState(false);
   const hidden = Math.max(0, domainList.length - initial);
@@ -44,19 +47,21 @@ export function EqlFn({
 
   return (
     <div className="my-4 rounded-lg border border-fd-border bg-fd-card p-4">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-fd-muted-foreground">
-          {label}
-        </span>
-        {opList.map((op) => (
-          <span
-            key={op}
-            className="rounded-md border border-fd-primary/30 bg-fd-primary/10 px-2 py-0.5 font-mono text-sm font-semibold text-fd-primary"
-          >
-            {op}
+      {opList.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-fd-muted-foreground">
+            {label}
           </span>
-        ))}
-      </div>
+          {opList.map((op) => (
+            <span
+              key={op}
+              className="rounded-md border border-fd-primary/30 bg-fd-primary/10 px-2 py-0.5 font-mono text-sm font-semibold text-fd-primary"
+            >
+              {op}
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       {domainList.length > 0 ? (
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
