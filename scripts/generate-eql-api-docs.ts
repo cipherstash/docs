@@ -43,6 +43,12 @@ const MANIFEST_PATH =
   (fs.existsSync(RELEASE_MANIFEST) ? RELEASE_MANIFEST : SAMPLE_MANIFEST);
 const EQL_DIR = path.join(process.cwd(), "content/docs/reference/eql");
 const OUT_FILE = path.join(EQL_DIR, "functions.mdx");
+// Per-type function fragments embedded into the hand-written type pages via
+// Fumadocs' `<include>` directive. They live OUTSIDE the two content
+// collections (content/docs, content/stack) so they never become routes, and
+// are included cwd-relative (`<include cwd>content/partials/…`). Generated, so
+// the per-type "which functions apply" tables can't drift from the manifest.
+const FRAGMENT_DIR = path.join(process.cwd(), "content/partials/eql");
 // Single source for the EQL version the whole reference is built against: the
 // release manifest's own `version`. Written here so the <EqlVersion> banner on
 // every EQL page reads the same release-derived value (no hardcoded constant).
@@ -214,6 +220,183 @@ function render(manifest: Manifest): string {
   return `${body.join("\n").trimEnd()}\n`;
 }
 
+// ── Per-type function fragments ──────────────────────────────────────────────
+// Each hand-written type page (numbers, text, dates-and-times) carries a
+// per-function reference: one card per EQL function, listing its operator
+// equivalents, the domains it applies to, and a worked example. These are
+// generated from the manifest and `<include>`d into the page (via the `<EqlFn>`
+// component) rather than hand-maintained, where the domain lists silently
+// drifted. The example is the one authored part — templated by capability, not
+// pulled from the manifest — and the domain list, the drift-prone part, is not.
+//
+// json and booleans are intentionally NOT here: json's surface is containment /
+// path functions (a bespoke story, not the eq/ord/min-max set), and booleans
+// are storage-only with no query functions.
+interface FragmentSpec {
+  page: string;
+  // Which manifest domain `type`s belong on this page.
+  match: (type: string) => boolean;
+  // Illustrative context for the generated examples.
+  table: string;
+  col: string;
+  // Representative concrete type the example casts to, e.g. `bigint` →
+  // `public.eql_v3_bigint_ord`. One of the page's family, for a realistic cast.
+  castType: string;
+  // On text, ranges are unusual and sorting is the point, so the comparison
+  // example demonstrates ORDER BY. Elsewhere a range filter reads best.
+  orderByExample: boolean;
+}
+
+const FRAGMENT_SPECS: FragmentSpec[] = [
+  {
+    page: "numbers",
+    match: (t) =>
+      /(^|\b)(small|big)?int|integer|numeric|decimal|real|double|float/.test(t),
+    table: "payments",
+    col: "amount",
+    castType: "bigint",
+    orderByExample: false,
+  },
+  {
+    page: "text",
+    match: (t) => t === "text",
+    table: "users",
+    col: "email",
+    castType: "text",
+    orderByExample: true,
+  },
+  {
+    page: "dates-and-times",
+    match: (t) => /date|time/.test(t),
+    table: "events",
+    col: "occurred_at",
+    castType: "timestamp",
+    orderByExample: false,
+  },
+];
+
+// The EQL function set, in reading order. `cap` is the domain capability that
+// exposes the function, so a function only renders when the page has a domain
+// with that capability. `lt`/`lte`/`gt`/`gte` are one card: same capability,
+// same domains. `id` is the deep-link anchor.
+interface FuncDef {
+  id: string;
+  name: string;
+  ops: string[];
+  cap: string;
+  agg?: boolean;
+}
+const FUNCS: FuncDef[] = [
+  { id: "fn-eq", name: "eql_v3.eq(a, b)", ops: ["="], cap: "equality" },
+  { id: "fn-neq", name: "eql_v3.neq(a, b)", ops: ["<>"], cap: "equality" },
+  {
+    id: "fn-comparison",
+    name: "eql_v3.lt / lte / gt / gte",
+    ops: ["<", "<=", ">", ">="],
+    cap: "order",
+  },
+  {
+    id: "fn-contains",
+    name: "eql_v3.contains(a, b)",
+    ops: ["@>"],
+    cap: "match",
+  },
+  {
+    id: "fn-contained_by",
+    name: "eql_v3.contained_by(a, b)",
+    ops: ["<@"],
+    cap: "match",
+  },
+  {
+    id: "fn-min",
+    name: "eql_v3.min(col)",
+    ops: ["MIN"],
+    cap: "order",
+    agg: true,
+  },
+  {
+    id: "fn-max",
+    name: "eql_v3.max(col)",
+    ops: ["MAX"],
+    cap: "order",
+    agg: true,
+  },
+];
+
+// `public.eql_v3_text_eq` → `text_eq`.
+const shortDomain = (name: string) => name.replace(/^public\.(eql_v3_)?/, "");
+
+// The example for one function, keyed by its anchor id and templated from the
+// page's illustrative context. The `::public.eql_v3_<type>_<variant>` casts use
+// real domain names, so they stay correct; the table and column are illustrative.
+function exampleFor(id: string, spec: FragmentSpec): string {
+  const { table, col, castType } = spec;
+  const dom = (variant: string) => `public.eql_v3_${castType}_${variant}`;
+  switch (id) {
+    case "fn-eq":
+      return `SELECT * FROM ${table}\nWHERE eql_v3.eq(${col}, $1::${dom("eq")});`;
+    case "fn-neq":
+      return `SELECT * FROM ${table}\nWHERE eql_v3.neq(${col}, $1::${dom("eq")});`;
+    case "fn-comparison":
+      return spec.orderByExample
+        ? `-- any of the four; ordering is the usual reason to index text\nSELECT id, ${col} FROM ${table}\nWHERE eql_v3.gt(${col}, $1::${dom("ord")})\nORDER BY eql_v3.ord_term(${col});`
+        : `-- a range uses two of the four\nSELECT * FROM ${table}\nWHERE eql_v3.gte(${col}, $1::${dom("ord")})\n  AND eql_v3.lt(${col}, $2::${dom("ord")});`;
+    case "fn-contains":
+      return `-- token containment on the bloom-filter term\nSELECT * FROM ${table}\nWHERE eql_v3.contains(${col}, $1::${dom("match")});`;
+    case "fn-contained_by":
+      return `SELECT * FROM ${table}\nWHERE eql_v3.contained_by(${col}, $1::${dom("match")});`;
+    case "fn-min":
+      return `-- compares ordering terms; result decrypts client-side\nSELECT eql_v3.min(${col}) FROM ${table};`;
+    case "fn-max":
+      return `SELECT eql_v3.max(${col}) FROM ${table};`;
+    default:
+      return "";
+  }
+}
+
+function renderFragment(domains: Domain[], spec: FragmentSpec): string {
+  const scoped = domains.filter((d) => spec.match(d.type));
+  const header = `{/* GENERATED — do not edit. Produced by scripts/generate-eql-api-docs.ts from the EQL manifest. Edit the generator, not this file. */}`;
+  const intro =
+    "Every operator has a function form, for managed platforms that disallow custom operators — same typed arguments, identical resolution. Each lists the encrypted domains it applies to; the `MIN` / `MAX` aggregates only exist as functions.";
+  if (!scoped.length) {
+    return `${header}\n\n${intro}\n\n_No matching encrypted domains in this EQL manifest._\n`;
+  }
+
+  const blocks: string[] = [];
+  for (const fn of FUNCS) {
+    const applies = scoped
+      .filter((d) => d.capabilities.includes(fn.cap) && d.variant)
+      .map((d) => shortDomain(d.name));
+    if (!applies.length) continue;
+    const attrs = [
+      `ops="${fn.ops.join(",")}"`,
+      fn.agg ? "agg" : "",
+      `domains="${applies.join(",")}"`,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const example = exampleFor(fn.id, spec);
+    // The name is a real `###` heading with an explicit id, so each function
+    // gets a table-of-contents entry (nested under "Functions") and a stable
+    // deep-link anchor. The `<EqlFn>` card renders everything below it.
+    blocks.push(
+      `### ${fn.name} [#${fn.id}]\n\n<EqlFn ${attrs}>\n\n\`\`\`sql\n${example}\n\`\`\`\n\n</EqlFn>`,
+    );
+  }
+
+  return `${header}\n\n${intro}\n\n${blocks.join("\n\n")}\n`;
+}
+
+function writeFragments(manifest: Manifest): void {
+  fs.mkdirSync(FRAGMENT_DIR, { recursive: true });
+  for (const spec of FRAGMENT_SPECS) {
+    const out = path.join(FRAGMENT_DIR, `functions-${spec.page}.mdx`);
+    fs.writeFileSync(out, renderFragment(manifest.domains ?? [], spec));
+    console.log(`✓ Generated ${path.relative(process.cwd(), out)}`);
+  }
+}
+
 // ── Drift guard ──────────────────────────────────────────────────────────────
 // The known surface is fully schema-qualified: domains live in `public.`,
 // functions in `eql_v3.` (public) or `eql_v3_internal.` (private), and the
@@ -284,6 +467,9 @@ function main() {
 
   fs.mkdirSync(EQL_DIR, { recursive: true });
   fs.writeFileSync(OUT_FILE, render(manifest));
+
+  // Per-type function fragments included into the hand-written type pages.
+  writeFragments(manifest);
 
   // Emit the release version for the <EqlVersion> banner (shared by every EQL
   // reference page, hand-written and generated alike).

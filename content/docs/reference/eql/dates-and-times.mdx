@@ -95,49 +95,7 @@ Blocked *operator* cells raise an `operator … is not supported` exception — 
 
 ## Functions
 
-Every operator has a function form, for managed platforms that disallow custom operators — same typed arguments, identical resolution. The `MIN` / `MAX` aggregates only exist as functions:
-
-| Function | Equivalent | Available on |
-| --- | --- | --- |
-| `eql_v3.eq(a, b)` / `eql_v3.neq(a, b)` | `=` / `<>` | `_eq`, all `_ord` variants |
-| `eql_v3.lt` / `lte` / `gt` / `gte` | `<` `<=` `>` `>=` | all `_ord` variants |
-| `eql_v3.min(col)` / `eql_v3.max(col)` | aggregate `MIN` / `MAX` | all `_ord` variants |
-
-## Example queries
-
-### Time window
-
-```sql
-SELECT * FROM audit_events
-WHERE occurred_at BETWEEN $1::public.eql_v3_timestamp_ord AND $2::public.eql_v3_timestamp_ord;
-
-SELECT * FROM audit_events
-WHERE review_due BETWEEN $1::public.eql_v3_date_ord AND $2::public.eql_v3_date_ord;
-```
-
-### Retention cutoff
-
-```sql
-SELECT id FROM audit_events
-WHERE occurred_at < $1::public.eql_v3_timestamp_ord;
-```
-
-### Newest-first listing
-
-Write the sort key in extractor form to stream rows out of the index already ordered — at large row counts this is the difference between seconds and milliseconds (see [Sorting](/reference/eql/sorting)):
-
-```sql
-SELECT * FROM audit_events
-WHERE occurred_at >= $1::public.eql_v3_timestamp_ord
-ORDER BY eql_v3.ord_term(occurred_at) DESC
-LIMIT 10;
-```
-
-### First and last event
-
-```sql
-SELECT eql_v3.min(occurred_at), eql_v3.max(occurred_at) FROM audit_events;
-```
+<include cwd>content/partials/eql/functions-dates-and-times.mdx</include>
 
 ## Where to next
 

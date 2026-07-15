@@ -111,85 +111,129 @@ Use containment (`@>` / `<@`), field access (`->` / `->>`), or the `eql_v3.jsonb
 **Operands must be typed** (`doc -> 'email'::text`, not `doc -> 'email'`) — an untyped operand resolves the native `jsonb` operator, bypassing both the encrypted operator and the blockers. See [Core concepts](/reference/eql/core-concepts).
 </Callout>
 
-## Containment: `@>` and `<@`
+## Functions
 
-`@>` tests whether the encrypted document contains a structure; `<@` is the reverse. Build the needle with the client and cast it to `eql_v3.query_jsonb` (a typed `public.eql_v3_json` or `public.eql_v3_jsonb_entry` operand also works):
+Every JSON query addresses paths by **selector hash** — the deterministic identifier the client emits for a JSON path during encryption, not a plaintext path like `$.customer.tier`. Operands must be typed, or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one.
+
+The examples below all query one encrypted `metadata` document. In plaintext:
+
+```json
+{
+  "customer": {
+    "tier": "premium",
+    "region": "apac"
+  },
+  "total": 149.95,
+  "items": ["sku-1042", "sku-2210"]
+}
+```
+
+The `*_selector` placeholders stand for the selector hash of each path: `region_selector` for `$.customer.region`, `total_selector` for `$.total`, and `items_selector` for `$.items`.
+
+### Containment [#fn-contains]
+
+`@>` tests whether the encrypted document contains a structure; `<@` is the reverse. Build the needle in the client and cast it to `eql_v3.query_jsonb`; `eql_v3.ste_vec_contains(a, b)` is the function form.
+
+<EqlFn ops="@>,<@" domains="eql_v3_json">
 
 ```sql
 SELECT * FROM orders
 WHERE metadata @> $1::eql_v3.query_jsonb;
 ```
 
-This is the encrypted equivalent of the plaintext `metadata @> '{"customer": {"tier": "premium"}}'`: containment checks that every encrypted term in the needle exists in the document's `sv` vector. `eql_v3.to_ste_vec_query(doc)` converts a stored document into the needle shape, and `eql_v3.ste_vec_contains(a, b)` is the function form backing `@>`.
+</EqlFn>
 
-For large tables, back containment with a GIN index. The typed `@>` overload inlines to a native `jsonb @>` over `eql_v3.to_ste_vec_query(col)::jsonb`, so a GIN index on that same expression engages:
+For large tables, back containment with a GIN index. The typed `@>` inlines to a native `jsonb @>` over `eql_v3.to_ste_vec_query(col)::jsonb`, so a GIN index on that same expression engages:
 
 ```sql
 CREATE INDEX orders_metadata_gin
   ON orders USING gin (eql_v3.to_ste_vec_query(metadata)::jsonb jsonb_path_ops);
-ANALYZE orders;
 ```
 
-See [Indexes](/reference/eql/indexes) for the full recipes.
+### Field access [#fn-field-access]
 
-## Field access: `->` and `->>`
+`->` returns a `public.eql_v3_jsonb_entry`; `->>` serializes that entry as ciphertext text. Fields are addressed by selector hash, and array elements by 0-based index.
 
-Fields are addressed by **selector hash** — the deterministic identifier the client emits for a JSON path during encryption — not a plaintext path string like `$.customer.tier`.
+<EqlFn ops="->,->>" domains="eql_v3_json">
 
 ```sql
--- Field access by selector (returns public.eql_v3_jsonb_entry)
-SELECT metadata -> 'selector_hash'::text FROM orders;
-
--- The entry serialized as text (ciphertext JSON, not decrypted plaintext)
-SELECT metadata ->> 'selector_hash'::text FROM orders;
-
--- Array element by 0-based index
-SELECT metadata -> 0 FROM orders;
+SELECT metadata -> 'selector_hash'::text  FROM orders;  -- entry
+SELECT metadata ->> 'selector_hash'::text FROM orders;  -- entry as ciphertext text
+SELECT metadata -> 0 FROM orders;                       -- array element by index
 ```
 
-The extracted `public.eql_v3_jsonb_entry` is itself comparable:
+</EqlFn>
 
-- `=` / `<>` resolve via `eql_v3.eq_term` — works on every node type
-- `<` / `<=` / `>` / `>=` resolve via `eql_v3.ord_term` — String and Number leaves only
-- `MIN` / `MAX` over an extracted ordered leaf use the `eql_v3.min` / `eql_v3.max` aggregates
+The extracted `public.eql_v3_jsonb_entry` is itself comparable.
+
+### eql_v3.eq_term [#fn-eq-term]
+
+Equality on an extracted leaf, via `eql_v3.eq_term`. Works on every node type, and drives `GROUP BY` / `DISTINCT`.
+
+<EqlFn ops="=,<>" domains="eql_v3_jsonb_entry">
 
 ```sql
--- Equality on an extracted leaf
-SELECT * FROM orders
-WHERE metadata -> 'email_selector'::text = $1::public.eql_v3_jsonb_entry;
-
--- Group by an extracted leaf's equality term
 SELECT eql_v3.eq_term(metadata -> 'region_selector'::text) AS region, COUNT(*)
 FROM orders
 GROUP BY eql_v3.eq_term(metadata -> 'region_selector'::text);
 ```
 
-A hash index on `eql_v3.eq_term(col -> '<selector>'::text)` engages the equality lookup; a btree on `eql_v3.ord_term(...)` engages range and `ORDER BY`. The OPE term is a `bytea` domain that orders under the default btree operator class, so this index needs no custom operator class. See [Indexes](/reference/eql/indexes).
+</EqlFn>
 
-## Path queries and array helpers
+### eql_v3.ord_term [#fn-ord-term]
 
-The function forms take the same selector hashes:
+Range comparisons and `ORDER BY` on an extracted **String or Number** leaf, via `eql_v3.ord_term`.
+
+<EqlFn ops="<,<=,>,>=" domains="eql_v3_jsonb_entry">
 
 ```sql
--- All entries matching a selector
-SELECT eql_v3.jsonb_path_query(metadata, 'selector_hash') FROM orders;
-
--- First match only
-SELECT eql_v3.jsonb_path_query_first(metadata, 'selector_hash') FROM orders;
-
--- Does the selector exist in this document?
-SELECT eql_v3.jsonb_path_exists(metadata, 'selector_hash') FROM orders;
+SELECT * FROM orders
+WHERE (metadata -> 'total_selector'::text) > $1::public.eql_v3_jsonb_entry;
 ```
 
-For encrypted array nodes:
+</EqlFn>
+
+A hash index on `eql_v3.eq_term(col -> '<selector>'::text)` engages the equality lookup; a btree on `eql_v3.ord_term(...)` engages range and `ORDER BY`. See [Indexes](/reference/eql/indexes).
+
+### eql_v3.min / max [#fn-min-max]
+
+`MIN` / `MAX` over an extracted ordered leaf.
+
+<EqlFn agg ops="MIN,MAX" domains="eql_v3_jsonb_entry">
 
 ```sql
-SELECT eql_v3.jsonb_array_length(metadata -> 'items_selector'::text) FROM orders;
-SELECT eql_v3.jsonb_array_elements(metadata -> 'items_selector'::text) FROM orders;
+SELECT eql_v3.min(metadata -> 'total_selector'::text) FROM orders;
+```
+
+</EqlFn>
+
+### eql_v3.jsonb_path_query [#fn-path-query]
+
+Path queries take the same selector hashes. `jsonb_path_query` returns every matching entry, `jsonb_path_query_first` the first, and `jsonb_path_exists` a boolean.
+
+<EqlFn domains="eql_v3_json">
+
+```sql
+SELECT eql_v3.jsonb_path_query(metadata, 'selector_hash')       FROM orders;  -- all matches
+SELECT eql_v3.jsonb_path_query_first(metadata, 'selector_hash') FROM orders;  -- first match
+SELECT eql_v3.jsonb_path_exists(metadata, 'selector_hash')      FROM orders;  -- boolean
+```
+
+</EqlFn>
+
+### eql_v3.jsonb_array_* [#fn-array]
+
+Helpers over an encrypted array node. `jsonb_array_elements` yields encrypted entries; `jsonb_array_elements_text` yields each element as ciphertext text.
+
+<EqlFn domains="eql_v3_json">
+
+```sql
+SELECT eql_v3.jsonb_array_length(metadata -> 'items_selector'::text)        FROM orders;
+SELECT eql_v3.jsonb_array_elements(metadata -> 'items_selector'::text)      FROM orders;
 SELECT eql_v3.jsonb_array_elements_text(metadata -> 'items_selector'::text) FROM orders;
 ```
 
-`jsonb_array_elements` yields encrypted entries; `jsonb_array_elements_text` yields each element as ciphertext text.
+</EqlFn>
 
 ## Worked example
 
