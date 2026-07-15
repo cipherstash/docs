@@ -2,6 +2,52 @@
 
 import { useEffect, useId, useState } from "react";
 
+// CipherStash Mermaid theming. Mermaid's `base` theme is the one built to be
+// customised via `themeVariables`; these two palettes track the docs' own
+// tokens (warm near-black / off-white grounds, the lime brand accent for
+// subgraph titles) so diagrams read as part of the site rather than stock
+// Mermaid. Applied globally, so every diagram is branded from one place.
+const MERMAID_THEME = {
+  light: {
+    fontFamily: "inherit",
+    fontSize: "14px",
+    background: "transparent",
+    primaryColor: "#ffffff",
+    mainBkg: "#ffffff",
+    primaryBorderColor: "#d7d3c7",
+    nodeBorder: "#d7d3c7",
+    primaryTextColor: "#1a1813",
+    nodeTextColor: "#1a1813",
+    textColor: "#1a1813",
+    lineColor: "#8a857a",
+    secondaryColor: "#f5f3ee",
+    tertiaryColor: "#f5f3ee",
+    clusterBkg: "#f5f3ee",
+    clusterBorder: "#e2ded2",
+    titleColor: "#5f8410",
+    edgeLabelBackground: "#faf9f4",
+  },
+  dark: {
+    fontFamily: "inherit",
+    fontSize: "14px",
+    background: "transparent",
+    primaryColor: "#17160f",
+    mainBkg: "#17160f",
+    primaryBorderColor: "#33322c",
+    nodeBorder: "#33322c",
+    primaryTextColor: "#eae8dd",
+    nodeTextColor: "#eae8dd",
+    textColor: "#eae8dd",
+    lineColor: "#9a9486",
+    secondaryColor: "#100f09",
+    tertiaryColor: "#100f09",
+    clusterBkg: "#100f09",
+    clusterBorder: "#2b2a24",
+    titleColor: "#b9e84a",
+    edgeLabelBackground: "#0a0a0a",
+  },
+} as const;
+
 /**
  * Renders a Mermaid diagram authored as a ```mermaid code fence.
  *
@@ -32,7 +78,10 @@ export function Mermaid({ chart }: { chart: string }) {
 
       mermaid.initialize({
         startOnLoad: false,
-        theme: isDark ? "dark" : "default",
+        // `base` + themeVariables is Mermaid's customisation path; the palette
+        // is the CipherStash one defined above.
+        theme: "base",
+        themeVariables: isDark ? MERMAID_THEME.dark : MERMAID_THEME.light,
         // Diagram labels should match the surrounding prose, not Mermaid's
         // default sans stack.
         fontFamily: "inherit",
