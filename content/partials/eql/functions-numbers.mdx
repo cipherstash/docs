@@ -2,7 +2,9 @@
 
 Every operator has a function form, for managed platforms that disallow custom operators — same typed arguments, identical resolution. Each lists the encrypted domains it applies to; the `MIN` / `MAX` aggregates only exist as functions.
 
-<EqlFn id="fn-eq" name="eql_v3.eq(a, b)" ops="=" domains="bigint_eq,bigint_ord,bigint_ord_ope,bigint_ord_ore,double_eq,double_ord,double_ord_ope,double_ord_ore,integer_eq,integer_ord,integer_ord_ope,integer_ord_ore,numeric_eq,numeric_ord,numeric_ord_ope,numeric_ord_ore,real_eq,real_ord,real_ord_ope,real_ord_ore,smallint_eq,smallint_ord,smallint_ord_ope,smallint_ord_ore">
+### eql_v3.eq(a, b) [#fn-eq]
+
+<EqlFn ops="=" domains="bigint_eq,bigint_ord,bigint_ord_ope,bigint_ord_ore,double_eq,double_ord,double_ord_ope,double_ord_ore,integer_eq,integer_ord,integer_ord_ope,integer_ord_ore,numeric_eq,numeric_ord,numeric_ord_ope,numeric_ord_ore,real_eq,real_ord,real_ord_ope,real_ord_ore,smallint_eq,smallint_ord,smallint_ord_ope,smallint_ord_ore">
 
 ```sql
 SELECT * FROM payments
@@ -11,7 +13,9 @@ WHERE eql_v3.eq(amount, $1::public.eql_v3_bigint_eq);
 
 </EqlFn>
 
-<EqlFn id="fn-neq" name="eql_v3.neq(a, b)" ops="<>" domains="bigint_eq,bigint_ord,bigint_ord_ope,bigint_ord_ore,double_eq,double_ord,double_ord_ope,double_ord_ore,integer_eq,integer_ord,integer_ord_ope,integer_ord_ore,numeric_eq,numeric_ord,numeric_ord_ope,numeric_ord_ore,real_eq,real_ord,real_ord_ope,real_ord_ore,smallint_eq,smallint_ord,smallint_ord_ope,smallint_ord_ore">
+### eql_v3.neq(a, b) [#fn-neq]
+
+<EqlFn ops="<>" domains="bigint_eq,bigint_ord,bigint_ord_ope,bigint_ord_ore,double_eq,double_ord,double_ord_ope,double_ord_ore,integer_eq,integer_ord,integer_ord_ope,integer_ord_ore,numeric_eq,numeric_ord,numeric_ord_ope,numeric_ord_ore,real_eq,real_ord,real_ord_ope,real_ord_ore,smallint_eq,smallint_ord,smallint_ord_ope,smallint_ord_ore">
 
 ```sql
 SELECT * FROM payments
@@ -20,7 +24,9 @@ WHERE eql_v3.neq(amount, $1::public.eql_v3_bigint_eq);
 
 </EqlFn>
 
-<EqlFn id="fn-comparison" name="eql_v3.lt / lte / gt / gte" ops="<,<=,>,>=" domains="bigint_ord,bigint_ord_ope,bigint_ord_ore,double_ord,double_ord_ope,double_ord_ore,integer_ord,integer_ord_ope,integer_ord_ore,numeric_ord,numeric_ord_ope,numeric_ord_ore,real_ord,real_ord_ope,real_ord_ore,smallint_ord,smallint_ord_ope,smallint_ord_ore">
+### eql_v3.lt / lte / gt / gte [#fn-comparison]
+
+<EqlFn ops="<,<=,>,>=" domains="bigint_ord,bigint_ord_ope,bigint_ord_ore,double_ord,double_ord_ope,double_ord_ore,integer_ord,integer_ord_ope,integer_ord_ore,numeric_ord,numeric_ord_ope,numeric_ord_ore,real_ord,real_ord_ope,real_ord_ore,smallint_ord,smallint_ord_ope,smallint_ord_ore">
 
 ```sql
 -- a range uses two of the four
@@ -31,7 +37,9 @@ WHERE eql_v3.gte(amount, $1::public.eql_v3_bigint_ord)
 
 </EqlFn>
 
-<EqlFn id="fn-min" name="eql_v3.min(col)" ops="MIN" agg domains="bigint_ord,bigint_ord_ope,bigint_ord_ore,double_ord,double_ord_ope,double_ord_ore,integer_ord,integer_ord_ope,integer_ord_ore,numeric_ord,numeric_ord_ope,numeric_ord_ore,real_ord,real_ord_ope,real_ord_ore,smallint_ord,smallint_ord_ope,smallint_ord_ore">
+### eql_v3.min(col) [#fn-min]
+
+<EqlFn ops="MIN" agg domains="bigint_ord,bigint_ord_ope,bigint_ord_ore,double_ord,double_ord_ope,double_ord_ore,integer_ord,integer_ord_ope,integer_ord_ore,numeric_ord,numeric_ord_ope,numeric_ord_ore,real_ord,real_ord_ope,real_ord_ore,smallint_ord,smallint_ord_ope,smallint_ord_ore">
 
 ```sql
 -- compares ordering terms; result decrypts client-side
@@ -40,7 +48,9 @@ SELECT eql_v3.min(amount) FROM payments;
 
 </EqlFn>
 
-<EqlFn id="fn-max" name="eql_v3.max(col)" ops="MAX" agg domains="bigint_ord,bigint_ord_ope,bigint_ord_ore,double_ord,double_ord_ope,double_ord_ore,integer_ord,integer_ord_ope,integer_ord_ore,numeric_ord,numeric_ord_ope,numeric_ord_ore,real_ord,real_ord_ope,real_ord_ore,smallint_ord,smallint_ord_ope,smallint_ord_ore">
+### eql_v3.max(col) [#fn-max]
+
+<EqlFn ops="MAX" agg domains="bigint_ord,bigint_ord_ope,bigint_ord_ore,double_ord,double_ord_ope,double_ord_ore,integer_ord,integer_ord_ope,integer_ord_ore,numeric_ord,numeric_ord_ope,numeric_ord_ore,real_ord,real_ord_ope,real_ord_ore,smallint_ord,smallint_ord_ope,smallint_ord_ore">
 
 ```sql
 SELECT eql_v3.max(amount) FROM payments;

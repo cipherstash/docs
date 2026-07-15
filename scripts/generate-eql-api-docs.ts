@@ -370,8 +370,6 @@ function renderFragment(domains: Domain[], spec: FragmentSpec): string {
       .map((d) => shortDomain(d.name));
     if (!applies.length) continue;
     const attrs = [
-      `id="${fn.id}"`,
-      `name="${fn.name}"`,
       `ops="${fn.ops.join(",")}"`,
       fn.agg ? "agg" : "",
       `domains="${applies.join(",")}"`,
@@ -379,8 +377,11 @@ function renderFragment(domains: Domain[], spec: FragmentSpec): string {
       .filter(Boolean)
       .join(" ");
     const example = exampleFor(fn.id, spec);
+    // The name is a real `###` heading with an explicit id, so each function
+    // gets a table-of-contents entry (nested under "Functions") and a stable
+    // deep-link anchor. The `<EqlFn>` card renders everything below it.
     blocks.push(
-      `<EqlFn ${attrs}>\n\n\`\`\`sql\n${example}\n\`\`\`\n\n</EqlFn>`,
+      `### ${fn.name} [#${fn.id}]\n\n<EqlFn ${attrs}>\n\n\`\`\`sql\n${example}\n\`\`\`\n\n</EqlFn>`,
     );
   }
 
