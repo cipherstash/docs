@@ -76,6 +76,146 @@ export const v2docs = defineDocs({
   },
 });
 
+// ── Syntax highlighting: the CipherStash code theme ──────────────────────────
+// Two custom Shiki themes (light + dark) built from the site palette instead of
+// Fumadocs' default GitHub themes: the lime-green brand accent for keywords,
+// warm neutrals for text and comments, and teal / gold / amber supporting hues
+// tuned to the near-black and off-white grounds the docs already use. Shiki runs
+// in dual-theme mode (see `defaultColor: false` in rehypeCodeDefaultOptions), so
+// these switch with the site's light/dark toggle via CSS variables.
+interface CodePalette {
+  bg: string;
+  fg: string;
+  com: string;
+  kw: string;
+  fn: string;
+  typ: string;
+  str: string;
+  num: string;
+  pun: string;
+}
+
+function cipherstashTheme(
+  name: string,
+  type: "light" | "dark",
+  c: CodePalette,
+) {
+  return {
+    name,
+    type,
+    colors: {
+      "editor.background": c.bg,
+      "editor.foreground": c.fg,
+    },
+    settings: [
+      { settings: { background: c.bg, foreground: c.fg } },
+      {
+        scope: ["comment", "punctuation.definition.comment", "string.comment"],
+        settings: { foreground: c.com, fontStyle: "italic" },
+      },
+      {
+        scope: [
+          "keyword",
+          "keyword.control",
+          "keyword.other",
+          "keyword.operator.new",
+          "keyword.operator.expression",
+          "keyword.operator.logical",
+          "storage",
+          "storage.type",
+          "storage.modifier",
+          "variable.language",
+          "entity.name.tag",
+          "punctuation.definition.tag",
+        ],
+        settings: { foreground: c.kw },
+      },
+      {
+        scope: [
+          "entity.name.function",
+          "support.function",
+          "meta.function-call",
+          "meta.function-call.generic",
+          "variable.function",
+        ],
+        settings: { foreground: c.fn },
+      },
+      {
+        scope: [
+          "entity.name.type",
+          "entity.name.class",
+          "support.type",
+          "support.class",
+          "entity.other.inherited-class",
+          "entity.name.namespace",
+          "support.type.property-name",
+          "meta.object-literal.key",
+          "entity.other.attribute-name",
+        ],
+        settings: { foreground: c.typ },
+      },
+      {
+        scope: [
+          "string",
+          "string.quoted",
+          "string.template",
+          "string.regexp",
+          "punctuation.definition.string",
+        ],
+        settings: { foreground: c.str },
+      },
+      {
+        scope: [
+          "constant.numeric",
+          "constant.language",
+          "constant.character",
+          "constant.other",
+          "support.constant",
+        ],
+        settings: { foreground: c.num },
+      },
+      {
+        scope: [
+          "punctuation",
+          "keyword.operator",
+          "meta.brace",
+          "punctuation.separator",
+          "punctuation.terminator",
+        ],
+        settings: { foreground: c.pun },
+      },
+      {
+        scope: ["variable", "variable.other", "variable.parameter"],
+        settings: { foreground: c.fg },
+      },
+    ],
+  };
+}
+
+const cipherstashDark = cipherstashTheme("cipherstash-dark", "dark", {
+  bg: "#0b0b0a",
+  fg: "#e7e2d4",
+  com: "#6b6559",
+  kw: "#b7e64f",
+  fn: "#5ec8b8",
+  typ: "#7fd0c4",
+  str: "#d9b36a",
+  num: "#e0a35c",
+  pun: "#9a9486",
+});
+
+const cipherstashLight = cipherstashTheme("cipherstash-light", "light", {
+  bg: "#faf9f4",
+  fg: "#2b2822",
+  com: "#8b8676",
+  kw: "#567d0d",
+  fn: "#15776a",
+  typ: "#1c8577",
+  str: "#946618",
+  num: "#9a5f18",
+  pun: "#6b6559",
+});
+
 // Parse the leftover code-fence meta string (what remains after Fumadocs
 // extracts `title`, `tab`, and line-number directives) for the analytics
 // attributes documented for authors: `example-id`, `cta`, and `cta-type`.
@@ -152,11 +292,13 @@ const codeCopyTrackingTransformer: ShikiTransformer = {
 export default defineConfig({
   mdxOptions: {
     rehypeCodeOptions: {
-      // Preserve Fumadocs' default Shiki config (themes, parseMetaString) and
-      // its default transformers (notation highlight, diff, focus, word
-      // highlight) — passing `transformers` alone would replace them entirely —
-      // then append our copy-tracking transformer.
+      // Preserve Fumadocs' default Shiki config (dual-theme mode,
+      // parseMetaString) and its default transformers (notation highlight, diff,
+      // focus, word highlight) — passing `transformers` alone would replace them
+      // entirely — then append our copy-tracking transformer.
       ...rehypeCodeDefaultOptions,
+      // Swap GitHub's themes for the CipherStash palette (defined above).
+      themes: { light: cipherstashLight, dark: cipherstashDark },
       transformers: [
         ...(rehypeCodeDefaultOptions.transformers ?? []),
         codeCopyTrackingTransformer,
