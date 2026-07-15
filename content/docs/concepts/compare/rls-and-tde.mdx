@@ -26,6 +26,33 @@ To make RLS enforce per-user rules, you have to get the end user's identity into
 
 ### Where it works, and where it doesn't
 
+```mermaid
+flowchart LR
+    subgraph sp["Service principal: ORM, RDS, Aurora"]
+        direction TB
+        u1["User A"]
+        u2["User B"]
+        u3["User C"]
+        app["Application"]
+        spdb["Postgres<br/>RLS sees: app_service<br/>one role for every user"]
+        u1 --> app
+        u2 --> app
+        u3 --> app
+        app -- "one pooled connection<br/>as a shared role" --> spdb
+    end
+
+    subgraph pu["Per-user: Supabase via supabase-js"]
+        direction TB
+        eu["End user"]
+        api["supabase-js / PostgREST<br/>carries the user's JWT"]
+        pudb["Postgres<br/>RLS sees: auth.uid<br/>the actual end user"]
+        eu --> api
+        api -- "sets the session identity" --> pudb
+    end
+```
+
+On the left, three end users share one pooled connection, so the database only ever sees the service-principal role and RLS cannot tell them apart. On the right, the data API carries each user's identity into the session, so RLS can act on it.
+
 The one place per-user RLS is wired up for you is a data API that carries the end user's token into the database session. **Supabase** does this through **supabase-js** and the PostgREST data API behind it: the user's JWT sets the session role and claims, so a policy can call `auth.uid()` and mean it.
 
 Connect to that same database a different way and the context is gone:
