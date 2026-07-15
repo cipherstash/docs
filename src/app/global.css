@@ -47,11 +47,18 @@
   }
 }
 
-/* ── Typography: Fira Code for headings, labels, code ── */
+/* ── Typography: Fira Code for H1 + code, Geist Sans for H2+ ── */
 
 @layer base {
-  h1, h2, h3, h4 {
+  /* H1 keeps the Fira Code monospace treatment. */
+  h1 {
     font-family: var(--font-fira-code), ui-monospace, monospace !important;
+    letter-spacing: -0.02em;
+  }
+
+  /* H2 and below use Geist Sans, matching the marketing site. */
+  h2, h3, h4, h5, h6 {
+    font-family: var(--font-geist-sans), var(--font-inter), system-ui, sans-serif !important;
     letter-spacing: -0.02em;
   }
 
