@@ -1,0 +1,228 @@
+---
+title: CipherStash vs Homomorphic Encryption
+description: Searchable encryption is not FHE. See how CipherStash queries encrypted data with EQL v3 and why it's far faster than fully homomorphic encryption for real workloads.
+type: concept
+components: [encryption, eql]
+audience: [developer, cto, ciso]
+reviewBy: "2027-01-05"
+---
+
+CipherStash is often described — incorrectly — as "homomorphic encryption for databases." It isn't. CipherStash uses a **portfolio of specialised searchable-encryption schemes**, exposed through PostgreSQL via [EQL](/reference/eql), that are 5–6 orders of magnitude faster than today's best Fully Homomorphic Encryption (FHE) at the operations a real database actually runs.
+
+This page explains the difference, with numbers.
+
+## TL;DR
+
+| | Fully Homomorphic Encryption (FHE) | CipherStash searchable encryption |
+| --- | --- | --- |
+| **Goal** | Run *arbitrary* computation on ciphertext | Make the database operations a real workload runs (equality, match, range) practical on ciphertext |
+| **Approach** | One general-purpose primitive | A portfolio of specialised primitives, one per query type |
+| **Per-operation cost (Apple M2)** | ~150 ms equality, ~165 ms compare, ~11 ms encrypt | ~755 ns equality, ~755 ns compare, ~375 µs encrypt |
+| **Speed-up vs TFHE** | 1× | ~200,000× equality, ~215,000× greater-than, ~29× encrypt |
+| **Where it runs** | Specialised libraries, custom hardware proposals | Standard PostgreSQL with [EQL v3](/reference/eql) |
+| **Production-ready today** | No — orders of magnitude too slow for OLTP | Yes — ~0.12 ms exact match and order-preserving range on million-row tables (EQL v3) |
+
+Benchmarks: primitive-level FHE-vs-ORE from [`github.com/cipherstash/tfhe-ore-bench`](https://github.com/cipherstash/tfhe-ore-bench) (Apple M2, single-threaded; TFHE vs CipherStash ORE); database-level EQL v3 numbers from CipherStash's EQL v3 benchmark suite (1M rows, Apple M1 Max, PostgreSQL 17).
+
+## Why the conflation happens
+
+Both FHE and searchable encryption answer the question *"Can I do something useful with encrypted data without decrypting it first?"* That question, framed at a whiteboard, sounds like a single problem. So when people first see CipherStash they reach for the most well-known answer — homomorphic encryption — and the comparison sticks.
+
+It's the wrong frame. FHE and searchable encryption sit on opposite ends of a generality / performance trade-off:
+
+- **FHE** keeps a single ciphertext format and lets you run *any* circuit over it. The price is that even simple operations cost tens to hundreds of milliseconds per ciphertext, and the ciphertext blows up in size as you compose operations. It is a remarkable theoretical achievement and an active area of research; it is not yet practical for production databases.
+
+- **Searchable encryption** is a family of primitives, each *purpose-built* for one class of operation. Equality has its own scheme. Substring containment has its own scheme. Range and ordering have their own scheme. Each is dramatically cheaper than FHE because each does much less.
+
+CipherStash is squarely in the second camp. The reason it can deliver microsecond-class encrypted predicates while TFHE takes 150 ms is not that we found a faster FHE — it's that we don't need FHE at all.
+
+## Two cryptographic philosophies
+
+**FHE** stakes everything on a single universal cipher and the ability to run any circuit over it. The cost is tens to hundreds of milliseconds per operation.
+
+**CipherStash** keeps a portfolio of specialised ciphers and picks the right one per query type. The cost is sub-microsecond per operation.
+
+For workloads that are essentially "find rows where X, sort by Y" — i.e. the workload of every line-of-business application on the planet — the second philosophy is dramatically more efficient and equally rigorous, *provided* each scheme has a published, formally-bounded leakage profile. CipherStash's schemes do (see [Core concepts](/reference/eql/core-concepts) for what each index term reveals, and [Security architecture](/stack/reference/security-architecture) for the formal profiles).
+
+## Performance — measured per-operation cost
+
+Numbers below are from the open-source benchmark harness at [`github.com/cipherstash/tfhe-ore-bench`](https://github.com/cipherstash/tfhe-ore-bench). Single-threaded, Apple M2, comparing TFHE — a leading FHE library — against CipherStash's Order-Revealing Encryption (ORE) on the primitive operations a database executes per row.
+
+| Operation | TFHE (FHE) | CipherStash ORE | Speed-up |
+| --- | --- | --- | --- |
+| Encrypt one value | ~11 ms | ~375 µs | ~29× |
+| Equality (`a == b`) | ~150 ms | ~755 ns | **~200,000×** |
+| Greater-than (`a > b`) | ~162 ms | ~755 ns | **~215,000×** |
+| Less-than (`a < b`) | ~166 ms | ~755 ns | **~220,000×** |
+| Greater-or-equal (`a >= b`) | ~25 ms | ~131 ns | **~190,000×** |
+| Less-or-equal (`a <= b`) | ~30 ms | ~131 ns | **~225,000×** |
+
+The implication is straightforward: a single equality check at ~150 ms is already untenable per row. Multiplied across a million-row `WHERE` clause, FHE is impossible; the same predicate in CipherStash runs in microseconds end-to-end and rides standard PostgreSQL B-tree, hash and GIN indexes.
+
+### Real-world performance on EQL v3
+
+The per-operation numbers above measure the ORE primitive in isolation. In a live database the more useful question is how an encrypted query compares to the *same query on plaintext PostgreSQL*. CipherStash's EQL v3 benchmark suite measured this on a 1M-row table (Apple M1 Max, PostgreSQL 17):
+
+| Query | EQL v3 | vs plaintext PostgreSQL |
+| --- | --- | --- |
+| Exact equality (`=`) | ~0.12 ms | ~1.3× |
+| Range + ordered, order-preserving (OPE) | ~0.12 ms | ~1.2× |
+| Range `LIMIT 100` (ORE) | — | 4× faster than EQL v2 |
+| Token match (bloom filter) | — | 100–400× vs no index |
+
+{/* TODO: EQL v3 database benchmark figures are from the EQL v3 suite in cipherstash/benches (report/V3_COMPARISON.md, 1M rows / M1 Max / PG 17). Replace with a public-facing citation once the v3 benchmarks are published, as the tfhe-ore-bench link does for the primitive numbers. */}
+
+Encrypted equality and order-preserving range queries run within ~20–30% of plaintext PostgreSQL on a million rows — the functional index on the encrypted term engages exactly as it would on a plaintext column. EQL v3 adds an **order-preserving encryption (OPE)** option alongside ORE for orderable columns; where the security model allows it, OPE brings range and `ORDER BY` to near-plaintext latency (its index also builds ~40× faster than ORE at 1M rows). This is the concrete meaning of "production-ready": not "faster than FHE in theory," but low-single-digit-millisecond encrypted predicates on realistic table sizes.
+
+> **Good to know**: FHE's selling point is that it can compute *anything*. CipherStash deliberately doesn't try to. We bet — correctly, for database workloads — that the long tail of "interesting" computation a database performs collapses to a small set of well-defined operations, and that specialised schemes for those operations beat a universal one by five or six orders of magnitude.
+
+## The CipherStash scheme portfolio
+
+In EQL v3, a column's capability is declared by its **domain type** in the `eql_v3` schema — `eql_v3.text_eq` (equality), `eql_v3.int8_ord` (range/order), `eql_v3.text_match` (token match), `eql_v3.text_search` (all three). The type fixes which searchable terms travel in the encrypted payload. In practice, only the 3–5 sensitive columns per table use these schemes; foreign keys, timestamps, status flags and most other columns remain plaintext and behave exactly as they always have. That is what makes the portfolio approach tractable in real deployments.
+
+| Scheme | Used for | Mechanism | Leakage profile |
+| --- | --- | --- | --- |
+| **HMAC-SHA-256** (`hm` term) | Exact equality (`=`, `IN`, joins, `GROUP BY`, `DISTINCT`) on `_eq` / `text_search` variants | Keyed hash — equal plaintexts produce equal tags; distinct plaintexts are indistinguishable. | Value repetition only (which rows share a value). Encrypt high-cardinality columns to limit frequency exposure. |
+| **Block ORE** (`ob` term, `eql_v3.ore_block_256`) | Range and ordering (`<`, `>`, `BETWEEN`, `ORDER BY`, `MIN`/`MAX`) on `_ord` variants | Order-revealing encryption over block terms; comparison performed via the Postgres operator class. | Relative order of two values — nothing about magnitude. |
+| **Order-preserving encryption (OPE)** (`_ord_ope` specifier) | The EQL v3 fast path for the same range / order operations | Order-preserving term giving near-plaintext index performance; pinned via the `_ord_ope` domain specifier. | Relative order of two values — same class as ORE, faster to query. |
+| **Encrypted Bloom filter** (`bf` term, `eql_v3.bloom_filter`) | Token / substring match (`@>`; there is no `LIKE` on ciphertext) on `_match` / `text_search` variants | Trigram tokens hashed into a fixed-size bit vector; queried via GIN containment with client-side false-positive filtering. | Probabilistic token overlap. False-positive rate doubles as a security knob — higher FPR obscures token frequency. |
+
+Underlying every encrypted value, AES-based authenticated encryption provides the ciphertext (`c`) used for retrieval. The schemes above are *searchable index terms* stored alongside it, not replacements for it. The database stores `ciphertext + terms`; the application receives plaintext only after key-bound decryption. See [Core concepts](/reference/eql/core-concepts) for the full payload anatomy.
+
+## What gets encrypted, and what doesn't
+
+A common misconception is that "encrypted database" means every column is opaque. In reality:
+
+- **Sensitive columns are encrypted.** Names, emails, phone numbers, financial values, health attributes, free-text notes — typically 3–5 columns per sensitive table.
+- **Everything else stays plaintext.** Surrogate primary keys, foreign keys, timestamps, enums, status flags, soft-delete markers, audit columns. They behave normally — indexed normally, joined normally, replicated normally.
+- **Joins usually happen on plaintext.** Foreign keys are not normally sensitive; the join keys are plaintext, and join performance is unchanged. Where a join *does* need to happen on a sensitive value, an equality (`_eq`) term makes it efficient.
+
+This single fact reframes most operational concerns about encrypted databases. The encrypted columns are an addition to your schema, not a replacement for it.
+
+## Where plaintext actually lives
+
+With the [Encryption SDK](/stack/cipherstash/encryption), plaintext exists only inside your client application, edge worker, or browser. The PostgreSQL database, the network between you and it, any logical-replication consumer, and any Postgres-aware tooling (pgAdmin, query logs, backups, debug snapshots) see only ciphertext and searchable terms.
+
+This matters because most production data exposure happens *outside* the database — in proxies, replicas, BI tools, debug logs, error-reporting systems. With the SDK pattern, those surfaces never see plaintext to begin with.
+
+> **Good to know**: CipherStash also offers a server-side [Proxy](/stack/cipherstash/proxy) for drop-in adoption with no code changes. Proxy and SDK are different deployment shapes of the same primitives; the SDK pattern gives you the strongest end-to-end guarantee.
+
+## EQL — open source, pluggable, extensible
+
+All of this is implemented as **EQL — Encrypt Query Language**, an open-source set of PostgreSQL types, operators, and functions ([github.com/cipherstash/encrypt-query-language](https://github.com/cipherstash/encrypt-query-language)). EQL v3 exposes the encrypted operators as standard SQL over a family of domain types in the `eql_v3` schema:
+
+- HMAC-backed equality for `=`, `IN`, joins, `GROUP BY`, and unique constraints
+- Bloom-filter–backed token containment for `@>` (encrypted free-text match — `LIKE`/`ILIKE` are blocked on ciphertext)
+- ORE- and OPE-backed comparisons for `<`, `>`, `BETWEEN`, and `ORDER BY`
+
+Because every encrypted predicate is just standard SQL on an `eql_v3` domain column, your application SQL stays standard SQL. Your ORM, your query builder, your DBA's `EXPLAIN ANALYZE` workflow, your migration tooling — all of it keeps working. The one rule: operands must be **typed** (`$1::eql_v3.text_eq`, not a bare literal) so the encrypted operator resolves rather than falling back to native `jsonb` semantics — the SDK and Proxy do this automatically. See [Core concepts](/reference/eql/core-concepts#the-typed-operand-rule).
+
+Two architectural consequences are worth calling out:
+
+**Schemes are swappable.** A column's mechanism is declared by its domain variant, so it can be migrated — for example ORE to OPE for faster ordering — without changing application SQL. As stronger primitives mature — lattice-based searchable schemes, structured encryption variants, eventually practical FHE for specific operations — they slot in behind the same EQL surface.
+
+**Quantum-resistant by construction.** The primitives (AES-based authenticated encryption, HMAC-SHA-256, and the ORE / bloom-filter constructions) avoid the cryptographic assumptions known to fall to a sufficiently large quantum computer. No RSA, no elliptic curves. A column encrypted today is still secure on the day post-quantum migration becomes urgent.
+
+## What this looks like in SQL
+
+Encrypted columns participate in standard SQL — the `eql_v3` domain types and their operators do the heavy lifting. Operands are typed with the column's domain variant:
+
+```sql title="encrypted-queries.sql"
+-- Exact equality (HMAC term)
+SELECT id, name
+FROM users
+WHERE email = $1::eql_v3.text_eq;
+
+-- Token / substring match (bloom filter — there is no LIKE on ciphertext)
+SELECT id, name
+FROM users
+WHERE name @> $1::eql_v3.text_match
+LIMIT 10;
+
+-- Range query (ORE / OPE term)
+SELECT id, amount
+FROM transactions
+WHERE amount > $1::eql_v3.int8_ord
+ORDER BY amount
+LIMIT 100;
+
+-- Join on a plaintext foreign key (unchanged)
+SELECT u.id, t.amount
+FROM users u
+JOIN transactions t ON t.user_id = u.id
+WHERE u.email = $1::eql_v3.text_eq;
+```
+
+In each case, the bound parameter is an encrypted payload produced by the SDK — the application encrypts the search value with the same key as the stored data, and PostgreSQL compares the searchable terms without ever seeing plaintext. See the [EQL reference](/reference/eql) for the full type, operator, and function surface.
+
+## Operational FAQ
+
+The questions a senior engineer typically asks before approving an encrypted-database rollout — answered directly.
+
+### Joins across encrypted columns?
+
+Supported, and effectively the same performance as plaintext. In practice the join key itself is rarely sensitive — joins happen on surrogate IDs or foreign keys, which stay plaintext. When a join *does* need to happen on a sensitive value (e.g. email), an equality (`_eq`) term makes equijoins efficient — subject to both columns sharing the same encryption keyset.
+
+### `MIN`, `MAX`, `COUNT`?
+
+`COUNT` works without modification on encrypted columns. `MIN` and `MAX` work over `_ord` (ORE/OPE) columns. `SUM` and `AVG` of encrypted numerics are not supported by the current scheme portfolio — decrypt application-side or aggregate over a plaintext bucket column.
+
+### `GROUP BY`?
+
+Supported on `_eq` (equality-indexed) columns. By definition, grouping by an encrypted column reveals the histogram of distinct values to the query — that is the result the application asked for. If the histogram itself is sensitive, group on a coarser plaintext bucket column instead, or restrict who can run the query at the application layer.
+
+### Foreign keys, cascading deletes?
+
+Unchanged. Foreign keys are not normally encrypted; cascading deletes, referential integrity, and `ON DELETE` semantics work as they always have.
+
+### NULL, empty strings, collation?
+
+Preserved. A SQL `NULL` is never encrypted, so `IS NULL` / `IS NOT NULL` work on every variant. Encrypted strings carry the metadata needed to keep ordering and equality consistent under encryption. NULL handling matches standard PostgreSQL semantics.
+
+### Logical replication, `pg_dump` / restore, read replicas?
+
+All supported. Encrypted values and terms are stored as standard PostgreSQL `jsonb` — they replicate, dump, restore and stream to read replicas like any other column.
+
+### Backups and key recovery?
+
+Key references are stored alongside the ciphertext. On restore, the SDK derives the same per-record keys via [ZeroKMS](/stack/cipherstash/kms) using those references. There is no separate "key restore" step that has to be choreographed with the data restore — the references travel with the data.
+
+### Supabase RLS and PostgREST?
+
+Both work. RLS policies execute against plaintext columns (typically authentication-related: `user_id`, `tenant_id`) just as they do today. PostgREST exposes encrypted columns as opaque values to clients, and the SDK handles encryption/decryption at the application boundary.
+
+### Schema migrations and re-keying?
+
+A column's mechanism is declared by its domain variant and can be migrated without changing application SQL. Online re-keying is supported via dual-write during the migration window.
+
+## Security & threat model
+
+Each scheme has a published, formally-bounded leakage profile (see [Core concepts](/reference/eql/core-concepts#what-the-terms-reveal)):
+
+- **HMAC-SHA-256** (`hm`): equality only. Reveals value repetition; eliminated for unique columns or by encrypting only high-cardinality values.
+- **Encrypted Bloom filter** (`bf`): false-positive rate is a deliberate parameter; raising it obscures token-frequency patterns at the cost of additional client-side filtering. Repeated query analysis is bounded by the FPR.
+- **Block ORE / OPE** (`ob`): reveals the relative order of values, and nothing about magnitude. OPE trades a faster, index-friendlier term for the same order-only leakage class.
+
+The trust boundary in the recommended SDK deployment is your client application, edge worker, or browser. The PostgreSQL instance, the network, ZeroKMS, the operator running your Postgres, and any Postgres-aware tooling are all *outside* that boundary and never see plaintext.
+
+For deeper analysis — formal definitions of each scheme's leakage function, parameter-selection guidance, and attack-model walk-throughs — see [Security architecture](/stack/reference/security-architecture). Full analysis is available on request under NDA.
+
+## When CipherStash isn't the right fit
+
+In the spirit of an honest comparison page:
+
+- **You need general-purpose computation on ciphertext.** If your workload is "run arbitrary user-defined functions over encrypted data" — for example, evaluating an opaque ML model on encrypted inputs — searchable encryption is not the right tool. That is genuinely the FHE problem, and you should track the FHE literature.
+- **The query patterns you care about aren't equality, match or range.** Searchable encryption schemes exist for many other operations (graph traversal, geometric proximity, regex), but CipherStash's portfolio today is targeted at the operations a typical OLTP / line-of-business workload runs. If your central workload is something else, [talk to us](https://cipherstash.com/contact) about what's possible.
+- **You want every column encrypted with no plaintext metadata at all.** That is achievable but expensive, and almost always unnecessary. The right design encrypts the sensitive columns and leaves the rest of the schema in plaintext.
+
+## Get started
+
+- **Primitive benchmarks (FHE vs ORE)**: [`github.com/cipherstash/tfhe-ore-bench`](https://github.com/cipherstash/tfhe-ore-bench)
+- **EQL reference**: [`/reference/eql`](/reference/eql)
+- **EQL on GitHub**: [`github.com/cipherstash/encrypt-query-language`](https://github.com/cipherstash/encrypt-query-language)
+- **Encryption SDK quickstart**: [`/stack/quickstart`](/stack/quickstart)
+- **Talk to us** about a specific workload: [cipherstash.com/contact](https://cipherstash.com/contact)
+
+---
+
+> **Bottom line**: CipherStash is *not* FHE and does not need to be. It is a portfolio of specialised, well-understood searchable-encryption schemes — HMAC for equality, encrypted Bloom filters for token match, Block ORE and OPE for range — exposed through [EQL v3](/reference/eql) on standard PostgreSQL. That is what makes it 5–6 orders of magnitude faster than TFHE at the operations a real workload runs, while keeping data encrypted end-to-end.
