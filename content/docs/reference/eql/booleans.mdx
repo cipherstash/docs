@@ -13,7 +13,7 @@ Every scalar type has a storage-only variant — for `bool` it's the only one. E
 
 ## Why there are no query variants
 
-A two-value column has too little cardinality for any searchable index to be safe. An equality term over `true` / `false` would partition the table into two visible buckets — leaking the value distribution (and, with any outside knowledge, the values themselves) outright. Rather than ship an index term that can't keep its promise, EQL omits the query variants entirely. See [Searchable encryption](/concepts/searchable-encryption) for the general analysis of what index terms reveal.
+A two-value column has too little cardinality for any searchable index to be safe. An equality term over `true` / `false` would partition the table into two visible buckets — leaking the value distribution (and, with any outside knowledge, the values themselves) outright. Rather than ship an index term that can't keep its promise, EQL omits the query variants entirely. See [Searchable encryption](/how-it-works/searchable-encryption) for the general analysis of what index terms reveal.
 
 ## What works, what raises
 

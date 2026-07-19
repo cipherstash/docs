@@ -33,6 +33,20 @@ const config = {
         destination: "/get-started/quickstart",
         permanent: false,
       },
+      // === v2 IA rename: Concepts section → How It Works ===
+      // The section was renamed after the /concepts URLs went live on the
+      // preview tree; point the old paths at the new slug. Temporary (307)
+      // until the v2 IA is canonical.
+      {
+        source: "/concepts/:path*",
+        destination: "/how-it-works/:path*",
+        permanent: false,
+      },
+      {
+        source: "/concepts",
+        destination: "/how-it-works",
+        permanent: false,
+      },
       ...(enableV2Redirects ? v2Redirects : []),
       // === 4-section consolidation: product sections under /cipherstash/ ===
       {

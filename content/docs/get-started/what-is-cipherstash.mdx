@@ -79,7 +79,7 @@ That turns leakage into a design choice rather than a surprise. You decide, per 
 
 The engineering is in matching those choices to your threat model. For most columns, knowing that two rows share some unknown value is not an exposure. For a column whose frequency distribution is itself the secret, it might be, and then you encrypt without that capability and filter after decryption.
 
-So the goal is not to eliminate leakage. It is to choose capabilities whose leakage your threat model already tolerates, and to know exactly what you chose. Declare only what you query on. The per-scheme detail is in [searchable encryption](/concepts/searchable-encryption).
+So the goal is not to eliminate leakage. It is to choose capabilities whose leakage your threat model already tolerates, and to know exactly what you chose. Declare only what you query on. The per-scheme detail is in [searchable encryption](/how-it-works/searchable-encryption).
 
 ## Which door
 
@@ -87,7 +87,7 @@ So the goal is not to eliminate leakage. It is to choose capabilities whose leak
 
 **You are evaluating.** [Architecture & security](/security) is self-contained for a vendor review, starting with [cryptography](/security/cryptography). [Solutions](/solutions) covers the problems teams bring us.
 
-**You are deciding whether this is the right tool.** [Concepts](/concepts) explains how it works and where it does not apply. The [comparisons](/concepts/compare) are written to be honest about what CipherStash is not.
+**You are deciding whether this is the right tool.** The [How It Works](/how-it-works) section explains the mechanism and where it does not apply. The [comparisons](/how-it-works/compare) are written to be honest about what CipherStash is not.
 
 ## Performance
 
