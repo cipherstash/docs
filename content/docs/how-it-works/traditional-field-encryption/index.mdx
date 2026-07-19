@@ -1,0 +1,125 @@
+---
+title: Traditional field encryption
+description: How encrypting individual Postgres columns protects data at rest but breaks search, sort, and matching — the trade-off searchable encryption solves.
+type: concept
+---
+
+To frame the explanations in the next few sections, it's helpful to start with how traditional field encryption works - or doesn't!
+
+Consider a Postgres database table containing sensitive customer information:
+
+```text
+   Table "public.users"
+ Column |  Type
+--------+---------
+ id     | integer
+ name   | text
+ email  | text
+ dob    | date
+```
+
+Queries on the table, return the sensitive data (obviously!):
+
+```sql
+SELECT * FROM users LIMIT 5;
+```
+
+```text
+ id |     name     |      email       |    dob
+----+--------------+------------------+------------
+  1 | Ava Martin   | ava@example.com  | 1988-04-12
+  2 | Liam Chen    | liam@example.com | 1992-11-03
+  3 | Noah Patel   | noah@example.com | 1985-07-29
+  4 | Mia Rossi    | mia@example.com  | 1990-02-17
+  5 | Zoe Nakamura | zoe@example.com  | 1983-09-05
+(5 rows)
+```
+
+`name`, `email` and `dob` fields are sensitive so we decide to encrypt them (I'll skip over the exact mechanism for the moment).
+
+Encrypted data is binary so fields can use the `bytea` type in Postgres:
+
+
+```text
+   Table "public.users"
+ Column |  Type
+--------+---------
+ id     | integer
+ name   | bytea
+ email  | bytea
+ dob    | bytea
+```
+
+If we re-run the same query, the sensitive columns come back as raw bytes:
+
+```sql
+SELECT * FROM users LIMIT 5;
+```
+
+```text
+ id |         name          |         email         |          dob
+----+-----------------------+-----------------------+-----------------------
+  1 | \x8a3f0c9e1b7d4f2a... | \x2f9c7e1a0b6d3f8e... | \x6b1e9d0c8f7a2e5b...
+  2 | \x1c4e7b9a2f0d6c3e... | \xa07d3c1e9b8f2a6c... | \x0f9a2c7e1b4d8a6f...
+  3 | \x7d2a9f0c1e8b6d4a... | \x3e8c1a7d0f9b2e6c... | \x9b0d6f3a1c8e7b2d...
+  4 | \x4f1c8a2e9d0b7c6a... | \x6d9a0c3f1e7b8a2c... | \x2c7e0a9f1d3b8c6a...
+  5 | \x9e3a1c7f0d2b8e6a... | \x0b8d2f9a1c7e4b6d... | \x7a1f0c9e2d8b3a6c...
+(5 rows)
+```
+
+## What stops field-level encryption?
+
+The data is now hidden but we've lost 3 important things:
+
+* Type information is lost (everything is a `bytea`)
+* We can't index the data
+* We can't query or order the data
+
+The last point is the main reason for avoiding field encryption.
+
+Say we want to look up a user by email, find everyone whose name starts with "A", or list users by date of birth. With plaintext columns these are one-liners — once the columns are `bytea`, every one of them breaks.
+
+**1. Look up a user by email**
+
+```sql
+SELECT * FROM users WHERE email = 'ava@example.com';
+```
+
+```text
+ id | name | email | dob
+----+------+-------+-----
+(0 rows)
+```
+
+The stored bytes are the *ciphertext* of `ava@example.com`, not the string itself, so the equality never matches.
+
+**2. Find names starting with "A"**
+
+```sql
+SELECT * FROM users WHERE name LIKE 'A%';
+```
+
+```text
+ERROR:  operator does not exist: bytea ~~ unknown
+```
+
+Pattern matching has no meaning over encrypted bytes — Postgres doesn't even have a `LIKE` operator for `bytea`.
+
+**3. Order users by date of birth**
+
+```sql
+SELECT id FROM users ORDER BY dob DESC;
+```
+
+```text
+ id
+----
+  3
+  1
+  5
+  2
+  4
+(5 rows)
+```
+
+This one runs, but the rows come back in ciphertext order — effectively random, not chronological.
