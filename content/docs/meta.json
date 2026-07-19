@@ -2,8 +2,8 @@
   "pages": [
     "index",
     "get-started",
-    "integrations",
     "concepts",
+    "integrations",
     "guides",
     "security",
     "solutions",
