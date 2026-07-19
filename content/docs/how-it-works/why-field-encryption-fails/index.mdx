@@ -1,10 +1,14 @@
 ---
-title: Traditional field encryption
+title: Why field encryption fails
 description: How encrypting individual Postgres columns protects data at rest but breaks search, sort, and matching — the trade-off searchable encryption solves.
 type: concept
 ---
 
-To frame the explanations in the next few sections, it's helpful to start with how traditional field encryption works - or doesn't!
+CipherStash was born to solve the limitations of field encryption and to make it a viable alternative to Row-level Security and Role-based Access Control.
+
+Let's start with how traditional field encryption works - or doesn't!
+
+## Field encryption 101
 
 Consider a Postgres database table containing sensitive customer information:
 

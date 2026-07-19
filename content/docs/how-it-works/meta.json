@@ -2,10 +2,11 @@
   "title": "How It Works",
   "icon": "Lightbulb",
   "pages": [
-    "index",
-    "traditional-field-encryption",
-    "what-searchable-encryption-solves",
-    "searchable-encryption",
+    "why-field-encryption-fails",
+    "making-encryption-searchable",
+    "sql-support",
+    "key-management",
+    "cryptography",
     "compare"
   ]
 }
