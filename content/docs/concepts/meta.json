@@ -1,5 +1,11 @@
 {
   "title": "Concepts",
   "icon": "Lightbulb",
-  "pages": ["...", "compare"]
+  "pages": [
+    "index",
+    "traditional-field-encryption",
+    "what-searchable-encryption-solves",
+    "searchable-encryption",
+    "compare"
+  ]
 }
