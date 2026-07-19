@@ -47,6 +47,13 @@ const config = {
         destination: "/how-it-works",
         permanent: false,
       },
+      // The How It Works section has no landing page of its own; send the
+      // section root to its first page.
+      {
+        source: "/how-it-works",
+        destination: "/how-it-works/why-field-encryption-fails",
+        permanent: false,
+      },
       ...(enableV2Redirects ? v2Redirects : []),
       // === 4-section consolidation: product sections under /cipherstash/ ===
       {

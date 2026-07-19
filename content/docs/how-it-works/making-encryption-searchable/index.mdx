@@ -1,5 +1,5 @@
 ---
-title: Making encryption seachable
+title: Making encryption searchable
 description: How value-level searchable encryption keeps sensitive data encrypted while queries, access controls, and auditing keep working for authorized users.
 type: concept
 ---
@@ -16,7 +16,7 @@ Decryption happens in the application layer and is based on end-user identity. T
 
 * Access auditing
 
-Every sensitive data access is recorded (and by who) which is very useful for compliance and incident response. SQL query auditing is great for knowing what queries were run but it doesn't tell you what data was actually returned. Its also blind once data actually leaves the DB and can inadvertently leak sensitive data itself. Using key accesses with non-identifying value IDs to audit decryptions makes the auditing more reliable and super granular.
+Every sensitive data access is recorded (and by who) which is very useful for compliance and incident response. SQL query auditing is great for knowing what queries were run but it doesn't tell you what data was actually returned. It's also blind once data actually leaves the DB and can inadvertently leak sensitive data itself. Using key accesses with non-identifying value IDs to audit decryptions makes the auditing more reliable and super granular.
 
 We have customers who use the tech to prove to their users (often large enterprise) that no internal staff can access the data.
 
