@@ -214,6 +214,42 @@ So the only way to make encrypted columns indexable with pgcrypto is to write th
 
 ### Key management sucks
 
+To use `pgcrypto`, each call to `pgp_sym_encrypt` or `pgp_sym_decrypt` requires the key.
+To make this work, you could store the key in an environment variable and then inject it into queries when its needed.
+
+```ts filename="users.ts"
+import { Pool } from "pg";
+
+const pool = new Pool();
+const key = process.env.PGP_SYM_KEY; // the encryption key, now in application memory
+
+// Insert an encrypted row: the key rides along as a bind parameter.
+await pool.query(
+  `INSERT INTO users (name, email, dob)
+   VALUES (pgp_sym_encrypt($1, $4), pgp_sym_encrypt($2, $4), pgp_sym_encrypt($3, $4))`,
+  ["Ava Martin", "ava@example.com", "1988-04-12", key],
+);
+
+// Read it back: the same key has to travel with every query that touches the column.
+const { rows } = await pool.query(
+  `SELECT id, pgp_sym_decrypt(email, $1) AS email FROM users`,
+  [key],
+);
+```
+
+Passing a secret key to the `pgp_sym_encrypt` and `pgp_sym_decrypt` functions isn't just inconvenient, it increases the chances of accidentally leaking the key.
+
+Database logs can include full query statements including the key. Turn on statement logging (`log_statement = 'all'`, or a slow-query threshold) and the key lands in the log file next to the query:
+
+```text
+LOG:  execute <unnamed>: SELECT id, pgp_sym_decrypt(email, $1) AS email FROM users
+DETAIL:  parameters: $1 = 'super-secret-key'
+```
+
+Application logs can also leak encryption keys.
+
+
+
 
 ### Security improvement only marginal
 
