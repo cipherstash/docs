@@ -4,13 +4,16 @@ description: How encrypting individual Postgres columns protects data at rest bu
 type: concept
 ---
 
-CipherStash was born to solve the limitations of field encryption and to make it a viable alternative to Row-level Security and Role-based Access Control.
+{/* TODO: Link RBAC and RLS to the compare pages */}
+CipherStash was born to solve the limitations of field-level encryption and to extend its capabilities beyond what is possible with contemporary access control mechanisms like RBAC and RLS.
 
-Let's start with how traditional field encryption works - or doesn't!
+In this article, we'll cover the main ways field encryption fails using two common approaches as examples: `pgcrypto` and AWS KMS via the AWS Encryption SDK.
 
 ## Field encryption 101
 
-Consider a Postgres database table containing sensitive customer information:
+Here's how traditional field encryption works - or doesn't!
+
+Say you have a Postgres database table containing sensitive customer data:
 
 ```text
    Table "public.users"
@@ -39,22 +42,7 @@ SELECT * FROM users LIMIT 5;
 (5 rows)
 ```
 
-`name`, `email` and `dob` fields are sensitive so we decide to encrypt them (I'll skip over the exact mechanism for the moment).
-
-Encrypted data is binary so fields can use the `bytea` type in Postgres:
-
-
-```text
-   Table "public.users"
- Column |  Type
---------+---------
- id     | integer
- name   | bytea
- email  | bytea
- dob    | bytea
-```
-
-If we re-run the same query, the sensitive columns come back as raw bytes:
+Field-level encryption hides values in the columns you specify so that a query doesn't return anything sensitive. For example, encrypting `name`, `email` and `dob` means queries only return the encrypted values:
 
 ```sql
 SELECT * FROM users LIMIT 5;
@@ -70,6 +58,99 @@ SELECT * FROM users LIMIT 5;
   5 | \x9e3a1c7f0d2b8e6a... | \x0b8d2f9a1c7e4b6d... | \x7a1f0c9e2d8b3a6c...
 (5 rows)
 ```
+
+To access the raw data, values must be decrypted using the appropriate key.
+
+
+## Using `pgcrypto`
+
+A common way to do this is with the `pgcrypto` [Postgres extension][pgcrypto]. You encrypt each value on the way in with `pgp_sym_encrypt`, passing a secret key for each call:
+
+```sql
+-- pgcrypto ships the symmetric PGP helpers
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- pgp_sym_encrypt(data, key) returns bytea, so each value lands encrypted
+INSERT INTO users (name, email, dob)
+VALUES (
+  pgp_sym_encrypt('Ava Martin',      'super-secret-key'),
+  pgp_sym_encrypt('ava@example.com', 'super-secret-key'),
+  pgp_sym_encrypt('1988-04-12',      'super-secret-key')
+);
+```
+
+
+To decrypt the values, use the `pgp_sym_decrypt` function from `pgcrypto`:
+
+```sql
+SELECT
+  id,
+  pgp_sym_decrypt(name,  'super-secret-key') AS name,
+  pgp_sym_decrypt(email, 'super-secret-key') AS email,
+  pgp_sym_decrypt(dob,   'super-secret-key') AS dob
+FROM users
+LIMIT 5;
+```
+
+```text
+ id |     name     |      email       |    dob
+----+--------------+------------------+------------
+  1 | Ava Martin   | ava@example.com  | 1988-04-12
+  2 | Liam Chen    | liam@example.com | 1992-11-03
+  3 | Noah Patel   | noah@example.com | 1985-07-29
+  4 | Mia Rossi    | mia@example.com  | 1990-02-17
+  5 | Zoe Nakamura | zoe@example.com  | 1983-09-05
+(5 rows)
+```
+
+At first glance, this seems like a good solution but unfortunately, it comes with a number of issues:
+
+1. Queries break
+2. Managing keys is genuinely hard
+3. Only marginal security improvement
+
+Let's unpack each of these 1-by-1.
+
+### Queries break
+
+Once a field is encrypted, queries using a `WHERE`, `ORDER BY` or `GROUP BY` no longer work correctly.
+
+Fetching a record by the user's email address doesn't return any values, even when you encrypt the search term with the same key:
+
+```sql
+SELECT * FROM users
+WHERE email = pgp_sym_encrypt('ava@example.com', 'super-secret-key');
+```
+
+```text
+ id | name | email | dob
+----+------+-------+-----
+(0 rows)
+```
+
+This is because the encryption is randomized: encrypting the same value twice gives two different _ciphertexts_ (encrypted values).
+
+```sql
+SELECT
+  pgp_sym_encrypt('ava@example.com', 'super-secret-key') AS first,
+  pgp_sym_encrypt('ava@example.com', 'super-secret-key') AS second;
+```
+
+```text
+         first         |        second
+-----------------------+-----------------------
+ \xc30d04090302a1f4... | \xc30d0409030278b2...
+(1 row)
+```
+
+The two ciphertexts differ, so the value stored at insert time never equals the one you compute at query time. This is the same reason a `GROUP BY`, `JOIN`, `UNION` or any other query relying on equating values doesn't work either.
+
+
+### Key management sucks
+
+
+### Security improvement only marginal
+
 
 ## What stops field-level encryption?
 
@@ -127,3 +208,6 @@ SELECT id FROM users ORDER BY dob DESC;
 ```
 
 This one runs, but the rows come back in ciphertext order — effectively random, not chronological.
+
+
+[pgcrypto]: https://www.postgresql.org/docs/current/pgcrypto.html
