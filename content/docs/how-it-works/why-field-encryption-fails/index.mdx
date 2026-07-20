@@ -145,69 +145,95 @@ SELECT
 
 The two ciphertexts differ, so the value stored at insert time never equals the one you compute at query time. This is the same reason a `GROUP BY`, `JOIN`, `UNION` or any other query relying on equating values doesn't work either.
 
+Ordering doesn't work either, but for a subtle reason: using `ORDER BY` sorts results by their _ciphertexts_ which don't maintain the same order as the corresponding _plaintexts_.
+
+```sql
+SELECT id, pgp_sym_decrypt(dob, 'super-secret-key') AS dob
+FROM users
+ORDER BY dob;
+```
+
+```text
+ id |    dob
+----+------------
+  4 | 1990-02-17
+  1 | 1988-04-12
+  5 | 1983-09-05
+  3 | 1985-07-29
+  2 | 1992-11-03
+(5 rows)
+```
+
+The `ORDER BY dob` sorts on the encrypted `bytea`, so the decrypted dates come back in no meaningful order at all: 1990, then 1988, then 1983. Not what you want!
+
+The natural question: why not filter or sort by the output of `pgp_sym_decrypt`? In other words, decrypt values before performing a comparison.
+
+This does work:
+
+```sql
+SELECT id, pgp_sym_decrypt(email, 'super-secret-key') AS email
+FROM users
+WHERE pgp_sym_decrypt(email, 'super-secret-key') = 'ava@example.com';
+```
+
+```text
+ id |      email
+----+------------------
+  1 | ava@example.com
+(1 row)
+```
+
+The same lookup that returned nothing earlier now finds Ava, because the comparison happens on the decrypted value rather than the ciphertext.
+
+But look at what it costs. Postgres has to call `pgp_sym_decrypt` on the `email` of *every* row before it can test the `WHERE`, so there is no way to use an index: the query is a full table scan that decrypts the entire column on each run. The same is true for `ORDER BY pgp_sym_decrypt(dob, ...)`. It returns the right answer and gets slower with every row you add, which is the opposite of what an index is for.
+
+You could try to fix the performance with a functional index on the decrypted value:
+
+```sql
+CREATE INDEX users_email_idx
+  ON users (pgp_sym_decrypt(email, 'super-secret-key'));
+```
+
+This one actually succeeds. `pgp_sym_decrypt` is marked `IMMUTABLE`, so Postgres accepts it in an index expression, and equality and sorting on `email` can now use the index. But describe the table and the key is sitting in plain sight:
+
+```sql
+\d users
+```
+
+```text
+                     Table "public.users"
+ Column |  Type   |
+--------+---------+
+ id     | integer |
+ name   | bytea   |
+ email  | bytea   |
+ dob    | bytea   |
+Indexes:
+    "users_email_idx" btree (pgp_sym_decrypt(email, 'super-secret-key'::text))
+```
+
+Postgres stores the index expression verbatim, key and all. Anyone who can run `\d users` reads the secret, and it is not just the interactive description: the same string comes back from `pg_indexes` and lands in every `pg_dump`, so the key travels into backups and anywhere the schema is shared.
+
+```sql
+SELECT indexdef FROM pg_indexes WHERE indexname = 'users_email_idx';
+```
+
+```text
+                                          indexdef
+------------------------------------------------------------------------------------------------------------
+ CREATE INDEX users_email_idx ON public.users USING btree (pgp_sym_decrypt(email, 'super-secret-key'::text))
+```
+
+So the only way to make encrypted columns indexable with pgcrypto is to write the decryption key into the schema itself, where it is dumped, replicated, and readable by anyone with `\d`. The index you added to restore performance quietly undoes the encryption.
 
 ### Key management sucks
 
 
 ### Security improvement only marginal
 
-
-## What stops field-level encryption?
-
-The data is now hidden but we've lost 3 important things:
-
-* Type information is lost (everything is a `bytea`)
-* We can't index the data
-* We can't query or order the data
-
-The last point is the main reason for avoiding field encryption.
-
-Say we want to look up a user by email, find everyone whose name starts with "A", or list users by date of birth. With plaintext columns these are one-liners — once the columns are `bytea`, every one of them breaks.
-
-**1. Look up a user by email**
-
-```sql
-SELECT * FROM users WHERE email = 'ava@example.com';
-```
-
-```text
- id | name | email | dob
-----+------+-------+-----
-(0 rows)
-```
-
-The stored bytes are the *ciphertext* of `ava@example.com`, not the string itself, so the equality never matches.
-
-**2. Find names starting with "A"**
-
-```sql
-SELECT * FROM users WHERE name LIKE 'A%';
-```
-
-```text
-ERROR:  operator does not exist: bytea ~~ unknown
-```
-
-Pattern matching has no meaning over encrypted bytes — Postgres doesn't even have a `LIKE` operator for `bytea`.
-
-**3. Order users by date of birth**
-
-```sql
-SELECT id FROM users ORDER BY dob DESC;
-```
-
-```text
- id
-----
-  3
-  1
-  5
-  2
-  4
-(5 rows)
-```
-
-This one runs, but the rows come back in ciphertext order — effectively random, not chronological.
+leaky logs - plaintext and keys
+keys visible to both database and app
+Describe what threats we are actually mitigating
 
 
 [pgcrypto]: https://www.postgresql.org/docs/current/pgcrypto.html
