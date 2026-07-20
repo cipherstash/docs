@@ -1,0 +1,225 @@
+---
+title: Why field encryption fails
+description: How encrypting individual Postgres columns protects data at rest but breaks search, sort, and matching — the trade-off searchable encryption solves.
+type: concept
+---
+
+{/* TODO: Link RBAC and RLS to the compare pages */}
+CipherStash was born to solve the limitations of field-level encryption and to extend its capabilities beyond what is possible with contemporary access control mechanisms like RBAC and RLS. In this article, we'll cover the main ways field encryption fails using two common approaches as examples: `pgcrypto` and AWS KMS via the AWS Encryption SDK.
+
+## Field encryption 101
+
+Here's how traditional field encryption works - or doesn't!
+Say you have a Postgres database table containing sensitive customer data:
+
+```text
+   Table "public.users"
+ Column |  Type
+--------+---------
+ id     | integer
+ name   | text
+ email  | text
+ dob    | date
+```
+
+Queries on the table, return the sensitive data (obviously!):
+
+```sql
+SELECT * FROM users LIMIT 5;
+```
+
+```text
+ id |     name     |      email       |    dob
+----+--------------+------------------+------------
+  1 | Ava Martin   | ava@example.com  | 1988-04-12
+  2 | Liam Chen    | liam@example.com | 1992-11-03
+  3 | Noah Patel   | noah@example.com | 1985-07-29
+  4 | Mia Rossi    | mia@example.com  | 1990-02-17
+  5 | Zoe Nakamura | zoe@example.com  | 1983-09-05
+(5 rows)
+```
+
+Field-level encryption hides values in the columns you specify so that a query doesn't return anything sensitive. For example, encrypting `name`, `email` and `dob` means queries only return the encrypted values:
+
+```sql
+SELECT * FROM users LIMIT 5;
+```
+
+```text
+ id |         name          |         email         |          dob
+----+-----------------------+-----------------------+-----------------------
+  1 | \x8a3f0c9e1b7d4f2a... | \x2f9c7e1a0b6d3f8e... | \x6b1e9d0c8f7a2e5b...
+  2 | \x1c4e7b9a2f0d6c3e... | \xa07d3c1e9b8f2a6c... | \x0f9a2c7e1b4d8a6f...
+  3 | \x7d2a9f0c1e8b6d4a... | \x3e8c1a7d0f9b2e6c... | \x9b0d6f3a1c8e7b2d...
+  4 | \x4f1c8a2e9d0b7c6a... | \x6d9a0c3f1e7b8a2c... | \x2c7e0a9f1d3b8c6a...
+  5 | \x9e3a1c7f0d2b8e6a... | \x0b8d2f9a1c7e4b6d... | \x7a1f0c9e2d8b3a6c...
+(5 rows)
+```
+
+To access the raw data, values must be decrypted using the appropriate key.
+
+
+## Using `pgcrypto`
+
+A common way to do this is with the `pgcrypto` [Postgres extension][pgcrypto]. You encrypt each value on the way in with `pgp_sym_encrypt`, passing a secret key for each call:
+
+```sql
+-- pgcrypto ships the symmetric PGP helpers
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- pgp_sym_encrypt(data, key) returns bytea, so each value lands encrypted
+INSERT INTO users (name, email, dob)
+VALUES (
+  pgp_sym_encrypt('Ava Martin',      'super-secret-key'),
+  pgp_sym_encrypt('ava@example.com', 'super-secret-key'),
+  pgp_sym_encrypt('1988-04-12',      'super-secret-key')
+);
+```
+
+
+To decrypt the values, use the `pgp_sym_decrypt` function from `pgcrypto`:
+
+```sql
+SELECT
+  id,
+  pgp_sym_decrypt(name,  'super-secret-key') AS name,
+  pgp_sym_decrypt(email, 'super-secret-key') AS email,
+  pgp_sym_decrypt(dob,   'super-secret-key') AS dob
+FROM users
+LIMIT 5;
+```
+
+```text
+ id |     name     |      email       |    dob
+----+--------------+------------------+------------
+  1 | Ava Martin   | ava@example.com  | 1988-04-12
+  2 | Liam Chen    | liam@example.com | 1992-11-03
+  3 | Noah Patel   | noah@example.com | 1985-07-29
+  4 | Mia Rossi    | mia@example.com  | 1990-02-17
+  5 | Zoe Nakamura | zoe@example.com  | 1983-09-05
+(5 rows)
+```
+
+At first glance, this seems like a good solution but unfortunately, it comes with a number of issues:
+
+1. Queries break
+2. Managing keys is genuinely hard
+3. Only marginal security improvement
+
+Let's unpack each of these 1-by-1.
+
+### Queries break
+
+Once a field is encrypted, queries using a `WHERE`, `ORDER BY` or `GROUP BY` no longer work correctly.
+Fetching a record by the user's email address doesn't return any values, even when you encrypt the search term with the same key:
+
+```sql
+SELECT * FROM users
+WHERE email = pgp_sym_encrypt('ava@example.com', 'super-secret-key');
+```
+
+```text
+ id | name | email | dob
+----+------+-------+-----
+(0 rows)
+```
+
+This is because the encryption is randomized: encrypting the same value twice gives two different _ciphertexts_ (encrypted values).
+
+```sql
+SELECT
+  pgp_sym_encrypt('ava@example.com', 'super-secret-key') AS first,
+  pgp_sym_encrypt('ava@example.com', 'super-secret-key') AS second;
+```
+
+```text
+         first         |        second
+-----------------------+-----------------------
+ \xc30d04090302a1f4... | \xc30d0409030278b2...
+(1 row)
+```
+
+The two ciphertexts differ, so the value stored at insert time never equals the one you compute at query time. This is the same reason a `GROUP BY`, `JOIN`, `UNION` or any other query relying on equating values doesn't work either.
+
+Ordering doesn't work either, but for a subtle reason: using `ORDER BY` sorts results by their _ciphertexts_ which don't maintain the same order as the corresponding _plaintexts_.
+
+```sql
+SELECT id, pgp_sym_decrypt(dob, 'super-secret-key') AS dob
+FROM users
+ORDER BY dob;
+```
+
+```text
+ id |    dob
+----+------------
+  4 | 1990-02-17
+  1 | 1988-04-12
+  5 | 1983-09-05
+  3 | 1985-07-29
+  2 | 1992-11-03
+(5 rows)
+```
+
+The `ORDER BY dob` sorts on the encrypted `bytea`, so the decrypted dates come back in no meaningful order at all: 1990, then 1988, then 1983. Not what you want!
+
+The natural question: why not filter or sort by the output of `pgp_sym_decrypt`? In other words, decrypt values before performing a comparison.
+
+This does work:
+
+```sql
+SELECT id, pgp_sym_decrypt(email, 'super-secret-key') AS email
+FROM users
+WHERE pgp_sym_decrypt(email, 'super-secret-key') = 'ava@example.com';
+```
+
+```text
+ id |      email
+----+------------------
+  1 | ava@example.com
+(1 row)
+```
+
+The same lookup that returned nothing earlier now finds Ava, because the comparison happens on the decrypted value rather than the ciphertext.
+
+But look at what it costs. Postgres has to call `pgp_sym_decrypt` on the `email` of *every* row before it can test the `WHERE`, so there is no way to use an index: the query is a full table scan that decrypts the entire column on each run. The same is true for `ORDER BY pgp_sym_decrypt(dob, ...)`. It returns the right answer and gets slower with every row you add, which is the opposite of what an index is for.
+
+You could try to fix the performance with a functional index on the decrypted value:
+
+```sql
+CREATE INDEX users_email_idx
+  ON users (pgp_sym_decrypt(email, 'super-secret-key'));
+```
+
+This one actually succeeds. `pgp_sym_decrypt` is marked `IMMUTABLE`, so Postgres accepts it in an index expression, and equality and sorting on `email` can now use the index. But describe the table and the key is sitting in plain sight:
+
+```sql
+\d users
+```
+
+```text {9}
+                     Table "public.users"
+ Column |  Type   |
+--------+---------+
+ id     | integer |
+ name   | bytea   |
+ email  | bytea   |
+ dob    | bytea   |
+Indexes:
+    "users_email_idx" btree (pgp_sym_decrypt(email, 'super-secret-key'::text))
+```
+
+Postgres stores the index expression verbatim, key and all. Anyone who can run `\d users` reads the secret, and it is not just the interactive description: the same string comes back from `pg_indexes` and lands in every `pg_dump`, so the key travels into backups and anywhere the schema is shared.
+
+So the only way to make encrypted columns indexable with pgcrypto is to write the decryption key into the schema itself, where it is dumped, replicated, and readable by anyone with `\d`.
+
+### Key management sucks
+
+
+### Security improvement only marginal
+
+leaky logs - plaintext and keys
+keys visible to both database and app
+Describe what threats we are actually mitigating
+
+
+[pgcrypto]: https://www.postgresql.org/docs/current/pgcrypto.html

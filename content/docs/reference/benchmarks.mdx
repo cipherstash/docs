@@ -25,7 +25,7 @@ Median latency at 1,000,000 rows, with the ratio to the same query on a plaintex
 | JSON containment (`@>`) | GIN (SteVec) | 0.40 ms | 1.4x |
 | `GROUP BY` (low cardinality) | B-tree (equality term) | 83 ms | 2.2x |
 
-**Range and ordering have two index options.** The `_ord` variants use order-preserving encryption (OPE), which is EQL v3's default: near-plaintext latency, and an index that builds in about 1 s at 1M rows. The `_ord_ore` variants use order-revealing encryption (ORE): roughly 5x plaintext, and the index takes about 44 s to build at 1M. They have different leakage profiles, so the right choice is per column rather than universal, see [Searchable encryption](/concepts/searchable-encryption) for the tradeoff and [Numbers](/reference/eql/numbers) for the variants.
+**Range and ordering have two index options.** The `_ord` variants use order-preserving encryption (OPE), which is EQL v3's default: near-plaintext latency, and an index that builds in about 1 s at 1M rows. The `_ord_ore` variants use order-revealing encryption (ORE): roughly 5x plaintext, and the index takes about 44 s to build at 1M. They have different leakage profiles, so the right choice is per column rather than universal, see [Searchable encryption](/how-it-works/searchable-encryption) for the tradeoff and [Numbers](/reference/eql/numbers) for the variants.
 
 **Free-text match** uses a bloom-filter term (there is no `LIKE` on encrypted text) and runs at about 15.7 ms at 1M rows. What matters most is that the index engages at all: the bloom GIN is **100-400x faster than a sequential scan**. See [Text](/reference/eql/text).
 
@@ -64,7 +64,7 @@ mise run report:v3-compare
 ## Related
 
 <Cards>
-  <Card title="Searchable encryption" href="/concepts/searchable-encryption">
+  <Card title="Searchable encryption" href="/how-it-works/searchable-encryption">
     The leakage model behind each index type: what exact, range, and match terms reveal.
   </Card>
   <Card title="EQL indexes" href="/reference/eql/indexes">

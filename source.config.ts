@@ -1,3 +1,4 @@
+import { transformerMetaHighlight } from "@shikijs/transformers";
 import type { ShikiTransformer } from "@shikijs/types";
 import { rehypeCodeDefaultOptions } from "fumadocs-core/mdx-plugins";
 import { metaSchema, pageSchema } from "fumadocs-core/source/schema";
@@ -301,6 +302,10 @@ export default defineConfig({
       themes: { light: cipherstashLight, dark: cipherstashDark },
       transformers: [
         ...(rehypeCodeDefaultOptions.transformers ?? []),
+        // Enable `{1,3-5}` line highlighting in code-fence meta. Fumadocs
+        // bundles only the notation ([!code highlight]) transformers, which
+        // need a comment marker and so don't work in plain ```text blocks.
+        transformerMetaHighlight(),
         codeCopyTrackingTransformer,
       ],
     },
