@@ -15,22 +15,42 @@
 
 .dark {
   --color-fd-background: hsl(0, 0%, 2%);
-  --color-fd-foreground: hsl(42, 18%, 92%);
+  --color-fd-foreground: hsl(240, 10%, 92%);
   --color-fd-muted: hsl(0, 0%, 7%);
-  --color-fd-muted-foreground: hsl(42, 8%, 55%);
+  --color-fd-muted-foreground: hsl(240, 8%, 55%);
   --color-fd-popover: hsl(0, 0%, 4%);
-  --color-fd-popover-foreground: hsl(42, 18%, 92%);
+  --color-fd-popover-foreground: hsl(240, 10%, 92%);
   --color-fd-card: hsl(0, 0%, 4%);
-  --color-fd-card-foreground: hsl(42, 18%, 92%);
+  --color-fd-card-foreground: hsl(240, 10%, 92%);
   --color-fd-border: hsl(42, 6%, 14%);
   --color-fd-primary: hsl(73, 89%, 57%);
   --color-fd-primary-gradient-from: hsl(73, 89%, 65%);
   --color-fd-primary-foreground: hsl(0, 0%, 2%);
   --color-fd-secondary: hsl(0, 0%, 7%);
-  --color-fd-secondary-foreground: hsl(42, 18%, 92%);
+  --color-fd-secondary-foreground: hsl(240, 10%, 92%);
   --color-fd-accent: hsl(0, 0%, 8%);
-  --color-fd-accent-foreground: hsl(42, 18%, 92%);
+  --color-fd-accent-foreground: hsl(240, 10%, 92%);
   --color-fd-ring: hsl(73, 89%, 57%);
+}
+
+/* ── Prose: soften body copy ── */
+/* Fumadocs sets --tw-prose-body to the near-white foreground at 90%. On the
+   pure-black dark ground that reads too hot for long-form prose, so drop body
+   copy to a dimmer cool gray. Headings, links, and bold keep the full
+   foreground for contrast (they use --tw-prose-headings / -links / -bold). */
+.dark .prose {
+  --tw-prose-body: hsl(240, 8%, 60%);
+}
+
+/* ── Prose: body copy size ── */
+/* Drop reading text from the 16px prose base to 14px. Target the text runs
+   directly rather than the .prose base: h2+ are em-relative to that base, so
+   changing it would also shrink the headings (while the rem-based h1 stayed
+   put). Paragraphs and list items cover the body copy; tables and code keep
+   their own sizes. */
+.prose :is(p, li) {
+  font-size: 14px;
+  line-height: 1.65;
 }
 
 /* ── Selection ── */
