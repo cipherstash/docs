@@ -1,0 +1,136 @@
+---
+title: RBAC
+description: "How application role-based access control (CASL, CanCanCan) relates to CipherStash: it gates who may perform an action in your app code, but the database still holds plaintext and a single missed check exposes it."
+type: concept
+components: [encryption]
+audience: [cto, ciso]
+reviewBy: "2027-01-15"
+---
+
+Role-based access control (RBAC) is how most applications decide who is allowed to do what. In a TypeScript app that usually means an authorization library such as [CASL](https://casl.js.org), whose `can` / `cannot` API deliberately echoes Ruby's CanCanCan. It runs inside your application and gates each request against the caller's role, and it is the right tool for expressing rules like "a billing clerk may read a patient's insurance plan but not their diagnosis."
+
+It is not encryption, and it does not stop the database from holding plaintext. Start with the fact that decides where RBAC can protect you: **RBAC is enforced in your application code, on the paths that remember to check.** The data itself sits in Postgres in the clear, one forgotten check or one route around the app away from being read.
+
+## RBAC authorizes actions, it does not conceal data
+
+An ability set says what a given user may do. With CASL you build it per request from the user's role:
+
+```ts filename="abilities.ts"
+import { AbilityBuilder, createMongoAbility } from "@casl/ability";
+
+export function defineAbilitiesFor(user: User) {
+  const { can, cannot, build } = new AbilityBuilder(createMongoAbility);
+
+  if (user.role === "clinician") {
+    // A clinician may read the patients they treat.
+    can("read", "Patient", { treatingClinicianId: user.id });
+  }
+
+  if (user.role === "billing") {
+    // Billing sees the insurance fields, never the clinical ones.
+    can("read", "Patient", ["id", "name", "insurancePlan"]);
+    cannot("read", "Patient", ["diagnosis", "dob"]);
+  }
+
+  return build();
+}
+```
+
+Then a handler checks the ability before it responds:
+
+```ts filename="get-patient.ts"
+import { subject } from "@casl/ability";
+
+const ability = defineAbilitiesFor(currentUser);
+const patient = await db.patients.findById(id); // read from Postgres as plaintext
+
+if (ability.cannot("read", subject("Patient", patient))) {
+  throw new ForbiddenError();
+}
+
+return patient;
+```
+
+Look at the order of operations. The row is fetched from Postgres in the clear, and only then does CASL decide whether the handler may return it. The check governs your application's response; it does nothing about the plaintext that was already read out of the database to make the decision. Anyone who reaches that row another way sees all of it.
+
+Three limits follow from that, and each is a place real exposure happens.
+
+### It only covers the paths that check
+
+The guarantee is only as complete as your discipline in calling it. A new endpoint, a GraphQL resolver, a background job, an admin script, a data export, or an internal dashboard that forgets `ability.can(...)` returns the data. This is broken access control, the top entry in the OWASP Top 10, precisely because "remember to check, everywhere, forever" is hard to hold across a growing codebase. Nothing structural stops an unauthorized read. A missing line does not.
+
+### It stops at the application boundary
+
+RBAC lives in your application, so anything that reaches the data without going through the application never loads your rules. A DBA at a `psql` prompt, a read replica, a nightly backup, a query log, a change-data-capture stream, or a SQL-injection payload reads the same `diagnosis` and `dob` columns while your ability set sits untouched in code that was never called.
+
+### It gates actions, not confidentiality
+
+Even a flawless ability set assumes the application is trusted to hold the plaintext in order to decide what to do with it. The secret is present, in memory and in the database, at the moment of the check. RBAC decides what you may do with data it has already exposed.
+
+<Callout type="info">
+RBAC answers "is this caller allowed to perform this action?" That is essential, and it is an authorization control, not a confidentiality one. The data it authorizes access to is plaintext at rest, and plaintext at the moment of the decision.
+</Callout>
+
+## What CipherStash adds
+
+CipherStash encrypts each sensitive value in your application before it reaches Postgres, and stores ciphertext plus searchable index terms. Two properties follow, and both address the gaps above.
+
+**It fails closed instead of open.** The database holds ciphertext, so a code path that forgets its CASL check no longer leaks the diagnosis, it leaks bytes that cannot be read without a key it does not hold. The same is true of every path that never touched your ability rules: the DBA, the replica, the backup, the leaked log. Where a missing RBAC check exposes data, a missing decryption key exposes nothing.
+
+**It can bind confidentiality to the end user RBAC authorizes on.** Because decryption happens in your application under a key resolved through [ZeroKMS](/security), it can be scoped to the authenticated end user with identity-aware encryption: a value encrypted for one user does not decrypt for another. The confidentiality boundary then tracks the same identity your ability rules are written against, enforced by keys rather than by remembering to call `can`.
+
+And the ciphertext stays **queryable**. Through [EQL](/reference/eql), encrypted columns still answer equality, range, ordering, and free-text containment using standard SQL, so you do not trade query capability for confidentiality.
+
+What CipherStash deliberately does not do is decide *which actions* a caller may take. That is an authorization question, and RBAC answers it well. CipherStash decides whether the data behind those actions can be read at all.
+
+## Use them together
+
+The two controls sit at different layers, so the strong design keeps both:
+
+- **RBAC (CASL)** decides which actions each role may perform, over the non-secret fields and operations it is good at: the patient `id`, the `insurancePlan` tier, the route itself.
+- **CipherStash** makes the sensitive fields (`diagnosis`, `dob`) unreadable to anyone without the key, on every path, including the ones RBAC never sees.
+- **Identity-aware encryption** ties decryption to the authenticated user, so the confidentiality boundary matches the authorization boundary you already express in CASL.
+
+The result fails closed rather than open. A bug in your ability rules becomes an authorization mistake over data that is still encrypted, not a plaintext breach.
+
+## At a glance
+
+| | Application RBAC (CASL) | CipherStash |
+| --- | --- | --- |
+| Layer | Authorization, in the application | Application-level encryption, above the database |
+| Enforced by | Checks in your app code, per request | Keys held in your application |
+| Paths it protects | Only those that go through the app and call the check | All paths; the data is ciphertext everywhere |
+| Data visible to a DBA or direct SQL | Yes, plaintext | No, ciphertext only |
+| Effect of a missing check | Data exposed (fails open) | Data stays encrypted (fails closed) |
+| Data in logs, replicas, backups | Plaintext | Ciphertext |
+| Still queryable | Yes | Yes, via EQL |
+| What it decides | Who may perform which action | Whether the value can be read at all |
+
+## Choosing
+
+| If your concern is... | Reach for |
+| --- | --- |
+| Expressing which roles may perform which actions | RBAC (CASL) |
+| A DBA, replica, backup, or leaked log seeing sensitive fields | CipherStash |
+| A forgotten authorization check turning into a data breach | CipherStash, which fails closed |
+| Binding who can read a value to the authenticated end user | CipherStash identity-aware encryption |
+| All of the above | Both, composed |
+
+RBAC decides what a caller may do. It cannot make the underlying data unreadable to everyone who does not go through it. For regulated or high-value fields, that gap, the database and every copy of it holding plaintext, is the one CipherStash closes, while RBAC keeps deciding which actions your users may take.
+
+## Where to next
+
+<Cards>
+  <Card title="RLS and TDE" href="/how-it-works/compare/rls-and-tde">
+    The database-side counterpart: authorization at the connection, and what it leaves exposed.
+  </Card>
+  <Card title="What is CipherStash" href="/get-started/what-is-cipherstash">
+    The model behind application-level searchable encryption.
+  </Card>
+  <Card title="Making encryption searchable" href="/how-it-works/making-encryption-searchable">
+    How encrypted values stay queryable, and what each index term reveals.
+  </Card>
+  <Card title="Security overview" href="/security">
+    The full threat model and the trust boundary CipherStash draws.
+  </Card>
+</Cards>
