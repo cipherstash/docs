@@ -34,10 +34,14 @@
 }
 
 /* ── Prose: soften body copy ── */
-/* Fumadocs sets --tw-prose-body to the near-white foreground at 90%. On the
-   pure-black dark ground that reads too hot for long-form prose, so drop body
-   copy to a dimmer cool gray. Headings, links, and bold keep the full
-   foreground for contrast (they use --tw-prose-headings / -links / -bold). */
+/* Fumadocs sets --tw-prose-body to the foreground at 90%. That reads too hot
+   in both modes (near-white on the pure-black dark ground, near-black on the
+   light ground), so drop body copy to a cool gray tuned per theme: light on
+   dark, dark on light. Headings, links, and bold keep the full foreground for
+   contrast (they use --tw-prose-headings / -links / -bold). */
+.prose {
+  --tw-prose-body: hsl(240, 8%, 42%);
+}
 .dark .prose {
   --tw-prose-body: hsl(240, 8%, 60%);
 }
