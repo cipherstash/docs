@@ -21,6 +21,7 @@
     "validate-mermaid": "tsx scripts/validate-mermaid.ts"
   },
   "dependencies": {
+    "@shikijs/transformers": "3.22.0",
     "fumadocs-core": "16.6.0",
     "fumadocs-mdx": "14.2.7",
     "fumadocs-ui": "16.6.0",

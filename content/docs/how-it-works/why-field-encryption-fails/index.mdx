@@ -5,14 +5,11 @@ type: concept
 ---
 
 {/* TODO: Link RBAC and RLS to the compare pages */}
-CipherStash was born to solve the limitations of field-level encryption and to extend its capabilities beyond what is possible with contemporary access control mechanisms like RBAC and RLS.
-
-In this article, we'll cover the main ways field encryption fails using two common approaches as examples: `pgcrypto` and AWS KMS via the AWS Encryption SDK.
+CipherStash was born to solve the limitations of field-level encryption and to extend its capabilities beyond what is possible with contemporary access control mechanisms like RBAC and RLS. In this article, we'll cover the main ways field encryption fails using two common approaches as examples: `pgcrypto` and AWS KMS via the AWS Encryption SDK.
 
 ## Field encryption 101
 
 Here's how traditional field encryption works - or doesn't!
-
 Say you have a Postgres database table containing sensitive customer data:
 
 ```text
@@ -114,7 +111,6 @@ Let's unpack each of these 1-by-1.
 ### Queries break
 
 Once a field is encrypted, queries using a `WHERE`, `ORDER BY` or `GROUP BY` no longer work correctly.
-
 Fetching a record by the user's email address doesn't return any values, even when you encrypt the search term with the same key:
 
 ```sql
@@ -200,7 +196,7 @@ This one actually succeeds. `pgp_sym_decrypt` is marked `IMMUTABLE`, so Postgres
 \d users
 ```
 
-```text
+```text {9}
                      Table "public.users"
  Column |  Type   |
 --------+---------+
@@ -214,17 +210,7 @@ Indexes:
 
 Postgres stores the index expression verbatim, key and all. Anyone who can run `\d users` reads the secret, and it is not just the interactive description: the same string comes back from `pg_indexes` and lands in every `pg_dump`, so the key travels into backups and anywhere the schema is shared.
 
-```sql
-SELECT indexdef FROM pg_indexes WHERE indexname = 'users_email_idx';
-```
-
-```text
-                                          indexdef
-------------------------------------------------------------------------------------------------------------
- CREATE INDEX users_email_idx ON public.users USING btree (pgp_sym_decrypt(email, 'super-secret-key'::text))
-```
-
-So the only way to make encrypted columns indexable with pgcrypto is to write the decryption key into the schema itself, where it is dumped, replicated, and readable by anyone with `\d`. The index you added to restore performance quietly undoes the encryption.
+So the only way to make encrypted columns indexable with pgcrypto is to write the decryption key into the schema itself, where it is dumped, replicated, and readable by anyone with `\d`.
 
 ### Key management sucks
 
