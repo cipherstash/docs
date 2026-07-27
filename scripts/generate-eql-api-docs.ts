@@ -283,7 +283,16 @@ interface FuncDef {
   id: string;
   name: string;
   ops: string[];
-  cap: string;
+  /** Domain capability that exposes the function. */
+  cap?: string;
+  /**
+   * Operator that exposes the function, for surfaces the catalog does not model
+   * as a capability. Fuzzy match is the case: 3.0.1 dropped the `match`
+   * capability from the catalog, and `public.eql_v3_text_match` now reports
+   * `capabilities: ["storage"]` with `supportedOperators: ["@@"]`, so the
+   * operator list is the only reliable signal that a domain can be matched on.
+   */
+  op?: string;
   agg?: boolean;
 }
 const FUNCS: FuncDef[] = [
@@ -296,16 +305,10 @@ const FUNCS: FuncDef[] = [
     cap: "order",
   },
   {
-    id: "fn-contains",
-    name: "eql_v3.contains(a, b)",
-    ops: ["@>"],
-    cap: "match",
-  },
-  {
-    id: "fn-contained_by",
-    name: "eql_v3.contained_by(a, b)",
-    ops: ["<@"],
-    cap: "match",
+    id: "fn-matches",
+    name: "eql_v3.matches(a, b)",
+    ops: ["@@"],
+    op: "@@",
   },
   {
     id: "fn-min",
@@ -341,10 +344,8 @@ function exampleFor(id: string, spec: FragmentSpec): string {
       return spec.orderByExample
         ? `-- any of the four; ordering is the usual reason to index text\nSELECT id, ${col} FROM ${table}\nWHERE eql_v3.gt(${col}, $1::${dom("ord")})\nORDER BY eql_v3.ord_term(${col});`
         : `-- a range uses two of the four\nSELECT * FROM ${table}\nWHERE eql_v3.gte(${col}, $1::${dom("ord")})\n  AND eql_v3.lt(${col}, $2::${dom("ord")});`;
-    case "fn-contains":
-      return `-- token containment on the bloom-filter term\nSELECT * FROM ${table}\nWHERE eql_v3.contains(${col}, $1::${dom("match")});`;
-    case "fn-contained_by":
-      return `SELECT * FROM ${table}\nWHERE eql_v3.contained_by(${col}, $1::${dom("match")});`;
+    case "fn-matches":
+      return `-- probabilistic fuzzy match on the bloom-filter term\nSELECT * FROM ${table}\nWHERE eql_v3.matches(${col}, $1::${dom("match")});`;
     case "fn-min":
       return `-- compares ordering terms; result decrypts client-side\nSELECT eql_v3.min(${col}) FROM ${table};`;
     case "fn-max":
@@ -366,7 +367,12 @@ function renderFragment(domains: Domain[], spec: FragmentSpec): string {
   const blocks: string[] = [];
   for (const fn of FUNCS) {
     const applies = scoped
-      .filter((d) => d.capabilities.includes(fn.cap) && d.variant)
+      .filter((d) => {
+        if (!d.variant) return false;
+        return fn.op
+          ? (d.supportedOperators ?? []).includes(fn.op)
+          : !!fn.cap && d.capabilities.includes(fn.cap);
+      })
       .map((d) => shortDomain(d.name));
     if (!applies.length) continue;
     const attrs = [
@@ -417,6 +423,11 @@ function knownSymbols(manifest: Manifest): Set<string> {
   return known;
 }
 
+// Prose that names a symbol in order to say it no longer exists (or no longer
+// means what it used to). Kept narrow — these are the words the upgrade notes
+// and rename callouts actually use, not a general escape hatch.
+const RETIRED_MARKER = /\b(removed|renamed|retired|deprecated|no longer)\b/i;
+
 function driftCheck(manifest: Manifest): string[] {
   const known = knownSymbols(manifest);
   const referenced = new Map<string, Set<string>>(); // fqn -> pages
@@ -424,26 +435,33 @@ function driftCheck(manifest: Manifest): string[] {
   for (const file of fs.readdirSync(EQL_DIR)) {
     if (!file.endsWith(".mdx") || file === "functions.mdx") continue;
     const text = fs.readFileSync(path.join(EQL_DIR, file), "utf8");
-    // Any schema-qualified reference — function call, domain cast, or type.
-    // A trailing `*` marks a prose family (e.g. `eql_v3.jsonb_path_*`), which
-    // names a set rather than one symbol, so it's skipped. So is a trailing
-    // `<T>` placeholder (e.g. `public.eql_v3_<T>_ord`).
-    for (const m of text.matchAll(
-      /\b(public|eql_v3_internal|eql_v3)\.([a-z0-9_]+)(\*?)/g,
-    )) {
-      if (m[3] === "*") continue;
-      if (text[(m.index ?? 0) + m[0].length] === "<") continue;
-      const fqn = `${m[1]}.${m[2]}`;
-      const pages = referenced.get(fqn) ?? new Set<string>();
-      pages.add(file);
-      referenced.set(fqn, pages);
+    for (const line of text.split("\n")) {
+      // A line that names a symbol in order to say it is gone is documenting
+      // history, not teaching an API — an upgrade note has to be able to write
+      // "`eql_v3.jsonb_array_elements_text` was removed". Same line-local
+      // exemption validate-content-api.ts makes, and the same trade: naming a
+      // dead symbol WITHOUT saying it is dead is the bug being caught.
+      if (RETIRED_MARKER.test(line)) continue;
+      // Any schema-qualified reference — function call, domain cast, or type.
+      // A trailing `*` marks a prose family (e.g. `eql_v3.jsonb_path_*`), which
+      // names a set rather than one symbol, so it's skipped. So is a trailing
+      // `<T>` placeholder (e.g. `public.eql_v3_<T>_ord`).
+      for (const m of line.matchAll(
+        /\b(public|eql_v3_internal|eql_v3)\.([a-z0-9_]+)(\*?)/g,
+      )) {
+        if (m[3] === "*") continue;
+        if (line[(m.index ?? 0) + m[0].length] === "<") continue;
+        const fqn = `${m[1]}.${m[2]}`;
+        const pages = referenced.get(fqn) ?? new Set<string>();
+        pages.add(file);
+        referenced.set(fqn, pages);
+      }
     }
   }
 
   const unknown: string[] = [];
   for (const [fqn, pages] of referenced) {
     if (known.has(fqn) || MANIFEST_BLIND_SPOTS.has(fqn)) continue;
-    if (UNRELEASED.has(fqn)) continue;
     unknown.push(`${fqn}  (in ${[...pages].join(", ")})`);
   }
   return unknown.sort();
@@ -460,22 +478,23 @@ function driftCheck(manifest: Manifest): string[] {
 //
 // Keep this list minimal, and delete entries as the manifest grows to cover
 // them.
-const MANIFEST_BLIND_SPOTS = new Set(["eql_v3.query_text_eq"]);
-
-// Symbols merged into EQL but not yet in the pinned release, documented ahead of
-// it because a page would otherwise teach a workaround for a solved problem. The
-// manifest can't resolve them, so they're allowlisted here — and reported on
-// every run, so the list stays visible rather than becoming a quiet exemption.
-//
-// The page documenting one MUST carry a version callout saying which release it
-// needs. Delete the entry when EQL_RELEASE_TAG (scripts/generate-eql-docs.ts) is
-// bumped to a release that ships it: the manifest covers it from then on, and
-// the drift check goes back to being the authority.
-const UNRELEASED = new Map([
-  [
-    "eql_v3.grouped_value",
-    "added after eql-3.0.2 in cipherstash/encrypt-query-language#423; documented in grouping-and-aggregates.mdx",
-  ],
+// `eql_v3.grouped_value` is the second blind spot, with a different cause: the
+// manifest lists aggregates from the codegen catalog, so the 60 generated
+// `min`/`max` aggregates are there but the one hand-written `CREATE AGGREGATE`
+// is not. Verified present in the 3.0.3 install SQL:
+//   grep -c "CREATE AGGREGATE" cipherstash-encrypt.sql                    # => 61
+//   grep -c "CREATE AGGREGATE eql_v3.grouped_value" cipherstash-encrypt.sql # => 1
+// Its state function (`eql_v3_internal.grouped_value_sfunc`) IS in the manifest,
+// which is what makes the gap easy to miss.
+// `public.eql_v3_json` — the storage-only JSON domain added in 3.0.1 — has the
+// same cause as the query-operand domains: created in a `DO` block, so the
+// catalog the manifest is built from never sees it (its searchable sibling
+// `public.eql_v3_json_search` IS in the manifest). Verified in the 3.0.3 SQL:
+//   grep -c "CREATE DOMAIN public.eql_v3_json AS jsonb" cipherstash-encrypt.sql # => 1
+const MANIFEST_BLIND_SPOTS = new Set([
+  "eql_v3.query_text_eq",
+  "eql_v3.grouped_value",
+  "public.eql_v3_json",
 ]);
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -498,10 +517,6 @@ function main() {
   console.log(
     `✓ Generated ${path.relative(process.cwd(), OUT_FILE)} from EQL ${manifest.version} (${manifest.functions.length} functions)`,
   );
-
-  for (const [fqn, why] of UNRELEASED) {
-    console.log(`• Drift check: ${fqn} allowlisted as unreleased — ${why}`);
-  }
 
   const unknown = driftCheck(manifest);
   if (unknown.length) {

@@ -24,11 +24,13 @@ import path from "node:path";
 import GithubSlugger from "github-slugger";
 
 /**
- * The EQL release the docs are written against. EQL 3.0.0 is still in
- * prerelease and churning (alpha.3 and alpha.4 shipped a day apart), so this
- * tracks an alpha deliberately rather than by accident.
+ * The EQL release the docs are written against.
+ *
+ * 3.0.x is still moving: 3.0.1 renamed the encrypted-JSON domains and replaced
+ * the text fuzzy-match operator, 3.0.3 guarded the empty-bloom needle. Each bump
+ * is a deliberate commit that fixes whatever the drift check reports.
  */
-const EQL_RELEASE_TAG = process.env.EQL_RELEASE_TAG ?? "eql-3.0.0";
+const EQL_RELEASE_TAG = process.env.EQL_RELEASE_TAG ?? "eql-3.0.3";
 
 const GITHUB_RELEASE_DOWNLOAD =
   "https://github.com/cipherstash/encrypt-query-language/releases/download";

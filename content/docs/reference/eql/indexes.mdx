@@ -4,7 +4,7 @@ description: "Create Postgres indexes on encrypted columns using functional inde
 type: reference
 components: [eql]
 verifiedAgainst:
-  eql: "3.0.0"
+  eql: "3.0.3"
 ---
 
 <EqlVersion />
@@ -16,7 +16,7 @@ EQL indexes are ordinary PostgreSQL functional indexes over **term-extractor fun
 | `eql_v3.eq_term(col)` | `hash` (or `btree`) | `hm` (HMAC-256) | equality |
 | `eql_v3.ord_term(col)` | `btree` | `op` (CLLW OPE) | range, `ORDER BY`, `MIN` / `MAX` |
 | `eql_v3.ord_term_ore(col)` | `btree` | `ob` (ORE block) | the same, on pinned `_ord_ore` / `text_search_ore` columns |
-| `eql_v3.match_term(col)` | `gin` | `bf` (bloom filter) | text containment |
+| `eql_v3.match_term(col)` | `gin` | `bf` (bloom filter) | text fuzzy match (`@@`) |
 
 The extractors are inlinable SQL functions, so the planner rewrites a bare-form predicate into the same expression the index was built on. You don't rewrite queries to use the index:
 
@@ -51,7 +51,7 @@ CREATE INDEX users_created_at_ord
 CREATE INDEX users_created_at_ord_ore
   ON users USING btree (eql_v3.ord_term_ore(created_at_ore));
 
--- Text match: GIN index on match_term
+-- Text fuzzy match (`@@`): GIN index on match_term
 -- (columns typed public.eql_v3_text_match or text_search)
 CREATE INDEX users_name_match
   ON users USING gin (eql_v3.match_term(name));
@@ -67,7 +67,7 @@ Create indexes when the table has a significant number of rows (typically more t
 
 All three must hold:
 
-1. **The value carries the required term.** Range needs `op` (or `ob` on the pinned block-ORE variants), containment needs `bf`, and equality needs `hm`, except on the non-text `_ord` variants, where equality resolves against the ordering term instead. Which terms travel in a value's payload is decided by the encryption client — a value with only a bloom term will not drive an equality index.
+1. **The value carries the required term.** Range needs `op` (or `ob` on the pinned block-ORE variants), fuzzy match needs `bf`, and equality needs `hm`, except on the non-text `_ord` variants, where equality resolves against the ordering term instead. Which terms travel in a value's payload is decided by the encryption client — a value with only a bloom term will not drive an equality index.
 2. **The index was built after the data carried the term.** If you change which terms a column's values carry, recreate the index.
 3. **The query operand is typed.** A typed parameter (`$1`, which CipherStash Proxy supplies) or an explicit cast resolves the encrypted operator; a bare `jsonb` literal falls through to native `jsonb` semantics and skips the index entirely:
 
@@ -89,6 +89,19 @@ SELECT * FROM users WHERE email = $1::public.eql_v3_text_eq;
 -- Index Scan using users_email_eq
 --   Index Cond: (eql_v3.eq_term(email) = eql_v3.eq_term($1))
 ```
+
+### Fuzzy match
+
+`col @@ $1` inlines to bloom array containment over `eql_v3.match_term(col)`, so the GIN index engages:
+
+```sql
+SELECT * FROM users WHERE name @@ $1::public.eql_v3_text_match;
+-- Bitmap Index Scan on users_name_match
+```
+
+<Callout type="warn">
+**Supply the needle as a bind parameter or a literal.** Since EQL 3.0.3 the match carries an empty-needle guard (see [Text](/reference/eql/text)), which makes `eql_v3.matches` non-`STRICT` and references the needle twice. A needle supplied as an *uncorrelated subquery* — `WHERE name @@ (SELECT …)` — therefore no longer inlines, and the query falls back to a sequential scan. The result is still correct; only the index acceleration is lost.
+</Callout>
 
 ### Range and ORDER BY
 
@@ -131,7 +144,7 @@ The extractor form is a correctness requirement before it's a tuning one: encryp
 
 ## Encrypted JSON
 
-Containment (`@>` / `<@`) on `public.eql_v3_json` document columns uses a GIN index over `eql_v3.to_ste_vec_query(col)::jsonb`, and field-level equality and ordering have their own extractor recipes. See [JSON](/reference/eql/json).
+Containment (`@>` / `<@`) on `public.eql_v3_json_search` document columns uses a GIN index over `eql_v3.to_ste_vec_query(col)::jsonb` — the same index that serves exact field matching, which is containment on a value selector. Field-level ordering has its own extractor recipe. See [JSON](/reference/eql/json).
 
 ## Verify with EXPLAIN
 

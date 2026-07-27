@@ -4,7 +4,7 @@ description: "GROUP BY on the equality term, eql_v3.grouped_value, DISTINCT ON, 
 type: reference
 components: [eql]
 verifiedAgainst:
-  eql: "3.0.0"
+  eql: "3.0.3"
 ---
 
 <EqlVersion />
@@ -15,7 +15,7 @@ Grouping and deduplication key on the **equality term**, never on the stored cip
 
 Encryption is non-deterministic: the same plaintext encrypts to a different ciphertext every time. An encrypted column is a domain over `jsonb`, and Postgres compares a domain using the *base type's* comparison — so the natural forms compare whole encrypted payloads, never the plaintext behind them. They raise no error; they just answer wrongly.
 
-<BadExample label="Doesn't work — compares raw ciphertext">
+<BadExample label="Silently wrong — compares raw ciphertext">
 
 ```sql
 SELECT email, COUNT(*) FROM logins GROUP BY email;   -- one group per row
@@ -47,7 +47,7 @@ Keying on the extractor is also what makes the query fast. `GROUP BY email` woul
 Grouping by the term costs you the column: Postgres rejects a bare reference to it, because it can't prove the column is constant within each group.
 
 <BadExample
-  label="Doesn't work — bare column under GROUP BY"
+  label="Raises — bare column under GROUP BY"
   error={`ERROR:  column "logins.email" must appear in the GROUP BY clause or be used in an aggregate function (SQLSTATE 42803)`}
 >
 
@@ -136,18 +136,17 @@ A btree on `eql_v3.ord_term(col)` serves `MIN` / `MAX` — the [Indexes](/refere
 **`SUM`, `AVG`, and every other arithmetic aggregate are unsupported** on encrypted columns — they would require homomorphic encryption, which EQL does not do. `MIN` / `MAX` work because they only need *comparison*, which the ordering term provides. For sums and averages, select the rows (or `MIN`/`MAX`/`COUNT` server-side to narrow them) and aggregate client-side after decryption.
 </Callout>
 
-## Grouping on extracted JSON leaves
+## Leaves inside encrypted JSON
 
-Leaves inside an encrypted JSON document group the same way — extract the entry by selector, then group on its equality term:
+Leaves extracted from an encrypted JSON document (`metadata -> 'region_selector'::text`, a `public.eql_v3_json_entry`) **cannot be grouped by equality**. Entries stopped carrying an equality term in EQL 3.0.1: exact matching on a JSON field became presence of a value selector, which containment answers as a filter — there is no per-field key to hash rows into groups with.
+
+What still works on an extracted leaf is ordering: `eql_v3.min` / `eql_v3.max` on String and Number leaves, via their CLLW OPE term.
 
 ```sql
-SELECT eql_v3.grouped_value(metadata -> 'region_selector'::text) AS region,
-       COUNT(*)
-  FROM orders
-  GROUP BY eql_v3.eq_term(metadata -> 'region_selector'::text);
+SELECT eql_v3.min(metadata -> 'total_selector'::text) FROM orders;
 ```
 
-An extracted entry is a `public.eql_v3_jsonb_entry`, jsonb-backed like every other encrypted domain, so `grouped_value` and `DISTINCT ON (eql_v3.eq_term(...))` both apply unchanged. `eql_v3.eq_term` reads whichever term the entry carries, so this works on every JSON node type. String and Number leaves also support `eql_v3.min` / `eql_v3.max` via their CLLW OPE term. Selectors and node capabilities are in [JSON](/reference/eql/json).
+To group by a field, promote it to its own encrypted column — a `text_eq` (or any `_ord`) column alongside the document — and group on that column's equality term as above. Selectors, value selectors, and node capabilities are in [JSON](/reference/eql/json).
 
 ## Where to go next
 

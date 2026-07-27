@@ -4,7 +4,7 @@ description: "WHERE-clause patterns on encrypted columns: equality, IN lists, ra
 type: reference
 components: [eql]
 verifiedAgainst:
-  eql: "3.0.0"
+  eql: "3.0.3"
 ---
 
 <EqlVersion />
@@ -60,33 +60,32 @@ WHERE occurred_at >= $1::public.eql_v3_timestamp_ord
   AND occurred_at <  $2::public.eql_v3_timestamp_ord;
 ```
 
-## Text token matching: `@>`
+## Text fuzzy matching: `@@`
 
-There is no `LIKE` on encrypted columns — encrypted free-text matching is bloom-filter token containment via `@>` on a `text_match` or `text_search` column:
+There is no `LIKE` on encrypted columns — encrypted free-text matching is bloom-filter fuzzy match via `@@` on a `text_match` or `text_search` column:
 
 ```sql
-SELECT * FROM users WHERE name @> $1::public.eql_v3_text_match;
+SELECT * FROM users WHERE name @@ $1::public.eql_v3_text_match;
 ```
 
-The client encrypts the search term into a bloom-filter query value; matching is probabilistic (false positives possible, false negatives not). For the full no-`LIKE` story and match-term tuning, see [Text](/reference/eql/text).
+The client encrypts the search term into a bloom-filter query value; matching is probabilistic (false positives possible, false negatives not). `@>` / `<@` raise on these domains — they were the old spelling of this match and are now blockers. For the full no-`LIKE` story, short-term behaviour, and match-term tuning, see [Text](/reference/eql/text).
 
 ## JSON containment and path filters
 
-Encrypted JSON documents (`public.eql_v3_json`) filter by containment and path existence:
+Encrypted JSON documents (`public.eql_v3_json_search`) filter by containment and path existence:
 
 ```sql
 -- Does the document contain this (encrypted) structure?
-SELECT * FROM orders WHERE metadata @> $1::eql_v3.query_jsonb;
+SELECT * FROM orders WHERE metadata @> $1::eql_v3.query_json;
 
 -- Does this path exist in the document?
 SELECT * FROM orders WHERE eql_v3.jsonb_path_exists(metadata, 'region_selector');
 
--- Equality on an extracted leaf
-SELECT * FROM orders
-WHERE metadata -> 'email_selector'::text = $1::public.eql_v3_jsonb_entry;
+-- Exact match on a field: containment on a value selector, built by the client
+SELECT * FROM orders WHERE metadata @> $1::eql_v3.query_json;
 ```
 
-Field access is by selector hash, not plaintext path. The full JSON surface — containment, field access, path queries, and range filters on extracted leaves — is in [JSON](/reference/eql/json).
+Field access is by selector hash, not plaintext path — and exact field matching is containment on a **value selector**, not `=` on an extracted leaf, which raises. The full JSON surface — containment, field access, path queries, and range filters on extracted leaves — is in [JSON](/reference/eql/json).
 
 ## Combining predicates
 
@@ -97,7 +96,7 @@ SELECT * FROM users
 WHERE status = 'active'                           -- plaintext column, native operator
   AND created_at >= $1::public.eql_v3_timestamp_ord      -- encrypted range
   AND (email = $2::public.eql_v3_text_eq                 -- encrypted equality
-       OR name @> $3::public.eql_v3_text_match);         -- encrypted token match
+       OR name @@ $3::public.eql_v3_text_match);         -- encrypted fuzzy match
 ```
 
 The planner treats each encrypted predicate independently, so it can combine an index on a plaintext column with a functional index on an encrypted one (bitmap-AND, or whichever plan is cheapest).
@@ -119,8 +118,8 @@ Don't confuse this with a JSON `null` *inside* an encrypted document, which is a
 | --- | --- | --- | --- |
 | Equality | `=` `<>` `IN` | `_eq`, all `_ord` variants, `text_search` variants | hash (or btree) on `eql_v3.eq_term` — btree on `eql_v3.ord_term` for the non-text `_ord` variants |
 | Range | `<` `<=` `>` `>=` `BETWEEN` | all `_ord` variants, `text_search` variants | btree on `eql_v3.ord_term` (`eql_v3.ord_term_ore` on `_ord_ore`) |
-| Text token match | `@>` `<@` | `text_match`, `text_search` variants | GIN on `eql_v3.match_term` |
-| JSON containment | `@>` `<@` | `public.eql_v3_json` | GIN on `eql_v3.to_ste_vec_query(col)::jsonb` |
+| Text fuzzy match | `@@` | `text_match`, `text_search` variants | GIN on `eql_v3.match_term` |
+| JSON containment | `@>` `<@` | `public.eql_v3_json_search` | GIN on `eql_v3.to_ste_vec_query(col)::jsonb` |
 | Null check | `IS NULL` / `IS NOT NULL` | every variant | — |
 
 Every one of these has a full index recipe — which method, which extractor, and how to confirm the index engages with `EXPLAIN` — in [Indexes](/reference/eql/indexes).

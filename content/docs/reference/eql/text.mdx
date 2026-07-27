@@ -1,10 +1,10 @@
 ---
 title: Text
-description: "The complete reference for encrypted text columns: every text domain variant, the multi-term payload, why LIKE is gone everywhere, and bloom-filter token containment as the encrypted free-text match."
+description: "The complete reference for encrypted text columns: every text domain variant, the multi-term payload, why LIKE is gone everywhere, and @@ bloom-filter fuzzy match as the encrypted free-text search."
 type: reference
 components: [eql]
 verifiedAgainst:
-  eql: "3.0.0"
+  eql: "3.0.3"
 ---
 
 <EqlVersion />
@@ -22,8 +22,8 @@ All of these are `jsonb`-backed domains. Which one you declare fixes the column'
 | `public.eql_v3_text_ord` | Comparisons, `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
 | `public.eql_v3_text_ord_ope` | The byte-identical twin of `text_ord`, with OPE pinned. See [SEM specifiers](#sem-specifiers). |
 | `public.eql_v3_text_ord_ore` | As `text_ord`, with the ORE mechanism pinned. |
-| `public.eql_v3_text_match` | Free-text token containment: `@>` / `<@`. |
-| `public.eql_v3_text_search` | Equality + ordering + token containment. |
+| `public.eql_v3_text_match` | Free-text fuzzy match: `@@`. |
+| `public.eql_v3_text_search` | Equality + ordering + fuzzy match. |
 | `public.eql_v3_text_search_ore` | As `text_search`, with the ORE mechanism pinned. |
 
 Declare only the capabilities you query on — each capability stores extra searchable material with defined leakage (see [Searchable encryption](/concepts/searchable-encryption)).
@@ -77,7 +77,7 @@ A value for a `text_search` column carries the shared envelope keys (`v`, `i`, `
 
 - `hm` — equality term: `WHERE email = $1` compares this
 - `op` — ordering term: a hex-encoded CLLW OPE ciphertext, which `ORDER BY` and range comparisons sort by native `bytea` comparison
-- `bf` — bloom-filter term: `@>` token containment tests these bit positions
+- `bf` — bloom-filter term: `@@` fuzzy match tests these bit positions
 
 A `text_search_ore` payload carries `ob` in place of `op`: an array of block-ORE ciphertexts rather than a single string.
 
@@ -91,7 +91,8 @@ The narrower variants carry only their own terms. A `text_eq` payload carries `h
 | --- | :---: | :---: | :---: | :---: | :---: |
 | `=` / `<>` | ❌ | ✅ | ✅ | ❌ | ✅ |
 | `<` `<=` `>` `>=` | ❌ | ❌ | ✅ | ❌ | ✅ |
-| `@>` / `<@` | ❌ | ❌ | ❌ | ✅ | ✅ |
+| `@@` (fuzzy match) | ❌ | ❌ | ❌ | ✅ | ✅ |
+| `@>` / `<@` | ❌ | ❌ | ❌ | ❌ | ❌ |
 | `LIKE` / `ILIKE` (`~~` / `~~*`) | ❌ | ❌ | ❌ | ❌ | ❌ |
 | `IN` / `GROUP BY` / `DISTINCT` | ❌ | ✅ | ✅ | ❌ | ✅ |
 | `ORDER BY` | ❌ | ❌ | ✅ | ❌ | ✅ |
@@ -103,21 +104,46 @@ Blocked *operator* cells raise an `operator … is not supported` exception — 
 
 <include cwd>content/partials/eql/functions-text.mdx</include>
 
-There are no `like` / `ilike` function forms — encrypted text matching is `eql_v3.contains` on a `text_match` value.
+There are no `like` / `ilike` function forms — encrypted text matching is `eql_v3.matches` on a `text_match` value.
 
 ## There is no `LIKE`
 
-`LIKE` and `ILIKE` (`~~` / `~~*`) raise on **every** encrypted-domain variant — including `text_match` and `text_search`. SQL pattern matching is meaningless on ciphertext. Encrypted text matching is bloom-filter token containment — `@>` on a `text_match` or `text_search` column:
+`LIKE` and `ILIKE` (`~~` / `~~*`) raise on **every** encrypted-domain variant — including `text_match` and `text_search`. SQL pattern matching is meaningless on ciphertext. Encrypted text matching is bloom-filter fuzzy match — `@@` on a `text_match` or `text_search` column:
+
+<BadExample label="Raises — LIKE is blocked on every encrypted variant">
 
 ```sql
--- ❌ Raises: operator not supported
 SELECT * FROM users WHERE email LIKE '%alice%';
-
--- ✅ Encrypted free-text match
-SELECT * FROM users WHERE email @> $1::public.eql_v3_text_match;
 ```
 
-`@>` / `<@` here is **probabilistic ngram-bloom containment** — it tests whether the encrypted text contains the (encrypted) search terms. It is not JSONB containment and not `LIKE`. The client encrypts the search term into a bloom-filter query value; false positives are possible, false negatives are not. There are no `like` / `ilike` function forms either — text matching is `eql_v3.contains` on a `text_match` value.
+</BadExample>
+
+```sql
+-- Encrypted free-text match
+SELECT * FROM users WHERE email @@ $1::public.eql_v3_text_match;
+
+-- Function form
+SELECT * FROM users WHERE eql_v3.matches(email, $1::public.eql_v3_text_match);
+```
+
+`@@` is **probabilistic ngram-bloom matching** — it reduces to array containment over two bloom filters built from the downcased 3-gram token sets, so a `true` may be a false positive and a `false` never is. It is not `LIKE`, and it is not containment: it is order- and multiplicity-insensitive. The client encrypts the search term into a bloom-filter query value.
+
+<Callout type="warn">
+**`@>` / `<@` raise on the match variants.** The fuzzy match was renamed in EQL 3.0.1: it used to be spelled `@>` / `<@`, backed by `eql_v3.contains` / `eql_v3.contained_by`, which are no longer public functions on these domains. That naming promised containment semantics it never had, so the operator became the directional `@@` and the old spellings are now blockers that raise `operator … is not supported`. Genuine containment on encrypted JSON is unaffected and keeps `@>` / `<@`; see [JSON](/reference/eql/json). Repoint any query, view, or adapter still emitting the old form, and coordinate with the client: an SDK emitting `eql_v3.contains(` for text match must move to `eql_v3.matches(` in the same release.
+</Callout>
+
+### Search terms too short to tokenise
+
+A search string below the tokeniser's floor — a 2-character term, say — produces no 3-grams and encrypts to an empty bloom (`bf: []`). Because an empty array is contained by every array, such a needle once matched **every row in the table**, silently. Since EQL 3.0.3 the match is guarded, giving `LIKE ''`-shaped semantics:
+
+| Stored value's bloom | Needle's bloom | `LIKE` analogue | Result |
+| --- | --- | --- | :---: |
+| empty | empty | `'' LIKE ''` | ✅ |
+| non-empty | empty | `'catty' LIKE ''` | ❌ (was ✅) |
+| empty | non-empty | `'' LIKE 'cat'` | ❌ |
+| non-empty | non-empty | — | bloom match |
+
+Only the second row changed: an empty needle now matches only a value whose own bloom is also empty. Nothing to rewrite, and values legitimately stored with an empty bloom are unaffected. On EQL 3.0.2 and earlier, reject sub-floor search terms client-side — the SDK already does.
 
 ## Where to next
 
