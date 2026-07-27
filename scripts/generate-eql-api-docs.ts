@@ -443,6 +443,7 @@ function driftCheck(manifest: Manifest): string[] {
   const unknown: string[] = [];
   for (const [fqn, pages] of referenced) {
     if (known.has(fqn) || MANIFEST_BLIND_SPOTS.has(fqn)) continue;
+    if (UNRELEASED.has(fqn)) continue;
     unknown.push(`${fqn}  (in ${[...pages].join(", ")})`);
   }
   return unknown.sort();
@@ -460,6 +461,22 @@ function driftCheck(manifest: Manifest): string[] {
 // Keep this list minimal, and delete entries as the manifest grows to cover
 // them.
 const MANIFEST_BLIND_SPOTS = new Set(["eql_v3.query_text_eq"]);
+
+// Symbols merged into EQL but not yet in the pinned release, documented ahead of
+// it because a page would otherwise teach a workaround for a solved problem. The
+// manifest can't resolve them, so they're allowlisted here — and reported on
+// every run, so the list stays visible rather than becoming a quiet exemption.
+//
+// The page documenting one MUST carry a version callout saying which release it
+// needs. Delete the entry when EQL_RELEASE_TAG (scripts/generate-eql-docs.ts) is
+// bumped to a release that ships it: the manifest covers it from then on, and
+// the drift check goes back to being the authority.
+const UNRELEASED = new Map([
+  [
+    "eql_v3.grouped_value",
+    "added after eql-3.0.2 in cipherstash/encrypt-query-language#423; documented in grouping-and-aggregates.mdx",
+  ],
+]);
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 function main() {
@@ -481,6 +498,10 @@ function main() {
   console.log(
     `✓ Generated ${path.relative(process.cwd(), OUT_FILE)} from EQL ${manifest.version} (${manifest.functions.length} functions)`,
   );
+
+  for (const [fqn, why] of UNRELEASED) {
+    console.log(`• Drift check: ${fqn} allowlisted as unreleased — ${why}`);
+  }
 
   const unknown = driftCheck(manifest);
   if (unknown.length) {

@@ -115,15 +115,19 @@ If you `SELECT col::jsonb ... ORDER BY col`, Postgres folds the cast into the sc
 
 ### GROUP BY and DISTINCT
 
-Group on the extractor, not the raw column:
+Group and deduplicate on the extractor, not the raw column:
 
 ```sql
-SELECT eql_v3.eq_term(email), count(*)
+SELECT eql_v3.grouped_value(email) AS email, count(*)
   FROM users
   GROUP BY eql_v3.eq_term(email);
+
+SELECT DISTINCT ON (eql_v3.eq_term(email)) email
+  FROM users
+  ORDER BY eql_v3.eq_term(email);
 ```
 
-`GROUP BY email` uses the entire encrypted payload (1–2 KB per row) as the hash key; Postgres estimates a hash table far larger than the default `work_mem` and falls back to a disk-spilling `GroupAggregate`. The extractor key is a small deterministic term, so the hash table fits in `work_mem` and the planner picks `HashAggregate` reliably. If an ORM forces the raw-column form, raising `work_mem` is the rescue knob — but the extractor form is the design.
+The extractor form is a correctness requirement before it's a tuning one: encryption is non-deterministic and the column is a domain over `jsonb`, so `GROUP BY email` and `SELECT DISTINCT email` compare raw ciphertext and never collapse two encryptions of the same value. It's also the faster shape — `GROUP BY email` uses the entire encrypted payload (1–2 KB per row) as the hash key, so Postgres estimates a hash table far larger than the default `work_mem` and falls back to a disk-spilling `GroupAggregate`, while the small deterministic term fits in `work_mem` and gets a `HashAggregate`. Full treatment in [Grouping and aggregates](/reference/eql/grouping-and-aggregates).
 
 ## Encrypted JSON
 
