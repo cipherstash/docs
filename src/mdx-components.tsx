@@ -2,6 +2,7 @@ import { Callout } from "fumadocs-ui/components/callout";
 import { Step, Steps } from "fumadocs-ui/components/steps";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import type { MDXComponents } from "mdx/types";
+import { BadExample } from "@/components/bad-example";
 import { TrackedCodeBlock } from "@/components/code-block";
 import { EqlFn } from "@/components/eql-fn";
 import { EqlVersion } from "@/components/eql-version";
@@ -16,6 +17,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     Callout,
     Steps,
     Step,
+    BadExample,
     EqlVersion,
     EqlFn,
     ZeroKmsRegions,

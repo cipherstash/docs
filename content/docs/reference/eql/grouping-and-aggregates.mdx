@@ -11,31 +11,53 @@ verifiedAgainst:
 
 Grouping and deduplication key on the **equality term**, never on the stored ciphertext, so they work on the same variants as `=`: `_eq`, every `_ord` variant, and the `text_search` variants. `MIN` / `MAX` need an ordering term (any `_ord` variant, or `text_search`). Arithmetic aggregates don't work at all — that's the last section. As everywhere, operands and call-site casts must be typed; see [Core concepts](/reference/eql/core-concepts).
 
-## Group on the equality term
+## `GROUP BY` and `DISTINCT`
 
-Encryption is non-deterministic: the same plaintext encrypts to a different ciphertext every time. An encrypted column is a domain over `jsonb`, and Postgres groups a domain using the *base type's* comparison — so `GROUP BY email` compares whole encrypted payloads and puts almost every row in a group of its own. There's no error, just wrong answers.
+Encryption is non-deterministic: the same plaintext encrypts to a different ciphertext every time. An encrypted column is a domain over `jsonb`, and Postgres compares a domain using the *base type's* comparison — so the natural forms compare whole encrypted payloads, never the plaintext behind them. They raise no error; they just answer wrongly.
 
-Group on the equality term instead. It's a deterministic keyed hash, identical for equal plaintexts:
+<BadExample label="Doesn't work — compares raw ciphertext">
+
+```sql
+SELECT email, COUNT(*) FROM logins GROUP BY email;   -- one group per row
+SELECT DISTINCT email FROM logins;                   -- every row comes back
+```
+
+</BadExample>
+
+Key on the equality term instead. It's a deterministic keyed hash, identical for equal plaintexts:
 
 ```sql
 SELECT COUNT(*)
   FROM logins
   GROUP BY eql_v3.eq_term(email);
+
+SELECT DISTINCT ON (eql_v3.eq_term(email)) email
+  FROM logins
+  ORDER BY eql_v3.eq_term(email);
 ```
 
-The term is an HMAC — opaque and one-way — so there's rarely a reason to select it. To get the encrypted value back alongside the aggregate, use [`eql_v3.grouped_value`](#grouped-value).
+Plain `DISTINCT` has nowhere to put the term, so deduplication is `DISTINCT ON`. Postgres requires the leading `ORDER BY` expression to match the `DISTINCT ON` expression, and the row that survives each group is the first one in that order — add further sort keys after it to choose which.
 
-Grouping on the extractor is also what makes the query fast. `GROUP BY email` would use the entire encrypted payload — 1–2 KB per row — as the hash key: Postgres estimates a hash table far larger than the default `work_mem` and falls back to a disk-spilling `GroupAggregate`. The extractor key is small, so the hash table fits in `work_mem` and the planner picks `HashAggregate` reliably. The same reasoning, from the index-tuning angle, is in [Indexes](/reference/eql/indexes).
+The term is an HMAC — opaque and one-way — so there's rarely a reason to select it. `DISTINCT ON` puts no restriction on the projection, so the encrypted column comes back alongside it for the client to decrypt; under `GROUP BY` that takes [`eql_v3.grouped_value`](#grouped-value).
 
-## Projecting the encrypted value: `eql_v3.grouped_value` [#grouped-value]
+Keying on the extractor is also what makes the query fast. `GROUP BY email` would use the entire encrypted payload — 1–2 KB per row — as the hash key: Postgres estimates a hash table far larger than the default `work_mem` and falls back to a disk-spilling `GroupAggregate`. The extractor key is small, so the hash table fits in `work_mem` and the planner picks `HashAggregate` reliably. The same reasoning, from the index-tuning angle, is in [Indexes](/reference/eql/indexes).
 
-Once you group by the term, Postgres rejects a bare reference to the column — it can't prove the column is constant within each group:
+## `eql_v3.grouped_value` [#grouped-value]
+
+Grouping by the term costs you the column: Postgres rejects a bare reference to it, because it can't prove the column is constant within each group.
+
+<BadExample
+  label="Doesn't work — bare column under GROUP BY"
+  error={`ERROR:  column "logins.email" must appear in the GROUP BY clause or be used in an aggregate function (SQLSTATE 42803)`}
+>
 
 ```sql
-SELECT email, COUNT(*)              -- ERROR: column "logins.email" must appear in the
-  FROM logins                       --        GROUP BY clause or be used in an aggregate
-  GROUP BY eql_v3.eq_term(email);   --        function (SQLSTATE 42803)
+SELECT email, COUNT(*)
+  FROM logins
+  GROUP BY eql_v3.eq_term(email);
 ```
+
+</BadExample>
 
 Every row in a group encrypts the same plaintext, so any one of them represents the group. `eql_v3.grouped_value` is the aggregate that hands one back:
 
@@ -57,23 +79,7 @@ One aggregate covers every encrypted type: all the domains are jsonb-backed, and
 - A group of all-`NULL` values aggregates to `NULL`, matching native aggregate semantics.
 - It's `PARALLEL SAFE` with a combine function, so it survives partial aggregation on large `GROUP BY` workloads.
 
-<Callout type="info">
-**Requires an EQL release later than 3.0.2.** `eql_v3.grouped_value` was added in [encrypt-query-language#423](https://github.com/cipherstash/encrypt-query-language/pull/423) and ships in the next EQL release; it re-creates the `grouped_value` aggregate the EQL v2 surface had. On 3.0.x, group by the term and join the grouped result back to the table on that term to recover a representative encrypted value, then decrypt that in the client.
-</Callout>
-
-## Deduplicating: `DISTINCT ON` the equality term
-
-Plain `SELECT DISTINCT email` is not supported, for the same reason: it deduplicates raw ciphertext, so two encryptions of one value are never collapsed and you get every row back.
-
-Deduplicate on the term with `DISTINCT ON`. Unlike `GROUP BY`, it puts no restriction on the projection, so you select the encrypted column directly and no aggregate is involved:
-
-```sql
-SELECT DISTINCT ON (eql_v3.eq_term(email)) email
-  FROM logins
-  ORDER BY eql_v3.eq_term(email);
-```
-
-The leading `ORDER BY` expression has to match the `DISTINCT ON` expression — Postgres requires it — and the row that survives each group is the first one in that order, so add further sort keys after it to choose which. That's the no-aggregate path; reach for `grouped_value` when you also want a per-group aggregate like `COUNT(*)`.
+Deduplicating without a per-group aggregate needs none of this — that's `DISTINCT ON`, above.
 
 ## `COUNT` and `COUNT(DISTINCT)`
 
