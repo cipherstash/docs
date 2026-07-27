@@ -93,12 +93,31 @@ function loadManifest(): Manifest {
 }
 
 // ── Render the generated catalog ─────────────────────────────────────────────
+/**
+ * Make a manifest prose string safe to drop into MDX.
+ *
+ * Doxygen comments are written for a plain-text renderer, so they contain bare
+ * `<` and `{` — SQL operators especially (`<>`, `<=`). MDX reads those as JSX
+ * and the build dies on the *content* file, far from the cause: EQL 3.0.3's
+ * `ope_term` brief says "= / <> are blocked", which parses as an unclosed
+ * fragment. Escape both, but only outside inline-code spans, so the many
+ * descriptions that already write `` `<>` `` keep rendering as code.
+ */
+function mdxProse(s: string): string {
+  return s
+    .split(/(`+[^`]*`+)/g)
+    .map((seg, i) =>
+      i % 2 === 1 ? seg : seg.replace(/</g, "&lt;").replace(/\{/g, "&#123;"),
+    )
+    .join("");
+}
+
 function paramsTable(params: Param[]): string {
   if (!params.length) return "";
   const rows = params
     .map(
       (p) =>
-        `| \`${p.name}\` | ${p.type ? `\`${p.type}\`` : ""} | ${(p.description ?? "").replace(/\|/g, "\\|")} |`,
+        `| \`${p.name}\` | ${p.type ? `\`${p.type}\`` : ""} | ${mdxProse(p.description ?? "").replace(/\|/g, "\\|")} |`,
     )
     .join("\n");
   return `\n| Parameter | Type | Description |\n| --- | --- | --- |\n${rows}\n`;
@@ -123,9 +142,9 @@ function renderPublicFunctions(fns: Fn[]): string {
     const rep =
       overloads.find((o) => o.params.length || o.brief) ?? overloads[0];
     const sigs = [...new Set(overloads.map((o) => o.signature))].sort();
-    const parts = [`### \`${name}\``, "", rep.brief];
+    const parts = [`### \`${name}\``, "", mdxProse(rep.brief)];
     if (rep.description && rep.description !== rep.brief)
-      parts.push("", rep.description);
+      parts.push("", mdxProse(rep.description));
     parts.push(
       "",
       sigs.length > 1
@@ -141,7 +160,7 @@ function renderPublicFunctions(fns: Fn[]): string {
       const t = rep.returns.type ? `\`${rep.returns.type}\`` : "";
       parts.push(
         "",
-        `**Returns:** ${t}${rep.returns.description ? ` — ${rep.returns.description}` : ""}`,
+        `**Returns:** ${t}${rep.returns.description ? ` — ${mdxProse(rep.returns.description)}` : ""}`,
       );
     }
     sections.push(parts.join("\n"));
