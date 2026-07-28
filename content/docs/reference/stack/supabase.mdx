@@ -282,6 +282,8 @@ The builder is deferred: method calls record intent, and nothing executes until 
 
 Because the wrapped client is your own `createClient(...)` instance, Supabase Auth sessions and **Row Level Security policies apply unchanged**. RLS decides which rows come back; encryption decides whether what is in them can be read. Database-side setup (installing EQL, column types, grants, indexes) is covered in [Supabase fundamentals](/integrations/supabase/fundamentals).
 
-## The v2 wrapper
+## Two names, one function
 
-`encryptedSupabase` is the EQL v2 dialect. It ships from the same `@cipherstash/stack-supabase` package and is unchanged from before the 1.0 split. It is synchronous, takes `{ encryptionClient, supabaseClient }`, requires `.from(tableName, schema)` with the schema as a second argument, rejects `select('*')`, and uses `.like()` / `.ilike()` for free-text search. Pick the dialect by function: v2 targets the EQL v2 composite type, v3 targets the `public.eql_v3_*` domains. New work should use `encryptedSupabaseV3`.
+`encryptedSupabase` and `encryptedSupabaseV3` are the **same function**, and either import works. The `V3` suffix dates from when this package also shipped an EQL v2 dialect; now that EQL v3 is the only generation the wrapper authors, the suffix is redundant, so `encryptedSupabase` is the preferred spelling and `encryptedSupabaseV3` is a deprecated alias kept for existing imports.
+
+The type names work the same way: `EncryptedSupabaseOptions`, `EncryptedSupabaseInstance`, and `TypedEncryptedSupabaseInstance`, with their `…V3…` forms as deprecated aliases.
