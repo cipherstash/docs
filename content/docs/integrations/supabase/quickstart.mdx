@@ -126,9 +126,6 @@ const { data } = await db
   .select("id, email, name")
   .eq("email", "alice@example.com")
 
-// Free-text match: encrypted token matching, not SQL LIKE
-await db.from("patients").select("id, name").matches("name", "Alice Chen")
-
 // Range and newest-first on an encrypted date
 await db
   .from("patients")
@@ -139,7 +136,7 @@ await db
 ```
 
 <Callout type="warn">
-Free-text matching is `.matches()`, which compares encrypted token sets rather than SQL wildcards. `.contains()` raises on an encrypted text column — it promises exactness that bloom matching cannot deliver. `.like()` and `.ilike()` still run, but only as an approximate shim over `.matches()`. See the [wrapper reference](/reference/stack/supabase#free-text-search-matches).
+**Free-text search is not available through this wrapper on EQL 3.0.2+.** `.matches()` — and `.like()` / `.ilike()`, which delegate to it — raise, because the operator needs an `eql_v3.query_*` operand that PostgREST cannot express. Encrypted-JSON queries are unavailable for the same reason. Equality, ordering, and range all work, as shown above. For encrypted free-text, use the [Drizzle](/integrations/drizzle) or [Prisma Next](/integrations/prisma-next) adapter for that query, or a scoped SQL/RPC function. Full detail in the [wrapper reference](/reference/stack/supabase#free-text-and-json-need-a-different-adapter).
 </Callout>
 
 The full method surface, including filters, upserts, error shapes, and identity-locked queries, is in the [`encryptedSupabaseV3` reference](/reference/stack/supabase).

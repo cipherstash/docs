@@ -156,9 +156,9 @@ Every filter value on an encrypted column is encrypted client-side into the term
 | `.eq()` / `.neq()` | `_eq`, `_ord`, or `text_search` | Equality terms |
 | `.in(col, values)` | `_eq`, `_ord`, or `text_search` | Each element encrypted separately |
 | `.gt()` `.gte()` `.lt()` `.lte()` | `_ord` or `text_search` | Ordering terms |
-| `.matches(col, value)` | `text_match` or `text_search` | Bloom-filter token containment |
-| `.contains(col, value)` | `json` (or a plaintext array) | Sub-document containment, not free-text — see below |
-| `.selectorEq(col, path, value)` / `.selectorNe()` | `json` | One JSON field's value, by path |
+| `.matches(col, value)` | `text_match` or `text_search` | Bloom-filter token containment — **unavailable on EQL 3.0.2+, [see below](#free-text-and-json-need-a-different-adapter)** |
+| `.contains(col, value)` | `json`, or a plaintext array | Sub-document containment, not free-text. Encrypted JSON is **unavailable on EQL 3.0.2+** |
+| `.selectorEq(col, path, value)` / `.selectorNe()` | `json` | One JSON field's value, by path — **unavailable on EQL 3.0.2+** |
 | `.is(col, null)` | any column | Passed through. SQL `NULL` is never encrypted |
 | `.match({ col: value })` | per column | Each pair applied as `.eq()` |
 | `.or(filters)` | per column | Encrypted values inside the filter string are encrypted in place |
@@ -177,30 +177,40 @@ await supabase
   .eq("name", "Alice Chen")          // ordinary supabase-js filter
 ```
 
-### Free-text search: `.matches()`
+### Free-text and JSON need a different adapter [#free-text-and-json-need-a-different-adapter]
 
-`.matches()` tests whether the stored value's encrypted token set contains the search string's. Matching is case-insensitive, and false positives are possible while false negatives are not.
+<Callout type="warn">
+**On EQL 3.0.2 and later, this wrapper cannot run encrypted free-text search or encrypted-JSON queries.** Every spelling raises:
+
+```
+[supabase v3]: matches() on encrypted column "email" is unavailable with EQL
+3.0.2+: the SQL operator requires an eql_v3.query_* cast that PostgREST cannot
+express. Use the Drizzle or Prisma Next adapter, or a scoped SQL/RPC function.
+```
+
+The limit is PostgREST's, not the encryption's. Those operators need a typed `eql_v3.query_*` operand, and PostgREST has no syntax for the cast — so the wrapper refuses rather than send an operand the database would compare wrongly. It fails closed on an unknown EQL version too.
+
+This applies to `.matches()`, `.contains()` on a `json` column, `.selectorEq()` / `.selectorNe()`, and the same terms reached through `.not()`, `.or()`, or a raw `.filter()`. **Equality, ordering, and range are unaffected** — `.eq()`, `.neq()`, `.in()`, `.gt()` / `.gte()` / `.lt()` / `.lte()`, and `.order()` all work, as do inserts, updates, and decryption on select.
+
+To search encrypted text on EQL 3.0.2+, use the [Drizzle](/integrations/drizzle) or [Prisma Next](/integrations/prisma-next) adapter for that query, or put it behind a scoped SQL or RPC function. Everything else on this page still applies.
+</Callout>
+
+On EQL 3.0.1 and earlier, `.matches()` tests whether the stored value's encrypted token set contains the search string's — case-insensitive, and false positives are possible while false negatives are not:
 
 ```typescript
 await supabase.from("users").select("*").matches("email", "alice@example.com")
 ```
 
-It is **not** `.contains()`. On an encrypted text column `.contains()` raises — containment promises exactness, which bloom-filter matching cannot deliver, so the wrapper refuses rather than quietly answering a different question:
-
-```typescript
-// ❌ raises: contains() is native (exact) containment and does not apply to
-//    encrypted column "email". Use matches() for encrypted free-text search.
-await supabase.from("users").select("*").contains("email", "alice@example.com")
-```
-
-`.contains()` is still the right method for **encrypted JSON** documents (sub-document containment) and for plaintext array columns.
+It is **not** `.contains()`. On an encrypted text column `.contains()` raises regardless of EQL version — containment promises exactness, which bloom-filter matching cannot deliver, so the wrapper refuses rather than quietly answering a different question. `.contains()` is the right method for encrypted JSON documents and plaintext arrays.
 
 ### `.like()` and `.ilike()` are approximate
 
-On a plaintext column they are ordinary SQL `LIKE`. On an **encrypted** column they are a compatibility shim: the pattern is reduced to a needle and delegated to `.matches()`, so the result is *approximate* — matching becomes case-insensitive and one-sided (it may return false positives), and anchoring is lost. Leading and trailing `%` are stripped, since fuzzy matching subsumes them. A pattern that cannot be approximated — an internal `%`, or any `_` — raises instead of guessing.
+On a plaintext column they are ordinary SQL `LIKE`, unaffected by any of the above. On an **encrypted** column they are a compatibility shim that reduces the pattern to a needle and delegates to `.matches()` — so on EQL 3.0.2+ they raise for the same reason it does.
+
+Where they do run, the result is *approximate*: matching becomes case-insensitive and one-sided (it may return false positives), and anchoring is lost. Leading and trailing `%` are stripped, since fuzzy matching subsumes them. A pattern that cannot be approximated — an internal `%`, or any `_` — raises instead of guessing.
 
 ```typescript
-// Works, approximately: reduced to matches("email", "@example.com")
+// Reduced to matches("email", "@example.com")
 await supabase.from("users").select("*").like("email", "%@example.com")
 
 // ❌ raises: an internal wildcard has no trigram equivalent

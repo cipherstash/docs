@@ -62,6 +62,8 @@ The column's domain type fixes what it can do, and the wrapper reads that type s
 
 Declare only the capabilities you use: every extra capability stores extra searchable material with defined leakage — see [Searchable encryption](/concepts/searchable-encryption).
 
+These are the column's capabilities in the database. Two of them are not reachable through supabase-js on EQL 3.0.2+ — free-text match and encrypted JSON both need an operand cast PostgREST cannot express — so if you plan to query either, read [that constraint](/reference/stack/supabase#free-text-and-json-need-a-different-adapter) before choosing the type. Equality and ordering are unaffected.
+
 ## Indexes
 
 Encrypted columns index through **ordinary functional indexes** over EQL's term-extractor functions. This is why EQL works on Supabase unchanged: the default ordering term indexes under Postgres's own `bytea_ops`, so no custom operator class is needed, just `CREATE INDEX`, which any migration can run:
