@@ -93,12 +93,31 @@ function loadManifest(): Manifest {
 }
 
 // ── Render the generated catalog ─────────────────────────────────────────────
+/**
+ * Make a manifest prose string safe to drop into MDX.
+ *
+ * Doxygen comments are written for a plain-text renderer, so they contain bare
+ * `<` and `{` — SQL operators especially (`<>`, `<=`). MDX reads those as JSX
+ * and the build dies on the *content* file, far from the cause: EQL 3.0.3's
+ * `ope_term` brief says "= / <> are blocked", which parses as an unclosed
+ * fragment. Escape both, but only outside inline-code spans, so the many
+ * descriptions that already write `` `<>` `` keep rendering as code.
+ */
+function mdxProse(s: string): string {
+  return s
+    .split(/(`+[^`]*`+)/g)
+    .map((seg, i) =>
+      i % 2 === 1 ? seg : seg.replace(/</g, "&lt;").replace(/\{/g, "&#123;"),
+    )
+    .join("");
+}
+
 function paramsTable(params: Param[]): string {
   if (!params.length) return "";
   const rows = params
     .map(
       (p) =>
-        `| \`${p.name}\` | ${p.type ? `\`${p.type}\`` : ""} | ${(p.description ?? "").replace(/\|/g, "\\|")} |`,
+        `| \`${p.name}\` | ${p.type ? `\`${p.type}\`` : ""} | ${mdxProse(p.description ?? "").replace(/\|/g, "\\|")} |`,
     )
     .join("\n");
   return `\n| Parameter | Type | Description |\n| --- | --- | --- |\n${rows}\n`;
@@ -123,9 +142,9 @@ function renderPublicFunctions(fns: Fn[]): string {
     const rep =
       overloads.find((o) => o.params.length || o.brief) ?? overloads[0];
     const sigs = [...new Set(overloads.map((o) => o.signature))].sort();
-    const parts = [`### \`${name}\``, "", rep.brief];
+    const parts = [`### \`${name}\``, "", mdxProse(rep.brief)];
     if (rep.description && rep.description !== rep.brief)
-      parts.push("", rep.description);
+      parts.push("", mdxProse(rep.description));
     parts.push(
       "",
       sigs.length > 1
@@ -141,7 +160,7 @@ function renderPublicFunctions(fns: Fn[]): string {
       const t = rep.returns.type ? `\`${rep.returns.type}\`` : "";
       parts.push(
         "",
-        `**Returns:** ${t}${rep.returns.description ? ` — ${rep.returns.description}` : ""}`,
+        `**Returns:** ${t}${rep.returns.description ? ` — ${mdxProse(rep.returns.description)}` : ""}`,
       );
     }
     sections.push(parts.join("\n"));
@@ -283,7 +302,16 @@ interface FuncDef {
   id: string;
   name: string;
   ops: string[];
-  cap: string;
+  /** Domain capability that exposes the function. */
+  cap?: string;
+  /**
+   * Operator that exposes the function, for surfaces the catalog does not model
+   * as a capability. Fuzzy match is the case: 3.0.1 dropped the `match`
+   * capability from the catalog, and `public.eql_v3_text_match` now reports
+   * `capabilities: ["storage"]` with `supportedOperators: ["@@"]`, so the
+   * operator list is the only reliable signal that a domain can be matched on.
+   */
+  op?: string;
   agg?: boolean;
 }
 const FUNCS: FuncDef[] = [
@@ -296,16 +324,10 @@ const FUNCS: FuncDef[] = [
     cap: "order",
   },
   {
-    id: "fn-contains",
-    name: "eql_v3.contains(a, b)",
-    ops: ["@>"],
-    cap: "match",
-  },
-  {
-    id: "fn-contained_by",
-    name: "eql_v3.contained_by(a, b)",
-    ops: ["<@"],
-    cap: "match",
+    id: "fn-matches",
+    name: "eql_v3.matches(a, b)",
+    ops: ["@@"],
+    op: "@@",
   },
   {
     id: "fn-min",
@@ -341,10 +363,8 @@ function exampleFor(id: string, spec: FragmentSpec): string {
       return spec.orderByExample
         ? `-- any of the four; ordering is the usual reason to index text\nSELECT id, ${col} FROM ${table}\nWHERE eql_v3.gt(${col}, $1::${dom("ord")})\nORDER BY eql_v3.ord_term(${col});`
         : `-- a range uses two of the four\nSELECT * FROM ${table}\nWHERE eql_v3.gte(${col}, $1::${dom("ord")})\n  AND eql_v3.lt(${col}, $2::${dom("ord")});`;
-    case "fn-contains":
-      return `-- token containment on the bloom-filter term\nSELECT * FROM ${table}\nWHERE eql_v3.contains(${col}, $1::${dom("match")});`;
-    case "fn-contained_by":
-      return `SELECT * FROM ${table}\nWHERE eql_v3.contained_by(${col}, $1::${dom("match")});`;
+    case "fn-matches":
+      return `-- probabilistic fuzzy match on the bloom-filter term\nSELECT * FROM ${table}\nWHERE eql_v3.matches(${col}, $1::${dom("match")});`;
     case "fn-min":
       return `-- compares ordering terms; result decrypts client-side\nSELECT eql_v3.min(${col}) FROM ${table};`;
     case "fn-max":
@@ -366,7 +386,12 @@ function renderFragment(domains: Domain[], spec: FragmentSpec): string {
   const blocks: string[] = [];
   for (const fn of FUNCS) {
     const applies = scoped
-      .filter((d) => d.capabilities.includes(fn.cap) && d.variant)
+      .filter((d) => {
+        if (!d.variant) return false;
+        return fn.op
+          ? (d.supportedOperators ?? []).includes(fn.op)
+          : !!fn.cap && d.capabilities.includes(fn.cap);
+      })
       .map((d) => shortDomain(d.name));
     if (!applies.length) continue;
     const attrs = [
@@ -417,6 +442,11 @@ function knownSymbols(manifest: Manifest): Set<string> {
   return known;
 }
 
+// Prose that names a symbol in order to say it no longer exists (or no longer
+// means what it used to). Kept narrow — these are the words the upgrade notes
+// and rename callouts actually use, not a general escape hatch.
+const RETIRED_MARKER = /\b(removed|renamed|retired|deprecated|no longer)\b/i;
+
 function driftCheck(manifest: Manifest): string[] {
   const known = knownSymbols(manifest);
   const referenced = new Map<string, Set<string>>(); // fqn -> pages
@@ -424,19 +454,27 @@ function driftCheck(manifest: Manifest): string[] {
   for (const file of fs.readdirSync(EQL_DIR)) {
     if (!file.endsWith(".mdx") || file === "functions.mdx") continue;
     const text = fs.readFileSync(path.join(EQL_DIR, file), "utf8");
-    // Any schema-qualified reference — function call, domain cast, or type.
-    // A trailing `*` marks a prose family (e.g. `eql_v3.jsonb_path_*`), which
-    // names a set rather than one symbol, so it's skipped. So is a trailing
-    // `<T>` placeholder (e.g. `public.eql_v3_<T>_ord`).
-    for (const m of text.matchAll(
-      /\b(public|eql_v3_internal|eql_v3)\.([a-z0-9_]+)(\*?)/g,
-    )) {
-      if (m[3] === "*") continue;
-      if (text[(m.index ?? 0) + m[0].length] === "<") continue;
-      const fqn = `${m[1]}.${m[2]}`;
-      const pages = referenced.get(fqn) ?? new Set<string>();
-      pages.add(file);
-      referenced.set(fqn, pages);
+    for (const line of text.split("\n")) {
+      // A line that names a symbol in order to say it is gone is documenting
+      // history, not teaching an API — an upgrade note has to be able to write
+      // "`eql_v3.jsonb_array_elements_text` was removed". Same line-local
+      // exemption validate-content-api.ts makes, and the same trade: naming a
+      // dead symbol WITHOUT saying it is dead is the bug being caught.
+      if (RETIRED_MARKER.test(line)) continue;
+      // Any schema-qualified reference — function call, domain cast, or type.
+      // A trailing `*` marks a prose family (e.g. `eql_v3.jsonb_path_*`), which
+      // names a set rather than one symbol, so it's skipped. So is a trailing
+      // `<T>` placeholder (e.g. `public.eql_v3_<T>_ord`).
+      for (const m of line.matchAll(
+        /\b(public|eql_v3_internal|eql_v3)\.([a-z0-9_]+)(\*?)/g,
+      )) {
+        if (m[3] === "*") continue;
+        if (line[(m.index ?? 0) + m[0].length] === "<") continue;
+        const fqn = `${m[1]}.${m[2]}`;
+        const pages = referenced.get(fqn) ?? new Set<string>();
+        pages.add(file);
+        referenced.set(fqn, pages);
+      }
     }
   }
 
@@ -459,6 +497,15 @@ function driftCheck(manifest: Manifest): string[] {
 //
 // Keep this list minimal, and delete entries as the manifest grows to cover
 // them.
+//
+// `eql_v3.grouped_value` and `public.eql_v3_json` used to be listed here too.
+// Both were fixed upstream in EQL 3.0.4
+// (cipherstash/encrypt-query-language#427): the aggregate was lost because
+// Doxygen misread `CREATE AGGREGATE`'s definition body and named the member
+// after its argument type, and the storage-only JSON domain was filtered out of
+// the catalog dump as scalar while the scalar path skipped its mixed family
+// wholesale. Both now resolve from the manifest, so the exemptions are gone —
+// and if either regresses, the drift check says so instead of staying quiet.
 const MANIFEST_BLIND_SPOTS = new Set(["eql_v3.query_text_eq"]);
 
 // ── Main ─────────────────────────────────────────────────────────────────────

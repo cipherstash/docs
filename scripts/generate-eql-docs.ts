@@ -24,11 +24,16 @@ import path from "node:path";
 import GithubSlugger from "github-slugger";
 
 /**
- * The EQL release the docs are written against. EQL 3.0.0 is still in
- * prerelease and churning (alpha.3 and alpha.4 shipped a day apart), so this
- * tracks an alpha deliberately rather than by accident.
+ * The EQL release the docs are written against.
+ *
+ * 3.0.x is still moving: 3.0.1 renamed the encrypted-JSON domains and replaced
+ * the text fuzzy-match operator, 3.0.3 guarded the empty-bloom needle, and
+ * 3.0.4 fixed the manifest extraction that had been dropping
+ * `eql_v3.grouped_value` and `public.eql_v3_json` from the catalog entirely
+ * (cipherstash/encrypt-query-language#427). Each bump is a deliberate commit
+ * that fixes whatever the drift check reports.
  */
-const EQL_RELEASE_TAG = process.env.EQL_RELEASE_TAG ?? "eql-3.0.0";
+const EQL_RELEASE_TAG = process.env.EQL_RELEASE_TAG ?? "eql-3.0.4";
 
 const GITHUB_RELEASE_DOWNLOAD =
   "https://github.com/cipherstash/encrypt-query-language/releases/download";
@@ -276,13 +281,24 @@ async function main() {
   // this is best-effort and the generator falls back to the committed sample.
   const manifestSrc = path.join(extractPath, "json", "eql-manifest.json");
   try {
-    // Prerelease manifests report `"version": "DEV"`, which would surface as
-    // "generated and validated against EQL DEV" in the banner on every
-    // reference page. We know which release we pinned, so say so.
+    // The pinned tag is the authoritative version, so always stamp it rather
+    // than trusting the manifest's own field. EQL's release workflow derives
+    // that field from a tag input that can arrive empty, in which case
+    // `json.sh` silently falls back to `"DEV"` — which eql-3.0.4 shipped, and
+    // which would otherwise surface as "EQL DEV" in the banner on every
+    // reference page. Report a disagreement rather than papering over it: a
+    // manifest stamped with a DIFFERENT release is a packaging mix-up worth
+    // seeing, not a cosmetic default.
     const manifest = JSON.parse(await fs.readFile(manifestSrc, "utf8"));
-    if (!manifest.version || manifest.version === "DEV") {
-      manifest.version = tag.replace(/^eql-/, "");
+    const expected = tag.replace(/^eql-/, "");
+    if (manifest.version && manifest.version !== "DEV") {
+      if (manifest.version !== expected) {
+        console.warn(
+          `⚠ ${tag} ships a manifest stamped "${manifest.version}", not "${expected}". Using the pinned tag; check the release.`,
+        );
+      }
     }
+    manifest.version = expected;
     await fs.writeFile(RELEASE_MANIFEST, JSON.stringify(manifest, null, 2));
     console.log(
       `✓ Extracted eql-manifest.json → ${path.basename(RELEASE_MANIFEST)} (version: ${manifest.version})`,
