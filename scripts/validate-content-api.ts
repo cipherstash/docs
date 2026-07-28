@@ -2,11 +2,22 @@
 /**
  * Content API gate.
  *
- * Fails the build when documentation teaches an API that is deprecated, was
- * removed, or never existed. Two long-lived content branches plus a fast-moving
- * SDK means a page fixed on one branch can be silently reintroduced by a port
- * from the other — which is exactly how the deprecated `LockContext.identify()`
- * flow survived a fix and came back in a comparison-page port.
+ * Fails the build when documentation teaches one of the specific APIs listed in
+ * RULES below. Two long-lived content branches plus a fast-moving SDK means a
+ * page fixed on one branch can be silently reintroduced by a port from the
+ * other — which is exactly how the deprecated `LockContext.identify()` flow
+ * survived a fix and came back in a comparison-page port.
+ *
+ * ── What this does NOT do ──────────────────────────────────────────────────
+ * This is a DENYLIST, not verification. It catches only what someone thought to
+ * add, and cannot see an API that changed MEANING rather than name. Stack's
+ * `contains()` → `matches()` rename is the worked example: `contains()` still
+ * exists, so nothing here (or in any symbol-presence diff) fires, yet calling it
+ * on an encrypted text column now raises. That shipped in the docs.
+ *
+ * Catching that class needs the examples themselves typechecked against the
+ * installed SDK, the way Rust doctests are compiled. Until then, treat a pass
+ * as "none of the known-bad patterns appeared", which is what it prints.
  *
  * Run via `bun run validate-content`; wired into prebuild.
  *
@@ -138,11 +149,17 @@ function inScope(relative: string, rule: Rule): boolean {
 
 const root = process.cwd();
 const findings: Finding[] = [];
+let filesScanned = 0;
+let filesSkipped = 0;
 
 for (const dir of ["content/docs", "content/stack"]) {
   for (const file of collectFiles(path.join(root, dir))) {
     const relative = path.relative(root, file).split(path.sep).join("/");
-    if (isSkipped(relative)) continue;
+    if (isSkipped(relative)) {
+      filesSkipped++;
+      continue;
+    }
+    filesScanned++;
 
     const lines = fs.readFileSync(file, "utf8").split("\n");
     lines.forEach((text, i) => {
@@ -192,4 +209,16 @@ if (findings.length > 0) {
   process.exit(1);
 }
 
-console.log("✓ no deprecated or non-existent API found in documentation");
+// Say what was actually checked. This gate is a DENYLIST: it can only catch the
+// APIs listed in RULES, so an unqualified "no non-existent API found" overstates
+// it — and did, while `content/docs/reference/stack/supabase.mdx` taught
+// `.contains()` for encrypted free-text, which raises. Reporting the rule count
+// makes the coverage legible at a glance, so the next reader can tell the
+// difference between "verified" and "matched nothing on a short list".
+console.log(
+  `✓ content API gate: no occurrences of ${RULES.length} known-retired API pattern(s) ` +
+    `in ${filesScanned} file(s) (${filesSkipped} generated/pinned file(s) skipped).`,
+);
+console.log(
+  "  Denylist only: it does not verify that the APIs the docs DO name still exist.",
+);
