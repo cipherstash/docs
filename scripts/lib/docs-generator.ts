@@ -213,6 +213,18 @@ export async function generateDocsForTag(
     include: config.tsconfigInclude,
     exclude: ["node_modules", "examples", "dist", "__tests__"],
     compilerOptions: {
+      // The stack repo's ROOT tsconfig (which this extends) sets
+      // `moduleResolution: "bundler"` but no `customConditions`;
+      // `packages/stack/tsconfig.json` — the config the stack team actually
+      // builds with — adds `customConditions: ["node"]`. That matters here:
+      // @cipherstash/protect-ffi's `exports` map routes the `node` condition to
+      // `lib/index.d.cts` (the real type surface) and everything else to
+      // `default: ./dist/wasm/protect_ffi.js`, which ships NO `types`. Without
+      // the condition, TypeScript falls through to the sibling
+      // `dist/wasm/protect_ffi.d.ts` — raw wasm-bindgen output — and every
+      // hand-written type resolves to nothing ("has no exported member
+      // 'ProtectError'. Did you mean 'encryptQuery'?").
+      customConditions: ["node"],
       paths: {
         "@/*": ["./packages/stack/src/*"],
         "@cipherstash/schema": ["./packages/schema/src/index.ts"],
@@ -323,13 +335,15 @@ export async function generateDocsForTag(
     sanitizeComments: true,
     fileExtension: ".mdx",
     entryFileName: "index",
-    // We document external source we don't control, installed here with a
-    // different package manager than the upstream monorepo uses. That can leave
-    // cross-package type references (e.g. @cipherstash/protect-ffi's ProtectError)
-    // unresolved for the isolated typecheck even though the source is correct,
-    // which would otherwise fail the whole build. TypeDoc still emits accurate
-    // signatures from the source AST, so tolerate type errors rather than block.
-    skipErrorChecking: true,
+    // Type errors fail the build, deliberately. This was `true` to tolerate
+    // "cross-package type references unresolved even though the source is
+    // correct" — but that diagnosis was wrong, and tolerating it was not free:
+    // an unresolved import does not just warn, it makes TypeDoc emit `any`.
+    // The cause was the missing `customConditions` above, and with that fixed
+    // the whole surface typechecks cleanly. Leaving this off means the next
+    // resolution break surfaces as a failed build instead of a reference page
+    // that quietly documents `any`.
+    skipErrorChecking: false,
     sort: ["source-order"],
     kindSortOrder: [
       "Interface",
