@@ -161,6 +161,55 @@ export function getVersionsToGenerate(
 }
 
 /**
+ * TypeScript `paths` that resolve a workspace package to its SOURCE.
+ *
+ * An adapter package (`stack-supabase`) imports its sibling by package name —
+ * `@cipherstash/stack`, `@cipherstash/stack/schema`, `.../adapter-kit` — which
+ * resolves through that package's `exports` map to `./dist/*`. The clone is
+ * never built, so there is no `dist` and every such import is TS2307. TypeDoc
+ * then documents the adapter with all its cross-package types missing.
+ *
+ * Derive the mapping from the sibling's own `exports` map rather than hardcoding
+ * it: rewrite each subpath's `./dist/x.js` target to `./packages/<pkg>/src/x.ts`.
+ * A hand-written list would silently rot the next time Stack adds a subpath, and
+ * the failure mode is exactly the one this is fixing — a missing type quietly
+ * becoming `any` in the published reference.
+ */
+async function workspaceSourcePaths(
+  workingDir: string,
+  packageName: string,
+): Promise<Record<string, string[]>> {
+  const dir = packageName.split("/").pop();
+  const manifest = path.join(workingDir, "packages", dir ?? "", "package.json");
+
+  let exportsMap: Record<string, unknown>;
+  try {
+    const pkg = JSON.parse(await fs.readFile(manifest, "utf8"));
+    exportsMap = pkg.exports ?? {};
+  } catch {
+    // The layout moved. Better to emit nothing and let TS2307 name the missing
+    // module than to invent paths that point at files which do not exist.
+    console.warn(`  ! no exports map at ${manifest}; skipping source paths`);
+    return {};
+  }
+
+  const paths: Record<string, string[]> = {};
+  for (const [subpath, target] of Object.entries(exportsMap)) {
+    if (subpath.endsWith("package.json")) continue;
+    // Any condition will do — every branch points at the same module, and only
+    // the path shape matters here.
+    const dist = JSON.stringify(target).match(/\.\/dist\/[^"]+\.js/)?.[0];
+    if (!dist) continue;
+
+    const stem = dist.replace(/^\.\/dist\//, "").replace(/\.js$/, "");
+    const specifier =
+      subpath === "." ? packageName : `${packageName}/${subpath.slice(2)}`;
+    paths[specifier] = [`./packages/${dir}/src/${stem}.ts`];
+  }
+  return paths;
+}
+
+/**
  * Generate documentation for a specific tag
  */
 export async function generateDocsForTag(
@@ -229,6 +278,7 @@ export async function generateDocsForTag(
         "@/*": ["./packages/stack/src/*"],
         "@cipherstash/schema": ["./packages/schema/src/index.ts"],
         "@cipherstash/schema/*": ["./packages/schema/src/*"],
+        ...(await workspaceSourcePaths(workingDir, "@cipherstash/stack")),
       },
     },
   };

@@ -19,8 +19,14 @@ const stackConfig: DocsConfig = {
   baseOutputDir: path.join(process.cwd(), "content/stack/reference/stack"),
   // Stack 1.0 split the Drizzle and Supabase adapters into their own packages
   // (@cipherstash/stack-drizzle, @cipherstash/stack-supabase) and removed the
-  // secrets module, so those three entry points no longer exist under
-  // packages/stack/src. Keep only the modules @cipherstash/stack still ships.
+  // secrets module, so those entry points no longer exist under
+  // packages/stack/src.
+  //
+  // `stack-supabase` is documented from its new home. It is a separate npm
+  // package but the same reference surface to a reader, and without it nothing
+  // in the Supabase adapter — `encryptedSupabaseV3`, the query builder, the
+  // EQL-version constraints on its encrypted operators — reaches the generated
+  // reference at all.
   entryPoints: [
     "./packages/stack/src/encryption/index.ts",
     "./packages/stack/src/schema/index.ts",
@@ -29,8 +35,12 @@ const stackConfig: DocsConfig = {
     "./packages/stack/src/types-public.ts",
     "./packages/stack/src/client.ts",
     "./packages/stack/src/errors/index.ts",
+    "./packages/stack-supabase/src/index.ts",
   ],
-  tsconfigInclude: ["packages/stack/src/**/*"],
+  tsconfigInclude: [
+    "packages/stack/src/**/*",
+    "packages/stack-supabase/src/**/*",
+  ],
   tagFilter: (tag: string) =>
     tag.includes("@cipherstash/stack@") && !tag.includes("stack-"),
   referencePathSegment: "stack",
