@@ -497,24 +497,16 @@ function driftCheck(manifest: Manifest): string[] {
 //
 // Keep this list minimal, and delete entries as the manifest grows to cover
 // them.
-// `eql_v3.grouped_value` is the second blind spot, with a different cause: the
-// manifest lists aggregates from the codegen catalog, so the 60 generated
-// `min`/`max` aggregates are there but the one hand-written `CREATE AGGREGATE`
-// is not. Verified present in the 3.0.3 install SQL:
-//   grep -c "CREATE AGGREGATE" cipherstash-encrypt.sql                    # => 61
-//   grep -c "CREATE AGGREGATE eql_v3.grouped_value" cipherstash-encrypt.sql # => 1
-// Its state function (`eql_v3_internal.grouped_value_sfunc`) IS in the manifest,
-// which is what makes the gap easy to miss.
-// `public.eql_v3_json` — the storage-only JSON domain added in 3.0.1 — has the
-// same cause as the query-operand domains: created in a `DO` block, so the
-// catalog the manifest is built from never sees it (its searchable sibling
-// `public.eql_v3_json_search` IS in the manifest). Verified in the 3.0.3 SQL:
-//   grep -c "CREATE DOMAIN public.eql_v3_json AS jsonb" cipherstash-encrypt.sql # => 1
-const MANIFEST_BLIND_SPOTS = new Set([
-  "eql_v3.query_text_eq",
-  "eql_v3.grouped_value",
-  "public.eql_v3_json",
-]);
+//
+// `eql_v3.grouped_value` and `public.eql_v3_json` used to be listed here too.
+// Both were fixed upstream in EQL 3.0.4
+// (cipherstash/encrypt-query-language#427): the aggregate was lost because
+// Doxygen misread `CREATE AGGREGATE`'s definition body and named the member
+// after its argument type, and the storage-only JSON domain was filtered out of
+// the catalog dump as scalar while the scalar path skipped its mixed family
+// wholesale. Both now resolve from the manifest, so the exemptions are gone —
+// and if either regresses, the drift check says so instead of staying quiet.
+const MANIFEST_BLIND_SPOTS = new Set(["eql_v3.query_text_eq"]);
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 function main() {
