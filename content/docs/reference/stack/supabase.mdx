@@ -91,7 +91,7 @@ The capability model is the same one the database enforces through [EQL's domain
 | `public.eql_v3_<T>` | Store and decrypt only | none |
 | `public.eql_v3_<T>_eq` | `.eq()`, `.neq()`, `.in()` | `hm` |
 | `public.eql_v3_<T>_ord` | `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.order()`, plus equality | `op` |
-| `public.eql_v3_text_match` | `.contains()` | `bf` |
+| `public.eql_v3_text_match` | `.matches()` | `bf` |
 | `public.eql_v3_text_search` | All of the above, on text | `hm`, `op`, `bf` |
 | `public.eql_v3_json` | Encrypted JSON documents | `sv` |
 
@@ -156,7 +156,9 @@ Every filter value on an encrypted column is encrypted client-side into the term
 | `.eq()` / `.neq()` | `_eq`, `_ord`, or `text_search` | Equality terms |
 | `.in(col, values)` | `_eq`, `_ord`, or `text_search` | Each element encrypted separately |
 | `.gt()` `.gte()` `.lt()` `.lte()` | `_ord` or `text_search` | Ordering terms |
-| `.contains(col, value)` | `text_match` or `text_search` | Bloom-filter token containment |
+| `.matches(col, value)` | `text_match` or `text_search` | Bloom-filter token containment |
+| `.contains(col, value)` | `json` (or a plaintext array) | Sub-document containment, not free-text — see below |
+| `.selectorEq(col, path, value)` / `.selectorNe()` | `json` | One JSON field's value, by path |
 | `.is(col, null)` | any column | Passed through. SQL `NULL` is never encrypted |
 | `.match({ col: value })` | per column | Each pair applied as `.eq()` |
 | `.or(filters)` | per column | Encrypted values inside the filter string are encrypted in place |
@@ -175,19 +177,37 @@ await supabase
   .eq("name", "Alice Chen")          // ordinary supabase-js filter
 ```
 
-### There is no `.like()`
+### Free-text search: `.matches()`
 
-`.like()` and `.ilike()` **throw** on an encrypted column. SQL pattern matching is meaningless on ciphertext, and EQL's free-text search is token containment rather than wildcard matching. They still work on plaintext columns in the same table.
+`.matches()` tests whether the stored value's encrypted token set contains the search string's. Matching is case-insensitive, and false positives are possible while false negatives are not.
 
 ```typescript
-// ❌ throws: "like" is not supported on encrypted column "email"
-await supabase.from("users").select("*").like("email", "%@example.com")
+await supabase.from("users").select("*").matches("email", "alice@example.com")
+```
 
-// ✅ encrypted token containment
+It is **not** `.contains()`. On an encrypted text column `.contains()` raises — containment promises exactness, which bloom-filter matching cannot deliver, so the wrapper refuses rather than quietly answering a different question:
+
+```typescript
+// ❌ raises: contains() is native (exact) containment and does not apply to
+//    encrypted column "email". Use matches() for encrypted free-text search.
 await supabase.from("users").select("*").contains("email", "alice@example.com")
 ```
 
-`.contains()` tests whether the stored value's encrypted token set contains the search string's. Matching is case-insensitive, and false positives are possible while false negatives are not.
+`.contains()` is still the right method for **encrypted JSON** documents (sub-document containment) and for plaintext array columns.
+
+### `.like()` and `.ilike()` are approximate
+
+On a plaintext column they are ordinary SQL `LIKE`. On an **encrypted** column they are a compatibility shim: the pattern is reduced to a needle and delegated to `.matches()`, so the result is *approximate* — matching becomes case-insensitive and one-sided (it may return false positives), and anchoring is lost. Leading and trailing `%` are stripped, since fuzzy matching subsumes them. A pattern that cannot be approximated — an internal `%`, or any `_` — raises instead of guessing.
+
+```typescript
+// Works, approximately: reduced to matches("email", "@example.com")
+await supabase.from("users").select("*").like("email", "%@example.com")
+
+// ❌ raises: an internal wildcard has no trigram equivalent
+await supabase.from("users").select("*").like("email", "a%e@example.com")
+```
+
+Prefer `.matches()` in new code — it is the operation that actually runs, and it does not imply SQL semantics the database is not applying.
 
 ## Ordering and pagination
 
