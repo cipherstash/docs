@@ -43,12 +43,12 @@ export const v2Redirects = [
   },
   {
     source: "/stack/cipherstash/encryption/searchable-encryption",
-    destination: "/concepts/searchable-encryption",
+    destination: "/how-it-works/searchable-encryption",
     permanent: false,
   },
   {
     source: "/stack/cipherstash/encryption/identity",
-    destination: "/concepts/identity-aware-encryption",
+    destination: "/how-it-works/identity-aware-encryption",
     permanent: false,
   },
   {
@@ -121,7 +121,7 @@ export const v2Redirects = [
   },
   {
     source: "/stack/cipherstash/kms/keysets",
-    destination: "/concepts/key-management",
+    destination: "/how-it-works/key-management",
     permanent: false,
   },
   {
@@ -251,12 +251,12 @@ export const v2Redirects = [
   },
   {
     source: "/stack/reference/comparisons",
-    destination: "/concepts/compare",
+    destination: "/how-it-works/compare",
     permanent: false,
   },
   {
     source: "/stack/reference/comparisons/:path*",
-    destination: "/concepts/compare/:path*",
+    destination: "/how-it-works/compare/:path*",
     permanent: false,
   },
   {

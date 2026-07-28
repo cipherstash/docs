@@ -1,0 +1,27 @@
+---
+title: Making encryption searchable
+description: How value-level searchable encryption keeps sensitive data encrypted while queries, access controls, and auditing keep working for authorized users.
+type: concept
+---
+
+CipherStash solves the following:
+
+* Hide sensitive data from direct database accessors (authorized or not!)
+
+My original use-case. Direct access to the DB doesn't reveal sensitive data (unless the user also has permission to decrypt a specific record).
+
+* Support or even replace application access controls
+
+Decryption happens in the application layer and is based on end-user identity. That means a gap in application defenses is mitigated by the encryption. If the user can't decrypt the value then they can't access the data.
+
+* Access auditing
+
+Every sensitive data access is recorded (and by who) which is very useful for compliance and incident response. SQL query auditing is great for knowing what queries were run but it doesn't tell you what data was actually returned. It's also blind once data actually leaves the DB and can inadvertently leak sensitive data itself. Using key accesses with non-identifying value IDs to audit decryptions makes the auditing more reliable and super granular.
+
+We have customers who use the tech to prove to their users (often large enterprise) that no internal staff can access the data.
+
+* Agent access to data
+
+The encryption shifts access control decisions down to the data layer on a per-value basis. This is incredibly useful for gating access to agents that need access to data. Every decryption requires authentication (e.g via Supabase Auth, Auth0 etc) and combining it with agent identities (creds issued to agents) means you can not only limit what agents can access, you can also audit exactly what _was_ accessed.
+
+The searchable encryption is the enabler: value level encryption is what makes all of this possible. Searchable encryption means you can have encryption and queries (from apps etc) still work for authorized users.

@@ -33,6 +33,27 @@ const config = {
         destination: "/get-started/quickstart",
         permanent: false,
       },
+      // === v2 IA rename: Concepts section → How It Works ===
+      // The section was renamed after the /concepts URLs went live on the
+      // preview tree; point the old paths at the new slug. Temporary (307)
+      // until the v2 IA is canonical.
+      {
+        source: "/concepts/:path*",
+        destination: "/how-it-works/:path*",
+        permanent: false,
+      },
+      {
+        source: "/concepts",
+        destination: "/how-it-works",
+        permanent: false,
+      },
+      // The How It Works section has no landing page of its own; send the
+      // section root to its first page.
+      {
+        source: "/how-it-works",
+        destination: "/how-it-works/why-field-encryption-fails",
+        permanent: false,
+      },
       ...(enableV2Redirects ? v2Redirects : []),
       // === 4-section consolidation: product sections under /cipherstash/ ===
       {

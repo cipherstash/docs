@@ -1,0 +1,12 @@
+{
+  "title": "How It Works",
+  "icon": "Lightbulb",
+  "pages": [
+    "why-field-encryption-fails",
+    "making-encryption-searchable",
+    "sql-support",
+    "key-management",
+    "cryptography",
+    "compare"
+  ]
+}

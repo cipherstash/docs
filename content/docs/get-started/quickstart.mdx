@@ -193,7 +193,7 @@ You encrypted a field, stored it, queried it without decrypting, and read it bac
 - **ZeroKMS** returned a key seed, which your application processed with its client key to derive a **unique data key for that value**. The data key existed in your memory for one operation and was then discarded. See [cryptography](/security/cryptography).
 - **Your client key** never left your infrastructure. Without it, nothing decrypts, including CipherStash.
 - **Your keyset** is the isolation boundary. Data encrypted under one keyset cannot be decrypted with another, which is how you separate tenants or environments.
-- **The index term** stored alongside the ciphertext is what let Postgres answer the query. Each capability you declare has a bounded, published leakage profile: an equality term lets an observer see which rows share a value, and nothing more. Declare only the capabilities you query on, so that what a column reveals stays within what your threat model already tolerates. See [searchable encryption](/concepts/searchable-encryption).
+- **The index term** stored alongside the ciphertext is what let Postgres answer the query. Each capability you declare has a bounded, published leakage profile: an equality term lets an observer see which rows share a value, and nothing more. Declare only the capabilities you query on, so that what a column reveals stays within what your threat model already tolerates. See [searchable encryption](/how-it-works/searchable-encryption).
 
 ## Next steps
 

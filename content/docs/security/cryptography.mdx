@@ -151,7 +151,7 @@ An attacker must compromise **both** the ZeroKMS authority key and your client k
 
 Searchable encryption is a trade. Each index term reveals bounded information to whoever can read the database: HMAC terms reveal equality and therefore frequency, ORE terms reveal relative order, and Bloom filter terms reveal probabilistic token membership.
 
-That leakage model is documented once, in [Searchable encryption](/concepts/searchable-encryption), with per-term detail and guidance on when the trade is not worth making. Assess it as part of your threat model. If the ordering or frequency of a column's values is itself sensitive, encrypt that column without a searchable index and filter after decryption.
+That leakage model is documented once, in [Searchable encryption](/how-it-works/searchable-encryption), with per-term detail and guidance on when the trade is not worth making. Assess it as part of your threat model. If the ordering or frequency of a column's values is itself sensitive, encrypt that column without a searchable index and filter after decryption.
 
 ## Network security
 
@@ -175,7 +175,7 @@ The core cryptographic implementations are open source and independently auditab
 
 ## Related
 
-- [Searchable encryption](/concepts/searchable-encryption) for the canonical index-term leakage model.
+- [Searchable encryption](/how-it-works/searchable-encryption) for the canonical index-term leakage model.
 - [Keysets](/stack/cipherstash/kms/keysets) for the isolation boundary.
 - [Proxy configuration](/reference/proxy/configuration) for the cipher cache settings.
 - [Provable access control](/solutions/provable-access) for binding decryption to an authenticated identity.
