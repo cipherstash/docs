@@ -26,12 +26,14 @@ Pass `--database-url <url>` to override the connection for a single run without 
 npx stash eql status
 ```
 
-The install targets **EQL v3 by default**; `--eql-version 2` opts back to v2. The full flag set is in the [CLI reference](/reference/cli/eql).
+The install is **always EQL v3**. The full flag set is in the [CLI reference](/reference/cli/eql).
 
 <Callout type="warn">
-EQL v3 installs **directly against the database only**. `--migration`, `--drizzle`, `--latest`, and `--migrations-dir` are rejected for a v3 install; they exist for the v2 install paths.
+**EQL installs directly against the database, not through a migration.** `stash eql install` rejects `--migration`, `--migrations-dir`, and `--latest`, and there is no Supabase migration variant to fall back on — one v3 SQL artifact targets every platform.
 
-The practical consequence is local resets. `supabase db reset` rebuilds your database from your migrations directory, so it drops a v3 install. Re-run `stash eql install` after each reset.
+The practical consequence is local resets. `supabase db reset` rebuilds your database from your migrations directory, so it drops the EQL install. Re-run `stash eql install` after each reset.
+
+`--drizzle` is rejected here too, but has its own answer: `stash eql migration --drizzle` generates a v3 install migration — including the `cs_migrations` tracking schema — so Drizzle projects can keep the install in their migration history and apply it with `drizzle-kit migrate`. That path is Drizzle's alone; it does not produce a `supabase/migrations/` file.
 </Callout>
 
 ## Grants

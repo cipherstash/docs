@@ -29,7 +29,15 @@ Map the `wasm-inline` entries in your function's `deno.json`:
 }
 ```
 
-Provide the `CS_*` credentials when you serve the function — locally via an env file:
+Provide the `CS_*` credentials when you serve the function. Generate them with `stash env` rather than assembling the file by hand — it prints the deployment variables for the workspace you are authenticated against, so redirect it straight to the env file:
+
+```bash example-id="supabase-edge-stash-env"
+npx stash env > ./supabase/functions/.env.local
+```
+
+`--write` writes to a file instead of stdout if you would rather not redirect. The command is marked experimental, so read what it emits before committing to it — and never commit the file itself. The [CLI reference](/reference/cli/env) has the full flag set.
+
+Then serve the function against that file:
 
 ```bash
 supabase functions serve --env-file ./supabase/functions/.env.local
