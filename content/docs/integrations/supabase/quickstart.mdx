@@ -17,10 +17,10 @@ This tutorial takes an empty Supabase project to an encrypted, searchable table.
 
 ## How it fits together
 
-Two pieces, one on each side of your Supabase connection:
+To use use searchable encryption in Supabase, 2 components are required:
 
-- **[EQL](/reference/eql)** installs into your Supabase Postgres as plain SQL. It provides encrypted column types, such as `public.eql_v3_text_eq` and `public.eql_v3_date_ord`, where the type name declares what queries the column supports.
-- **[`@cipherstash/stack`](/reference/stack)** runs in your application. Its [`encryptedSupabaseV3` wrapper](/reference/stack/supabase) encrypts values before they're written, encrypts filter terms before they're compared, and decrypts results. It wraps your existing supabase-js client, so Supabase Auth and Row Level Security apply unchanged.
+- **[EQL](/reference/eql)** defines the encrypted types and installs into your Supabase database
+- **[`@cipherstash/stack`](/reference/stack)** runs in your application and encrypts data and queries before sending to the database.
 
 <Steps>
 <Step>
@@ -86,7 +86,9 @@ SUPABASE_ANON_KEY=...
 DATABASE_URL=postgresql://postgres:...@db.<project-ref>.supabase.co:5432/postgres
 ```
 
-> **Good to know**: the CipherStash dashboard's Supabase integration can generate this whole block for you. It connects to your project over OAuth, runs readiness checks, and emits the `CS_*` credentials. It's optional; the manual block above works everywhere. See [Overview → Connecting your project](/integrations/supabase#connecting-your-project-to-cipherstash).
+<Callout type="idea">
+**Good to know**: the CipherStash dashboard's Supabase integration can generate this whole block for you. It connects to your project over OAuth, runs readiness checks, and emits the `CS_*` credentials. It's optional; the manual block above works everywhere. See [Overview → Connecting your project](/integrations/supabase#connecting-your-project-to-cipherstash).
+</Callout>
 
 </Step>
 <Step>

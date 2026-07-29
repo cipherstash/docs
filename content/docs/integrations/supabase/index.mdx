@@ -15,7 +15,7 @@ verifiedAgainst:
 
 import { faqPrivacy, faqScaling, faqKms, faqRlsVsEncryption, faqFreeTier } from "@/components/faq/shared";
 
-CipherStash adds application-level encryption to your Supabase project. Sensitive fields (names, emails, health records, anything you choose) are encrypted inside your application before they ever reach Postgres, so plaintext never touches your database, its backups, or its replication streams. CipherStash never sees your data or your keys.
+CipherStash adds field-level encryption to your Supabase project. Sensitive fields (names, emails, health records, anything you choose) are encrypted inside your application before they ever reach Postgres, so plaintext never touches your database, its backups, or its replication streams. CipherStash never sees your data or your keys.
 
 Unlike ordinary field encryption, the ciphertext stays **fully queryable**. You install [Encrypt Query Language (EQL)](/reference/eql) on your Supabase database, declare each protected column with the encrypted type that matches the operations you need, then query it with the same `.eq()`, `.gt()`, and `.order()` calls you use today.
 
