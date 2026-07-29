@@ -1,12 +1,8 @@
-import {
-  CalloutContainer,
-  CalloutDescription,
-  CalloutTitle,
-} from "fumadocs-ui/components/callout";
+import { Callout as FumaCallout } from "fumadocs-ui/components/callout";
 import { Step, Steps } from "fumadocs-ui/components/steps";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import type { MDXComponents } from "mdx/types";
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps } from "react";
 import { BadExample } from "@/components/bad-example";
 import { TrackedCodeBlock } from "@/components/code-block";
 import { EqlFn } from "@/components/eql-fn";
@@ -14,42 +10,30 @@ import { EqlVersion } from "@/components/eql-version";
 import { ZeroKmsRegions } from "@/components/zerokms-regions";
 
 /**
- * Fumadocs' own `Callout` is a thin wrapper over these three primitives, but it
- * gives no way to reach the description, which it hard-codes to
- * `text-fd-muted-foreground`. Callouts are the one place on the page that
- * should not recede, so we compose the primitives ourselves to:
+ * Callouts keep Fumadocs' own body colour — `text-fd-muted-foreground`, the
+ * same token the sidebar's resting nav items use — so they sit at the same
+ * weight as the rest of the chrome rather than shouting. This wrapper only:
  *
- *   - set the body text to `text-fd-foreground`, matching the title (the
- *     container is `text-fd-card-foreground`, which resolves to the same value
- *     in both themes) so a callout reads as one block rather than a heading
- *     over greyed-out copy;
- *   - double the padding, `p-3 ps-1` → `p-6 ps-2` (`ps` stays small because
- *     the accent bar is the first child and sits near the edge);
- *   - add a `data-callout` attribute, which Fumadocs does not emit. global.css
- *     already had a `[data-callout]` rule that consequently matched nothing.
+ *   - doubles the padding, `p-3 ps-1` → `p-6 ps-2`. `ps` stays proportionally
+ *     small because the accent bar is the container's first child and sits
+ *     near the edge;
+ *   - adds a `data-callout` attribute, which Fumadocs does not emit. global.css
+ *     has had a `[data-callout]` rule since the theme work that consequently
+ *     matched nothing.
  *
- * `CalloutContainer` still resolves the `warn`/`tip` aliases and picks the
- * icon, so only the trivial wrapper is reimplemented.
+ * Fumadocs' `Callout` still resolves the `warn`/`tip` aliases, picks the icon
+ * and renders the title, and it spreads unknown props onto the container, so
+ * there is nothing here to reimplement.
  */
-function Callout({
-  title,
-  children,
-  className,
-  ...props
-}: ComponentProps<typeof CalloutContainer> & { title?: ReactNode }) {
+function Callout({ className, ...props }: ComponentProps<typeof FumaCallout>) {
+  // CalloutContainer runs its own `cn`, so these merge against its defaults;
+  // a caller's className comes last and still wins.
   return (
-    // CalloutContainer runs its own `cn`, so it merges these against its
-    // defaults; a caller's className comes last and still wins.
-    <CalloutContainer
+    <FumaCallout
       data-callout
       className={`p-6 ps-2 ${className ?? ""}`}
       {...props}
-    >
-      {title && <CalloutTitle>{title}</CalloutTitle>}
-      <CalloutDescription className="text-fd-foreground">
-        {children}
-      </CalloutDescription>
-    </CalloutContainer>
+    />
   );
 }
 
