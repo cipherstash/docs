@@ -31,7 +31,7 @@ function Callout({ className, ...props }: ComponentProps<typeof FumaCallout>) {
   return (
     <FumaCallout
       data-callout
-      className={`p-6 ps-2 ${className ?? ""}`}
+      className={`p-6 ps-4 ${className ?? ""}`}
       {...props}
     />
   );
