@@ -93,6 +93,20 @@
   --tw-prose-body: var(--color-fd-muted-foreground);
 }
 
+/* Callout body sits one step above the muted paragraphs around it: the colour
+   prose body copy had before the rule above. A callout is already set apart by
+   its card background, border, accent bar and icon; matching the body copy
+   exactly made it read flat, and full foreground read as shouting.
+
+   Fumadocs puts `text-fd-muted-foreground` directly on the description div, so
+   inheritance can't reach it — this has to select the element. `data-callout`
+   is ours (see mdx-components.tsx); `prose-no-margin` is what Fumadocs marks
+   the description's prose block with. Unlayered for the same reason as the
+   rule above: the utility class it overrides lives in `@layer utilities`. */
+[data-callout] .prose-no-margin {
+  color: color-mix(in oklab, var(--color-fd-foreground) 90%, transparent);
+}
+
 /* ── Fumadocs component overrides ── */
 
 @layer components {
