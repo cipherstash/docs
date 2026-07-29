@@ -1,62 +1,51 @@
+/**
+ * Internal-link validation across every MDX page the site serves.
+ *
+ * Both content collections are covered: `content/docs` (the v2 IA, served from
+ * the site root) and `content/stack` (the legacy tree, served under /stack).
+ * This script used to know only about content/stack and only about markdown
+ * link syntax, which left the entire v2 tree — and every `<Card href=…>` in
+ * both trees — unchecked. A page could be renamed or merged away and every
+ * link to it would 404 against a green build.
+ *
+ * For markdown links (`[text](/url)`) and JSX href attributes (`href="/url"`)
+ * alike, it checks that:
+ *
+ *   - the target page exists, in either collection;
+ *   - a `#fragment` matches a heading on that page;
+ *   - the link carries no `/docs/` prefix (Next's basePath prepends it), no
+ *     `/index` suffix, and no `.mdx` extension — each of which 404s.
+ *
+ * Non-page targets are resolved rather than waved through: static files under
+ * `public/`, and static route handlers under `src/app` (`/llms.txt` and
+ * friends). Anything genuinely unresolvable is an error, so the exceptions
+ * stay honest.
+ *
+ * Anchors are slugged with the same `github-slugger` Fumadocs uses, one
+ * slugger per page so repeated headings get the `-1`/`-2` suffixes the
+ * renderer produces. Hand-rolled slugification gets this wrong in ways that
+ * matter: "Range & order" is `range--order`, not `range-order`.
+ */
 import fs from "node:fs";
 import path from "node:path";
+import GithubSlugger from "github-slugger";
 
-const CONTENT_DIR = path.join(process.cwd(), "content/stack");
-
-/**
- * Recursively collect all .mdx files in a directory.
- */
-function collectMdxFiles(dir: string): string[] {
-  const results: string[] = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      results.push(...collectMdxFiles(fullPath));
-    } else if (entry.isFile() && entry.name.endsWith(".mdx")) {
-      results.push(fullPath);
-    }
-  }
-  return results;
-}
+const ROOT = process.cwd();
 
 /**
- * Convert a file path to its corresponding URL.
- * content/stack/cipherstash/encryption/getting-started.mdx → /stack/cipherstash/encryption/getting-started
- * content/stack/reference/stack/latest/schema/index.mdx → /stack/reference/stack/latest/schema
+ * Content collections and the URL prefix each is served under. Mirrors the
+ * `loader({ baseUrl })` calls in src/lib/source.ts — keep them in step.
  */
-function filePathToUrl(filePath: string): string {
-  let rel = path.relative(CONTENT_DIR, filePath);
-  // Remove .mdx extension
-  rel = rel.replace(/\.mdx$/, "");
-  // Remove trailing /index
-  rel = rel.replace(/\/index$/, "");
-  return `/stack/${rel}`;
-}
+const COLLECTIONS = [
+  { dir: "content/docs", baseUrl: "" },
+  { dir: "content/stack", baseUrl: "/stack" },
+];
 
-/**
- * Check if a URL has a /index suffix that would 404 at runtime.
- * Fumadocs serves index.mdx at the directory URL, so /path/index is not a valid route.
- */
-function hasIndexSuffix(url: string): boolean {
-  return /\/index$/.test(url);
-}
-
-/**
- * Check if a URL has a .mdx extension that should have been stripped.
- */
-function hasMdxExtension(url: string): boolean {
-  return /\.mdx$/.test(url);
-}
-
-/**
- * Build set of all valid internal URLs from MDX files.
- */
-function buildValidUrls(mdxFiles: string[]): Set<string> {
-  const urls = new Set<string>();
-  for (const file of mdxFiles) {
-    urls.add(filePathToUrl(file));
-  }
-  return urls;
+interface Page {
+  /** Repo-relative path of the .mdx file, for error messages. */
+  file: string;
+  /** Heading ids usable as #fragments on this page. */
+  anchors: Set<string>;
 }
 
 interface BrokenLink {
@@ -66,145 +55,273 @@ interface BrokenLink {
   reason: string;
 }
 
-/**
- * Resolve a relative link to an absolute URL path using the file's actual location.
- * Does NOT strip /index or .mdx — the caller should detect and report those as errors.
- */
-function resolveRelativeLink(link: string, currentFilePath: string): string {
-  const currentDir = path.dirname(currentFilePath);
-  const resolvedPath = path.join(currentDir, link);
-  const rel = path.relative(CONTENT_DIR, resolvedPath);
-  return `/stack/${rel}`;
+function collectMdxFiles(dir: string): string[] {
+  const results: string[] = [];
+  if (!fs.existsSync(dir)) return results;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) results.push(...collectMdxFiles(fullPath));
+    else if (entry.isFile() && entry.name.endsWith(".mdx"))
+      results.push(fullPath);
+  }
+  return results;
 }
 
 /**
- * Scan an MDX file for broken internal links.
+ * Blank out fenced code blocks, preserving line count so reported line numbers
+ * still point at the right source line. Headings and links inside a code
+ * sample are illustrative, not real.
  */
-function scanFile(filePath: string, validUrls: Set<string>): BrokenLink[] {
-  const broken: BrokenLink[] = [];
-  const content = fs.readFileSync(filePath, "utf8");
-  const lines = content.split("\n");
+function blankCodeFences(content: string): string[] {
+  let fence: string | null = null;
+  return content.split("\n").map((line) => {
+    const open = /^\s*(`{3,}|~{3,})/.exec(line);
+    if (fence) {
+      if (open && open[1][0] === fence[0] && open[1].length >= fence.length)
+        fence = null;
+      return "";
+    }
+    if (open) {
+      fence = open[1];
+      return "";
+    }
+    return line;
+  });
+}
 
-  // Match markdown links: [text](url)
-  const linkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
+/**
+ * Fumadocs' `<include cwd>path</include>` inlines a partial at build time, so
+ * the partial's headings become anchors on the including page and its links
+ * are rendered by it. One level deep — partials don't nest today.
+ */
+function inlineIncludes(lines: string[]): string[] {
+  const out: string[] = [];
+  for (const line of lines) {
+    const match = /<include\s+cwd\s*>([^<]+)<\/include>/.exec(line);
+    if (!match) {
+      out.push(line);
+      continue;
+    }
+    const partial = path.join(ROOT, match[1].trim());
+    if (!fs.existsSync(partial)) {
+      out.push(line);
+      continue;
+    }
+    // Keep the directive's own line so numbering above it is unchanged;
+    // appended partial lines report against the end of the file, which is
+    // close enough to find them.
+    out.push(line, ...blankCodeFences(fs.readFileSync(partial, "utf8")));
+  }
+  return out;
+}
+
+/** Reduce inline markdown to the plain text the slugger would see. */
+function headingText(raw: string): string {
+  return raw
+    .replace(/\[#[^\]]+\]\s*$/, "") // explicit anchor suffix
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\*\*([^*]*)\*\*/g, "$1")
+    .replace(/\*([^*]*)\*/g, "$1")
+    .replace(/<[^>]+>/g, "")
+    .trim();
+}
+
+function collectAnchors(lines: string[]): Set<string> {
+  const slugger = new GithubSlugger();
+  const anchors = new Set<string>();
+  for (const line of lines) {
+    const match = /^#{1,6}\s+(.+?)\s*$/.exec(line);
+    if (!match) continue;
+    const explicit = /\[#([^\]]+)\]\s*$/.exec(match[1]);
+    if (explicit) {
+      anchors.add(explicit[1]);
+      continue;
+    }
+    anchors.add(slugger.slug(headingText(match[1])));
+  }
+  return anchors;
+}
+
+/** content/docs/a/b.mdx → /a/b ; content/stack/a/index.mdx → /stack/a */
+function fileToUrl(file: string, dir: string, baseUrl: string): string {
+  const rel = path
+    .relative(path.join(ROOT, dir), file)
+    .replace(/\.mdx$/, "")
+    .replace(/(^|\/)index$/, "");
+  return `${baseUrl}/${rel}`.replace(/\/+$/, "") || "/";
+}
+
+/** Resolve a relative link against the linking file's collection directory. */
+function resolveRelative(file: string, link: string): string | null {
+  for (const { dir, baseUrl } of COLLECTIONS) {
+    const base = path.join(ROOT, dir);
+    if (!file.startsWith(base + path.sep)) continue;
+    const resolved = path.resolve(path.dirname(file), link);
+    if (!resolved.startsWith(base)) return null;
+    return `${baseUrl}/${path.relative(base, resolved)}`.replace(/\/+$/, "");
+  }
+  return null;
+}
+
+// --- Build the set of things a link may legitimately point at ---------------
+
+const pages = new Map<string, Page>();
+/** Per-file line arrays, so each file is read and de-fenced exactly once. */
+const fileLines = new Map<string, string[]>();
+
+for (const { dir, baseUrl } of COLLECTIONS) {
+  for (const file of collectMdxFiles(path.join(ROOT, dir))) {
+    const lines = inlineIncludes(
+      blankCodeFences(fs.readFileSync(file, "utf8")),
+    );
+    fileLines.set(file, lines);
+    pages.set(fileToUrl(file, dir, baseUrl), {
+      file: path.relative(ROOT, file),
+      anchors: collectAnchors(lines),
+    });
+  }
+}
+
+/** Static files under public/ are served at the site root. */
+const assets = new Set<string>();
+const walkAssets = (dir: string, prefix = "") => {
+  if (!fs.existsSync(dir)) return;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory())
+      walkAssets(path.join(dir, entry.name), `${prefix}/${entry.name}`);
+    else assets.add(`${prefix}/${entry.name}`);
+  }
+};
+walkAssets(path.join(ROOT, "public"));
+
+/**
+ * Static route handlers (src/app/llms.txt/route.ts → /llms.txt). Dynamic and
+ * group segments are skipped: their paths can't be enumerated statically, and
+ * no documentation link targets one.
+ */
+const routes = new Set<string>();
+const walkRoutes = (dir: string, prefix = "") => {
+  if (!fs.existsSync(dir)) return;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (entry.name.startsWith("[") || entry.name.startsWith("(")) continue;
+      walkRoutes(path.join(dir, entry.name), `${prefix}/${entry.name}`);
+    } else if (/^route\.tsx?$/.test(entry.name) && prefix) {
+      routes.add(prefix);
+    }
+  }
+};
+walkRoutes(path.join(ROOT, "src/app"));
+
+// --- Scan ------------------------------------------------------------------
+
+const LINK_PATTERNS = [
+  /\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, // [text](/url "title")
+  /href="([^"]+)"/g, // <Card href="/url">
+];
+
+function scanFile(file: string, lines: string[]): BrokenLink[] {
+  const broken: BrokenLink[] = [];
+  const rel = path.relative(ROOT, file);
+  const report = (line: number, url: string, reason: string) =>
+    broken.push({ file: rel, line, url, reason });
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    for (const pattern of LINK_PATTERNS) {
+      for (const match of lines[i].matchAll(pattern)) {
+        const url = match[1];
+        // External, protocol-relative, anchor-only, or a JSX expression.
+        if (/^(https?:|mailto:|tel:|\/\/|#|\{)/.test(url)) continue;
 
-    for (const match of line.matchAll(linkRegex)) {
-      const url = match[2];
+        const [targetRaw, fragment] = url.split("#");
+        if (!targetRaw) continue;
 
-      // Skip external links
-      if (url.startsWith("http://") || url.startsWith("https://")) continue;
+        const target = targetRaw.startsWith("/")
+          ? targetRaw
+          : resolveRelative(file, targetRaw);
+        if (target === null) continue;
 
-      // Skip anchor-only links
-      if (url.startsWith("#")) continue;
-
-      // Skip mailto links
-      if (url.startsWith("mailto:")) continue;
-
-      // Strip anchor from URL for validation
-      const urlWithoutAnchor = url.split("#")[0];
-
-      // Check for wrong /docs/ prefix
-      if (urlWithoutAnchor.startsWith("/docs/")) {
-        broken.push({
-          file: path.relative(process.cwd(), filePath),
-          line: i + 1,
-          url,
-          reason:
-            "Uses /docs/ prefix — Next.js basePath prepends this automatically. Use /stack/ instead.",
-        });
-        continue;
-      }
-
-      // Internal absolute links (start with /stack/)
-      if (urlWithoutAnchor.startsWith("/stack/")) {
-        if (hasIndexSuffix(urlWithoutAnchor)) {
-          broken.push({
-            file: path.relative(process.cwd(), filePath),
-            line: i + 1,
+        if (target.startsWith("/docs/")) {
+          report(
+            i + 1,
             url,
-            reason:
-              "Link ends with /index which will 404. Remove /index — Fumadocs serves index.mdx at the directory URL.",
-          });
-        } else if (hasMdxExtension(urlWithoutAnchor)) {
-          broken.push({
-            file: path.relative(process.cwd(), filePath),
-            line: i + 1,
-            url,
-            reason:
-              "Link has .mdx extension which will 404. Remove the .mdx extension.",
-          });
-        } else if (!validUrls.has(urlWithoutAnchor)) {
-          broken.push({
-            file: path.relative(process.cwd(), filePath),
-            line: i + 1,
-            url,
-            reason: "Page not found",
-          });
+            "Uses a /docs/ prefix — Next's basePath prepends it automatically, so this resolves to /docs/docs/… and 404s.",
+          );
+          continue;
         }
-        continue;
-      }
+        if (/\/index$/.test(target)) {
+          report(
+            i + 1,
+            url,
+            "Ends with /index, which 404s — Fumadocs serves index.mdx at the directory URL.",
+          );
+          continue;
+        }
+        if (/\.mdx$/.test(target)) {
+          report(
+            i + 1,
+            url,
+            "Has a .mdx extension, which 404s as a page link.",
+          );
+          continue;
+        }
 
-      // Skip other absolute links (e.g., /api/, external paths)
-      if (urlWithoutAnchor.startsWith("/")) continue;
+        const normalized = target.replace(/\/+$/, "") || "/";
+        const page = pages.get(normalized);
 
-      // Relative links — resolve against current file's directory
-      const resolved = resolveRelativeLink(urlWithoutAnchor, filePath);
-      if (resolved.startsWith("/stack/")) {
-        if (hasIndexSuffix(resolved)) {
-          broken.push({
-            file: path.relative(process.cwd(), filePath),
-            line: i + 1,
+        if (!page) {
+          if (assets.has(normalized) || routes.has(normalized)) continue;
+          report(i + 1, url, "No such page, static asset, or route.");
+          continue;
+        }
+        if (fragment && !page.anchors.has(fragment)) {
+          report(
+            i + 1,
             url,
-            reason: `Link resolves to ${resolved} which ends with /index and will 404. Remove /index from the link target.`,
-          });
-        } else if (hasMdxExtension(resolved)) {
-          broken.push({
-            file: path.relative(process.cwd(), filePath),
-            line: i + 1,
-            url,
-            reason: `Link resolves to ${resolved} which has .mdx extension and will 404. Remove the .mdx extension.`,
-          });
-        } else if (!validUrls.has(resolved)) {
-          broken.push({
-            file: path.relative(process.cwd(), filePath),
-            line: i + 1,
-            url,
-            reason: `Page not found (resolved to ${resolved})`,
-          });
+            `No heading on ${normalized} (${page.file}) produces the anchor #${fragment}.`,
+          );
         }
       }
     }
   }
-
   return broken;
 }
 
-// Main
-const mdxFiles = collectMdxFiles(CONTENT_DIR);
-console.log(`Found ${mdxFiles.length} MDX files in content/stack/`);
-
-const validUrls = buildValidUrls(mdxFiles);
-console.log(`Built ${validUrls.size} valid URLs\n`);
-
 const allBroken: BrokenLink[] = [];
+for (const [file, lines] of fileLines) allBroken.push(...scanFile(file, lines));
 
-for (const file of mdxFiles) {
-  const broken = scanFile(file, validUrls);
-  allBroken.push(...broken);
+/**
+ * TypeDoc output is gitignored and produced by `generate-docs`, which
+ * `prebuild` runs before this script. Run standalone on a fresh checkout,
+ * every link into those pages looks broken — say so rather than let a hundred
+ * spurious errors imply the docs are falling apart.
+ */
+const GENERATED = ["content/stack/reference/stack/latest"];
+const missing = GENERATED.filter((d) => !fs.existsSync(path.join(ROOT, d)));
+
+console.log(
+  `Checked ${fileLines.size} MDX file(s) across ${COLLECTIONS.map((c) => c.dir).join(" + ")} ` +
+    `→ ${pages.size} page(s), ${assets.size} static asset(s), ${routes.size} route(s).`,
+);
+
+if (missing.length > 0) {
+  console.log(
+    `\n! Generated API pages are absent (${missing.join(", ")}), so links into\n` +
+      "  them will be reported as missing. Run `bun run generate-docs` first —\n" +
+      "  `prebuild` does, which is why CI does not hit this.",
+  );
 }
 
 if (allBroken.length === 0) {
-  console.log("No broken links found!");
+  console.log("✓ every internal link and anchor resolves.");
   process.exit(0);
-} else {
-  console.log(`Found ${allBroken.length} broken link(s):\n`);
-  for (const { file, line, url, reason } of allBroken) {
-    console.log(`  ${file}:${line}`);
-    console.log(`    Link: ${url}`);
-    console.log(`    ${reason}\n`);
-  }
-  process.exit(1);
 }
+
+console.log(`\n✗ ${allBroken.length} broken link(s):\n`);
+for (const { file, line, url, reason } of allBroken) {
+  console.log(`  ${file}:${line}`);
+  console.log(`    Link: ${url}`);
+  console.log(`    ${reason}\n`);
+}
+process.exit(1);
