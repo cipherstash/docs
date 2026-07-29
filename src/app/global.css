@@ -72,6 +72,27 @@
   }
 }
 
+/* ── Body copy ── */
+
+/* Fumadocs sets prose body text to `--color-fd-foreground` at 90%, and renders
+   the page description (DocsDescription, the standfirst under the H1) muted.
+   We want the reverse: the standfirst leads at full contrast, and the body
+   copy sits back. Only `--tw-prose-body` moves — headings, links, bold, code,
+   quotes and captions keep their own variables, so they stay prominent
+   against the softer paragraph text.
+
+   Both values are theme tokens, so light and dark follow the same rule with
+   no per-mode override. The description's colour is set at the call site in
+   the two page routes.
+
+   Deliberately unlayered. Fumadocs declares `.prose` in `@layer utilities`,
+   and layer order beats both specificity and source order — the same rule
+   inside `@layer components` below is silently ignored. Unlayered
+   declarations outrank every layer, so this wins without `!important`. */
+.prose {
+  --tw-prose-body: var(--color-fd-muted-foreground);
+}
+
 /* ── Fumadocs component overrides ── */
 
 @layer components {
