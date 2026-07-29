@@ -13,7 +13,7 @@
  *
  *   - the target page exists, in either collection;
  *   - a `#fragment` matches a heading on that page;
- *   - the link carries no `/docs/` prefix (Next's basePath prepends it), no
+ *   - the link carries no `/docs` prefix (Next's basePath prepends it), no
  *     `/index` suffix, and no `.mdx` extension — each of which 404s.
  *
  * Non-page targets are resolved rather than waved through: static files under
@@ -25,6 +25,10 @@
  * slugger per page so repeated headings get the `-1`/`-2` suffixes the
  * renderer produces. Hand-rolled slugification gets this wrong in ways that
  * matter: "Range & order" is `range--order`, not `range-order`.
+ *
+ * Every line carries its true origin (see `SourceLine`), so a broken link
+ * inside an `<include>`d partial is reported against the partial's own path
+ * and line rather than an offset position in whichever page pulled it in.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -40,6 +44,22 @@ const COLLECTIONS = [
   { dir: "content/docs", baseUrl: "" },
   { dir: "content/stack", baseUrl: "/stack" },
 ];
+
+/** Shared MDX fragments, pulled into pages by `<include cwd>`. Not routable. */
+const PARTIALS_DIR = "content/partials";
+
+/**
+ * A line of MDX plus where it actually came from. Inlining a partial would
+ * otherwise renumber every line below the `<include>` directive, silently
+ * shifting reported positions by the length of the partial.
+ */
+interface SourceLine {
+  text: string;
+  /** Repo-relative path of the file this line is really in. */
+  file: string;
+  /** 1-indexed line number within that file. */
+  line: number;
+}
 
 interface Page {
   /** Repo-relative path of the .mdx file, for error messages. */
@@ -68,49 +88,47 @@ function collectMdxFiles(dir: string): string[] {
 }
 
 /**
- * Blank out fenced code blocks, preserving line count so reported line numbers
- * still point at the right source line. Headings and links inside a code
- * sample are illustrative, not real.
+ * Read a file into `SourceLine`s with fenced code blocks blanked out. Blanking
+ * rather than dropping keeps every line's index aligned with the file on disk.
+ * Headings and links inside a code sample are illustrative, not real.
  */
-function blankCodeFences(content: string): string[] {
+function readLines(file: string): SourceLine[] {
+  const rel = path.relative(ROOT, file);
   let fence: string | null = null;
-  return content.split("\n").map((line) => {
-    const open = /^\s*(`{3,}|~{3,})/.exec(line);
-    if (fence) {
-      if (open && open[1][0] === fence[0] && open[1].length >= fence.length)
-        fence = null;
-      return "";
-    }
-    if (open) {
-      fence = open[1];
-      return "";
-    }
-    return line;
-  });
+  return fs
+    .readFileSync(file, "utf8")
+    .split("\n")
+    .map((text, i) => {
+      const open = /^\s*(`{3,}|~{3,})/.exec(text);
+      let out = text;
+      if (fence) {
+        if (open && open[1][0] === fence[0] && open[1].length >= fence.length)
+          fence = null;
+        out = "";
+      } else if (open) {
+        fence = open[1];
+        out = "";
+      }
+      return { text: out, file: rel, line: i + 1 };
+    });
 }
 
 /**
  * Fumadocs' `<include cwd>path</include>` inlines a partial at build time, so
  * the partial's headings become anchors on the including page and its links
  * are rendered by it. One level deep — partials don't nest today.
+ *
+ * The inlined lines keep the partial's own file and line numbers, so positions
+ * below the directive stay correct in the including page.
  */
-function inlineIncludes(lines: string[]): string[] {
-  const out: string[] = [];
+function inlineIncludes(lines: SourceLine[]): SourceLine[] {
+  const out: SourceLine[] = [];
   for (const line of lines) {
-    const match = /<include\s+cwd\s*>([^<]+)<\/include>/.exec(line);
-    if (!match) {
-      out.push(line);
-      continue;
-    }
+    out.push(line);
+    const match = /<include\s+cwd\s*>([^<]+)<\/include>/.exec(line.text);
+    if (!match) continue;
     const partial = path.join(ROOT, match[1].trim());
-    if (!fs.existsSync(partial)) {
-      out.push(line);
-      continue;
-    }
-    // Keep the directive's own line so numbering above it is unchanged;
-    // appended partial lines report against the end of the file, which is
-    // close enough to find them.
-    out.push(line, ...blankCodeFences(fs.readFileSync(partial, "utf8")));
+    if (fs.existsSync(partial)) out.push(...readLines(partial));
   }
   return out;
 }
@@ -127,11 +145,11 @@ function headingText(raw: string): string {
     .trim();
 }
 
-function collectAnchors(lines: string[]): Set<string> {
+function collectAnchors(lines: SourceLine[]): Set<string> {
   const slugger = new GithubSlugger();
   const anchors = new Set<string>();
-  for (const line of lines) {
-    const match = /^#{1,6}\s+(.+?)\s*$/.exec(line);
+  for (const { text } of lines) {
+    const match = /^#{1,6}\s+(.+?)\s*$/.exec(text);
     if (!match) continue;
     const explicit = /\[#([^\]]+)\]\s*$/.exec(match[1]);
     if (explicit) {
@@ -152,29 +170,54 @@ function fileToUrl(file: string, dir: string, baseUrl: string): string {
   return `${baseUrl}/${rel}`.replace(/\/+$/, "") || "/";
 }
 
-/** Resolve a relative link against the linking file's collection directory. */
-function resolveRelative(file: string, link: string): string | null {
+/** True when `child` is `parent` itself or sits underneath it. */
+function isInside(child: string, parent: string): boolean {
+  return child === parent || child.startsWith(parent + path.sep);
+}
+
+type Resolution =
+  | { url: string }
+  | { error: string }
+  // Not a link we can or should resolve (external, anchor-only, expression).
+  | null;
+
+/**
+ * Resolve a relative link against the collection directory of the file it
+ * appears in. Relative links that escape the collection, or that live in a
+ * shared partial where there is no single base to resolve against, are
+ * reported rather than skipped — a silent skip is how a typo gets through.
+ */
+function resolveRelative(file: string, link: string): Resolution {
+  const abs = path.join(ROOT, file);
+  if (isInside(abs, path.join(ROOT, PARTIALS_DIR))) {
+    return {
+      error:
+        "Relative link inside a shared partial — it would resolve differently " +
+        "per including page. Use an absolute path.",
+    };
+  }
   for (const { dir, baseUrl } of COLLECTIONS) {
     const base = path.join(ROOT, dir);
-    if (!file.startsWith(base + path.sep)) continue;
-    const resolved = path.resolve(path.dirname(file), link);
-    if (!resolved.startsWith(base)) return null;
-    return `${baseUrl}/${path.relative(base, resolved)}`.replace(/\/+$/, "");
+    if (!isInside(abs, base)) continue;
+    const resolved = path.resolve(path.dirname(abs), link);
+    if (!isInside(resolved, base))
+      return { error: `Relative link resolves outside ${dir}.` };
+    return {
+      url: `${baseUrl}/${path.relative(base, resolved)}`.replace(/\/+$/, ""),
+    };
   }
-  return null;
+  return { error: "Relative link in a file outside every content collection." };
 }
 
 // --- Build the set of things a link may legitimately point at ---------------
 
 const pages = new Map<string, Page>();
-/** Per-file line arrays, so each file is read and de-fenced exactly once. */
-const fileLines = new Map<string, string[]>();
+/** Per-page line arrays, so each file is read and de-fenced exactly once. */
+const fileLines = new Map<string, SourceLine[]>();
 
 for (const { dir, baseUrl } of COLLECTIONS) {
   for (const file of collectMdxFiles(path.join(ROOT, dir))) {
-    const lines = inlineIncludes(
-      blankCodeFences(fs.readFileSync(file, "utf8")),
-    );
+    const lines = inlineIncludes(readLines(file));
     fileLines.set(file, lines);
     pages.set(fileToUrl(file, dir, baseUrl), {
       file: path.relative(ROOT, file),
@@ -221,15 +264,15 @@ const LINK_PATTERNS = [
   /href="([^"]+)"/g, // <Card href="/url">
 ];
 
-function scanFile(file: string, lines: string[]): BrokenLink[] {
+function scanLines(lines: SourceLine[]): BrokenLink[] {
   const broken: BrokenLink[] = [];
-  const rel = path.relative(ROOT, file);
-  const report = (line: number, url: string, reason: string) =>
-    broken.push({ file: rel, line, url, reason });
 
-  for (let i = 0; i < lines.length; i++) {
+  for (const { text, file, line } of lines) {
+    const report = (url: string, reason: string) =>
+      broken.push({ file, line, url, reason });
+
     for (const pattern of LINK_PATTERNS) {
-      for (const match of lines[i].matchAll(pattern)) {
+      for (const match of text.matchAll(pattern)) {
         const url = match[1];
         // External, protocol-relative, anchor-only, or a JSX expression.
         if (/^(https?:|mailto:|tel:|\/\/|#|\{)/.test(url)) continue;
@@ -237,47 +280,51 @@ function scanFile(file: string, lines: string[]): BrokenLink[] {
         const [targetRaw, fragment] = url.split("#");
         if (!targetRaw) continue;
 
-        const target = targetRaw.startsWith("/")
-          ? targetRaw
-          : resolveRelative(file, targetRaw);
-        if (target === null) continue;
+        let target: string;
+        if (targetRaw.startsWith("/")) {
+          target = targetRaw;
+        } else {
+          const resolved = resolveRelative(file, targetRaw);
+          if (resolved === null) continue;
+          if ("error" in resolved) {
+            report(url, resolved.error);
+            continue;
+          }
+          target = resolved.url;
+        }
 
-        if (target.startsWith("/docs/")) {
+        // Normalise a trailing slash before the shape checks, so `/a/index/`
+        // and `/a.mdx/` get their precise diagnosis rather than falling
+        // through to a generic "no such page".
+        const normalized = target.replace(/\/+$/, "") || "/";
+
+        if (normalized === "/docs" || normalized.startsWith("/docs/")) {
           report(
-            i + 1,
             url,
-            "Uses a /docs/ prefix — Next's basePath prepends it automatically, so this resolves to /docs/docs/… and 404s.",
+            "Uses a /docs prefix — Next's basePath prepends it automatically, so this resolves to /docs/docs/… and 404s.",
           );
           continue;
         }
-        if (/\/index$/.test(target)) {
+        if (/\/index$/.test(normalized)) {
           report(
-            i + 1,
             url,
             "Ends with /index, which 404s — Fumadocs serves index.mdx at the directory URL.",
           );
           continue;
         }
-        if (/\.mdx$/.test(target)) {
-          report(
-            i + 1,
-            url,
-            "Has a .mdx extension, which 404s as a page link.",
-          );
+        if (/\.mdx$/.test(normalized)) {
+          report(url, "Has a .mdx extension, which 404s as a page link.");
           continue;
         }
 
-        const normalized = target.replace(/\/+$/, "") || "/";
         const page = pages.get(normalized);
-
         if (!page) {
           if (assets.has(normalized) || routes.has(normalized)) continue;
-          report(i + 1, url, "No such page, static asset, or route.");
+          report(url, "No such page, static asset, or route.");
           continue;
         }
         if (fragment && !page.anchors.has(fragment)) {
           report(
-            i + 1,
             url,
             `No heading on ${normalized} (${page.file}) produces the anchor #${fragment}.`,
           );
@@ -288,8 +335,22 @@ function scanFile(file: string, lines: string[]): BrokenLink[] {
   return broken;
 }
 
+/**
+ * A partial included by several pages is scanned once per including page, so
+ * de-duplicate before reporting — otherwise one typo in a shared fragment
+ * shows up three times.
+ */
+const seen = new Set<string>();
 const allBroken: BrokenLink[] = [];
-for (const [file, lines] of fileLines) allBroken.push(...scanFile(file, lines));
+for (const lines of fileLines.values()) {
+  for (const b of scanLines(lines)) {
+    const key = `${b.file}:${b.line}:${b.url}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    allBroken.push(b);
+  }
+}
+allBroken.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 
 /**
  * TypeDoc output is gitignored and produced by `generate-docs`, which
