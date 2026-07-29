@@ -1,65 +1,46 @@
 ---
 title: Integrations
-description: "Set up CipherStash with your Postgres platform, your ORM, and your identity provider."
+description: "Every CipherStash integration, by category: the Postgres platforms encrypted data lives in, and the query layers that read and write it."
 type: concept
 components: [encryption, eql, platform]
 audience: [developer]
 ---
 
-CipherStash encrypts fields in your application and keeps them queryable in Postgres. Which integration you reach for depends on how your application talks to the database, not on what you are encrypting.
+Every integration below writes the same ciphertext into the same [EQL](/reference/eql) columns, so none of them is a one-way door. You can move a table from one to another without re-encrypting it, and use more than one at once — an ORM for application queries, raw SQL for migrations.
 
-Everything here writes the same ciphertext into the same [EQL](/reference/eql) columns, so these are not one-way doors. You can move a table from one path to another without re-encrypting it, and mix them in one codebase: an ORM for application queries, raw SQL for migrations.
+## Database
 
-## Where your data lives
+Where the encrypted data lives. EQL installs into any Postgres you can connect to, with no extension and no superuser.
 
 <Cards>
   <Card title="Supabase" href="/integrations/supabase">
-    Wrap the Supabase client so `.eq()`, `.gt()`, and `.order()` keep working on encrypted columns. Row Level Security and Supabase Auth apply unchanged.
+    Install EQL with the `stash` CLI, then query encrypted columns through PostgREST. Row Level Security, Supabase Auth, and Edge Functions all apply unchanged.
   </Card>
-  <Card title="Any other Postgres" href="/get-started/quickstart">
-    Neon, RDS, Aurora, Cloud SQL, or a container. EQL installs into any Postgres you can connect to, with no extension and no superuser.
+  <Card title="Prisma Postgres" href="/integrations/prisma-next">
+    Prisma's hosted Postgres. EQL is installed by the Prisma Next migration system, in the same sweep that creates your tables.
   </Card>
 </Cards>
 
-## How you query it
+## ORM
+
+How your application queries it.
 
 <Cards>
-  <Card title="Drizzle" href="/integrations/drizzle">
-    Concrete encrypted column types and capability-checked operators. Targets EQL v3.
+  <Card title="Supabase-js" href="/reference/stack/supabase">
+    `encryptedSupabaseV3` wraps your existing client so `.eq()`, `.in()`, `.gt()`, and `.order()` keep working on encrypted columns.
   </Card>
   <Card title="Prisma Next" href="/integrations/prisma-next">
     Encrypted columns declared in `schema.prisma`. Targets EQL v2. Not classic Prisma.
   </Card>
-  <Card title="Raw SQL" href="/get-started/quickstart">
-    Encrypt the value, insert it, cast the query operand. The SDK's whole surface is `encrypt` and `encryptQuery`.
-  </Card>
-  <Card title="An ORM we don't list" href="/reference/stack">
-    Encrypt before a write, decrypt after a read. Every ORM supports that, and nothing is missing.
+  <Card title="Drizzle" href="/integrations/drizzle">
+    Concrete encrypted column types and capability-checked operators. Targets EQL v3.
   </Card>
 </Cards>
 
 <Callout type="info">
-Not using Postgres? The SDK still encrypts values that never touch a database, and non-Postgres stores like [DynamoDB](/stack/cipherstash/encryption/dynamodb), with no EQL involved. EQL is the Postgres surface, not the encryption itself.
+Not on this list? Any ORM works without an integration — encrypt before a write and decrypt after a read with the [Stack SDK](/reference/stack), which is what the integrations do for you. [CipherStash Proxy](/reference/proxy) covers the case where you cannot change the application at all, and the SDK also encrypts values that never reach Postgres, including non-Postgres stores like [DynamoDB](/stack/cipherstash/encryption/dynamodb).
 </Callout>
-
-## Who is allowed to decrypt
-
-Reach for identity binding when a value should be decryptable only by the user it belongs to, rather than by anything holding the application's credentials. It needs an OIDC provider, registered once in the [Dashboard](https://dashboard.cipherstash.com/workspaces/_/oidc-providers).
-
-| Provider | Supported |
-| --- | --- |
-| Supabase Auth | Yes. See [Supabase Auth](/integrations/supabase/auth) |
-| Clerk | Yes |
-| Auth0 | Yes |
-| Okta | Yes |
-| Any OIDC issuer | Yes, if it publishes a discovery endpoint |
-
-See [provable access control](/solutions/provable-access) for what this buys you, and what it does not.
-
-## You cannot change the application
-
-[CipherStash Proxy](/reference/proxy) sits in front of Postgres and speaks EQL for you. Point your connection string at it. Because it speaks the Postgres wire protocol, the language your application is written in stops mattering.
 
 ## Still deciding
 
-[Choose your stack](/get-started/choose-your-stack) walks the four decisions in order: SDK or Proxy, your Postgres, your ORM, and your identity provider.
+[Choose your stack](/get-started/choose-your-stack) walks the four decisions in order: SDK or Proxy, your Postgres, your ORM, and your identity provider — including which identity providers can bind decryption to the signed-in user.

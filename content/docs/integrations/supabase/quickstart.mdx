@@ -40,7 +40,7 @@ GRANT USAGE ON SCHEMA eql_v3 TO anon, authenticated, service_role;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA eql_v3 TO anon, authenticated, service_role;
 ```
 
-The install targets EQL v3 by default. [Fundamentals](/integrations/supabase/fundamentals#installing-eql) covers the rest, including why a v3 install does not survive `supabase db reset`.
+The install targets EQL v3 by default. The [overview](/integrations/supabase#installing-eql) covers the rest, including why a v3 install does not survive `supabase db reset`.
 
 </Step>
 <Step>
@@ -86,7 +86,7 @@ SUPABASE_ANON_KEY=...
 DATABASE_URL=postgresql://postgres:...@db.<project-ref>.supabase.co:5432/postgres
 ```
 
-> **Good to know**: the CipherStash dashboard's Supabase integration can generate this whole block for you. It connects to your project over OAuth, runs readiness checks, and emits the `CS_*` credentials. It's optional; the manual block above works everywhere. See [Fundamentals → Connecting your project](/integrations/supabase/fundamentals#connecting-your-project-to-cipherstash).
+> **Good to know**: the CipherStash dashboard's Supabase integration can generate this whole block for you. It connects to your project over OAuth, runs readiness checks, and emits the `CS_*` credentials. It's optional; the manual block above works everywhere. See [Overview → Connecting your project](/integrations/supabase#connecting-your-project-to-cipherstash).
 
 </Step>
 <Step>
@@ -146,10 +146,28 @@ The full method surface, including filters, upserts, error shapes, and identity-
 
 ### See what the database sees
 
-Open the Table Editor and look at the `patients` rows: every encrypted cell is a ciphertext payload, not plaintext. That's what a backup, a replication stream, or anyone bypassing your app sees, including a leaked `service_role` key. [Fundamentals → Working in the dashboard](/integrations/supabase/fundamentals#working-in-the-dashboard) walks through what encrypted data looks like across the Supabase dashboard.
+Open the Table Editor and look at the `patients` rows: every encrypted cell is a ciphertext payload, not plaintext. That's what a backup, a replication stream, or anyone bypassing your app sees, including a leaked `service_role` key. [Overview → Working in the dashboard](/integrations/supabase#working-in-the-dashboard) walks through what encrypted data looks like across the Supabase dashboard.
 
 </Step>
 </Steps>
+
+## Using an ORM instead
+
+Everything above goes through PostgREST, Supabase's REST API, with `encryptedSupabaseV3` encrypting around each request. The other way to reach the same tables is a direct Postgres connection from an ORM, where the [Stack SDK](/reference/stack) encrypts values in your application and the EQL-typed columns store and search them. Both paths write the **same ciphertext into the same columns**, so the database setup above is identical either way — and you can mix them, using an `encryptedSupabaseV3` client for application queries and Drizzle for migrations against the same tables.
+
+<Cards>
+  <Card title="Drizzle" href="/integrations/drizzle">
+    Encrypted column types, query operators, and EQL migrations with Drizzle.
+  </Card>
+  <Card title="Prisma Next" href="/integrations/prisma-next">
+    Encrypted fields and searchable queries with Prisma.
+  </Card>
+</Cards>
+
+Both integrations are database-agnostic — Supabase is Postgres, so the encryption mechanics are the same as anywhere else. Only two things are Supabase-specific:
+
+- **Which connection string.** Use the **direct connection** (port `5432`) for migrations and long-running servers, and the **Supavisor transaction pooler** (port `6543`) for serverless, edge, and Next.js Route Handlers, where connections are short-lived and numerous. Encryption doesn't change the choice: EQL is passive SQL, so use the same connection string you'd use without CipherStash. Run EQL migrations over the direct connection — DDL and the install script want a real session.
+- **RLS stops applying for free.** The PostgREST path carries the end user's JWT, so `auth.uid()` and your policies apply automatically. A direct connection typically authenticates as a privileged role (`postgres` or `service_role`), which **bypasses RLS**. If you rely on RLS for row scoping, either connect as the `authenticated` role with the user's JWT (setting `request.jwt.claims`), or enforce that scoping in your ORM query. Encryption is unaffected either way: values are ciphertext regardless of which role reads them.
 
 ## Production checklist
 
@@ -161,14 +179,14 @@ Open the Table Editor and look at the `patients` rows: every encrypted cell is a
 ## Go deeper
 
 <Cards>
-  <Card title="Fundamentals" href="/integrations/supabase/fundamentals">
-    Migrations vs SQL Editor, grants, indexes, RLS, and the dashboard experience in detail.
+  <Card title="Overview" href="/integrations/supabase">
+    Installing EQL, grants, column types, indexes, RLS, and the dashboard experience in detail.
   </Card>
   <Card title="Supabase Auth" href="/integrations/supabase/auth">
     Federate the Supabase session and lock decryption to the authenticated user.
   </Card>
-  <Card title="Data layer (ORMs)" href="/integrations/supabase/orms">
-    Using Drizzle, Prisma, or a framework against Supabase with CipherStash.
+  <Card title="EQL indexes" href="/reference/eql/indexes">
+    Full indexing recipes and EXPLAIN verification.
   </Card>
   <Card title="encryptedSupabaseV3 reference" href="/reference/stack/supabase">
     The complete wrapper API: every filter, response shapes, and how it works.
