@@ -359,7 +359,8 @@ allBroken.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
  * spurious errors imply the docs are falling apart.
  */
 const GENERATED = [
-  "content/stack/reference/stack/latest",
+  "content/docs/reference/stack/api-reference/index.mdx",
+  "content/docs/integrations/supabase/api-reference/index.mdx",
   "content/docs/integrations/prisma/api-reference/index.mdx",
 ];
 const missing = GENERATED.filter((d) => !fs.existsSync(path.join(ROOT, d)));

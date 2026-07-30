@@ -1,6 +1,7 @@
 {
   "title": "CLI",
   "pages": [
+    "index",
     "---Setup & workflow---",
     "init",
     "plan",

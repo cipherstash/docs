@@ -3,18 +3,18 @@ title: Encryption SDK reference
 description: Public entry points, supported data types, and configuration highlights for @cipherstash/stack field-level encryption.
 ---
 
-`@cipherstash/stack` is CipherStash's field-level encryption SDK for TypeScript. It encrypts individual column values client-side using per-value keys derived from ZeroKMS (backed by AWS KMS), before data leaves the application. This page summarises the public surface, data type rules, and configuration options. Full type signatures live in the [auto-generated API reference](/stack/reference/stack/latest/packages/stack/src/encryption).
+`@cipherstash/stack` is CipherStash's field-level encryption SDK for TypeScript. It encrypts individual column values client-side using per-value keys derived from ZeroKMS (backed by AWS KMS), before data leaves the application. This page summarises the public surface, data type rules, and configuration options. Full type signatures live in the [auto-generated API reference](/reference/stack/api-reference).
 
 ## Public entry points
 
 | Export | Import path | Purpose |
 |---|---|---|
-| `Encryption(config)` | `@cipherstash/stack` | Factory function. Returns a `Promise<EncryptionClient>`. [Reference](/stack/reference/stack/latest/packages/stack/src/encryption/functions/Encryption) |
-| `EncryptionClient` | `@cipherstash/stack/encryption` | Class with all encrypt/decrypt methods. Obtain via `Encryption()`, not `new`. [Reference](/stack/reference/stack/latest/packages/stack/src/encryption/classes/EncryptionClient) |
-| `encryptedTable` / `encryptedColumn` / `encryptedField` | `@cipherstash/stack/schema` | Schema builders. Define which tables and columns to encrypt, and which search indexes to create. [Reference](/stack/reference/stack/latest/packages/stack/src/schema) |
-| `LockContext` | `@cipherstash/stack/identity` | Identity-aware encryption. Ties an encrypted value to a specific JWT identity. [Reference](/stack/reference/stack/latest/packages/stack/src/identity) |
-| `Secrets` | `@cipherstash/stack/secrets` | End-to-end encrypted secret storage. Separate from field-level encryption. [Reference](/stack/reference/stack/latest/packages/stack/src/types-public) |
-| Error types | `@cipherstash/stack/errors` | `StackError`, `EncryptionErrorTypes`, `getErrorMessage`. [Reference](/stack/reference/stack/latest/packages/stack/src/types-public) |
+| `Encryption(config)` | `@cipherstash/stack` | Factory function. Returns a `Promise<EncryptionClient>`. [Reference](/reference/stack/api-reference) |
+| `EncryptionClient` | `@cipherstash/stack/encryption` | Class with all encrypt/decrypt methods. Obtain via `Encryption()`, not `new`. [Reference](/reference/stack/api-reference) |
+| `encryptedTable` / `encryptedColumn` / `encryptedField` | `@cipherstash/stack/schema` | Schema builders. Define which tables and columns to encrypt, and which search indexes to create. [Reference](/reference/stack/api-reference) |
+| `LockContext` | `@cipherstash/stack/identity` | Identity-aware encryption. Ties an encrypted value to a specific JWT identity. [Reference](/reference/stack/api-reference) |
+| `Secrets` | `@cipherstash/stack/secrets` | End-to-end encrypted secret storage. Separate from field-level encryption. [Reference](/reference/stack/api-reference) |
+| Error types | `@cipherstash/stack/errors` | `StackError`, `EncryptionErrorTypes`, `getErrorMessage`. [Reference](/reference/stack/api-reference) |
 
 ## Adapter packages
 
@@ -75,7 +75,7 @@ Some numeric inputs are invalid for encryption. The following table covers the b
 | `clientKey` | `CS_CLIENT_KEY` | Client key material used for ZeroKMS encryption operations |
 | `keyset` | (none) | Multi-tenant isolation. Specify `{ name: "tenant-a" }` or `{ id: "<uuid>" }` |
 
-See the full type at [EncryptionClientConfig](/stack/reference/stack/latest/packages/stack/src/types-public/type-aliases/EncryptionClientConfig) and [ClientConfig](/stack/reference/stack/latest/packages/stack/src/types-public/type-aliases/ClientConfig).
+See [the generated API reference](/reference/stack/api-reference) for the complete `EncryptionClientConfig` and `ClientConfig` types.
 
 ```typescript filename="init.ts"
 import { Encryption } from "@cipherstash/stack"
@@ -110,7 +110,4 @@ Set `STASH_STACK_LOG` to control log verbosity. The SDK never logs plaintext dat
 
 Everything else is in the auto-generated TypeDoc reference:
 
-- [Encryption module](/stack/reference/stack/latest/packages/stack/src/encryption) — `Encryption()`, `EncryptionClient` class, all methods
-- [Schema module](/stack/reference/stack/latest/packages/stack/src/schema) — `encryptedTable`, `encryptedColumn`, `encryptedField`, type inference helpers
-- [Identity module](/stack/reference/stack/latest/packages/stack/src/identity) — `LockContext`
-- [Types](/stack/reference/stack/latest/packages/stack/src/types-public) — `EncryptionClientConfig`, `ClientConfig`, `EncryptOptions`, `BulkEncryptPayload`, and more
+- [Generated API reference](/reference/stack/api-reference) — encryption, schema, identity, configuration, and error exports

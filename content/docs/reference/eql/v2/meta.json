@@ -1,4 +1,4 @@
 {
   "title": "EQL v2",
-  "pages": ["indexes", "queries", "payload"]
+  "pages": ["index", "indexes", "queries", "payload"]
 }

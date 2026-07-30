@@ -76,7 +76,7 @@ Federation authenticates *as* the user. **Lock context** goes further: it bakes 
 Lock context requires the client to be authenticated with `OidcFederationStrategy` (above). It cannot be used with `AccessKeyStrategy`, which authenticates a *service*, not a user — there is no user `sub` claim to bind to. Lock context also requires a Business or Enterprise workspace plan.
 </Callout>
 
-Attach a lock context to any [`encryptedSupabase`](/reference/stack/supabase) query with `.withLockContext()`. `sub` is the Supabase user's UUID:
+Attach a lock context to any [`encryptedSupabase`](/integrations/supabase/api-reference) query with `.withLockContext()`. `sub` is the Supabase user's UUID:
 
 ```typescript
 import { db } from "./lib/db"
@@ -120,7 +120,7 @@ Both federation and lock context surface failures as values, not throws.
 | Provider not registered with the workspace | Federation fails — register the Supabase OIDC issuer first |
 | Expired or invalid Supabase session | `getJwt` throws / returns no session; federation cannot proceed |
 | CipherStash token expired mid-request | Strategy re-federates automatically via `getJwt` |
-| Decrypting another user's locked value | `encryptionError` on the [query response](/reference/stack/supabase#responses-and-errors) |
+| Decrypting another user's locked value | `encryptionError` on the [query response](/integrations/supabase/supabase-js#responses-and-errors) |
 
 The strategy's own factory and token errors follow the `@cipherstash/auth` `Result` shape (`failure.type`); see the [auth reference](/reference/auth).
 
@@ -133,7 +133,7 @@ The strategy's own factory and token errors follow the `@cipherstash/auth` `Resu
   <Card title="Edge Functions" href="/integrations/supabase/edge-functions">
     Run the federation strategy server-side in Supabase Edge Functions.
   </Card>
-  <Card title="encryptedSupabase reference" href="/reference/stack/supabase">
+  <Card title="encryptedSupabase reference" href="/integrations/supabase/api-reference">
     `.withLockContext()` and `.audit()` on the query builder.
   </Card>
   <Card title="Auth reference" href="/reference/auth">

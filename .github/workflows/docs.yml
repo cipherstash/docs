@@ -42,12 +42,15 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      # The TypeDoc reference under content/stack/reference/stack/latest/ is
-      # gitignored and built from a clone of cipherstash/stack. Roughly 18
-      # links point into it, so without this step they all report as missing.
+      # The TypeDoc references under the V2 integration/reference sections are
+      # gitignored and built from a clone of cipherstash/stack. Links point
+      # into them, so without this step those targets report as missing.
       # `prebuild` generates before validating for the same reason.
       - name: Generate the SDK reference
         run: bun run generate-docs
+
+      - name: Generate the Supabase reference
+        run: bun run generate-docs:supabase
 
       - name: Generate the Prisma reference
         run: bun run generate-docs:prisma

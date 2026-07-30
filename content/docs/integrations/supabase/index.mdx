@@ -22,11 +22,11 @@ Unlike ordinary application-level encryption, protected columns remain queryable
 CipherStash has two parts:
 
 1. [Encrypt Query Language (EQL)](/reference/eql) adds encrypted column types, operators, and functions to your Supabase Postgres database.
-2. [`encryptedSupabase`](/reference/stack/supabase) wraps the Supabase JavaScript client and performs encryption and decryption in your application.
+2. [`encryptedSupabase`](/integrations/supabase/api-reference) wraps the Supabase JavaScript client and performs encryption and decryption in your application.
 
 The EQL type assigned to a column declares what can be queried. For example, an equality column supports `.eq()` and `.in()`, while an ordered column also supports ranges and `.order()`. Choose only the capabilities you need, because searchable encryption has defined leakage characteristics. See [EQL core concepts](/reference/eql/core-concepts) for the complete model.
 
-With EQL 3.0.4, the Supabase wrapper supports encrypted equality, range, and ordering queries. Encrypted free-text and JSON queries require an adapter such as Drizzle or Prisma ORM 8 because PostgREST cannot express the typed operands those operations require. The [wrapper reference](/reference/stack/supabase#free-text-and-json-need-a-different-adapter) documents the limitation.
+With EQL 3.0.4, the Supabase wrapper supports encrypted equality, range, and ordering queries. Encrypted free-text and JSON queries require an adapter such as Drizzle or Prisma ORM 8 because PostgREST cannot express the typed operands those operations require. The [supabase-js guide](/integrations/supabase/supabase-js#free-text-and-encrypted-json-queries) documents the limitation.
 
 ## Choose your path
 
@@ -34,7 +34,7 @@ With EQL 3.0.4, the Supabase wrapper supports encrypted equality, range, and ord
 | --- | --- |
 | Encrypt and query your first Supabase column | [Supabase Quickstart](/integrations/supabase/quickstart) |
 | Use the Supabase JavaScript client | [supabase-js guide](/integrations/supabase/supabase-js) |
-| Look up the complete wrapper API | [`encryptedSupabase` reference](/reference/stack/supabase) |
+| Look up the complete wrapper API | [`encryptedSupabase` API reference](/integrations/supabase/api-reference) |
 | Bind decryption to the signed-in user | [Supabase Auth](/integrations/supabase/auth) |
 | Encrypt inside Supabase Edge Functions | [Edge Functions](/integrations/supabase/edge-functions) |
 | Choose local or deployment credentials | [Workspace credentials](/reference/workspace/configuration#credentials) |

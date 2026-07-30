@@ -40,6 +40,10 @@ export interface DocsConfig {
   router?: "member" | "module";
   /** Write generated module pages into one directory. */
   flattenOutputFiles?: boolean;
+  /** Promote one TypeDoc entry module into the generated root page. */
+  entryModule?: string;
+  /** Synthetic source entry points written into the temporary checkout. */
+  generatedSources?: Record<string, string>;
 }
 
 /**
@@ -213,11 +217,16 @@ export async function generateMetaJson(dir: string): Promise<void> {
   }
 
   const metaPath = path.join(dir, "meta.json");
-  await fs.writeFile(
-    metaPath,
-    `${JSON.stringify({ pages }, null, 2)}\n`,
-    "utf8",
+  await fs.writeFile(metaPath, serializeMetaJson({ pages }), "utf8");
+}
+
+/** Keep generated metadata aligned with Biome's compact single-item arrays. */
+function serializeMetaJson(meta: { title?: string; pages: string[] }): string {
+  const json = JSON.stringify(meta, null, 2).replace(
+    /"pages": \[\n {4}"([^"]+)"\n {2}\]/,
+    '"pages": ["$1"]',
   );
+  return `${json}\n`;
 }
 
 /**
@@ -375,6 +384,17 @@ export async function generateDocsForTag(
   // Create output directory
   await fs.mkdir(outputDir, { recursive: true });
 
+  // A package root named `index.ts` collides with TypeDoc's own `index.mdx`.
+  // Callers can add a synthetic, clearly named re-export module so the root
+  // package surface is documented without changing the source repository.
+  for (const [relativePath, source] of Object.entries(
+    config.generatedSources ?? {},
+  )) {
+    const generatedPath = path.join(workingDir, relativePath);
+    await fs.mkdir(path.dirname(generatedPath), { recursive: true });
+    await fs.writeFile(generatedPath, source, "utf8");
+  }
+
   // Create a custom tsconfig for TypeDoc
   const typedocTsConfig = {
     extends: "./tsconfig.json",
@@ -510,6 +530,7 @@ export async function generateDocsForTag(
     entryFileName: "index",
     router: config.router,
     flattenOutputFiles: config.flattenOutputFiles,
+    entryModule: config.entryModule,
     // Type errors fail the build, deliberately. This was `true` to tolerate
     // "cross-package type references unresolved even though the source is
     // correct" — but that diagnosis was wrong, and tolerating it was not free:
@@ -683,11 +704,7 @@ export async function generateDocs(config: DocsConfig): Promise<void> {
             ...(config.metaTitle ? { title: config.metaTitle } : {}),
             pages: generatedVersions.map(({ dirName }) => dirName),
           };
-    await fs.writeFile(
-      packageMetaPath,
-      `${JSON.stringify(packageMeta, null, 2)}\n`,
-      "utf8",
-    );
+    await fs.writeFile(packageMetaPath, serializeMetaJson(packageMeta), "utf8");
 
     // Clean up temp directory
     console.log("\nCleaning up...");
