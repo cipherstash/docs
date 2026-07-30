@@ -80,12 +80,12 @@ CipherStash moves repeated work into local derivation and supports bulk operatio
 ### AWS KMS is usually the better fit when
 
 - you are encrypting AWS infrastructure such as S3 objects, EBS volumes, or service-managed resources;
-- conventional envelope encryption satisfies the required trust model;
 - AWS IAM, CloudTrail, and regional KMS controls are already the operational standard; or
 - the application does not need to query encrypted fields.
 
 ### CipherStash is usually the better fit when
 
+- performance is a primary requirement: ZeroKMS batches the server-side work and derives per-value keys locally, avoiding one KMS network operation per value;
 - individual application values need independent keys;
 - the key service must not be capable of decrypting data by itself;
 - encrypted PostgreSQL fields still need equality, range, ordering, or fuzzy-match queries;
