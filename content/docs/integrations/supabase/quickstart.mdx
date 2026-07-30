@@ -9,7 +9,7 @@ integration:
   setup: dashboard-required
   pairsWith: [drizzle, prisma-next, clerk]
 verifiedAgainst:
-  eql: "3.0.2"
+  eql: "3.0.4"
   stack: "1.0.0"
 ---
 
@@ -290,7 +290,7 @@ const { data: recent } = await db
 **Keep the dual-writes.** That's what makes this deploy reversible: if reads misbehave, reverting the code returns you to plaintext reads with both columns still correct.
 
 <Callout type="warn">
-**Free-text search is not available through this wrapper on EQL 3.0.2+.** `.matches()` — and `.like()` / `.ilike()`, which delegate to it — raise, because the operator needs an `eql_v3.query_*` operand that PostgREST cannot express. Encrypted-JSON queries are unavailable for the same reason. Equality, ordering, and range all work, as shown above. For encrypted free-text, use the [Drizzle](/integrations/drizzle) or [Prisma Next](/integrations/prisma-next) adapter for that query, or a scoped SQL/RPC function. Full detail in the [wrapper reference](/reference/stack/supabase#free-text-and-json-need-a-different-adapter).
+**Free-text search is not available through this wrapper with the current EQL 3.0.4 release.** `.matches()` — and `.like()` / `.ilike()`, which delegate to it — raise, because the operator needs an `eql_v3.query_*` operand that PostgREST cannot express. Encrypted-JSON queries are unavailable for the same reason. Equality, ordering, and range all work, as shown above. For encrypted free-text, use the [Drizzle](/integrations/drizzle) or [Prisma Next](/integrations/prisma-next) adapter for that query, or a scoped SQL/RPC function. Full detail in the [wrapper reference](/reference/stack/supabase#free-text-and-json-need-a-different-adapter).
 </Callout>
 
 The full method surface, including filters, upserts, error shapes, and identity-locked queries, is in the [`encryptedSupabase` reference](/reference/stack/supabase).

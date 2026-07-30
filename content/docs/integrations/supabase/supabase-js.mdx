@@ -10,7 +10,7 @@ integration:
   pairsWith: [supabase]
 verifiedAgainst:
   stack: "1.0.0"
-  eql: "3.0.2"
+  eql: "3.0.4"
 ---
 
 `encryptedSupabase` wraps a [`@supabase/supabase-js`](https://supabase.com/docs/reference/javascript/introduction) client. It encrypts values before mutations leave your application, encrypts query operands for searchable columns, and decrypts selected rows before returning them. Plaintext columns pass through unchanged.
@@ -156,7 +156,7 @@ The EQL domain on each encrypted column determines which filters it accepts:
 | `.gt()`, `.gte()`, `.lt()`, `.lte()` | `_ord` or `text_search` | Compares encrypted ordering terms |
 | `.is(column, null)` | Any column | Passes SQL `NULL` through without encryption |
 | `.match()`, `.or()`, `.not()`, `.filter()` | Depends on the operator | Encrypts operands for encrypted columns |
-| `.contains()` | Plaintext JSON or array only on EQL 3.0.2 | Uses native PostgREST containment |
+| `.contains()` | Plaintext JSON or array | Uses native PostgREST containment |
 
 Encrypted and plaintext predicates compose in the same query:
 
@@ -190,7 +190,7 @@ Storage-only, equality-only, and match-only encrypted columns cannot be ordered.
 ## Free-text and encrypted JSON queries
 
 <Callout type="warn">
-**EQL 3.0.2 cannot run encrypted free-text or encrypted JSON queries through supabase-js.** `.matches()`, encrypted `.contains()`, `.selectorEq()`, and `.selectorNe()` fail before a request is sent. Their SQL operators require an `eql_v3.query_*` cast that PostgREST cannot express.
+**The current EQL 3.0.4 release cannot run encrypted free-text or encrypted JSON queries through supabase-js.** `.matches()`, encrypted `.contains()`, `.selectorEq()`, and `.selectorNe()` fail before a request is sent. Their SQL operators require an `eql_v3.query_*` cast that PostgREST cannot express. This PostgREST boundary was introduced in EQL 3.0.2 and remains in 3.0.4, which is why the runtime error describes it as `3.0.2+`.
 
 Inserts, selects, decryption, equality, ranges, and ordering are unaffected. Use [Drizzle](/integrations/drizzle), [Prisma Next](/integrations/prisma-next), or a carefully scoped SQL/RPC function for free-text and encrypted JSON queries.
 </Callout>

@@ -9,7 +9,7 @@ integration:
   setup: dashboard-required
   pairsWith: [drizzle, prisma-next, clerk]
 verifiedAgainst:
-  eql: "3.0.2"
+  eql: "3.0.4"
   stack: "1.0.0"
 ---
 
@@ -38,7 +38,7 @@ Each protected column is declared with an EQL domain type whose name states what
 
 Declare only the capabilities you use: every extra capability stores extra searchable material with defined leakage — see [Searchable encryption](/concepts/searchable-encryption).
 
-Those are the column's capabilities in the database. Two of them are not reachable through supabase-js on EQL 3.0.2+ — free-text match and encrypted JSON both need an operand cast PostgREST cannot express — so if you plan to query either, read [that constraint](/reference/stack/supabase#free-text-and-json-need-a-different-adapter) before choosing the type. Equality and ordering are unaffected.
+Those are the column's capabilities in the database. Two of them are not reachable through supabase-js with the current EQL 3.0.4 release — free-text match and encrypted JSON both need an operand cast PostgREST cannot express — so if you plan to query either, read [that constraint](/reference/stack/supabase#free-text-and-json-need-a-different-adapter) before choosing the type. Equality and ordering are unaffected.
 
 ## Installing EQL
 
