@@ -5,6 +5,7 @@
     "index",
     "quickstart",
     "schema-and-queries",
+    "api-reference",
     "deployment",
     "prisma-postgres",
     "prisma-compute"
