@@ -12,31 +12,31 @@ const options = [
     title: "Developer profile",
     useFor: "Local development",
     icon: Laptop,
-    content: (
+    action: (
       <>
-        Run <code>npx stash auth login</code>. The native Stack client finds the
-        resulting developer profile automatically, so you do not need
-        environment variables on your development machine.
+        Run <code>npx stash auth login</code>.
       </>
     ),
+    description:
+      "The native Stack client uses the developer profile automatically.",
   },
   {
     title: "stash env",
-    useFor: "CI and deployed environments",
+    useFor: "CI and Deployment",
     icon: Terminal,
-    content: (
+    action: (
       <>
-        Run <code>npx stash env --name &lt;app-env&gt;</code> while logged in.
-        It creates a client and prints the four environment variables below. The
-        access key is shown only once.
+        Run <code>npx stash env --name &lt;app-env&gt;</code>.
       </>
     ),
+    description:
+      "Creates a client and prints the four variables below. The access key is shown once.",
   },
   {
     title: "Dashboard",
-    useFor: "CI and deployed environments",
+    useFor: "CI and Deployment",
     icon: LayoutDashboard,
-    content: (
+    action: (
       <>
         Open your{" "}
         <a
@@ -51,10 +51,10 @@ const options = [
             aria-label="Opens in a new tab"
           />
         </a>{" "}
-        and create deployment credentials there. Add the resulting values to
-        your platform&apos;s secret store.
+        and create deployment credentials.
       </>
     ),
+    description: "Save the values in your platform’s secret store.",
   },
 ] as const;
 
@@ -77,26 +77,31 @@ export function CipherStashCredentials() {
       </div>
 
       <ol className="grid divide-y md:grid-cols-3 md:divide-x md:divide-y-0">
-        {options.map(({ title, useFor, icon: Icon, content }, index) => (
-          <li key={title} className="p-5">
-            <div className="flex items-start gap-3">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-fd-primary/10 text-fd-primary">
-                <Icon className="size-4" aria-hidden="true" />
-              </span>
-              <div>
-                <p className="font-medium text-fd-foreground">
-                  {index + 1}. {title}
-                </p>
-                <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-fd-muted-foreground">
-                  {useFor}
-                </p>
+        {options.map(
+          ({ title, useFor, icon: Icon, action, description }, index) => (
+            <li key={title} className="p-5">
+              <div className="flex items-start gap-3">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-fd-primary/10 text-fd-primary">
+                  <Icon className="size-4" aria-hidden="true" />
+                </span>
+                <div>
+                  <p className="font-medium text-fd-foreground">
+                    {index + 1}. {title}
+                  </p>
+                  <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-fd-muted-foreground">
+                    {useFor}
+                  </p>
+                </div>
               </div>
-            </div>
-            <p className="mt-3 text-sm leading-relaxed text-fd-muted-foreground [&_code]:text-fd-foreground">
-              {content}
-            </p>
-          </li>
-        ))}
+              <p className="mt-3 text-sm leading-relaxed text-fd-foreground">
+                {action}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-fd-muted-foreground">
+                {description}
+              </p>
+            </li>
+          ),
+        )}
       </ol>
 
       <div className="border-t px-5 py-4">
