@@ -7,6 +7,7 @@
     "schema-and-queries",
     "deployment",
     "prisma-postgres",
-    "prisma-compute"
+    "prisma-compute",
+    "api-reference"
   ]
 }

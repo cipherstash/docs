@@ -36,6 +36,7 @@ import path from "node:path";
 const SKIP_PATHS = [
   "content/stack/reference/stack/", // TypeDoc output
   "content/docs/reference/stack/", // TypeDoc output (post-repoint)
+  "content/docs/integrations/prisma/api-reference/", // TypeDoc output
   "content/stack/reference/eql/index.mdx", // generated EQL API reference
   "content/docs/reference/eql/functions.mdx", // generated
   "content/docs/reference/cli/", // generated from `stash manifest --json`

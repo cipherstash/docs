@@ -22,6 +22,24 @@ export interface DocsConfig {
   tagFilter: (tag: string) => boolean;
   /** Reference URL path segment (e.g., 'stack' or 'drizzle') */
   referencePathSegment: string;
+  /** Generate from a branch or commit instead of selecting a release tag. */
+  sourceRef?: string;
+  /** Public route before the generated version directory. */
+  publicPath?: string;
+  /** Navigation title written to the package-level meta.json. */
+  metaTitle?: string;
+  /** TypeDoc project name. */
+  projectName?: string;
+  /** Additional frontmatter added to every generated page. */
+  frontmatterGlobals?: Record<string, unknown>;
+  /** Generate directly into baseOutputDir instead of a latest/version folder. */
+  versionedOutput?: boolean;
+  /** Base path TypeDoc uses to name entry-point modules. */
+  entryPointBasePath?: string;
+  /** TypeDoc Markdown output router. */
+  router?: "member" | "module";
+  /** Write generated module pages into one directory. */
+  flattenOutputFiles?: boolean;
 }
 
 /**
@@ -31,6 +49,95 @@ export interface VersionInfo {
   major: number;
   minor: number;
   patch: number;
+}
+
+/**
+ * Keep inline code spans on one physical line.
+ *
+ * TSDoc comments are commonly wrapped at a fixed width, including in the
+ * middle of a backtick span. Markdown permits that, but MDX can reinterpret a
+ * `{ ... }` on the continuation line as an expression inside its surrounding
+ * list or blockquote container. Fenced code blocks are deliberately excluded.
+ */
+function collapseMultilineInlineCode(content: string): string {
+  // TypeDoc's frontmatter plugin can truncate a summary midway through an
+  // inline-code span. Never pair that unmatched backtick with one in the MDX
+  // body: frontmatter is YAML and does not need Markdown normalization.
+  const frontmatter = content.match(/^---\n[\s\S]*?\n---\n?/)?.[0] ?? "";
+  const lines = content.slice(frontmatter.length).split("\n");
+  const output: string[] = [];
+  let prose: string[] = [];
+  let fence: { character: string; length: number } | undefined;
+
+  const collapseProse = () => {
+    if (prose.length === 0) return;
+    const block = prose.join("\n");
+    let result = "";
+    let cursor = 0;
+
+    while (cursor < block.length) {
+      const start = block.indexOf("`", cursor);
+      if (start === -1) {
+        result += block.slice(cursor);
+        break;
+      }
+
+      let openingLength = 1;
+      while (block[start + openingLength] === "`") openingLength += 1;
+      result += block.slice(cursor, start + openingLength);
+      cursor = start + openingLength;
+
+      let closing = cursor;
+      while (closing < block.length) {
+        closing = block.indexOf("`", closing);
+        if (closing === -1) break;
+        let closingLength = 1;
+        while (block[closing + closingLength] === "`") closingLength += 1;
+        if (closingLength === openingLength) break;
+        closing += closingLength;
+      }
+
+      if (closing === -1) {
+        result += block.slice(cursor);
+        cursor = block.length;
+        break;
+      }
+
+      const body = block.slice(cursor, closing);
+      result += body.includes("\n")
+        ? body.replace(/[ \t]*\n[ \t]*/g, " ")
+        : body;
+      result += "`".repeat(openingLength);
+      cursor = closing + openingLength;
+    }
+
+    output.push(...result.split("\n"));
+    prose = [];
+  };
+
+  for (const line of lines) {
+    const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    const marker = match?.[1];
+    if (!fence && marker) {
+      collapseProse();
+      output.push(line);
+      fence = { character: marker[0] ?? "", length: marker.length };
+    } else if (fence) {
+      output.push(line);
+      if (
+        marker?.[0] === fence.character &&
+        marker.length >= fence.length &&
+        match?.[2]?.trim() === ""
+      ) {
+        fence = undefined;
+      }
+    } else {
+      prose.push(line);
+    }
+  }
+  collapseProse();
+
+  return `${frontmatter}${output.join("\n")}`;
 }
 
 /**
@@ -57,6 +164,7 @@ export async function stripMdxExtensions(dir: string): Promise<void> {
       await stripMdxExtensions(fullPath);
     } else if (entry.isFile() && entry.name.endsWith(".mdx")) {
       let content = await fs.readFile(fullPath, "utf8");
+      content = collapseMultilineInlineCode(content);
       content = content.replace(/\]\(([^)#]+)\.mdx([#)])/g, "]($1$2");
       content = content.replace(
         /\]\(\/docs\/reference\//g,
@@ -66,6 +174,9 @@ export async function stripMdxExtensions(dir: string): Promise<void> {
       // TypeDoc generates links to index pages (e.g., ../index or /stack/.../index)
       // but Fumadocs serves index.mdx at the directory URL without /index.
       content = content.replace(/\]\(([^)#]*)\/index([#)])/g, "]($1$2");
+      // A flattened module sits beside the root index and links back to it as
+      // `(index)`, without a preceding slash for the rule above to match.
+      content = content.replace(/\]\(index([#)])/g, "](./$1");
       // Strip temp directory prefix from source link text (e.g., .tmp-stack/)
       // Matches: [.tmp-stack/packages/...](url) → [packages/...](url)
       content = content.replace(/\[\.tmp-[^/]+\//g, "[");
@@ -102,7 +213,11 @@ export async function generateMetaJson(dir: string): Promise<void> {
   }
 
   const metaPath = path.join(dir, "meta.json");
-  await fs.writeFile(metaPath, JSON.stringify({ pages }, null, 2), "utf8");
+  await fs.writeFile(
+    metaPath,
+    `${JSON.stringify({ pages }, null, 2)}\n`,
+    "utf8",
+  );
 }
 
 /**
@@ -223,12 +338,16 @@ export async function generateDocsForTag(
   const versionString = version
     ? `v${version.major}.${version.minor}.${version.patch}`
     : tag;
-  const dirName = isLatest ? "latest" : versionString;
-  const outputDir = path.join(config.baseOutputDir, dirName);
+  const dirName =
+    config.versionedOutput === false ? "" : isLatest ? "latest" : versionString;
+  const outputDir = dirName
+    ? path.join(config.baseOutputDir, dirName)
+    : config.baseOutputDir;
+  const displayDirName = dirName || "unversioned API reference";
 
   console.log(`\n${"=".repeat(60)}`);
   console.log(
-    `Generating docs for ${dirName}${isLatest ? ` (${versionString})` : ""}`,
+    `Generating docs for ${displayDirName}${isLatest ? ` (${versionString})` : ""}`,
   );
   console.log("=".repeat(60));
 
@@ -296,9 +415,12 @@ export async function generateDocsForTag(
 
   // Create TypeDoc configuration
   const typedocConfig = {
+    name: config.projectName,
     entryPoints: config.entryPoints,
     tsconfig: "./typedoc.tsconfig.json",
-    basePath: workingDir,
+    basePath: config.entryPointBasePath
+      ? path.join(workingDir, config.entryPointBasePath)
+      : workingDir,
     plugin: [
       "typedoc-plugin-markdown",
       "typedoc-plugin-frontmatter",
@@ -308,6 +430,7 @@ export async function generateDocsForTag(
     readme: "none",
     frontmatterGlobals: {
       packageVersion: versionString,
+      ...config.frontmatterGlobals,
     },
     frontmatterCommentTags: ["author", "description"],
     githubPages: false,
@@ -385,6 +508,8 @@ export async function generateDocsForTag(
     sanitizeComments: true,
     fileExtension: ".mdx",
     entryFileName: "index",
+    router: config.router,
+    flattenOutputFiles: config.flattenOutputFiles,
     // Type errors fail the build, deliberately. This was `true` to tolerate
     // "cross-package type references unresolved even though the source is
     // correct" — but that diagnosis was wrong, and tolerating it was not free:
@@ -403,7 +528,7 @@ export async function generateDocsForTag(
       "Variable",
       "Enum",
     ],
-    publicPath: `/stack/reference/${config.referencePathSegment}/${dirName}/`,
+    publicPath: `${(config.publicPath ?? `/stack/reference/${config.referencePathSegment}`).replace(/\/$/, "")}${dirName ? `/${dirName}` : ""}/`,
   };
 
   const configPath = path.join(workingDir, "typedoc.json");
@@ -426,7 +551,7 @@ export async function generateDocsForTag(
   console.log("Generating meta.json files...");
   await generateMetaJson(outputDir);
 
-  console.log(`Docs for ${dirName} generated successfully!`);
+  console.log(`Docs for ${displayDirName} generated successfully!`);
   console.log(`Output directory: ${outputDir}`);
 
   return { dirName, versionString, isLatest };
@@ -475,27 +600,34 @@ export async function generateDocs(config: DocsConfig): Promise<void> {
       });
       workingDir = tempDir;
 
-      console.log("Fetching all tags...");
-      execSync("git fetch --tags", { cwd: workingDir, stdio: "inherit" });
+      if (config.sourceRef) {
+        allTags = [config.sourceRef];
+        console.log(`Using source ref ${config.sourceRef}`);
+      } else {
+        console.log("Fetching all tags...");
+        execSync("git fetch --tags", { cwd: workingDir, stdio: "inherit" });
 
-      allTags = execSync("git tag --sort=-v:refname", {
-        cwd: workingDir,
-        encoding: "utf8",
-      })
-        .trim()
-        .split("\n");
+        allTags = execSync("git tag --sort=-v:refname", {
+          cwd: workingDir,
+          encoding: "utf8",
+        })
+          .trim()
+          .split("\n");
 
-      if (allTags.length === 0 || allTags[0] === "") {
-        throw new Error(`No tags found in ${config.packageName} repository`);
+        if (allTags.length === 0 || allTags[0] === "") {
+          throw new Error(`No tags found in ${config.packageName} repository`);
+        }
+
+        console.log(`Found ${allTags.length} tags`);
       }
-
-      console.log(`Found ${allTags.length} tags`);
     }
 
     // Determine which versions to generate
     const versionsToGenerate = localPath
       ? [{ tag: "local-dev", isLatest: true }]
-      : getVersionsToGenerate(allTags, config.tagFilter);
+      : config.sourceRef
+        ? [{ tag: config.sourceRef, isLatest: true }]
+        : getVersionsToGenerate(allTags, config.tagFilter);
 
     if (!localPath && versionsToGenerate.length === 0) {
       throw new Error(
@@ -511,12 +643,17 @@ export async function generateDocs(config: DocsConfig): Promise<void> {
     // Clean existing generated output (preserve hand-authored files)
     for (const { tag, isLatest } of versionsToGenerate) {
       const version = parseVersion(tag);
-      const dirName = isLatest
-        ? "latest"
-        : version
-          ? `v${version.major}.${version.minor}.${version.patch}`
-          : tag;
-      const versionDir = path.join(config.baseOutputDir, dirName);
+      const dirName =
+        config.versionedOutput === false
+          ? ""
+          : isLatest
+            ? "latest"
+            : version
+              ? `v${version.major}.${version.minor}.${version.patch}`
+              : tag;
+      const versionDir = dirName
+        ? path.join(config.baseOutputDir, dirName)
+        : config.baseOutputDir;
       await fs.rm(versionDir, { recursive: true, force: true });
     }
 
@@ -533,14 +670,22 @@ export async function generateDocs(config: DocsConfig): Promise<void> {
       generatedVersions.push(versionInfo);
     }
 
-    // Generate a meta.json for the package directory listing versions
+    // Generate package-level navigation. An unversioned reference already has
+    // a complete meta.json from generateMetaJson; preserve its page list.
     const packageMetaPath = path.join(config.baseOutputDir, "meta.json");
-    const packageMeta = {
-      pages: generatedVersions.map(({ dirName }) => dirName),
-    };
+    const packageMeta =
+      config.versionedOutput === false
+        ? {
+            ...(config.metaTitle ? { title: config.metaTitle } : {}),
+            ...JSON.parse(await fs.readFile(packageMetaPath, "utf8")),
+          }
+        : {
+            ...(config.metaTitle ? { title: config.metaTitle } : {}),
+            pages: generatedVersions.map(({ dirName }) => dirName),
+          };
     await fs.writeFile(
       packageMetaPath,
-      JSON.stringify(packageMeta, null, 2),
+      `${JSON.stringify(packageMeta, null, 2)}\n`,
       "utf8",
     );
 

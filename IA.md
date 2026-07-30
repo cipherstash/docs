@@ -309,7 +309,7 @@ Two notes:
 - [ ] ⛔ `/integrations/supabase/edge-functions` — pending Deno/FFI answer
 - [ ] ⛔ `/integrations/supabase/realtime` — pending product verification
 - [x] `/integrations/drizzle`
-- [x] `/integrations/prisma` — Prisma ORM 8 RC, EQL v3, Prisma Postgres, and Prisma Compute
+- [x] `/integrations/prisma` — Prisma ORM 8 RC, EQL v3, Prisma Postgres, Prisma Compute, and generated API reference
 - [ ] `/integrations/aws/rds-aurora` — Proxy path
 - [ ] `/integrations/aws/dynamodb`
 - [ ] `/integrations/clerk`

@@ -358,7 +358,10 @@ allBroken.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
  * every link into those pages looks broken — say so rather than let a hundred
  * spurious errors imply the docs are falling apart.
  */
-const GENERATED = ["content/stack/reference/stack/latest"];
+const GENERATED = [
+  "content/stack/reference/stack/latest",
+  "content/docs/integrations/prisma/api-reference/index.mdx",
+];
 const missing = GENERATED.filter((d) => !fs.existsSync(path.join(ROOT, d)));
 
 console.log(
@@ -369,8 +372,8 @@ console.log(
 if (missing.length > 0) {
   console.log(
     `\n! Generated API pages are absent (${missing.join(", ")}), so links into\n` +
-      "  them will be reported as missing. Run `bun run generate-docs` first —\n" +
-      "  `prebuild` does, which is why CI does not hit this.",
+      "  them will be reported as missing. Run the matching `generate-docs:*`\n" +
+      "  task first; `prebuild` and the links workflow do this automatically.",
   );
 }
 

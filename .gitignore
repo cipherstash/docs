@@ -37,6 +37,8 @@ content/stack/reference/stack/latest/
 content/stack/reference/stack/v*/
 content/stack/reference/drizzle/latest/
 content/stack/reference/drizzle/v*/
+content/docs/integrations/prisma/api-reference/*
+!content/docs/integrations/prisma/api-reference/meta.json
 .tmp-*
 .env.local
 
