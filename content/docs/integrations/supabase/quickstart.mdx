@@ -1,122 +1,102 @@
 ---
 title: Quickstart
-description: "Encrypt two sensitive columns on a Supabase table that already holds live data: add encrypted mirror columns, dual-write, backfill, and cut reads over — without downtime or data loss."
+description: "Encrypt, store, and query your first field in Supabase with EQL and the encrypted Supabase JavaScript client."
 type: tutorial
 components: [encryption, eql, platform]
 audience: [developer]
 integration:
   category: platform
-  setup: dashboard-required
+  setup: code-only
   pairsWith: [drizzle, prisma-next, clerk]
 verifiedAgainst:
   eql: "3.0.4"
   stack: "1.0.0"
 ---
 
-This tutorial takes a Supabase table that already exists, already holds real rows, and stores sensitive data in plaintext — and converts two of its columns to searchable encryption without downtime or data loss. It takes about twenty minutes. For what CipherStash is and why you'd add it, start with the [overview](/integrations/supabase).
+This tutorial creates a Supabase table with one encrypted column, writes a value through the Supabase JavaScript client, and queries it without sending plaintext to Postgres.
 
-## The starting point
+It is designed for a new table or an empty column. If the column already contains production data, use [Encrypt existing data](/guides/migration/encrypt-existing-data) instead.
 
-A `patients` table, entirely in plaintext, with rows in it:
+## Before you start
 
-```sql
-CREATE TABLE patients (
-    id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email         text NOT NULL,
-    name          text,
-    date_of_birth date,
-    plan          text
-);
-```
+You need:
 
-We'll encrypt **`name`** and **`date_of_birth`** — the two fields that identify a patient. `email` stays plaintext for now (the same recipe applies to it later), and `plan` isn't sensitive, so it stays an ordinary column forever.
-
-## How it fits together
-
-To use searchable encryption in Supabase, 2 components are required:
-
-- **[EQL](/reference/eql)** defines the encrypted types and installs into your Supabase database
-- **[`@cipherstash/stack`](/reference/stack)** runs in your application and encrypts data and queries before sending to the database.
-
-Because ciphertext can only be produced by your application — no `UPDATE` and no database function can encrypt an existing row — a populated column can't be swapped for an encrypted one in a single step. Instead, each column gets an **encrypted mirror** that is filled in alongside the plaintext original, and only once every row has a ciphertext twin do reads move over:
-
-```
- DEPLOY 1                      out-of-band                DEPLOY 2                  follow-up
- ────────────                  ───────────                ─────────────             ──────────
- + encrypted mirrors           backfill historical        reads → mirrors           drop plaintext
- + dual-write everywhere       rows, build indexes        dual-writes stay          columns
- reads unchanged
-        │                            ▲                          ▲
-        └── ⛔ dual-writes must be ──┘        ⛔ soak, verify ───┘
-            live in the deployed
-            environment first
-```
-
-The plaintext columns stay authoritative — and stay populated — the whole way through. Nothing in this tutorial is irreversible.
-
-<Callout type="idea">
-**Starting from scratch instead?** On a table with no data, skip the ladder entirely: declare the columns as EQL types in the `CREATE TABLE` (`name public.eql_v3_text_eq`, `date_of_birth public.eql_v3_date_ord`), then jump to [Wrap your Supabase client](#wrap-your-supabase-client). Steps 4 through 7 exist only to protect data that already exists.
-</Callout>
+- A Supabase project and its database connection string
+- A Node.js project
+- A CipherStash account; the setup flow signs you in
 
 <Steps>
 <Step>
 
-### Install EQL on your database
+### Initialize CipherStash
 
-Point `DATABASE_URL` at your Supabase project, then install EQL with the `stash` CLI:
+Add your Supabase settings to the project's environment:
 
-```bash cta cta-type="install" example-id="supabase-quickstart-eql-install"
-npx stash eql install
-```
-
-It detects Supabase from the connection string, needs no superuser, and completes in seconds, creating the `eql_v3` schema for functions and operators, and the encrypted column types in `public`. Then grant your Supabase roles access:
-
-```sql
-GRANT USAGE ON SCHEMA eql_v3 TO anon, authenticated, service_role;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA eql_v3 TO anon, authenticated, service_role;
-```
-
-The install targets EQL v3 by default. The [overview](/integrations/supabase#installing-eql) covers the rest, including why a v3 install does not survive `supabase db reset`.
-
-This step is additive and touches none of your tables, so ship it early — on its own if you like. Nothing depends on encryption yet, so a credential or connectivity problem surfaces while it's cheap.
-
-</Step>
-<Step>
-
-### Install the SDK and connect your workspace
-
-```sh
-npm install @cipherstash/stack @cipherstash/stack-supabase @supabase/supabase-js
-```
-
-Sign up at [dashboard.cipherstash.com](https://dashboard.cipherstash.com), create a workspace, and set its credentials alongside your Supabase keys. `DATABASE_URL` is your project's Postgres connection string, which the wrapper uses to introspect your encrypted columns:
-
-```sh
-CS_WORKSPACE_CRN=...
-CS_CLIENT_ID=...
-CS_CLIENT_KEY=...
-CS_CLIENT_ACCESS_KEY=...
+```sh title=".env"
 SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_ANON_KEY=...
 DATABASE_URL=postgresql://postgres:...@db.<project-ref>.supabase.co:5432/postgres
 ```
 
-Mint one set of credentials per environment with `npx stash env --name patients-prod`. The access key is shown once, so pipe it straight into your platform's secret store.
+Then run the Supabase setup flow:
 
-<Callout type="warn">
-**These are usually needed at build time, not just run time.** If your encrypted client is constructed at module load — the `lib/db.ts` singleton below does exactly that — then any build step that imports it authenticates during the build, and a build without `CS_*` fails with `Not authenticated`. Local builds hide this, because your `~/.cipherstash` device profile authenticates silently.
-</Callout>
+```bash cta cta-type="install" example-id="supabase-quickstart-eql-install"
+npx stash init --supabase
+```
+
+`stash init`:
+
+- Opens the CipherStash device login if you do not already have a developer profile
+- Resolves the database configuration
+- Installs compatible, pinned versions of `@cipherstash/stack`, `@cipherstash/stack-supabase`, and the `stash` CLI
+- Installs EQL v3 with the grants required by Supabase's `anon`, `authenticated`, and `service_role` roles
+- Scaffolds the encryption client and records context for coding agents
+
+If the command generates a Supabase migration instead of applying EQL directly, run the apply command it prints before continuing. Confirm that EQL is available with:
+
+```bash
+npx stash eql status
+```
+
+The native Stack client automatically uses the developer profile created by this login. You do not need `CS_*` machine credentials for local development; those are for deployed environments.
 
 <Callout type="idea">
-**Good to know**: the CipherStash dashboard's Supabase integration can generate this whole block for you. It connects to your project over OAuth, runs readiness checks, and emits the `CS_*` credentials. It's optional; the manual block above works everywhere. See [Overview → Connecting your project](/integrations/supabase#connecting-your-project-to-cipherstash).
+**Using an agent?** An agent can drive the same setup. If no developer profile exists, it should start `npx stash auth login --json --region <region> --supabase`, show you the returned verification URL, and leave the command running until authorization completes. It can then run `npx stash init --supabase --region <region>`.
+
+At the end of interactive initialization, you can continue into `stash plan`. Choosing Codex or Claude Code installs the Supabase-specific CipherStash skills into the agent's project directory; editor agents receive the same guidance through `AGENTS.md`. The skills cover Supabase, authentication, EQL indexes, deployment, and the CLI, giving the agent the context needed to plan and implement encryption changes safely.
 </Callout>
 
 </Step>
 <Step>
 
-### Wrap your Supabase client
+### Create an encrypted column
 
-There is no schema to declare. `encryptedSupabase` introspects the database over `DATABASE_URL`, finds the columns typed as EQL domains, and derives each one's encryption config from its type. Plain `text` and `date` columns pass through untouched, so wrapping the client changes nothing until encrypted columns exist.
+Run this in the Supabase SQL Editor or add it to a new migration:
+
+```sql
+CREATE TABLE contacts (
+    id           bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email        public.eql_v3_text_eq NOT NULL,
+    display_name text
+);
+```
+
+`email` is an EQL equality column, so it can be stored, decrypted, and queried with methods such as `.eq()` and `.in()`. `display_name` is ordinary plaintext and passes through unchanged.
+
+The column type is the encryption schema. There is no separate application declaration to keep synchronized. For other data types and query capabilities, see [EQL core concepts](/reference/eql/core-concepts).
+
+</Step>
+<Step>
+
+### Create the encrypted Supabase client
+
+`stash init` installed the CipherStash packages. If this project does not already use the Supabase JavaScript client, install it:
+
+```bash
+npm install @supabase/supabase-js
+```
+
+Create a client:
 
 ```typescript title="lib/db.ts"
 import { encryptedSupabase } from "@cipherstash/stack-supabase"
@@ -127,238 +107,59 @@ export const db = await encryptedSupabase(
 )
 ```
 
-Swap your existing `createClient` for this and deploy it. Every query keeps working exactly as before.
+At startup, `encryptedSupabase` uses `DATABASE_URL` to inspect the database and recognize `contacts.email` as encrypted. Plaintext tables and columns continue to behave normally.
 
 </Step>
 <Step>
 
-### Add the encrypted mirror columns
+### Insert and query a value
 
-Now the first real change. Generate a migration:
+Write plaintext application values as usual:
 
-```bash
-supabase migration new add_patients_encrypted_columns
+```typescript
+import { db } from "./lib/db"
+
+const { error: insertError } = await db.from("contacts").insert({
+  email: "alice@example.com",
+  display_name: "Alice",
+})
+
+if (insertError) throw insertError
 ```
 
-Add one mirror column per plaintext column. The type declares what the column can do — equality lookups, free-text matching, and range or ordering queries are different capabilities, and each one stores an extra index term alongside the ciphertext, so declare only what you query:
+The wrapper encrypts `email` before it leaves the application. It then encrypts the filter value when you query the column and decrypts the matching result:
 
-```sql title="supabase/migrations/<timestamp>_add_patients_encrypted_columns.sql"
-ALTER TABLE patients
-    ADD COLUMN name_encrypted          public.eql_v3_text_eq,   -- exact lookup
-    ADD COLUMN date_of_birth_encrypted public.eql_v3_date_ord;  -- ranges and ORDER BY
+```typescript
+const { data, error } = await db
+  .from("contacts")
+  .select("id, email, display_name")
+  .eq("email", "alice@example.com")
+  .single()
+
+if (error) throw error
+
+console.log(data)
+// { id: 1, email: "alice@example.com", display_name: "Alice" }
 ```
 
-Two things about that SQL matter:
-
-- **Both columns are nullable.** Mandatory — every existing row has no ciphertext yet. `NOT NULL` here fails the migration, or (worse) succeeds against an empty local database and fails in production.
-- **The names end in `_encrypted`.** That's the convention `stash encrypt backfill` resolves by default, so `--encrypted-column` isn't needed later.
-
-Apply it with `supabase db reset` locally or `supabase migration up` against the remote project. The plaintext columns are untouched, and nothing reads the new ones yet.
-
-<Callout type="info">
-`name` is a natural candidate for free-text search, but `.matches()` isn't reachable through the supabase-js wrapper (see the callout in step 8), so this tutorial types it `eql_v3_text_eq` for exact lookup. If you need encrypted free-text on `name`, type it `public.eql_v3_text_match` and query it through the [Drizzle](/integrations/drizzle) or [Prisma Next](/integrations/prisma-next) adapter. Which type fits which column is covered by the [EQL type pages](/reference/eql/core-concepts).
-
-Supabase also runs the EQL installer as a non-superuser, so the ORE-backed domains (`_ord_ore`, `text_search_ore`) are disabled and raise if you use them. Use `_ord` and `text_search`, which order under Postgres's default btree operator class. See [SEM specifiers](/reference/eql/core-concepts#sem-specifiers).
-</Callout>
+Supabase Row Level Security still applies because the wrapper sends the request through the Supabase client. Add policies just as you would for an unencrypted table.
 
 </Step>
 <Step>
 
-### Dual-write to both columns
+### Confirm that Supabase sees ciphertext
 
-This ships in the **same PR and the same deploy** as the migration above. It changes what your application *writes*; it does not change what it reads.
+Open `contacts` in the Supabase Table Editor. The `email` cell contains an EQL ciphertext payload, while `display_name` remains readable.
 
-Every path that writes `name` or `date_of_birth` now writes the mirror too, in the same statement. The wrapper encrypts the mirror automatically — it's an EQL domain column — while the plaintext column passes through unchanged:
-
-```typescript title="lib/patients.ts"
-import { db } from "./db"
-
-export async function createPatient(input: {
-  email: string
-  name: string
-  dateOfBirth: string
-  plan: string
-}) {
-  return db.from("patients").insert({
-    email: input.email,
-    name: input.name,                             // plaintext — keep writing it
-    name_encrypted: input.name,                   // encrypted mirror
-    date_of_birth: input.dateOfBirth,             // plaintext — keep writing it
-    date_of_birth_encrypted: input.dateOfBirth,   // encrypted mirror
-    plan: input.plan,
-  })
-}
-
-export async function updatePatientName(id: number, name: string) {
-  return db.from("patients").update({
-    name,
-    name_encrypted: name,
-  }).eq("id", id)
-}
-```
-
-Funnelling writes through functions like these is the easiest way to make the rule hold, because callers can't write one half.
-
-<Callout type="warn">
-**"Every path" means every path.** Not just the main service — insert sites, update sites, upserts and `ON CONFLICT` clauses, seed scripts, CSV importers, admin actions, background jobs, Edge Functions, RPC functions, and webhook handlers. One missed branch means rows written in production after this deploy have plaintext but no ciphertext, and the backfill (which runs before those rows exist) will never catch them. Grep for every writer of `patients.name` and `patients.date_of_birth` before merging.
-</Callout>
-
-After this deploy the system is in a safe steady state, and can stay there indefinitely. New rows are fully mirrored, old rows aren't, and reads work either way.
-
-</Step>
-<Step>
-
-### Deploy, and confirm dual-writes are live
-
-⛔ **The gate.** Ship the PR. Dual-writes must be running in the deployed environment that owns this database — not on your laptop, not in CI — before the backfill is safe. This is the one manual decision in the tutorial, and it's the reason nothing here can lose a row.
-
-Once the deploy is live:
-
-```bash
-npx stash status
-```
-
-`stash status` reports each column's phase and the next move. CipherStash records the transition in `cs_migrations`, and `stash encrypt backfill` refuses to proceed without it.
-
-</Step>
-<Step>
-
-### Backfill the historical rows
-
-Not a deploy — a one-off job, run once against the production database, that encrypts the rows written before dual-writing existed:
-
-```bash
-npx stash encrypt backfill --table patients --column name
-npx stash encrypt backfill --table patients --column date_of_birth
-```
-
-Each run pages through the table by primary key, encrypting a chunk at a time and writing one transactional `UPDATE` plus a checkpoint per chunk. It's resumable, SIGINT-safe, and idempotent, so an interrupted run picks up where it stopped. It prompts you to confirm dual-writes are deployed; in CI, pass `--confirm-dual-writes-deployed` instead. Concurrent production writes are safe precisely *because* dual-writes are live.
-
-<Callout type="warn">
-**Run the backfill with the same `CS_*` credentials the deployed app uses.** Ciphertext is written under whichever keyset the resolved credentials belong to, and `CS_*` environment variables take precedence over your local `~/.cipherstash` profile. A backfill authenticated as your laptop writes rows your production app **cannot decrypt** — with no error until someone reads them.
-</Callout>
-
-Then verify coverage. This must return zeroes before you go any further:
-
-```sql
-SELECT
-    count(*) FILTER (WHERE name IS NOT NULL AND name_encrypted IS NULL)                   AS name_uncovered,
-    count(*) FILTER (WHERE date_of_birth IS NOT NULL AND date_of_birth_encrypted IS NULL) AS dob_uncovered
-FROM patients;
-```
-
-A non-zero count means a write path that isn't dual-writing. Find it, fix it, deploy it, and re-run the backfill (`--force` re-encrypts every row regardless of current state).
-
-</Step>
-<Step>
-
-### Build the indexes
-
-After the backfill, before reads move over. Encrypted columns index through ordinary functional indexes over EQL's term-extractor functions — one bulk build now, instead of per-row index maintenance during the backfill:
-
-```sql
-CREATE INDEX patients_name_enc_eq ON patients USING hash  (eql_v3.eq_term(name_encrypted));
-CREATE INDEX patients_dob_enc_ord ON patients USING btree (eql_v3.ord_term(date_of_birth_encrypted));
-ANALYZE patients;
-```
-
-Index selection, `EXPLAIN` verification, and large-table build guidance are in [EQL indexes](/reference/eql/indexes).
-
-</Step>
-<Step>
-
-### Cut reads over to the encrypted columns
-
-The second deploy, and application code only — there's no rename and no CLI step. Point your queries at the mirror columns by name. The wrapper encrypts filter values into the matching index term on the way out, and decrypts results on the way back, so the values you get are plaintext:
-
-```typescript title="lib/patients.ts"
-// Exact lookup on an encrypted column
-const { data } = await db
-  .from("patients")
-  .select("id, email, name_encrypted")
-  .eq("name_encrypted", "Alice Chen")
-
-// Range and newest-first on an encrypted date
-const { data: recent } = await db
-  .from("patients")
-  .select("id, name_encrypted, date_of_birth_encrypted")
-  .gt("date_of_birth_encrypted", "1980-01-01")
-  .order("date_of_birth_encrypted", { ascending: false })
-  .limit(20)
-```
-
-**Keep the dual-writes.** That's what makes this deploy reversible: if reads misbehave, reverting the code returns you to plaintext reads with both columns still correct.
-
-<Callout type="warn">
-**Free-text search is not available through this wrapper with the current EQL 3.0.4 release.** `.matches()` — and `.like()` / `.ilike()`, which delegate to it — raise, because the operator needs an `eql_v3.query_*` operand that PostgREST cannot express. Encrypted-JSON queries are unavailable for the same reason. Equality, ordering, and range all work, as shown above. For encrypted free-text, use the [Drizzle](/integrations/drizzle) or [Prisma Next](/integrations/prisma-next) adapter for that query, or a scoped SQL/RPC function. Full detail in the [wrapper reference](/reference/stack/supabase#free-text-and-json-need-a-different-adapter).
-</Callout>
-
-The full method surface, including filters, upserts, error shapes, and identity-locked queries, is in the [`encryptedSupabase` reference](/reference/stack/supabase).
-
-</Step>
-<Step>
-
-### See what the database sees
-
-Open the Table Editor and look at the `patients` rows: `name_encrypted` and `date_of_birth_encrypted` are ciphertext payloads, not plaintext. That's what a backup, a replication stream, or anyone bypassing your app sees, including a leaked `service_role` key.
-
-The `name` and `date_of_birth` columns are still sitting there in plaintext — that's expected at this point, and it's what makes every step so far reversible. Removing them is the next section. [Overview → Working in the dashboard](/integrations/supabase#working-in-the-dashboard) walks through what encrypted data looks like across the Supabase dashboard.
+The Table Editor cannot decrypt or meaningfully filter the encrypted value because its keys remain outside the database. Read and update encrypted fields through a CipherStash-enabled application.
 
 </Step>
 </Steps>
 
-## Next: dropping the plaintext columns
+## Next steps
 
-Everything above can be walked back. Dropping the plaintext columns cannot, which is why it's a separate deploy — and why it's worth soaking first. Let real traffic read the encrypted columns for a while, and check that results are *correct*, not merely non-empty: ordering, range filters, and known rows. Re-run the coverage query from step 7.
-
-When you're confident, the drop is a third deploy: remove the dual-write logic, then drop the plaintext columns with a migration generated by the CLI:
-
-```bash
-npx stash encrypt drop --table patients --column name
-```
-
-Generate it rather than hand-writing an `ALTER TABLE`. The emitted SQL takes an `ACCESS EXCLUSIVE` lock, **re-counts uncovered rows at apply time**, and raises instead of dropping if any remain — because the coverage you verified at planning time is not the coverage at apply time.
-
-Sequencing that drop safely across environments, wiring `CS_*` into build and runtime, and rolling back per stage are covered in the [deployment guide](/guides/deployment).
-
-## Using an ORM instead
-
-Everything above goes through PostgREST, Supabase's REST API, with `encryptedSupabase` encrypting around each request. The other way to reach the same tables is a direct Postgres connection from an ORM, where the [Stack SDK](/reference/stack) encrypts values in your application and the EQL-typed columns store and search them. Both paths write the **same ciphertext into the same columns**, so the database setup above is identical either way — and you can mix them, using an `encryptedSupabase` client for application queries and Drizzle for migrations against the same tables.
-
-<Cards>
-  <Card title="Drizzle" href="/integrations/drizzle">
-    Encrypted column types, query operators, and EQL migrations with Drizzle.
-  </Card>
-  <Card title="Prisma Next" href="/integrations/prisma-next">
-    Encrypted fields and searchable queries with Prisma.
-  </Card>
-</Cards>
-
-Both integrations are database-agnostic — Supabase is Postgres, so the encryption mechanics are the same as anywhere else. Only two things are Supabase-specific:
-
-- **Which connection string.** Use the **direct connection** (port `5432`) for migrations, backfills, and long-running servers, and the **Supavisor transaction pooler** (port `6543`) for serverless, edge, and Next.js Route Handlers, where connections are short-lived and numerous. Encryption doesn't change the choice: EQL is passive SQL, so use the same connection string you'd use without CipherStash. Run EQL migrations over the direct connection — DDL and the install script want a real session.
-- **RLS stops applying for free.** The PostgREST path carries the end user's JWT, so `auth.uid()` and your policies apply automatically. A direct connection typically authenticates as a privileged role (`postgres` or `service_role`), which **bypasses RLS**. If you rely on RLS for row scoping, either connect as the `authenticated` role with the user's JWT (setting `request.jwt.claims`), or enforce that scoping in your ORM query. Encryption is unaffected either way: values are ciphertext regardless of which role reads them.
-
-## Production checklist
-
-- **Indexes** — at real row counts, add functional indexes for the capabilities you query. Two lines of SQL per column: [EQL indexes](/reference/eql/indexes).
-- **RLS** — keep your Row Level Security policies; they compose. RLS controls *who can query* rows, encryption controls *whether their contents can be read at all*. A bypassed policy or leaked key yields only ciphertext.
-- **Identity-locked decryption** — tie decryption to the logged-in Supabase Auth user: [Supabase Auth integration](/integrations/supabase/auth).
-- **One column at a time** — nothing requires a big-bang migration. `email` can follow the same ladder next month, on its own schedule, while the columns you've already converted stay encrypted.
-
-## Go deeper
-
-<Cards>
-  <Card title="Overview" href="/integrations/supabase">
-    Installing EQL, grants, column types, indexes, RLS, and the dashboard experience in detail.
-  </Card>
-  <Card title="Supabase Auth" href="/integrations/supabase/auth">
-    Federate the Supabase session and lock decryption to the authenticated user.
-  </Card>
-  <Card title="EQL indexes" href="/reference/eql/indexes">
-    Full indexing recipes and EXPLAIN verification.
-  </Card>
-  <Card title="encryptedSupabase reference" href="/reference/stack/supabase">
-    The complete wrapper API: every filter, response shapes, and how it works.
-  </Card>
-</Cards>
+- Learn the supported mutations, filters, ordering, response types, and errors in the [supabase-js guide](/integrations/supabase/supabase-js).
+- Use the complete [`encryptedSupabase` API reference](/reference/stack/supabase) when you need method-level detail.
+- Add functional indexes when the table reaches meaningful row counts by following [EQL indexes](/reference/eql/indexes).
+- For a populated table, follow the safe dual-write and backfill process in [Encrypt existing data](/guides/migration/encrypt-existing-data).
+- To use a direct Postgres ORM connection, continue with [Drizzle](/integrations/drizzle) or [Prisma Next](/integrations/prisma-next).

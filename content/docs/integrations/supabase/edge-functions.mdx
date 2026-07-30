@@ -29,6 +29,12 @@ Map the `wasm-inline` entries in your function's `deno.json`:
 }
 ```
 
+<Callout type="warn">
+**The developer profile is not supported in Edge Functions.** `stash auth login` creates a profile for the native Node.js SDK on your development machine. An Edge Function runs the WebAssembly client inside an isolated Deno runtime, where that profile and automatic credential discovery are unavailable.
+
+Provide the four `CS_*` values explicitly through an env file when serving locally and through Supabase secrets when deployed.
+</Callout>
+
 Provide the `CS_*` credentials when you serve the function. Generate them with `stash env` rather than assembling the file by hand — it prints the deployment variables for the workspace you are authenticated against, so redirect it straight to the env file:
 
 ```bash example-id="supabase-edge-stash-env"

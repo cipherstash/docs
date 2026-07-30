@@ -1,9 +1,216 @@
 ---
 title: Encrypt existing data
-description: "Backfilling encryption onto live tables, column by column."
+description: "Move populated plaintext columns to searchable encryption with dual-writes, a resumable backfill, and a reversible read cutover."
 type: guide
+components: [encryption, eql, cli]
+audience: [developer]
 ---
 
-This page is being built as part of the docs V2 overhaul ([CIP-3329](https://linear.app/cipherstash/issue/CIP-3329)). Track progress in [IA.md](https://github.com/cipherstash/docs/blob/v2/IA.md).
+Encrypting a populated column is a staged application and database migration. Ciphertext must be produced in your application, so a database migration cannot convert existing plaintext by itself.
 
-Until it lands, the current version lives in the [existing docs](/stack/cipherstash/proxy/encrypt-tool).
+The safe pattern is to add an encrypted mirror column, dual-write new changes, backfill historical rows, and then move reads to the mirror. The plaintext column remains authoritative until the final cleanup, making every earlier stage reversible.
+
+This guide uses `encryptedSupabase` for its examples. The same sequence applies when the application uses [Drizzle](/integrations/drizzle), [Prisma Next](/integrations/prisma-next), or the [Stack SDK](/reference/stack): change the adapter-specific code, not the rollout order.
+
+## Migration sequence
+
+```text
+DEPLOY 1                     OUT OF BAND                    DEPLOY 2               DEPLOY 3
+Add encrypted mirror        Backfill existing rows        Read encrypted mirror  Drop plaintext
+Begin dual-writes           Verify coverage               Keep dual-writes        Stop dual-writes
+Reads stay plaintext        Build indexes                 Soak and verify
+```
+
+Do not start the backfill until dual-writes are running in every deployed writer. Otherwise, a row created after the backfill passes it can remain permanently uncovered.
+
+## Before you start
+
+- Install EQL and configure your encryption client. For Supabase, complete the [Quickstart](/integrations/supabase/quickstart) against a development table first.
+- Inventory every writer of the columns: services, jobs, Edge Functions, imports, seeds, RPC functions, webhooks, and administrative tools.
+- Make the same CipherStash machine credentials available to the deployed application and the backfill job.
+- Decide which encrypted capability each column needs by following [EQL core concepts](/reference/eql/core-concepts).
+
+The examples migrate `patients.name` and `patients.date_of_birth`:
+
+```sql
+CREATE TABLE patients (
+    id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email         text NOT NULL,
+    name          text,
+    date_of_birth date,
+    plan          text
+);
+```
+
+<Steps>
+<Step>
+
+### Add nullable encrypted mirrors
+
+Add one encrypted column beside each plaintext column:
+
+```sql
+ALTER TABLE patients
+    ADD COLUMN name_encrypted          public.eql_v3_text_eq,
+    ADD COLUMN date_of_birth_encrypted public.eql_v3_date_ord;
+```
+
+The new columns must be nullable because existing rows do not have ciphertext yet. The `_encrypted` suffix is the convention used by `stash encrypt backfill`; use `--encrypted-column` if your names differ.
+
+Ship this schema change together with the dual-write code in the next step. Do not rename or remove the plaintext columns.
+
+</Step>
+<Step>
+
+### Dual-write every mutation
+
+Update every insert, update, and upsert path to write the plaintext column and its encrypted mirror in the same statement:
+
+```typescript title="lib/patients.ts"
+import { db } from "./db"
+
+export async function createPatient(input: {
+  email: string
+  name: string
+  dateOfBirth: string
+  plan: string
+}) {
+  return db.from("patients").insert({
+    email: input.email,
+    name: input.name,
+    name_encrypted: input.name,
+    date_of_birth: input.dateOfBirth,
+    date_of_birth_encrypted: input.dateOfBirth,
+    plan: input.plan,
+  })
+}
+
+export async function updatePatientName(id: number, name: string) {
+  return db
+    .from("patients")
+    .update({ name, name_encrypted: name })
+    .eq("id", id)
+}
+```
+
+The encrypted client encrypts the mirror values while passing the original values through unchanged. Keeping both values in one database statement prevents one half of the write from succeeding without the other.
+
+Search the codebase for every writer before deploying. A missed importer, background job, conflict handler, or administrative path can create uncovered rows.
+
+</Step>
+<Step>
+
+### Deploy and verify dual-writes
+
+Deploy the schema and application changes to the environment that owns the database. The backfill is not safe while dual-writes exist only locally or in CI.
+
+After the deployment, create and update known rows through each important write path. Confirm that both the plaintext and encrypted columns are populated, then inspect the migration state:
+
+```bash
+npx stash encrypt status
+```
+
+The application is now in a safe steady state: new writes are mirrored, old rows remain plaintext-only, and reads still use the original columns.
+
+</Step>
+<Step>
+
+### Backfill historical rows
+
+Run one backfill per plaintext column:
+
+```bash
+npx stash encrypt backfill --table patients --column name
+npx stash encrypt backfill --table patients --column date_of_birth
+```
+
+The command pages by primary key, encrypts rows in chunks, and records checkpoints. It is resumable and idempotent. For a non-interactive job, acknowledge the deployment gate with `--confirm-dual-writes-deployed`.
+
+<Callout type="warn">
+Run the backfill with the same CipherStash workspace and credentials as the deployed application. A local CipherStash profile may point to a different workspace, producing values the production application cannot decrypt.
+</Callout>
+
+</Step>
+<Step>
+
+### Verify complete coverage
+
+Check that every populated plaintext value has an encrypted mirror:
+
+```sql
+SELECT
+    count(*) FILTER (
+      WHERE name IS NOT NULL AND name_encrypted IS NULL
+    ) AS name_uncovered,
+    count(*) FILTER (
+      WHERE date_of_birth IS NOT NULL
+        AND date_of_birth_encrypted IS NULL
+    ) AS dob_uncovered
+FROM patients;
+```
+
+Both counts must be zero. A non-zero result usually means a writer is not dual-writing. Fix and deploy that path, then run the backfill again before continuing.
+
+Also sample known records through the encrypted application client and verify their decrypted values against the plaintext originals.
+
+</Step>
+<Step>
+
+### Build encrypted indexes
+
+Build the functional indexes required by the queries you will move to the encrypted columns. Do this after the bulk backfill and before changing reads.
+
+Index definitions, supported query shapes, `EXPLAIN` verification, and guidance for large tables are maintained in [EQL indexes](/reference/eql/indexes). Use concurrent index creation where that guide recommends it for a live table.
+
+</Step>
+<Step>
+
+### Cut reads over
+
+Deploy an application-only change that reads and filters on the encrypted mirror columns:
+
+```typescript
+const { data } = await db
+  .from("patients")
+  .select("id, email, name_encrypted, date_of_birth_encrypted")
+  .eq("name_encrypted", "Alice Chen")
+  .gt("date_of_birth_encrypted", "1980-01-01")
+  .order("date_of_birth_encrypted", { ascending: false })
+```
+
+Keep dual-writes enabled. If the new read path misbehaves, reverting this deployment restores plaintext reads while both sets of columns remain current.
+
+Verify correctness rather than checking only for non-empty results. Test known equality matches, range boundaries, ordering, nulls, and authorization behavior.
+
+</Step>
+<Step>
+
+### Soak, then remove plaintext
+
+Let production traffic exercise the encrypted read path. Monitor query errors, latency, decryption failures, and uncovered-row counts for an appropriate period.
+
+Once you no longer need a plaintext rollback, remove the dual-write code and generate the destructive migration:
+
+```bash
+npx stash encrypt drop --table patients --column name
+```
+
+Review and apply the generated migration through your normal deployment process. Repeat per column rather than combining unrelated migrations into one irreversible change.
+
+<Callout type="warn">
+Dropping the plaintext column is the first irreversible stage. Take any required backup, verify coverage again at apply time, and confirm that no old application version still reads or writes the column.
+</Callout>
+
+</Step>
+</Steps>
+
+## Rollback by stage
+
+| Current stage | Safe rollback |
+| --- | --- |
+| Mirrors added, before backfill | Revert application writes; leave or remove the empty mirrors |
+| Backfill in progress | Stop it and resume later; keep plaintext reads and dual-writes |
+| Reads cut over | Revert reads to plaintext; keep dual-writes |
+| Plaintext dropped | Restore from an approved backup or perform a new decrypting migration |
+
+For environment ordering, credential handling, release gates, and production monitoring, continue with the [deployment guide](/guides/deployment).
