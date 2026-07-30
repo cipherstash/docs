@@ -1,5 +1,6 @@
-import { CodeBlock, Pre } from "fumadocs-ui/components/codeblock";
+import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
 import { ExternalLink, Laptop, LayoutDashboard, Terminal } from "lucide-react";
+import { cipherstashDark, cipherstashLight } from "@/lib/shiki-themes";
 
 const ENVIRONMENT_VARIABLES = `CS_WORKSPACE_CRN=crn:<region>.<provider>:<workspace-id>
 CS_CLIENT_ID=<uuid>
@@ -42,7 +43,7 @@ const options = [
           href="https://dashboard.cipherstash.com/workspaces/_"
           target="_blank"
           rel="noreferrer"
-          className="font-medium underline underline-offset-4"
+          className="font-medium text-fd-foreground underline decoration-fd-primary decoration-[1.5px] underline-offset-[3.5px] transition-opacity hover:opacity-80"
         >
           CipherStash workspace
           <ExternalLink
@@ -64,7 +65,7 @@ const options = [
  */
 export function CipherStashCredentials() {
   return (
-    <div className="not-prose my-6 overflow-hidden rounded-xl border bg-fd-card">
+    <div className="not-prose my-6 overflow-hidden rounded-xl border border-t-2 border-t-fd-primary bg-fd-card">
       <div className="border-b px-5 py-4">
         <h3 className="font-semibold text-fd-foreground">
           Choose a credential source
@@ -79,7 +80,7 @@ export function CipherStashCredentials() {
         {options.map(({ title, useFor, icon: Icon, content }, index) => (
           <li key={title} className="p-5">
             <div className="flex items-start gap-3">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-fd-secondary text-fd-muted-foreground">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-fd-primary/10 text-fd-primary">
                 <Icon className="size-4" aria-hidden="true" />
               </span>
               <div>
@@ -107,11 +108,14 @@ export function CipherStashCredentials() {
           <code>CS_CLIENT_KEY</code> and <code>CS_CLIENT_ACCESS_KEY</code> as
           secrets.
         </p>
-        <CodeBlock title=".env" className="mb-0">
-          <Pre className="px-4">
-            <code>{ENVIRONMENT_VARIABLES}</code>
-          </Pre>
-        </CodeBlock>
+        <DynamicCodeBlock
+          lang="dotenv"
+          code={ENVIRONMENT_VARIABLES}
+          codeblock={{ title: ".env", className: "mb-0" }}
+          options={{
+            themes: { light: cipherstashLight, dark: cipherstashDark },
+          }}
+        />
       </div>
     </div>
   );
