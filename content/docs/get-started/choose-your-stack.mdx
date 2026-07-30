@@ -44,7 +44,7 @@ Managed platforms usually block custom operator class creation. That's why the d
 
 | Query layer | Path | What it looks like |
 |---|---|---|
-| Drizzle | [Drizzle integration](/stack/cipherstash/encryption/drizzle) | An `encryptedType` column and typed query operators. Your Drizzle code keeps its shape. |
+| Drizzle | [Drizzle integration](/integrations/drizzle) | Encrypted column types and typed query operators. Your Drizzle code keeps its shape. |
 | Supabase JS | [Supabase integration](/integrations/supabase) | `encryptedSupabase` wraps the client. `.eq()`, `.gt()`, `.order()` keep working. |
 | Prisma ORM 8 RC | [Prisma integration](/integrations/prisma) | Encrypted fields and query operators are generated from `schema.prisma`. |
 | Raw SQL | [Quickstart](/get-started/quickstart) | Encrypt the value, insert it, cast the query operand. |

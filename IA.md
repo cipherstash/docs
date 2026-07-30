@@ -159,7 +159,7 @@ Solutions
 └─ Protecting PII · Healthcare/HIPAA · AI & RAG · Data residency · Provable access
 Reference
 ├─ EQL            core-concepts · numbers · dates · text · json · … · joins
-├─ Stack SDK      client · schema · encrypt-decrypt · supabase · drizzle-operators · errors
+├─ Stack SDK      overview · usage · generated package API
 ├─ Auth           lock-contexts · cts-tokens · oidc · access-keys
 ├─ CLI · Proxy · Workspace
 └─ Benchmarks · Agent skills · Glossary
@@ -200,7 +200,7 @@ layer, not a layer every Stack page sits on.
 - Start here: Quickstart · Reference → Stack SDK (client + configuration)
 - Concepts: application-level encryption · searchable encryption · identity-aware encryption
 - Guides: schema design · encrypt existing data · testing & CI · serverless & bundling
-- Reference: `/reference/stack/*` (schema · encrypt-decrypt · supabase · drizzle-operators · errors)
+- Reference: `/reference/stack/*` (overview · usage · generated package API)
 - Security: `/security/stack-sdk`
 - Integrations (auto): Supabase · Drizzle · Prisma · DynamoDB · Next.js …
 
@@ -308,7 +308,7 @@ Two notes:
 - [x] `/integrations/supabase/dashboard-experience` — Table Editor, expose eql schema
 - [ ] ⛔ `/integrations/supabase/edge-functions` — pending Deno/FFI answer
 - [ ] ⛔ `/integrations/supabase/realtime` — pending product verification
-- [x] `/integrations/drizzle`
+- [x] `/integrations/drizzle` — overview and generated `@cipherstash/stack-drizzle` API reference
 - [x] `/integrations/prisma` — Prisma ORM 8 RC, EQL v3, Prisma Postgres, Prisma Compute, and generated API reference
 - [ ] `/integrations/aws/rds-aurora` — Proxy path
 - [ ] `/integrations/aws/dynamodb`

@@ -52,6 +52,9 @@ jobs:
       - name: Generate the Supabase reference
         run: bun run generate-docs:supabase
 
+      - name: Generate the Drizzle reference
+        run: bun run generate-docs:drizzle
+
       - name: Generate the Prisma reference
         run: bun run generate-docs:prisma
 

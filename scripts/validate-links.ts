@@ -361,6 +361,7 @@ allBroken.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 const GENERATED = [
   "content/docs/reference/stack/api-reference/index.mdx",
   "content/docs/integrations/supabase/api-reference/index.mdx",
+  "content/docs/integrations/drizzle/api-reference/index.mdx",
   "content/docs/integrations/prisma/api-reference/index.mdx",
 ];
 const missing = GENERATED.filter((d) => !fs.existsSync(path.join(ROOT, d)));
