@@ -16,8 +16,8 @@ Where the encrypted data lives. EQL installs into any Postgres you can connect t
   <Card title="Supabase" href="/integrations/supabase">
     Install EQL with the `stash` CLI, then query encrypted columns through PostgREST. Row Level Security, Supabase Auth, and Edge Functions all apply unchanged.
   </Card>
-  <Card title="Prisma Postgres" href="/integrations/prisma-next">
-    Prisma's hosted Postgres. EQL is installed by the Prisma Next migration system, in the same sweep that creates your tables.
+  <Card title="Prisma Postgres" href="/integrations/prisma/prisma-postgres">
+    Prisma's managed Postgres, with EQL installed through the Prisma ORM 8 migration graph.
   </Card>
 </Cards>
 
@@ -29,8 +29,8 @@ How your application queries it.
   <Card title="supabase-js" href="/integrations/supabase/supabase-js">
     `encryptedSupabase` wraps your existing client so `.eq()`, `.in()`, `.gt()`, and `.order()` keep working on encrypted columns.
   </Card>
-  <Card title="Prisma Next" href="/integrations/prisma-next">
-    Encrypted columns declared in `schema.prisma`. Targets EQL v2. Not classic Prisma.
+  <Card title="Prisma ORM 8" href="/integrations/prisma">
+    Encrypted EQL v3 columns declared in `schema.prisma`, with typed encrypted query operators.
   </Card>
   <Card title="Drizzle" href="/integrations/drizzle">
     Concrete encrypted column types and capability-checked operators. Targets EQL v3.

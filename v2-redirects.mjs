@@ -58,7 +58,7 @@ export const v2Redirects = [
   },
   {
     source: "/stack/cipherstash/encryption/prisma-next",
-    destination: "/integrations/prisma-next",
+    destination: "/integrations/prisma",
     permanent: false,
   },
   {

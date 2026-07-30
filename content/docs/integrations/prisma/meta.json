@@ -1,0 +1,12 @@
+{
+  "title": "Prisma ORM",
+  "icon": "Prisma",
+  "pages": [
+    "index",
+    "quickstart",
+    "schema-and-queries",
+    "deployment",
+    "prisma-postgres",
+    "prisma-compute"
+  ]
+}

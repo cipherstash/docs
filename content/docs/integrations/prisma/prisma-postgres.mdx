@@ -1,0 +1,68 @@
+---
+title: Prisma Postgres
+description: "Connect the CipherStash Prisma ORM 8 integration to Prisma's managed Postgres service."
+type: guide
+components: [encryption, eql, platform]
+audience: [developer, cto]
+integration:
+  category: platform
+  setup: code-only
+verifiedAgainst:
+  prismaNext: "0.16.0"
+  eql: "3.0.4"
+  stack: "1.0.0"
+---
+
+[Prisma Postgres](https://www.prisma.io/docs/postgres) is Prisma's managed Postgres service. CipherStash uses it like any other Postgres database: encryption happens in the application, and EQL plus the encrypted domains live in the database.
+
+## Choose the connection URL
+
+Prisma Postgres provides pooled and direct connections:
+
+| Use | Connection |
+| --- | --- |
+| Application runtime | Pooled URL on `pooled.db.prisma.io` |
+| Migrations, administrative work, and one-off backfills | Direct URL on `db.prisma.io` |
+
+Both connections require TLS. Copy the URLs from the Prisma Console and keep them in the relevant environment's secret store.
+
+```dotenv title=".env"
+DATABASE_URL=postgresql://...@pooled.db.prisma.io:5432/postgres?sslmode=require
+DIRECT_URL=postgresql://...@db.prisma.io:5432/postgres?sslmode=require
+```
+
+Use the direct URL when applying the Prisma migration graph or running a long-lived backfill. Use the pooled URL when connecting the deployed application.
+
+{/* Screenshot candidate: Prisma Console connection dialog with pooled and direct
+    connection choices visible, project names retained, and credentials redacted. */}
+
+## Initialize the database
+
+Set the migration process to the direct connection, then run the normal Prisma flow:
+
+```bash
+DATABASE_URL="$DIRECT_URL" npx prisma-next contract emit
+DATABASE_URL="$DIRECT_URL" npx prisma-next migration plan --name initial
+DATABASE_URL="$DIRECT_URL" npx prisma-next migrate
+```
+
+This installs EQL through Prisma's migration graph. Do not install EQL separately with the `stash` CLI.
+
+For a populated column, use the direct connection for the out-of-band backfill and confirm that it targets the intended production or preview database. Follow the [Prisma deployment guide](/integrations/prisma/deployment) before changing live data.
+
+## What appears in Prisma tools
+
+Prisma Studio and the Prisma Console see EQL ciphertext payloads, not plaintext. That is expected: encryption keys remain in the application, outside Prisma Postgres. Read and update encrypted values through the CipherStash-enabled Prisma runtime.
+
+{/* Screenshot candidate: Prisma Studio showing one encrypted field as an EQL
+    ciphertext payload beside a non-sensitive plaintext field. */}
+
+## Branch databases
+
+Prisma platform branches can have isolated databases. Treat each branch as a separate CipherStash environment:
+
+- Confirm the database identity before migrations or backfills.
+- Use separate `CS_*` credentials for preview and production.
+- Keep every writer and one-off job on the keyset intended for that environment.
+
+If the application is also hosted by Prisma, [Prisma Compute](/integrations/prisma/prisma-compute) explains its build, environment-variable, and migration behavior.

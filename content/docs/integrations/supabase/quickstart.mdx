@@ -7,7 +7,7 @@ audience: [developer]
 integration:
   category: platform
   setup: code-only
-  pairsWith: [drizzle, prisma-next, clerk]
+  pairsWith: [drizzle, prisma, clerk]
 verifiedAgainst:
   eql: "3.0.4"
   stack: "1.0.0"
@@ -162,4 +162,4 @@ The Table Editor cannot decrypt or meaningfully filter the encrypted value becau
 - Use the complete [`encryptedSupabase` API reference](/reference/stack/supabase) when you need method-level detail.
 - Add functional indexes when the table reaches meaningful row counts by following [EQL indexes](/reference/eql/indexes).
 - For a populated table, follow the safe dual-write and backfill process in [Encrypt existing data](/guides/migration/encrypt-existing-data).
-- To use a direct Postgres ORM connection, continue with [Drizzle](/integrations/drizzle) or [Prisma Next](/integrations/prisma-next).
+- To use a direct Postgres ORM connection, continue with [Drizzle](/integrations/drizzle) or [Prisma ORM 8](/integrations/prisma).

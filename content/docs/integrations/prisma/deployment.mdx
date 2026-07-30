@@ -1,0 +1,65 @@
+---
+title: Deployment
+description: "Deploy CipherStash schema changes, backfills, indexes, and credentials safely with Prisma ORM 8."
+type: guide
+components: [encryption, eql]
+audience: [developer, cto]
+integration:
+  category: orm
+  setup: code-only
+verifiedAgainst:
+  prismaNext: "0.16.0"
+  eql: "3.0.4"
+  stack: "1.0.0"
+---
+
+Prisma owns the complete database migration graph for this integration, including the EQL bundle, encrypted columns, and their functional indexes. Application releases still need to be staged carefully when a plaintext column already contains data.
+
+For the reasoning, rollback rules, and adapter-independent sequence, read [Encrypt existing data](/guides/migration/encrypt-existing-data) and the [deployment guide](/guides/deployment). This page maps that process to Prisma ORM 8.
+
+## New tables and empty columns
+
+For a new table or an empty column:
+
+```bash
+npx prisma-next contract emit
+npx prisma-next migration plan --name add-encrypted-fields
+npx prisma-next migrate
+```
+
+The CipherStash extension pack contributes EQL to the same graph. Do not run `stash eql install`.
+
+## Populated columns
+
+Move a populated plaintext column to encryption across separate application releases:
+
+| Release | Prisma and application change | Gate |
+| --- | --- | --- |
+| 1. Add and dual-write | Add a nullable encrypted twin; write plaintext and ciphertext on every path; keep plaintext reads | Confirm dual-writes are live |
+| Backfill | Run `stash encrypt backfill` against the target database with the deployed app's keyset | Confirm zero uncovered rows |
+| Index | Add EQL functional indexes as a Prisma raw-SQL migration operation and run `ANALYZE` | Verify plans with `EXPLAIN` |
+| 2. Cut over reads | Query and decrypt the encrypted twin; keep dual-writes | Soak under real traffic |
+| 3. Stop dual-writing | Write only the encrypted field; retain the plaintext column | Confirm every instance is updated |
+| 4. Remove plaintext | Apply a guarded destructive migration, then remove the old field from the contract | Irreversible |
+
+Do not combine these boundaries. In particular, a backfill is safe only after every production write path dual-writes, and the plaintext column must remain until encrypted reads have soaked successfully.
+
+## Index migrations
+
+Prisma schemas cannot express functional indexes. Keep their DDL as `rawSql` operations from `@prisma-next/postgres/migration` in the Prisma migration history; never apply them ad hoc to production.
+
+Use the recipes in [EQL indexes](/reference/eql/indexes). Build indexes after the bulk backfill and before encrypted reads go live, then run `ANALYZE` and verify the actual query plan.
+
+## Credentials
+
+<CipherStashCredentials />
+
+Create separate credentials for each deployed environment. A backfill must use credentials bound to the same keyset as the deployed application; otherwise decryption or encrypted search can fail after a seemingly successful write.
+
+The encryption client is commonly constructed during module import, so make the four `CS_*` variables available at build time as well as runtime.
+
+## Runtime packaging
+
+The Prisma adapter uses the native Stack client. Keep `@cipherstash/stack`, `@cipherstash/protect-ffi`, and `@cipherstash/auth` external to server bundles, and deploy to a runtime that can load native packages. This adapter is not supported on edge runtimes.
+
+For Prisma's hosted deployment behavior, including additive-only push-to-deploy and preview databases, continue with [Prisma Compute](/integrations/prisma/prisma-compute).

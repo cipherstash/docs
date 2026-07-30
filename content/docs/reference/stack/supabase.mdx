@@ -185,7 +185,7 @@ await supabase
 ```
 [supabase v3]: matches() on encrypted column "email" is unavailable with EQL
 3.0.2+: the SQL operator requires an eql_v3.query_* cast that PostgREST cannot
-express. Use the Drizzle or Prisma Next adapter, or a scoped SQL/RPC function.
+express. Use the Drizzle or Prisma ORM 8 adapter, or a scoped SQL/RPC function.
 ```
 
 The error says `3.0.2+` because EQL 3.0.2 introduced this query-domain requirement. EQL 3.0.4 retains it.
@@ -194,7 +194,7 @@ The limit is PostgREST's, not the encryption's. Those operators need a typed `eq
 
 This applies to `.matches()`, `.contains()` on a `json` column, `.selectorEq()` / `.selectorNe()`, and the same terms reached through `.not()`, `.or()`, or a raw `.filter()`. **Equality, ordering, and range are unaffected** — `.eq()`, `.neq()`, `.in()`, `.gt()` / `.gte()` / `.lt()` / `.lte()`, and `.order()` all work, as do inserts, updates, and decryption on select.
 
-To search encrypted text with EQL 3.0.4, use the [Drizzle](/integrations/drizzle) or [Prisma Next](/integrations/prisma-next) adapter for that query, or put it behind a scoped SQL or RPC function. Everything else on this page still applies.
+To search encrypted text with EQL 3.0.4, use the [Drizzle](/integrations/drizzle) or [Prisma ORM 8](/integrations/prisma) adapter for that query, or put it behind a scoped SQL or RPC function. Everything else on this page still applies.
 </Callout>
 
 On EQL 3.0.1 and earlier, `.matches()` tests whether the stored value's encrypted token set contains the search string's — case-insensitive, and false positives are possible while false negatives are not:

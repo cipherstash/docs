@@ -7,7 +7,7 @@ audience: [developer, ciso]
 integration:
   category: platform
   setup: code-only
-  pairsWith: [drizzle, prisma-next, clerk]
+  pairsWith: [drizzle, prisma, clerk]
 verifiedAgainst:
   eql: "3.0.4"
   stack: "1.0.0"
@@ -26,7 +26,7 @@ CipherStash has two parts:
 
 The EQL type assigned to a column declares what can be queried. For example, an equality column supports `.eq()` and `.in()`, while an ordered column also supports ranges and `.order()`. Choose only the capabilities you need, because searchable encryption has defined leakage characteristics. See [EQL core concepts](/reference/eql/core-concepts) for the complete model.
 
-With EQL 3.0.4, the Supabase wrapper supports encrypted equality, range, and ordering queries. Encrypted free-text and JSON queries require an adapter such as Drizzle or Prisma Next because PostgREST cannot express the typed operands those operations require. The [wrapper reference](/reference/stack/supabase#free-text-and-json-need-a-different-adapter) documents the limitation.
+With EQL 3.0.4, the Supabase wrapper supports encrypted equality, range, and ordering queries. Encrypted free-text and JSON queries require an adapter such as Drizzle or Prisma ORM 8 because PostgREST cannot express the typed operands those operations require. The [wrapper reference](/reference/stack/supabase#free-text-and-json-need-a-different-adapter) documents the limitation.
 
 ## Choose your path
 
@@ -37,13 +37,13 @@ With EQL 3.0.4, the Supabase wrapper supports encrypted equality, range, and ord
 | Look up the complete wrapper API | [`encryptedSupabase` reference](/reference/stack/supabase) |
 | Bind decryption to the signed-in user | [Supabase Auth](/integrations/supabase/auth) |
 | Encrypt inside Supabase Edge Functions | [Edge Functions](/integrations/supabase/edge-functions) |
-| Use an ORM against Supabase Postgres | [Drizzle](/integrations/drizzle) or [Prisma Next](/integrations/prisma-next) |
+| Use an ORM against Supabase Postgres | [Drizzle](/integrations/drizzle) or [Prisma ORM 8](/integrations/prisma) |
 | Encrypt columns that already contain data | [Encrypt existing data](/guides/migration/encrypt-existing-data) |
 | Plan a production rollout or rollback | [Deployment guide](/guides/deployment) |
 
 ## Supabase, Drizzle, and Prisma
 
-Supabase is Postgres, so you are not limited to PostgREST or `supabase-js`. CipherStash's [Drizzle](/integrations/drizzle) and [Prisma Next](/integrations/prisma-next) integrations can read and write the same EQL columns through a direct database connection. They produce the same ciphertext, so an application can use more than one adapter without re-encrypting its data.
+Supabase is Postgres, so you are not limited to PostgREST or `supabase-js`. CipherStash's [Drizzle](/integrations/drizzle) and [Prisma ORM 8](/integrations/prisma) integrations can read and write the same EQL columns through a direct database connection. They produce the same ciphertext, so an application can use more than one adapter without re-encrypting its data.
 
 Use `encryptedSupabase` when you want Supabase's query builder and automatic propagation of the caller's JWT. Use an ORM when it better fits your application or when you need encrypted free-text or JSON queries. A privileged direct database connection may bypass Row Level Security, so preserve tenant or user scoping in the connection role or ORM query.
 
