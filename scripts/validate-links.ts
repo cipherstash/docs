@@ -372,8 +372,8 @@ console.log(
 if (missing.length > 0) {
   console.log(
     `\n! Generated API pages are absent (${missing.join(", ")}), so links into\n` +
-      "  them will be reported as missing. Run `bun run generate-docs` first —\n" +
-      "  `prebuild` does, which is why CI does not hit this.",
+      "  them will be reported as missing. Run the matching `generate-docs:*`\n" +
+      "  task first; `prebuild` and the links workflow do this automatically.",
   );
 }
 

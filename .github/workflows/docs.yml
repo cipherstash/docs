@@ -49,5 +49,8 @@ jobs:
       - name: Generate the SDK reference
         run: bun run generate-docs
 
+      - name: Generate the Prisma reference
+        run: bun run generate-docs:prisma
+
       - name: Validate internal links and anchors
         run: bun run validate-links

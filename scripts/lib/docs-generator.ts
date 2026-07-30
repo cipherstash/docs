@@ -52,6 +52,95 @@ export interface VersionInfo {
 }
 
 /**
+ * Keep inline code spans on one physical line.
+ *
+ * TSDoc comments are commonly wrapped at a fixed width, including in the
+ * middle of a backtick span. Markdown permits that, but MDX can reinterpret a
+ * `{ ... }` on the continuation line as an expression inside its surrounding
+ * list or blockquote container. Fenced code blocks are deliberately excluded.
+ */
+function collapseMultilineInlineCode(content: string): string {
+  // TypeDoc's frontmatter plugin can truncate a summary midway through an
+  // inline-code span. Never pair that unmatched backtick with one in the MDX
+  // body: frontmatter is YAML and does not need Markdown normalization.
+  const frontmatter = content.match(/^---\n[\s\S]*?\n---\n?/)?.[0] ?? "";
+  const lines = content.slice(frontmatter.length).split("\n");
+  const output: string[] = [];
+  let prose: string[] = [];
+  let fence: { character: string; length: number } | undefined;
+
+  const collapseProse = () => {
+    if (prose.length === 0) return;
+    const block = prose.join("\n");
+    let result = "";
+    let cursor = 0;
+
+    while (cursor < block.length) {
+      const start = block.indexOf("`", cursor);
+      if (start === -1) {
+        result += block.slice(cursor);
+        break;
+      }
+
+      let openingLength = 1;
+      while (block[start + openingLength] === "`") openingLength += 1;
+      result += block.slice(cursor, start + openingLength);
+      cursor = start + openingLength;
+
+      let closing = cursor;
+      while (closing < block.length) {
+        closing = block.indexOf("`", closing);
+        if (closing === -1) break;
+        let closingLength = 1;
+        while (block[closing + closingLength] === "`") closingLength += 1;
+        if (closingLength === openingLength) break;
+        closing += closingLength;
+      }
+
+      if (closing === -1) {
+        result += block.slice(cursor);
+        cursor = block.length;
+        break;
+      }
+
+      const body = block.slice(cursor, closing);
+      result += body.includes("\n")
+        ? body.replace(/[ \t]*\n[ \t]*/g, " ")
+        : body;
+      result += "`".repeat(openingLength);
+      cursor = closing + openingLength;
+    }
+
+    output.push(...result.split("\n"));
+    prose = [];
+  };
+
+  for (const line of lines) {
+    const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    const marker = match?.[1];
+    if (!fence && marker) {
+      collapseProse();
+      output.push(line);
+      fence = { character: marker[0] ?? "", length: marker.length };
+    } else if (fence) {
+      output.push(line);
+      if (
+        marker?.[0] === fence.character &&
+        marker.length >= fence.length &&
+        match?.[2]?.trim() === ""
+      ) {
+        fence = undefined;
+      }
+    } else {
+      prose.push(line);
+    }
+  }
+  collapseProse();
+
+  return `${frontmatter}${output.join("\n")}`;
+}
+
+/**
  * Cleans up markdown links in generated .mdx files:
  * 1. Strips .mdx extensions from link targets
  * 2. Fixes /docs/reference/ prefix to /stack/reference/
@@ -75,6 +164,7 @@ export async function stripMdxExtensions(dir: string): Promise<void> {
       await stripMdxExtensions(fullPath);
     } else if (entry.isFile() && entry.name.endsWith(".mdx")) {
       let content = await fs.readFile(fullPath, "utf8");
+      content = collapseMultilineInlineCode(content);
       content = content.replace(/\]\(([^)#]+)\.mdx([#)])/g, "]($1$2");
       content = content.replace(
         /\]\(\/docs\/reference\//g,
