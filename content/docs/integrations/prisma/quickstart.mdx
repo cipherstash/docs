@@ -1,0 +1,180 @@
+---
+title: Quickstart
+description: "Declare, migrate, write, and query your first encrypted field with CipherStash and Prisma ORM 8."
+type: tutorial
+components: [encryption, eql]
+audience: [developer]
+integration:
+  category: orm
+  setup: code-only
+  pairsWith: [supabase, drizzle]
+verifiedAgainst:
+  prismaNext: "0.16.0"
+  eql: "3.0.4"
+  stack: "1.0.0"
+---
+
+This tutorial adds an encrypted, searchable email field to an existing Prisma ORM 8 release candidate project.
+
+<Callout type="info">
+Prisma ORM 8 was formerly called Prisma Next. Its prerelease command remains `prisma-next`, and the CipherStash initialization flag remains `--prisma-next`.
+</Callout>
+
+It is designed for a new table or empty column. To encrypt a populated column safely, use the [Prisma deployment guide](/integrations/prisma/deployment).
+
+## Before you start
+
+You need:
+
+- A Prisma ORM 8 release candidate project with `prisma-next.config.ts`
+- A Postgres database and `DATABASE_URL`
+- A CipherStash account; initialization signs you in
+
+<Steps>
+<Step>
+
+### Initialize CipherStash
+
+From the Prisma project, run:
+
+```bash cta cta-type="install" example-id="prisma-quickstart-init"
+npx stash init --prisma-next
+```
+
+`stash init` opens the CipherStash device login when necessary, creates the local developer profile, and installs compatible pinned versions of `@cipherstash/stack`, `@cipherstash/stack-prisma`, and the `stash` CLI.
+
+It intentionally does not install EQL directly. The Prisma migration graph owns that step.
+
+<Callout type="idea">
+Agents can run the same initialization command. If authentication is needed, they can present the verification URL and wait for you to complete device login. Initialization also records project context and can install the CipherStash Prisma, authentication, indexing, deployment, and CLI skills for supported coding agents.
+</Callout>
+
+</Step>
+<Step>
+
+### Declare an encrypted field
+
+Add the CipherStash type to your schema:
+
+```prisma title="prisma/schema.prisma"
+model User {
+  id    String @id
+  email cipherstash.TextSearch()
+}
+```
+
+`TextSearch()` supports encrypted equality, range, ordering, and token matching. If you only need equality, prefer `TextEq()`. See [Schema and queries](/integrations/prisma/schema-and-queries) for every column type.
+
+</Step>
+<Step>
+
+### Register the extension pack
+
+Add CipherStash to your existing Prisma configuration:
+
+```typescript title="prisma-next.config.ts"
+import cipherstash from "@cipherstash/stack-prisma/control"
+import { defineConfig } from "@prisma-next/cli/config-types"
+import { prismaContract } from "@prisma-next/sql-contract-psl/provider"
+import postgresPack from "@prisma-next/target-postgres/pack"
+import { postgresCreateNamespace } from "@prisma-next/target-postgres/types"
+
+export default defineConfig({
+  // Keep your existing family, target, driver, adapter, and database settings.
+  extensionPacks: [cipherstash],
+  contract: prismaContract("./prisma/schema.prisma", {
+    output: "src/prisma/contract.json",
+    target: postgresPack,
+    createNamespace: postgresCreateNamespace,
+  }),
+  migrations: { dir: "migrations" },
+})
+```
+
+If you already use extension packs, include `cipherstash` in the existing array. `createNamespace` is required by Prisma Next 0.15 and later.
+
+</Step>
+<Step>
+
+### Emit and migrate
+
+Generate the contract, plan the migration, and apply it:
+
+```bash
+npx prisma-next contract emit
+npx prisma-next migration plan --name add-encrypted-user
+npx prisma-next migrate
+```
+
+The final command installs EQL v3 and applies your application migration in one graph. Do not run `stash eql install` for this integration.
+
+</Step>
+<Step>
+
+### Connect the encrypted runtime
+
+Create the database module from the emitted contract:
+
+```typescript title="src/db.ts"
+import "dotenv/config"
+import { cipherstashFromStack } from "@cipherstash/stack-prisma/v3"
+import postgres from "@prisma-next/postgres/runtime"
+import type { Contract } from "./prisma/contract.d"
+import contractJson from "./prisma/contract.json" with { type: "json" }
+
+const cipherstash = await cipherstashFromStack({ contractJson })
+
+export const db = postgres<Contract>({
+  contractJson,
+  extensions: cipherstash.extensions,
+  middleware: cipherstash.middleware,
+})
+```
+
+`cipherstashFromStack` uses the local developer profile automatically. Deployed environments use `CS_*` credentials instead.
+
+</Step>
+<Step>
+
+### Write and query encrypted data
+
+Wrap plaintext values at the write boundary, then use the generated `eql*` operators:
+
+```typescript
+import {
+  decryptAll,
+  EncryptedString,
+} from "@cipherstash/stack-prisma/runtime"
+import { db } from "./db"
+
+const runtime = await db.connect({ url: process.env.DATABASE_URL! })
+
+try {
+  await db.orm.public.User.create({
+    id: "user-0",
+    email: EncryptedString.from("alice@example.com"),
+  })
+
+  const rows = await db.orm.public.User
+    .where((user) => user.email.eqlEq("alice@example.com"))
+    .all()
+
+  await decryptAll(rows)
+  console.log(await rows[0]?.email.decrypt())
+  // alice@example.com
+} finally {
+  await runtime.close()
+}
+```
+
+The write value and query operand are encrypted before reaching Postgres. `decryptAll` batches result decryption; `.decrypt()` returns the plaintext value.
+
+</Step>
+</Steps>
+
+## Next steps
+
+- Choose other encrypted field types and operators in [Schema and queries](/integrations/prisma/schema-and-queries).
+- Add functional indexes using [EQL indexes](/reference/eql/indexes); keep their raw SQL operations in the Prisma migration graph.
+- Follow the [Prisma deployment guide](/integrations/prisma/deployment) before changing a populated production column.
+- Continue with [Prisma Postgres](/integrations/prisma/prisma-postgres) or [Prisma Compute](/integrations/prisma/prisma-compute) if you use Prisma's hosted platform.

@@ -10,7 +10,7 @@ Encrypting a populated column is a staged application and database migration. Ci
 
 The safe pattern is to add an encrypted mirror column, dual-write new changes, backfill historical rows, and then move reads to the mirror. The plaintext column remains authoritative until the final cleanup, making every earlier stage reversible.
 
-This guide uses `encryptedSupabase` for its examples. The same sequence applies when the application uses [Drizzle](/integrations/drizzle), [Prisma Next](/integrations/prisma-next), or the [Stack SDK](/reference/stack): change the adapter-specific code, not the rollout order.
+This guide uses `encryptedSupabase` for its examples. The same sequence applies when the application uses [Drizzle](/integrations/drizzle), [Prisma ORM 8](/integrations/prisma), or the [Stack SDK](/reference/stack): change the adapter-specific code, not the rollout order.
 
 ## Migration sequence
 

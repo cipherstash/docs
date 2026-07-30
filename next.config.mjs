@@ -33,6 +33,11 @@ const config = {
         destination: "/get-started/quickstart",
         permanent: false,
       },
+      {
+        source: "/integrations/prisma-next",
+        destination: "/integrations/prisma",
+        permanent: true,
+      },
       ...(enableV2Redirects ? v2Redirects : []),
       // === 4-section consolidation: product sections under /cipherstash/ ===
       {
