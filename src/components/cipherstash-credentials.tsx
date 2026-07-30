@@ -7,8 +7,15 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "fumadocs-ui/components/tabs";
-import { ExternalLink, Laptop, LayoutDashboard, Terminal } from "lucide-react";
+} from "fumadocs-ui/components/ui/tabs";
+import {
+  ChevronDown,
+  ExternalLink,
+  Laptop,
+  LayoutDashboard,
+  Terminal,
+} from "lucide-react";
+import { useId, useState } from "react";
 import { TrackedCodeBlock } from "@/components/code-block";
 import { cipherstashDark, cipherstashLight } from "@/lib/shiki-themes";
 
@@ -66,6 +73,8 @@ const options = [
   },
 ] as const;
 
+type CredentialOptionValue = (typeof options)[number]["value"];
+
 function TrackedBashCodeBlock(props: CodeBlockProps) {
   return (
     <TrackedCodeBlock
@@ -106,6 +115,11 @@ function DeploymentEnvironmentVariables() {
  * with the Stack authentication skill.
  */
 export function CipherStashCredentials() {
+  const selectId = useId();
+  const [selectedOption, setSelectedOption] = useState<CredentialOptionValue>(
+    options[0].value,
+  );
+
   return (
     <div className="not-prose my-6 overflow-hidden rounded-xl border border-t-2 border-t-fd-primary bg-fd-card">
       <div className="border-b px-5 py-4">
@@ -119,15 +133,44 @@ export function CipherStashCredentials() {
       </div>
 
       <Tabs
-        defaultValue={options[0].value}
+        value={selectedOption}
+        onValueChange={(value) =>
+          setSelectedOption(value as CredentialOptionValue)
+        }
         className="my-0 gap-0 overflow-visible rounded-none border-0 bg-transparent"
       >
-        <TabsList className="grid grid-cols-3 gap-0 overflow-x-auto border-b px-0">
+        <div className="border-b p-4 md:hidden">
+          <label htmlFor={selectId} className="sr-only">
+            Credential source
+          </label>
+          <div className="relative">
+            <select
+              id={selectId}
+              value={selectedOption}
+              onChange={(event) =>
+                setSelectedOption(event.target.value as CredentialOptionValue)
+              }
+              className="w-full appearance-none rounded-lg border bg-fd-background px-3 py-2.5 pe-10 text-sm font-medium text-fd-foreground shadow-sm outline-none transition-colors focus:border-fd-primary focus:ring-2 focus:ring-fd-primary/20"
+            >
+              {options.map(({ value, title, useFor }) => (
+                <option key={value} value={value}>
+                  {title} — {useFor}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-fd-muted-foreground"
+              aria-hidden="true"
+            />
+          </div>
+        </div>
+
+        <TabsList className="hidden grid-cols-3 border-b md:grid">
           {options.map(({ value, title, useFor, icon: Icon }, index) => (
             <TabsTrigger
               key={value}
               value={value}
-              className="group w-full min-w-40 justify-start border-b-2 px-5 py-4 text-left data-[state=active]:bg-fd-primary/5 data-[state=active]:text-fd-foreground"
+              className="group inline-flex w-full items-center justify-start gap-2 border-b-2 border-transparent px-5 py-4 text-left text-sm text-fd-muted-foreground transition-colors hover:text-fd-foreground data-[state=active]:border-fd-primary data-[state=active]:bg-fd-primary/5 data-[state=active]:text-fd-foreground"
             >
               <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-fd-primary/10 text-fd-primary">
                 <Icon className="size-4" aria-hidden="true" />
@@ -148,7 +191,7 @@ export function CipherStashCredentials() {
           <TabsContent
             key={value}
             value={value}
-            className="rounded-none bg-transparent p-5"
+            className="rounded-none bg-transparent p-5 outline-none"
           >
             {command ? (
               <>
