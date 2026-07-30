@@ -48,7 +48,7 @@ docker compose up
 <Callout type="info">
 Unlike the Stack SDK, Proxy **always requires credentials to be supplied explicitly**, because it runs as a separate process or container and cannot use the host's device-based authentication.
 
-For local development, create a client key and access key in the [Dashboard](https://dashboard.cipherstash.com). For production, see [Going to production](/stack/deploy/going-to-production).
+Create the four variables with `stash env` or the Dashboard, then supply them to the Proxy container. [Workspace credentials](/reference/workspace/configuration#credentials) shows both options and the complete environment block.
 </Callout>
 
 ## Setting up the database schema

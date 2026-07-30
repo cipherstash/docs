@@ -27,7 +27,7 @@ Do not start the backfill until dual-writes are running in every deployed writer
 
 - Install EQL and configure your encryption client. For Supabase, complete the [Quickstart](/integrations/supabase/quickstart) against a development table first.
 - Inventory every writer of the columns: services, jobs, Edge Functions, imports, seeds, RPC functions, webhooks, and administrative tools.
-- Make the same CipherStash machine credentials available to the deployed application and the backfill job.
+- Make the same CipherStash deployment credentials available to the application and backfill job; see [Credentials at build and runtime](/guides/deployment#credentials-at-build-and-runtime).
 - Decide which encrypted capability each column needs by following [EQL core concepts](/reference/eql/core-concepts).
 
 The examples migrate `patients.name` and `patients.date_of_birth`:
@@ -127,7 +127,7 @@ npx stash encrypt backfill --table patients --column date_of_birth
 The command pages by primary key, encrypts rows in chunks, and records checkpoints. It is resumable and idempotent. For a non-interactive job, acknowledge the deployment gate with `--confirm-dual-writes-deployed`.
 
 <Callout type="warn">
-Run the backfill with the same CipherStash workspace and credentials as the deployed application. A local CipherStash profile may point to a different workspace, producing values the production application cannot decrypt.
+Run the backfill with the same CipherStash workspace and keyset as the deployed application. A local developer profile may point to a different workspace, producing values the production application cannot decrypt. Use the deployed environment's explicit `CS_*` values for the job.
 </Callout>
 
 </Step>
