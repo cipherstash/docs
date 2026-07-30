@@ -82,10 +82,11 @@ function DeploymentEnvironmentVariables() {
       <p className="text-sm font-medium text-fd-foreground">
         Deployment environment variables
       </p>
-      <p className="mt-1 text-sm text-fd-muted-foreground">
-        Both deployment methods produce the same values. Treat{" "}
-        <code>CS_CLIENT_KEY</code> and <code>CS_CLIENT_ACCESS_KEY</code> as
-        secrets.
+      <p className="my-2 text-xs text-fd-muted-foreground">
+        Both deployment methods produce the same values.
+        <br />
+        Treat <code>CS_CLIENT_KEY</code> and <code>CS_CLIENT_ACCESS_KEY</code>{" "}
+        as secrets.
       </p>
       <DynamicCodeBlock
         lang="dotenv"
