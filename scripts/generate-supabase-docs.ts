@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-/** Generate the Supabase integration's API reference from Stack main. */
+/** Generate the Supabase integration's API reference from its Stack 1.0 tag. */
 import path from "node:path";
 import { type DocsConfig, generateDocs } from "./lib/docs-generator.js";
 
@@ -7,7 +7,7 @@ const supabaseConfig: DocsConfig = {
   packageName: "@cipherstash/stack-supabase",
   projectName: "@cipherstash/stack-supabase",
   repoUrl: "https://github.com/cipherstash/stack.git",
-  sourceRef: "main",
+  sourceRef: "@cipherstash/stack-supabase@1.0.0",
   tempDirName: ".tmp-stack-supabase",
   baseOutputDir: path.join(
     process.cwd(),

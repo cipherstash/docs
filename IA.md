@@ -443,13 +443,10 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
 - [ ] OG images for v2 pages (route only covers legacy tree)
 - [ ] Correctness CI: snippet type-checking, SQL-vs-EQL-Docker, terminology lint (CIP-3337)
 - [ ] llms.txt curation + Cloudflare AI crawl policy + md-degradation check (CIP-3339)
-- [ ] ⛔ EQL 3.0.0 release alignment (CIP-3352, blocks CIP-3335) — the EQL reference
-      documents the release as decided, ahead of the eql_v3 branch: payload `v: 3`,
-      OPE SEM specifier, Docker tag `:17-3.0.0`, `version()` output, schema files.
-      Each must land upstream or be walked back in the docs before merge
-- [ ] ⛔ Stack SDK Supabase-wrapper v3 alignment (CIP-3355, blocks CIP-3335) — the
-      Supabase section documents the 0.18 wrapper API with v3 wire semantics; the
-      wrapper itself is still v2 (composite type, `like` wire op, v2 payloads) and
-      the SDK's v3 branches don't touch `src/supabase/` yet
+- [x] EQL 3.0.4 release alignment (CIP-3352) — the EQL reference and CLI target
+      the released v3 schema and payload.
+- [x] Stack SDK and Supabase-wrapper v3 alignment (CIP-3355) —
+      `@cipherstash/stack` and `@cipherstash/stack-supabase` 1.0.0 are released,
+      and the integration docs target their stable v3 surfaces.
 - [ ] Flip `ENABLE_V2_REDIRECTS=1`, delete `content/stack` + `/stack` routes + legacy loader (CIP-3335)
 - [ ] Consistency sweep + Supabase listing v3 revision (CIP-3335)

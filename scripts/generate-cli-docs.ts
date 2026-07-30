@@ -82,6 +82,7 @@ interface Command {
   sub?: string; // "install"
   group: string; // nav group title, from the manifest
   summary: string;
+  long?: string;
   flags: Flag[];
   examples: string[];
 }
@@ -177,6 +178,7 @@ function toManifest(m: CliManifest): Manifest {
         sub: rest.length ? rest.join(" ") : undefined,
         group: group.title,
         summary: c.summary,
+        long: c.long,
         flags: (c.flags ?? []).map(mapFlag),
         examples: (c.examples ?? []).map((e) => `${RUNNER} ${CLI_NAME} ${e}`),
       });
@@ -199,15 +201,21 @@ Generated from **\`${CLI_NAME}\` v${CLI_VERSION}** via \`${RUNNER} ${CLI_NAME}@$
 // e.g. the `auth regions` flag description "[{ slug, label }]" would otherwise
 // evaluate `slug` and crash the prerender) and stray `<` (tags). Flag names and
 // values render inside code spans, which are literal, so this only applies to
-// manifest-derived prose (descriptions, summaries).
-const escapeMdxText = (s: string): string => s.replace(/([{}<])/g, "\\$1");
+// manifest-derived prose (descriptions, summaries, and long help).
+const escapeMdxText = (s: string): string =>
+  s
+    .split(/(`[^`\n]*`)/g)
+    .map((part) =>
+      part.startsWith("`") ? part : part.replace(/([{}<])/g, "\\$1"),
+    )
+    .join("");
 
 function flagsTable(flags: Flag[]): string {
   if (!flags.length) return "";
   const rows = flags
     .map((f) => {
-      // Escape pipes (e.g. the `<2|3>` in `--eql-version`) so they don't read
-      // as table-column separators, even inside the code span.
+      // Escape pipes in option values so they don't read as table-column
+      // separators, even inside the code span.
       const opt = `\`${f.name}${f.value ? ` ${f.value}` : ""}\``.replace(
         /\|/g,
         "\\|",
@@ -224,7 +232,7 @@ function commandSection(cmd: Command, level: "##" | "###"): string {
   const parts = [
     `${level} \`${cmd.path}\``,
     "",
-    escapeMdxText(cmd.summary),
+    escapeMdxText(cmd.long ?? cmd.summary),
     "",
     "```bash",
     synopsis,
@@ -276,7 +284,7 @@ function renderPage(
   } else {
     const c = cmds[0];
     parts.push(
-      escapeMdxText(c.summary),
+      escapeMdxText(c.long ?? c.summary),
       "",
       "```bash",
       `${RUNNER} ${CLI_NAME} ${c.path}${c.flags.length ? " [flags]" : ""}`,
