@@ -17,7 +17,7 @@ verifiedAgainst:
 CipherStash adds searchable, field-level encryption to Prisma ORM 8. Encrypted columns are declared in `schema.prisma`, EQL is installed through Prisma's migration graph, and the generated query API encrypts operands and values before they reach Postgres.
 
 <Callout type="info">
-This integration targets the **Prisma ORM 8 release candidate**, formerly known as **Prisma Next**. The prerelease CLI, package names, configuration file, and initialization flag still use `prisma-next` or `@prisma-next/*`; the examples preserve those names exactly.
+This integration targets the **Prisma ORM 8 release candidate**, formerly known as **Prisma Next**. The prerelease CLI, package names, and configuration file still use `prisma-next` or `@prisma-next/*`; the examples preserve those names exactly. CipherStash setup uses `stash init --prisma`.
 
 It does not extend the classic `@prisma/client` API. For earlier Prisma releases, use the [Stack SDK](/reference/stack) around your existing reads and writes.
 </Callout>

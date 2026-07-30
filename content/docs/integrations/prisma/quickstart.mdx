@@ -17,7 +17,7 @@ verifiedAgainst:
 This tutorial adds an encrypted, searchable email field to an existing Prisma ORM 8 release candidate project.
 
 <Callout type="info">
-Prisma ORM 8 was formerly called Prisma Next. Its prerelease command remains `prisma-next`, and the CipherStash initialization flag remains `--prisma-next`.
+Prisma ORM 8 was formerly called Prisma Next. Its prerelease command remains `prisma-next`, while CipherStash initialization uses `--prisma`.
 </Callout>
 
 It is designed for a new table or empty column. To encrypt a populated column safely, use the [Prisma deployment guide](/integrations/prisma/deployment).
@@ -38,7 +38,7 @@ You need:
 From the Prisma project, run:
 
 ```bash cta cta-type="install" example-id="prisma-quickstart-init"
-npx stash init --prisma-next
+npx stash init --prisma
 ```
 
 `stash init` opens the CipherStash device login when necessary, creates the local developer profile, and installs compatible pinned versions of `@cipherstash/stack`, `@cipherstash/stack-prisma`, and the `stash` CLI.
@@ -46,7 +46,9 @@ npx stash init --prisma-next
 It intentionally does not install EQL directly. The Prisma migration graph owns that step.
 
 <Callout type="idea">
-Agents can run the same initialization command. If authentication is needed, they can present the verification URL and wait for you to complete device login. Initialization also records project context and can install the CipherStash Prisma, authentication, indexing, deployment, and CLI skills for supported coding agents.
+Agents can run the same setup. If no developer profile exists, the agent should start `npx stash auth login --json --region <region> --prisma`, present the returned verification URL, and wait for you to complete device login. It can then run `npx stash init --prisma --region <region>`.
+
+Initialization records project context and can install the CipherStash Prisma, authentication, indexing, deployment, and CLI skills for supported coding agents.
 </Callout>
 
 </Step>
@@ -91,7 +93,7 @@ export default defineConfig({
 })
 ```
 
-If you already use extension packs, include `cipherstash` in the existing array. `createNamespace` is required by Prisma Next 0.15 and later.
+If you already use extension packs, include `cipherstash` in the existing array. `createNamespace` is required by Prisma's 0.15 and later prereleases.
 
 </Step>
 <Step>
