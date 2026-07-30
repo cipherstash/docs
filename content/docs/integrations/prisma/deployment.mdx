@@ -52,18 +52,11 @@ Use the recipes in [EQL indexes](/reference/eql/indexes). Build indexes after th
 
 ## Credentials
 
-Local builds can use the developer profile created by `stash init`. CI, production builds, application runtimes, backfills, and one-off migration jobs use:
+<CipherStashCredentials />
 
-```dotenv
-CS_WORKSPACE_CRN=crn:<region>:<workspace-id>
-CS_CLIENT_ID=<uuid>
-CS_CLIENT_KEY=<hex>
-CS_CLIENT_ACCESS_KEY=CSAK...
-```
+Create separate credentials for each deployed environment. A backfill must use credentials bound to the same keyset as the deployed application; otherwise decryption or encrypted search can fail after a seemingly successful write.
 
-Create separate credentials for each environment with `stash env`. A backfill must use credentials bound to the same keyset as the deployed application; otherwise decryption or encrypted search can fail after a seemingly successful write.
-
-The encryption client is commonly constructed during module import, so make `CS_*` available at build time as well as runtime.
+The encryption client is commonly constructed during module import, so make the four `CS_*` variables available at build time as well as runtime.
 
 ## Runtime packaging
 

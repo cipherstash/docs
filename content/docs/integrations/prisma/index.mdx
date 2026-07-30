@@ -52,6 +52,8 @@ Encrypted functional indexes also belong in the Prisma migration graph. `schema.
 
 ## Runtime and authentication
 
-Local development uses the CipherStash developer profile created by `stash init`. CI and deployed applications use the four `CS_*` environment variables. The Prisma adapter currently uses the native Stack client, so deploy it to a server runtime that can load native packages; it is not an edge-runtime adapter.
+Local development uses the CipherStash developer profile created by `stash init`. CI and deployed applications use credentials created with the CLI or Dashboard. [Credentials](/integrations/prisma/deployment#credentials) lists all three options and the four deployment environment variables.
+
+The Prisma adapter currently uses the native Stack client, so deploy it to a server runtime that can load native packages; it is not an edge-runtime adapter.
 
 For a new project, continue with the [Quickstart](/integrations/prisma/quickstart).

@@ -17,14 +17,9 @@ verifiedAgainst:
 
 ## Before the first deploy
 
-Add the four CipherStash credentials to both the preview and production roles:
+<CipherStashCredentials />
 
-```dotenv
-CS_WORKSPACE_CRN=crn:<region>:<workspace-id>
-CS_CLIENT_ID=<uuid>
-CS_CLIENT_KEY=<hex>
-CS_CLIENT_ACCESS_KEY=CSAK...
-```
+The local developer profile is not available on Prisma Compute. Create deployment credentials with `stash env` or the Dashboard, then add all four variables to both the preview and production roles.
 
 These values are needed during the build as well as at runtime because a database module may construct `cipherstashFromStack` when it is imported. Prisma Compute resolves environment variables when it creates a deployment, so redeploy after changing them.
 

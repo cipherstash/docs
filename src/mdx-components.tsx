@@ -4,6 +4,7 @@ import defaultMdxComponents from "fumadocs-ui/mdx";
 import type { MDXComponents } from "mdx/types";
 import type { ComponentProps } from "react";
 import { BadExample } from "@/components/bad-example";
+import { CipherStashCredentials } from "@/components/cipherstash-credentials";
 import { TrackedCodeBlock } from "@/components/code-block";
 import { EqlFn } from "@/components/eql-fn";
 import { EqlVersion } from "@/components/eql-version";
@@ -48,6 +49,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     Steps,
     Step,
     BadExample,
+    CipherStashCredentials,
     EqlVersion,
     EqlFn,
     ZeroKmsRegions,
