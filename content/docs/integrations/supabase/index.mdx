@@ -19,7 +19,7 @@ CipherStash adds field-level encryption to your Supabase project. Sensitive fiel
 
 Unlike ordinary field encryption, the ciphertext stays **fully queryable**. You install [Encrypt Query Language (EQL)](/reference/eql) on your Supabase database, declare each protected column with the encrypted type that matches the operations you need, then query it with the same `.eq()`, `.gt()`, and `.order()` calls you use today.
 
-If you want the fastest path from an empty project to an encrypted table, start with the [Quickstart](/integrations/supabase/quickstart) — about fifteen minutes. This page is the reference behind it: how EQL installs and what Supabase's roles need from it, choosing and indexing column types, how encryption composes with Row Level Security, and what encrypted data looks like across the dashboard.
+If you want the fastest path to encrypting a column that already holds live data, start with the [Quickstart](/integrations/supabase/quickstart) — about twenty minutes, taking a plaintext `patients` table through mirror columns, dual-writes, backfill, and read cutover. This page is the reference behind it: how EQL installs and what Supabase's roles need from it, choosing and indexing column types, how encryption composes with Row Level Security, and what encrypted data looks like across the dashboard.
 
 ## How it works
 
@@ -186,7 +186,7 @@ The hub emits the `CS_*` credentials block for your app's environment, ready to 
 
 ## The rest of this section
 
-- **[Quickstart](/integrations/supabase/quickstart):** the end-to-end walkthrough — install EQL, wrap your client, query encrypted data — plus the direct-connection path if you use Drizzle or Prisma.
+- **[Quickstart](/integrations/supabase/quickstart):** the end-to-end walkthrough — install EQL, wrap your client, and convert two live plaintext columns to encrypted ones — plus the direct-connection path if you use Drizzle or Prisma.
 - **[Supabase Auth](/integrations/supabase/auth):** federate the signed-in session so encryption authenticates as the user, and optionally lock decryption to their identity.
 - **[Edge Functions](/integrations/supabase/edge-functions):** run encryption server-side through the WebAssembly build.
 - **[Key management and audit logging](/security/audit-logging):** per-value keys and rotation through CipherStash ZeroKMS, a decryption access trail out of the box, optional Bring Your Own Key, and FIPS and SOC 2 compliance.
@@ -219,9 +219,12 @@ The hub emits the `CS_*` credentials block for your app's environment, ready to 
       title: "What does migration look like?",
       answer: (
         <>
-          Install EQL on your Supabase database, choose which columns to protect,
-          then set their encryption type. Encrypt values in your app before
-          saving them, and update columns one at a time.
+          Install EQL on your Supabase database, add an encrypted mirror column
+          beside each column you want to protect, write both for a while,
+          backfill the historical rows, then move reads across. One column at a
+          time, no downtime, reversible until you drop the plaintext. The{" "}
+          <a href="/integrations/supabase/quickstart">Quickstart</a> walks
+          through it end to end.
         </>
       ),
     },
@@ -235,7 +238,7 @@ The hub emits the `CS_*` credentials block for your app's environment, ready to 
 
 <Cards>
   <Card title="Quickstart" href="/integrations/supabase/quickstart">
-    The end-to-end walkthrough: install EQL, wrap your client, query encrypted data.
+    The end-to-end walkthrough: install EQL, wrap your client, and encrypt two columns that already hold live data.
   </Card>
   <Card title="Supabase Auth" href="/integrations/supabase/auth">
     Federate the Supabase session and lock decryption to the authenticated user.
