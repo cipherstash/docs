@@ -81,17 +81,47 @@ export const v2Redirects = [
     destination: "/reference/eql/filtering",
     permanent: false,
   },
-  // configuration, encrypt-decrypt, bulk-operations, models, schema, storing-data
+  {
+    source: "/stack/cipherstash/encryption/configuration",
+    destination: "/reference/workspace/configuration",
+    permanent: false,
+  },
+  {
+    source: "/stack/cipherstash/encryption/encrypt-decrypt",
+    destination: "/reference/stack/usage",
+    permanent: false,
+  },
+  {
+    source: "/stack/cipherstash/encryption/storing-data",
+    destination: "/reference/stack/usage",
+    permanent: false,
+  },
+  {
+    source: "/stack/cipherstash/encryption/schema",
+    destination: "/reference/stack/api-reference/schema",
+    permanent: false,
+  },
+  {
+    source: "/stack/cipherstash/encryption/models",
+    destination: "/reference/stack/api-reference/encryption",
+    permanent: false,
+  },
+  {
+    source: "/stack/cipherstash/encryption/bulk-operations",
+    destination: "/reference/stack/api-reference/encryption",
+    permanent: false,
+  },
+  // Any retired Encryption SDK leaf falls back to the current usage guide.
   {
     source: "/stack/cipherstash/encryption/:path*",
-    destination: "/reference/stack/:path*",
+    destination: "/reference/stack/usage",
     permanent: false,
   },
 
   // === KMS section → Security + Reference/auth + Concepts ===
   {
     source: "/stack/cipherstash/kms",
-    destination: "/security/zerokms",
+    destination: "/concepts/key-management",
     permanent: false,
   },
   {
@@ -116,7 +146,7 @@ export const v2Redirects = [
   },
   {
     source: "/stack/cipherstash/kms/disaster-recovery",
-    destination: "/security/availability-and-continuity",
+    destination: "/concepts/key-management",
     permanent: false,
   },
   {
@@ -126,7 +156,7 @@ export const v2Redirects = [
   },
   {
     source: "/stack/cipherstash/kms/regions",
-    destination: "/security/zerokms",
+    destination: "/solutions/data-residency",
     permanent: false,
   },
   {
@@ -148,12 +178,12 @@ export const v2Redirects = [
   },
   {
     source: "/stack/cipherstash/proxy/getting-started",
-    destination: "/integrations/aws/rds-aurora",
+    destination: "/reference/proxy",
     permanent: false,
   },
   {
     source: "/stack/cipherstash/proxy/encrypt-tool",
-    destination: "/guides/migration/encrypt-existing-data",
+    destination: "/guides/migration",
     permanent: false,
   },
   {
@@ -163,7 +193,7 @@ export const v2Redirects = [
   },
   {
     source: "/stack/cipherstash/proxy/troubleshooting",
-    destination: "/guides/troubleshooting/proxy",
+    destination: "/reference/proxy/errors",
     permanent: false,
   },
   // configuration, message-flow, multitenant
@@ -181,7 +211,27 @@ export const v2Redirects = [
   },
   {
     source: "/stack/cipherstash/cli/troubleshooting",
-    destination: "/guides/troubleshooting/cli",
+    destination: "/reference/cli/doctor",
+    permanent: false,
+  },
+  {
+    source: "/stack/cipherstash/cli/api",
+    destination: "/reference/cli",
+    permanent: false,
+  },
+  {
+    source: "/stack/cipherstash/cli/install",
+    destination: "/reference/cli/eql",
+    permanent: false,
+  },
+  {
+    source: "/stack/cipherstash/cli/push",
+    destination: "/reference/cli",
+    permanent: false,
+  },
+  {
+    source: "/stack/cipherstash/cli/validate",
+    destination: "/reference/cli/db",
     permanent: false,
   },
   {
@@ -198,42 +248,46 @@ export const v2Redirects = [
   },
   {
     source: "/stack/deploy/going-to-production",
-    destination: "/guides/deployment/going-to-production",
+    destination: "/guides/deployment",
     permanent: false,
   },
   {
     source: "/stack/deploy/aws-ecs",
-    destination: "/guides/deployment/proxy-deployment",
+    destination: "/guides/deployment",
     permanent: false,
   },
   {
     source: "/stack/deploy/bundling",
-    destination: "/guides/deployment/serverless-and-bundling",
+    destination: "/guides/deployment",
     permanent: false,
   },
   {
     source: "/stack/deploy/sst",
-    destination: "/guides/deployment/serverless-and-bundling",
+    destination: "/guides/deployment",
     permanent: false,
   },
   {
     source: "/stack/deploy/testing",
-    destination: "/guides/development/testing-and-ci",
+    destination: "/guides/deployment",
     permanent: false,
   },
   {
     source: "/stack/deploy/team-onboarding",
-    destination: "/guides/development/team-onboarding",
+    destination: "/guides/deployment",
     permanent: false,
   },
   {
     source: "/stack/deploy/troubleshooting",
-    destination: "/guides/troubleshooting",
+    destination: "/guides/deployment",
     permanent: false,
   },
 
   // === Reference section ===
-  { source: "/stack/reference", destination: "/reference", permanent: false },
+  {
+    source: "/stack/reference",
+    destination: "/reference/eql",
+    permanent: false,
+  },
   {
     source: "/stack/reference/what-is-cipherstash",
     destination: "/get-started/what-is-cipherstash",
@@ -269,7 +323,7 @@ export const v2Redirects = [
     // it can be republished), so send its legacy URL to the Solutions index
     // rather than a page that does not exist.
     source: "/stack/reference/use-cases/ai-rag",
-    destination: "/solutions",
+    destination: "/solutions/ai-and-rag",
     permanent: false,
   },
   {
@@ -319,14 +373,14 @@ export const v2Redirects = [
   },
   {
     source: "/stack/reference/error-handling",
-    destination: "/reference/stack/errors",
+    destination: "/reference/stack/api-reference/errors",
     permanent: false,
   },
   // NOTE: legacy "migration" page is the @cipherstash/protect→stack package
   // rename guide, NOT data migration (see IA.md).
   {
     source: "/stack/reference/migration",
-    destination: "/reference/stack/upgrading-from-protect",
+    destination: "/reference/stack/usage",
     permanent: false,
   },
   {
@@ -375,6 +429,13 @@ export const v2Redirects = [
     permanent: false,
   },
   // Generated TypeDoc API reference (scripts/generate-docs.ts output)
+  // The legacy generator placed the Supabase wrapper beneath Stack. Its v2
+  // reference is owned by the Supabase integration instead.
+  {
+    source: "/stack/reference/stack/latest/packages/stack-supabase/:path*",
+    destination: "/integrations/supabase/api-reference",
+    permanent: false,
+  },
   {
     source: "/stack/reference/stack/:path*",
     destination: "/reference/stack/api-reference",

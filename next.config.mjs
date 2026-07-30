@@ -10,6 +10,27 @@ const withMDX = createMDX();
 // `bun run validate-redirects` regardless of the flag.
 const enableV2Redirects = process.env.ENABLE_V2_REDIRECTS === "1";
 
+// Migrated legacy sections redirect as soon as their replacements are
+// complete, without waiting for the root-level v2 IA cutover. The two legacy
+// landing pages remain available until ENABLE_V2_REDIRECTS is flipped.
+const enabledV2RedirectPrefixes = [
+  "/stack/quickstart",
+  "/stack/cipherstash/postgres",
+  "/stack/cipherstash/supabase",
+  "/stack/cipherstash/encryption",
+  "/stack/cipherstash/kms",
+  "/stack/cipherstash/proxy",
+  "/stack/cipherstash/cli",
+  "/stack/deploy",
+  "/stack/reference",
+];
+
+function isEnabledV2Redirect(source) {
+  return enabledV2RedirectPrefixes.some(
+    (prefix) => source === prefix || source.startsWith(`${prefix}/`),
+  );
+}
+
 /** @type {import('next').NextConfig} */
 const config = {
   basePath: "/docs",
@@ -40,12 +61,28 @@ const config = {
         destination: "/concepts/searchable-encryption",
         permanent: false,
       },
+      // Guides is a non-clickable sidebar group with no landing page.
+      // Keep its direct URL useful without rendering a synthetic Overview.
+      {
+        source: "/guides",
+        destination: "/guides/deployment",
+        permanent: false,
+      },
+      // Reference is a non-clickable sidebar group with no landing page.
+      // Keep its direct URL useful without rendering a synthetic Overview.
+      {
+        source: "/reference",
+        destination: "/reference/eql",
+        permanent: false,
+      },
       {
         source: "/integrations/prisma-next",
         destination: "/integrations/prisma",
         permanent: true,
       },
-      ...(enableV2Redirects ? v2Redirects : []),
+      ...v2Redirects.filter(
+        ({ source }) => enableV2Redirects || isEnabledV2Redirect(source),
+      ),
       // === 4-section consolidation: product sections under /cipherstash/ ===
       {
         source: "/stack/encryption/:path*",

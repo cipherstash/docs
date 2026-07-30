@@ -12,7 +12,7 @@ A dynamic security model that makes access decisions based on a variety of attri
 
 ### Access key
 
-A persistent authentication credential used for communication with [ZeroKMS](#zerokms) or [CTS](#cts-cipherstash-token-service). See [access keys](/stack/cipherstash/kms/access-keys).
+A persistent authentication credential used for communication with [ZeroKMS](#zerokms) or [CTS](#cts-cipherstash-token-service). See [access keys](/reference/auth/access-keys).
 
 ### Account management
 
@@ -43,7 +43,7 @@ There are two types:
 - **Device-backed client keys** are created automatically by `stash init` and tied to a developer's [device](#device). Used for local development.
 - **Application client keys** are created in the Dashboard for production and CI/CD. Identified by a [client ID](#client-id) and client key value, set via environment variables.
 
-See [client keys](/stack/cipherstash/kms/clients).
+See [client keys](/reference/auth/clients).
 
 ### Client ID
 
@@ -55,7 +55,7 @@ The secret credential set via `CS_CLIENT_KEY`. Together with the [client ID](#cl
 
 ### CTS (CipherStash Token Service)
 
-CTS manages the trust relationships between a workspace and third-party or customer identity providers. It brokers secure access to CipherStash services such as ZeroKMS, ensuring that only authenticated and authorized users gain entry. See [CTS](/stack/cipherstash/kms/cts).
+CTS manages the trust relationships between a workspace and third-party or customer identity providers. It brokers secure access to CipherStash services such as ZeroKMS, ensuring that only authenticated and authorized users gain entry. See [CTS](/security/cts).
 
 ## D
 
@@ -73,7 +73,7 @@ An event triggered by execution of SQL statements by CipherStash Proxy. Includes
 
 A unique identity tied to a developer's device and user account, created by `stash init`. Each device has an associated [client key](#client-key) that is automatically granted access to the default [keyset](#keyset).
 
-Devices are used for local development authentication, with no environment variables required. Production environments use application [client keys](#client-key) instead. See the [quickstart](/stack/quickstart).
+Devices are used for local development authentication, with no environment variables required. Production environments use application [client keys](#client-key) instead. See the [quickstart](/get-started/quickstart).
 
 ## E
 
@@ -109,7 +109,7 @@ A core CipherStash Cloud primitive for cryptographic isolation, managed by [Zero
 
 Use keysets for tenant isolation, environment separation, regional compliance, or any cryptographic boundary your architecture requires. A [client key](#client-key) can access many keysets, and a keyset can be shared by multiple client keys. In the Secrets SDK, environments map directly to keysets.
 
-See [keysets](/stack/cipherstash/kms/keysets).
+See [key management](/concepts/key-management#keysets-define-the-isolation-boundary).
 
 ## O
 
@@ -153,4 +153,4 @@ See [workspace and account](/reference/workspace).
 
 ### ZeroKMS
 
-CipherStash's key management service. ZeroKMS provides high-performance batch encryption and decryption, enabling a unique encryption key per field. See [ZeroKMS](/stack/cipherstash/kms).
+CipherStash's key management service. ZeroKMS provides high-performance batch encryption and decryption, enabling a unique encryption key per field. See [key management](/concepts/key-management).

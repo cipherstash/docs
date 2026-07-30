@@ -62,7 +62,7 @@ flowchart TB
 
 You rarely need all of them at once. The Stack SDK plus EQL is the common case. Proxy is the alternative to the SDK, not an addition to it.
 
-Note that **EQL is only for Postgres**. The SDK also encrypts values that never touch a database, and non-Postgres stores like [DynamoDB](/stack/cipherstash/encryption/dynamodb), with no EQL involved.
+Note that **EQL is only for Postgres**. The SDK also encrypts values that never touch a database, and non-Postgres stores like [DynamoDB](/integrations/aws/dynamodb), with no EQL involved.
 
 ## Choosing what each column reveals
 
@@ -99,7 +99,7 @@ Encryption in use is usually assumed to be slow. It is, if you do it with fully 
 | vs fully homomorphic encryption | [410,000x faster](https://github.com/cipherstash/tfhe-ore-bench) on the per-row primitives a database actually executes. |
 | vs AWS KMS | Up to 14x the throughput, because ZeroKMS derives keys in bulk rather than one call per value. |
 
-The FHE comparison is an open benchmark harness you can run yourself. See [CipherStash vs FHE](/stack/reference/comparisons/fhe) for the methodology, and for the workloads where FHE is genuinely the right tool.
+The FHE comparison is an open benchmark harness you can run yourself. See [CipherStash vs FHE](/concepts/compare/fhe) for the methodology, and for the workloads where FHE is genuinely the right tool.
 
 ## What it protects against
 

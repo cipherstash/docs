@@ -157,7 +157,7 @@ Enables exact match queries using HMAC-SHA256.
 
 **Type**: Hex-encoded string (64 characters)
 
-**Index Type**: [Exact](/stack/cipherstash/encryption/searchable-encryption#exact-matching)
+**Index Type**: [Equality](/concepts/searchable-encryption#query-capabilities)
 
 ```json
 {
@@ -171,7 +171,7 @@ Enables range queries and ordering using Order Revealing Encryption.
 
 **Type**: Array of strings
 
-**Index Type**: [Order / Range](/stack/cipherstash/encryption/searchable-encryption#sorting-and-range-queries)
+**Index Type**: [Order / Range](/concepts/searchable-encryption#query-capabilities)
 
 ```json
 {
@@ -188,7 +188,7 @@ Enables substring and pattern matching queries using encrypted Bloom filters wit
 
 **Type**: Array of integers
 
-**Index Type**: [Match](/stack/cipherstash/encryption/searchable-encryption#free-text-search)
+**Index Type**: [Match](/concepts/searchable-encryption#query-capabilities)
 
 ```json
 {
@@ -306,4 +306,4 @@ The CipherCell format is consistent across all CipherStash SDKs and tools, ensur
 ## Database storage
 
 CipherCells can be stored as JSON in any database that supports JSON data types.
-However, for search to be supported using the [Encryption SDK](/stack/cipherstash/encryption) or [CipherStash Proxy](/stack/cipherstash/proxy), the `eql_v2.encrypted` database type must be used which is available when the Encrypt Query Language (EQL) helpers have been installed.
+However, for search to be supported using the [Stack SDK](/reference/stack) or [CipherStash Proxy](/reference/proxy), the `eql_v2.encrypted` database type must be used which is available when the Encrypt Query Language (EQL) helpers have been installed.

@@ -156,7 +156,7 @@ The first move on a slow query is `EXPLAIN (COSTS OFF)`:
 - **`Filter:` showing the raw operator** — inlining did not happen. Usual causes: a pinned `search_path` on a customised function, or the planner judging another plan cheaper.
 - **`Sort` node above an Index Scan** — natural-form `ORDER BY`. Switch the sort key to `eql_v3.ord_term(col)` to eliminate it.
 
-Once the plan looks right, repeat with `EXPLAIN ANALYZE` to measure actual timings. For a full diagnosis walkthrough, see [query performance troubleshooting](/guides/troubleshooting/query-performance).
+Once the plan looks right, repeat with `EXPLAIN ANALYZE` to measure actual timings. Compare estimated and actual row counts as well as the chosen scan; a large mismatch usually means the planner needs fresh statistics before the index definition itself is changed.
 
 ## Building indexes on large tables
 

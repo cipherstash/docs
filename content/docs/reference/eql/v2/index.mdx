@@ -18,7 +18,7 @@ This section documents **EQL v2** (v2.2), the release existing CipherStash deplo
 
 EQL provides the database-side components needed to query encrypted data. Unlike traditional PostgreSQL extensions, EQL is implemented as a collection of types, operators, and functions, making it compatible with managed database providers like AWS RDS that restrict extension installation.
 
-When combined with the [Encryption SDK](/stack/cipherstash/encryption) or [CipherStash Proxy](/stack/cipherstash/proxy), EQL enables:
+When combined with the [Stack SDK](/reference/stack) or [CipherStash Proxy](/reference/proxy), EQL enables:
 
 - **Exact match queries** using encrypted equality operators
 - **Range queries** with order-preserving encryption
@@ -67,7 +67,7 @@ EQL ships in the `eql_v2` schema, with functions in three groups:
 - **Index-term extraction** — `eql_v2.hmac_256()` (exact match), `eql_v2.bloom_filter()` (pattern matching), and `eql_v2.ore_block_u64_8_256()` (range) extract a searchable term from an encrypted value. These back the functional indexes — see [Setting up indexes](/reference/eql/v2/indexes).
 - **Comparison** — operators (`=`, `<`, `LIKE`, `@>`, …) are the query surface over encrypted columns.
 
-For the complete, per-version function reference — every signature, parameter, and return type — see the [EQL API reference](/stack/reference/eql/), generated from each EQL release.
+For the complete function reference — every signature, parameter, and return type — see [EQL functions](/reference/eql/functions).
 
 ## Index types
 
@@ -77,19 +77,19 @@ EQL supports multiple searchable encryption index types. Each index type enables
 
 Enables exact equality queries and unique constraints using HMAC-SHA256.
 
-[Learn more about exact indexes](/stack/cipherstash/encryption/searchable-encryption#exact-matching)
+[Learn more about equality queries](/concepts/searchable-encryption#query-capabilities)
 
 ### `ore`: Range queries
 
 Enables range comparisons (`<`, `>`, `BETWEEN`) and ordering (`ORDER BY`) using Order Revealing Encryption.
 
-[Learn more about range indexes](/stack/cipherstash/encryption/searchable-encryption#sorting-and-range-queries)
+[Learn more about range queries](/concepts/searchable-encryption#query-capabilities)
 
 ### `match`: Pattern matching
 
 Enables substring and full-text search (`LIKE`, `ILIKE`) using encrypted Bloom filters with trigrams.
 
-[Learn more about match indexes](/stack/cipherstash/encryption/searchable-encryption#free-text-search)
+[Learn more about token matching](/concepts/searchable-encryption#query-capabilities)
 
 ### `ste_vec`: Structured data
 
@@ -120,4 +120,4 @@ Unlike PostgreSQL extensions that require `CREATE EXTENSION`, EQL types and func
 ## Related documentation
 
 - [CipherCell format](/reference/eql/v2/payload): The data structure used by EQL
-- [Supported queries](/stack/cipherstash/encryption/searchable-encryption): Available searchable encryption schemes
+- [Searchable encryption](/concepts/searchable-encryption): Available encrypted query capabilities

@@ -161,7 +161,7 @@ The design deliberately keeps the durable pieces small and separated:
 | ZeroKMS | Authority keys and access-control state |
 | Nowhere | Plaintext data keys |
 
-Your encrypted data stays in your database. ZeroKMS handles key material, not application data. This separation also shapes recovery: restoring ZeroKMS restores the ability to reproduce keys; it does not require CipherStash to restore or move your encrypted database. See [Disaster recovery](/stack/cipherstash/kms/disaster-recovery).
+Your encrypted data stays in your database. ZeroKMS handles key material, not application data. This separation also shapes recovery: restoring ZeroKMS restores the ability to reproduce keys; it does not require CipherStash to restore or move your encrypted database. Multi-region application patterns are covered in [Data residency](/solutions/data-residency#multi-region-with-regional-key-isolation).
 
 ## ZeroKMS and searchable encryption
 

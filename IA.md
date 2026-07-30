@@ -310,7 +310,7 @@ Two notes:
 - [x] `/integrations/drizzle` — overview and generated `@cipherstash/stack-drizzle` API reference
 - [x] `/integrations/prisma` — Prisma ORM 8 RC, EQL v3, Prisma Postgres, Prisma Compute, and generated API reference
 - [ ] `/integrations/aws/rds-aurora` — Proxy path
-- [ ] `/integrations/aws/dynamodb`
+- [x] `/integrations/aws/dynamodb` — Stack 1.0 helper, equality lookups, and legacy reads
 - [ ] `/integrations/clerk`
 - [ ] `/integrations/auth0` — end-to-end example (Clerk parity)
 - [ ] `/integrations/okta` — end-to-end example (Clerk parity)
@@ -349,13 +349,11 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
 - [ ] `/guides/development/schema-design` — which encrypted type/variant per column (CIP-3327)
 - [ ] `/guides/development/testing-and-ci` (port deploy/testing)
 - [ ] `/guides/development/team-onboarding` (port)
-- [ ] `/guides/migration/encrypt-existing-data` — the backfill guide, runnable (CIP-3329)
+- [x] `/guides/migration` — the backfill guide, runnable (CIP-3329)
 - [ ] ⛔ `/guides/migration/upgrading-from-eql-v2` — REQUIRED; mechanics pending product answer (CIP-3329)
 - [ ] `/guides/migration/adopting-incrementally` (CIP-3329)
 - [ ] `/guides/migration/key-rotation-operations`
-- [ ] `/guides/deployment/going-to-production` (port)
-- [ ] `/guides/deployment/serverless-and-bundling` (merge bundling + sst)
-- [ ] `/guides/deployment/proxy-deployment` (merge proxy Docker + aws-ecs)
+- [x] `/guides/deployment` — production rollout, bundling, CI, onboarding, and Proxy deployment consolidated into one page
 - [ ] `/guides/troubleshooting` index — symptom-based router
 - [ ] `/guides/troubleshooting/query-performance` — seq-scan diagnosis, typed-operand gotcha
 - [ ] `/guides/troubleshooting/runtime-errors`
@@ -367,14 +365,14 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
 - [x] Section scaffold 🚧
 - [x] `/security/cryptography` — ONE reconciled ZeroKMS mechanism story (kills the 3 conflicting accounts)
 - [ ] `/security/zerokms`
-- [ ] `/security/cts` — auth layer architecture (CIP-3330)
+- [x] `/security/cts` — auth layer architecture (hidden from nav until the section is expanded)
 - [ ] `/security/stack-sdk`
 - [ ] `/security/proxy`
 - [ ] `/security/threat-scenarios`
 - [ ] ⛔ `/security/availability-and-continuity` — DR (port) + SLA + exit story; pending SLA answer
-- [ ] ⛔ `/security/audit-logging` — pending retention answer
+- [x] `/security/audit-logging` — Proxy event mechanics; retention/export remains deployment-specific and the nav stays hidden
 - [ ] ⛔ `/security/key-ownership` — BYOK/self-hosted; pending product answer
-- [ ] `/security/compliance` index — framework mapping (port, good)
+- [x] `/security/compliance` index — capability/responsibility mapping (nav remains hidden)
 - [ ] `/security/compliance/hipaa` — BAA scope, §164.312 mapping (CIP-3332)
 - [ ] `/security/compliance/soc2` — verify Type II report exists
 - [ ] `/security/compliance/gdpr`
@@ -384,7 +382,7 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
 - [x] Section scaffold 🚧
 - [ ] `/solutions/protecting-pii` (new)
 - [ ] `/solutions/healthcare-hipaa` (new; pairs with compliance/hipaa)
-- [ ] `/solutions/ai-and-rag` (port use-cases/ai-rag)
+- [x] `/solutions/ai-and-rag` — source protection, retrieval flow, and isolation boundaries
 - [ ] `/solutions/data-residency` (port)
 - [ ] `/solutions/provable-access` (port)
 
@@ -419,8 +417,8 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
 - **Auth (CIP-3330):**
 - [ ] `/reference/auth/lock-contexts`
 - [ ] `/reference/auth/cts-tokens`
-- [ ] `/reference/auth/oidc-configuration`
-- [ ] `/reference/auth/access-keys` (+ clients)
+- [x] `/reference/auth/oidc-configuration`
+- [x] `/reference/auth/access-keys` + `/reference/auth/clients`
 - **CLI / Proxy / Workspace:**
 - [ ] `/reference/cli/*` (port 9 pages)
 - [ ] `/reference/proxy/*` (configuration, message-flow, multitenant, errors)

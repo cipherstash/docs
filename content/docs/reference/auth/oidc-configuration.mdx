@@ -1,0 +1,73 @@
+---
+title: OIDC providers
+description: "Register an identity provider so cryptographic operations can be authenticated as the signed-in end user."
+type: reference
+components: [platform, encryption]
+audience: [developer]
+verifiedAgainst:
+  auth: "0.42.0"
+---
+
+Register an OpenID Connect provider when encryption or decryption must be
+performed as the signed-in user. CipherStash federates the provider's JWT into
+a short-lived service token; the application does not send an OIDC client
+secret to CipherStash.
+
+OIDC is optional. Applications that authenticate only as a deployed service
+use an [application client key](/reference/auth/clients) and
+[access key](/reference/auth/access-keys) instead.
+
+## Supported providers
+
+- Auth0
+- Clerk
+- Okta
+- Supabase Auth
+
+## Register a provider
+
+1. Open **Authentication → OIDC Providers** for the workspace in the
+   [Dashboard](https://dashboard.cipherstash.com/workspaces/_/oidc-providers).
+2. Select **Add OIDC Provider**.
+3. Choose the vendor and enter the issuer URL from the provider's OIDC
+   discovery document.
+
+| Provider | Example issuer |
+| --- | --- |
+| Auth0 | `https://your-tenant.auth0.com/` |
+| Clerk | `https://your-app.clerk.accounts.dev/` |
+| Okta | `https://your-org.okta.com/` |
+| Supabase | `https://project-ref.supabase.co/auth/v1` |
+
+For Supabase, the [Dashboard integration](/integrations/supabase) can register
+the project issuer for you.
+
+CipherStash stores the provider vendor and issuer. Token signatures are
+validated using the issuer's published JWKS; no provider client secret is
+stored.
+
+## Use the provider from Stack
+
+Configure `OidcFederationStrategy` with a callback that returns the current
+user's JWT:
+
+```typescript filename="encryption.ts"
+import { Encryption, OidcFederationStrategy } from "@cipherstash/stack"
+
+const encryption = await Encryption({
+  schemas: [patients],
+  config: {
+    authStrategy: OidcFederationStrategy.create(
+      process.env.CS_WORKSPACE_CRN,
+      () => getCurrentUserJwt(),
+    ),
+  },
+})
+```
+
+The callback must return the current token rather than a token captured once
+at startup, because the strategy invokes it again when federation needs to be
+renewed.
+
+Continue with [provable access control](/solutions/provable-access) to bind
+encryption to an identity claim using a lock context.

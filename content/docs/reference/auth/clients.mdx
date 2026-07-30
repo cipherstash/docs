@@ -1,0 +1,48 @@
+---
+title: Client keys
+description: "Understand device-backed and application client keys, keyset grants, revocation, and deployment use."
+type: reference
+components: [platform, encryption]
+audience: [developer]
+---
+
+A client key is the application-held half of CipherStash's split key
+architecture. It identifies a developer device or deployed application and is
+granted access to one or more keysets. ZeroKMS never receives the client key.
+
+## Client key types
+
+### Device-backed client keys
+
+`stash init` creates a device-backed client key for the current developer and
+grants it access to the workspace's default keyset.
+
+- Use it for local development only.
+- Each developer and device gets a distinct key.
+- Revoking one device does not affect other developers or production.
+- No `CS_*` environment variables are required while the device session is
+  active.
+
+### Application client keys
+
+Create an application client key for production, CI, background jobs, or
+Proxy—any environment without an interactive device login.
+
+Open **Clients** in the
+[CipherStash Dashboard](https://dashboard.cipherstash.com/workspaces/_/clients),
+select **Create a new client**, and grant only the keysets that workload needs.
+Store its ID and key value as `CS_CLIENT_ID` and `CS_CLIENT_KEY`.
+
+## Keyset access
+
+A client can use only the keysets it has been granted. Separate keysets are a
+cryptographic isolation boundary: a client without the grant cannot derive the
+keys required to decrypt that data.
+
+Grant access before deploying a workload. To revoke it, remove the client from
+the keyset or delete the client. Revocation prevents future key derivation but
+does not modify ciphertext already stored in your database.
+
+See [key management](/concepts/key-management#keysets-define-the-isolation-boundary)
+for the isolation model and [workspace configuration](/reference/workspace/configuration)
+for production environment variables.
