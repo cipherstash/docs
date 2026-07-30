@@ -76,6 +76,29 @@ function TrackedBashCodeBlock(props: CodeBlockProps) {
   );
 }
 
+function DeploymentEnvironmentVariables() {
+  return (
+    <div className="mt-5 border-t pt-4">
+      <p className="text-sm font-medium text-fd-foreground">
+        Deployment environment variables
+      </p>
+      <p className="mt-1 text-sm text-fd-muted-foreground">
+        Both deployment methods produce the same values. Treat{" "}
+        <code>CS_CLIENT_KEY</code> and <code>CS_CLIENT_ACCESS_KEY</code> as
+        secrets.
+      </p>
+      <DynamicCodeBlock
+        lang="dotenv"
+        code={ENVIRONMENT_VARIABLES}
+        codeblock={{ title: ".env", className: "mb-0" }}
+        options={{
+          themes: { light: cipherstashLight, dark: cipherstashDark },
+        }}
+      />
+    </div>
+  );
+}
+
 /**
  * The canonical credential-source chooser for integration and deployment
  * guides. Keep the discovery order and environment-variable names aligned
@@ -149,28 +172,12 @@ export function CipherStashCredentials() {
             <p className="mt-3 text-xs leading-relaxed text-fd-muted-foreground">
               {description}
             </p>
+            {value !== "developer-profile" && (
+              <DeploymentEnvironmentVariables />
+            )}
           </TabsContent>
         ))}
       </Tabs>
-
-      <div className="border-t px-5 py-4">
-        <p className="text-sm font-medium text-fd-foreground">
-          Deployment environment variables
-        </p>
-        <p className="mt-1 text-sm text-fd-muted-foreground">
-          Both deployment methods produce the same values. Treat{" "}
-          <code>CS_CLIENT_KEY</code> and <code>CS_CLIENT_ACCESS_KEY</code> as
-          secrets.
-        </p>
-        <DynamicCodeBlock
-          lang="dotenv"
-          code={ENVIRONMENT_VARIABLES}
-          codeblock={{ title: ".env", className: "mb-0" }}
-          options={{
-            themes: { light: cipherstashLight, dark: cipherstashDark },
-          }}
-        />
-      </div>
     </div>
   );
 }
