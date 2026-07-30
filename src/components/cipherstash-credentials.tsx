@@ -1,5 +1,9 @@
+"use client";
+
+import type { CodeBlockProps } from "fumadocs-ui/components/codeblock";
 import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
 import { ExternalLink, Laptop, LayoutDashboard, Terminal } from "lucide-react";
+import { TrackedCodeBlock } from "@/components/code-block";
 import { cipherstashDark, cipherstashLight } from "@/lib/shiki-themes";
 
 const ENVIRONMENT_VARIABLES = `CS_WORKSPACE_CRN=crn:<region>.<provider>:<workspace-id>
@@ -12,11 +16,8 @@ const options = [
     title: "Developer profile",
     useFor: "Local development",
     icon: Laptop,
-    action: (
-      <>
-        Run <code>npx stash auth login</code>.
-      </>
-    ),
+    command: "npx stash auth login",
+    action: null,
     description:
       "The native Stack client uses the developer profile automatically.",
   },
@@ -24,11 +25,8 @@ const options = [
     title: "stash env",
     useFor: "CI and Deployment",
     icon: Terminal,
-    action: (
-      <>
-        Run <code>npx stash env --name &lt;app-env&gt;</code>.
-      </>
-    ),
+    command: "npx stash env --name <app-env>",
+    action: null,
     description:
       "Creates a client and prints the four variables below. The access key is shown once.",
   },
@@ -36,6 +34,7 @@ const options = [
     title: "Dashboard",
     useFor: "CI and Deployment",
     icon: LayoutDashboard,
+    command: null,
     action: (
       <>
         Open your{" "}
@@ -58,6 +57,16 @@ const options = [
   },
 ] as const;
 
+function TrackedBashCodeBlock(props: CodeBlockProps) {
+  return (
+    <TrackedCodeBlock
+      {...props}
+      data-language="bash"
+      className={`my-0 ${props.className ?? ""}`}
+    />
+  );
+}
+
 /**
  * The canonical credential-source chooser for integration and deployment
  * guides. Keep the discovery order and environment-variable names aligned
@@ -78,7 +87,10 @@ export function CipherStashCredentials() {
 
       <ol className="grid divide-y md:grid-cols-3 md:divide-x md:divide-y-0">
         {options.map(
-          ({ title, useFor, icon: Icon, action, description }, index) => (
+          (
+            { title, useFor, icon: Icon, command, action, description },
+            index,
+          ) => (
             <li key={title} className="p-5">
               <div className="flex items-start gap-3">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-fd-primary/10 text-fd-primary">
@@ -93,10 +105,27 @@ export function CipherStashCredentials() {
                   </p>
                 </div>
               </div>
-              <p className="mt-3 text-sm leading-relaxed text-fd-foreground">
-                {action}
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-fd-muted-foreground">
+              {command ? (
+                <div className="mt-3">
+                  <p className="mb-1 text-sm text-fd-foreground">Run:</p>
+                  <DynamicCodeBlock
+                    lang="bash"
+                    code={command}
+                    options={{
+                      themes: {
+                        light: cipherstashLight,
+                        dark: cipherstashDark,
+                      },
+                      components: { pre: TrackedBashCodeBlock },
+                    }}
+                  />
+                </div>
+              ) : (
+                <p className="mt-3 text-sm leading-relaxed text-fd-foreground">
+                  {action}
+                </p>
+              )}
+              <p className="mt-2 text-xs leading-relaxed text-fd-muted-foreground">
                 {description}
               </p>
             </li>
