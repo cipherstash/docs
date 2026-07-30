@@ -1,0 +1,165 @@
+---
+title: Quickstart
+description: "Encrypt, store, and query your first field in Supabase with EQL and the encrypted Supabase JavaScript client."
+type: tutorial
+components: [encryption, eql, platform]
+audience: [developer]
+integration:
+  category: platform
+  setup: code-only
+  pairsWith: [drizzle, prisma-next, clerk]
+verifiedAgainst:
+  eql: "3.0.4"
+  stack: "1.0.0"
+---
+
+This tutorial creates a Supabase table with one encrypted column, writes a value through the Supabase JavaScript client, and queries it without sending plaintext to Postgres.
+
+It is designed for a new table or an empty column. If the column already contains production data, use [Encrypt existing data](/guides/migration/encrypt-existing-data) instead.
+
+## Before you start
+
+You need:
+
+- A Supabase project and its database connection string
+- A Node.js project
+- A CipherStash account; the setup flow signs you in
+
+<Steps>
+<Step>
+
+### Initialize CipherStash
+
+Add your Supabase settings to the project's environment:
+
+```sh title=".env"
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_ANON_KEY=...
+DATABASE_URL=postgresql://postgres:...@db.<project-ref>.supabase.co:5432/postgres
+```
+
+Then run the Supabase setup flow:
+
+```bash cta cta-type="install" example-id="supabase-quickstart-eql-install"
+npx stash init --supabase
+```
+
+`stash init`:
+
+- Opens the CipherStash device login if you do not already have a developer profile
+- Resolves the database configuration
+- Installs compatible, pinned versions of `@cipherstash/stack`, `@cipherstash/stack-supabase`, and the `stash` CLI
+- Installs EQL v3 with the grants required by Supabase's `anon`, `authenticated`, and `service_role` roles
+- Scaffolds the encryption client and records context for coding agents
+
+If the command generates a Supabase migration instead of applying EQL directly, run the apply command it prints before continuing. Confirm that EQL is available with:
+
+```bash
+npx stash eql status
+```
+
+The native Stack client automatically uses the developer profile created by this login. You do not need `CS_*` machine credentials for local development; those are for deployed environments.
+
+<Callout type="idea">
+**Using an agent?** An agent can drive the same setup. If no developer profile exists, it should start `npx stash auth login --json --region <region> --supabase`, show you the returned verification URL, and leave the command running until authorization completes. It can then run `npx stash init --supabase --region <region>`.
+
+At the end of interactive initialization, you can continue into `stash plan`. Choosing Codex or Claude Code installs the Supabase-specific CipherStash skills into the agent's project directory; editor agents receive the same guidance through `AGENTS.md`. The skills cover Supabase, authentication, EQL indexes, deployment, and the CLI, giving the agent the context needed to plan and implement encryption changes safely.
+</Callout>
+
+</Step>
+<Step>
+
+### Create an encrypted column
+
+Run this in the Supabase SQL Editor or add it to a new migration:
+
+```sql
+CREATE TABLE contacts (
+    id           bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email        public.eql_v3_text_eq NOT NULL,
+    display_name text
+);
+```
+
+`email` is an EQL equality column, so it can be stored, decrypted, and queried with methods such as `.eq()` and `.in()`. `display_name` is ordinary plaintext and passes through unchanged.
+
+The column type is the encryption schema. There is no separate application declaration to keep synchronized. For other data types and query capabilities, see [EQL core concepts](/reference/eql/core-concepts).
+
+</Step>
+<Step>
+
+### Create the encrypted Supabase client
+
+`stash init` installed the CipherStash packages. If this project does not already use the Supabase JavaScript client, install it:
+
+```bash
+npm install @supabase/supabase-js
+```
+
+Create a client:
+
+```typescript title="lib/db.ts"
+import { encryptedSupabase } from "@cipherstash/stack-supabase"
+
+export const db = await encryptedSupabase(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!,
+)
+```
+
+At startup, `encryptedSupabase` uses `DATABASE_URL` to inspect the database and recognize `contacts.email` as encrypted. Plaintext tables and columns continue to behave normally.
+
+</Step>
+<Step>
+
+### Insert and query a value
+
+Write plaintext application values as usual:
+
+```typescript
+import { db } from "./lib/db"
+
+const { error: insertError } = await db.from("contacts").insert({
+  email: "alice@example.com",
+  display_name: "Alice",
+})
+
+if (insertError) throw insertError
+```
+
+The wrapper encrypts `email` before it leaves the application. It then encrypts the filter value when you query the column and decrypts the matching result:
+
+```typescript
+const { data, error } = await db
+  .from("contacts")
+  .select("id, email, display_name")
+  .eq("email", "alice@example.com")
+  .single()
+
+if (error) throw error
+
+console.log(data)
+// { id: 1, email: "alice@example.com", display_name: "Alice" }
+```
+
+Supabase Row Level Security still applies because the wrapper sends the request through the Supabase client. Add policies just as you would for an unencrypted table.
+
+</Step>
+<Step>
+
+### Confirm that Supabase sees ciphertext
+
+Open `contacts` in the Supabase Table Editor. The `email` cell contains an EQL ciphertext payload, while `display_name` remains readable.
+
+The Table Editor cannot decrypt or meaningfully filter the encrypted value because its keys remain outside the database. Read and update encrypted fields through a CipherStash-enabled application.
+
+</Step>
+</Steps>
+
+## Next steps
+
+- Learn the supported mutations, filters, ordering, response types, and errors in the [supabase-js guide](/integrations/supabase/supabase-js).
+- Use the complete [`encryptedSupabase` API reference](/reference/stack/supabase) when you need method-level detail.
+- Add functional indexes when the table reaches meaningful row counts by following [EQL indexes](/reference/eql/indexes).
+- For a populated table, follow the safe dual-write and backfill process in [Encrypt existing data](/guides/migration/encrypt-existing-data).
+- To use a direct Postgres ORM connection, continue with [Drizzle](/integrations/drizzle) or [Prisma Next](/integrations/prisma-next).

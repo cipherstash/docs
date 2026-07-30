@@ -1,9 +1,46 @@
 ---
 title: Integrations
-description: "Set up CipherStash with your platform, ORM, framework, auth provider, and runtime."
-type: tutorial
+description: "Every CipherStash integration, by category: the Postgres platforms encrypted data lives in, and the query layers that read and write it."
+type: concept
+components: [encryption, eql, platform]
+audience: [developer]
 ---
 
-This section is being built as part of the docs V2 overhaul ([CIP-3307](https://linear.app/cipherstash/issue/CIP-3307)). Track progress in [IA.md](https://github.com/cipherstash/docs/blob/v2/IA.md).
+Every integration below writes the same ciphertext into the same [EQL](/reference/eql) columns, so none of them is a one-way door. You can move a table from one to another without re-encrypting it, and use more than one at once — an ORM for application queries, raw SQL for migrations.
 
-Until it lands, current documentation lives in the [existing docs](/stack).
+## Database
+
+Where the encrypted data lives. EQL installs into any Postgres you can connect to, with no extension and no superuser.
+
+<Cards>
+  <Card title="Supabase" href="/integrations/supabase">
+    Install EQL with the `stash` CLI, then query encrypted columns through PostgREST. Row Level Security, Supabase Auth, and Edge Functions all apply unchanged.
+  </Card>
+  <Card title="Prisma Postgres" href="/integrations/prisma-next">
+    Prisma's hosted Postgres. EQL is installed by the Prisma Next migration system, in the same sweep that creates your tables.
+  </Card>
+</Cards>
+
+## ORM
+
+How your application queries it.
+
+<Cards>
+  <Card title="supabase-js" href="/integrations/supabase/supabase-js">
+    `encryptedSupabase` wraps your existing client so `.eq()`, `.in()`, `.gt()`, and `.order()` keep working on encrypted columns.
+  </Card>
+  <Card title="Prisma Next" href="/integrations/prisma-next">
+    Encrypted columns declared in `schema.prisma`. Targets EQL v2. Not classic Prisma.
+  </Card>
+  <Card title="Drizzle" href="/integrations/drizzle">
+    Concrete encrypted column types and capability-checked operators. Targets EQL v3.
+  </Card>
+</Cards>
+
+<Callout type="info">
+Not on this list? Any ORM works without an integration — encrypt before a write and decrypt after a read with the [Stack SDK](/reference/stack), which is what the integrations do for you. [CipherStash Proxy](/reference/proxy) covers the case where you cannot change the application at all, and the SDK also encrypts values that never reach Postgres, including non-Postgres stores like [DynamoDB](/stack/cipherstash/encryption/dynamodb).
+</Callout>
+
+## Still deciding
+
+[Choose your stack](/get-started/choose-your-stack) walks the four decisions in order: SDK or Proxy, your Postgres, your ORM, and your identity provider — including which identity providers can bind decryption to the signed-in user.

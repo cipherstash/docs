@@ -3,6 +3,8 @@ title: DynamoDB
 description: Encrypt and decrypt DynamoDB items with the encryptedDynamoDB helper from @cipherstash/stack, including bulk operations and HMAC equality queries.
 ---
 
+import { faqPrivacy, faqKms, faqFreeTier } from "@/components/faq/shared";
+
 CipherStash provides a DynamoDB integration through `@cipherstash/stack/dynamodb`. The `encryptedDynamoDB` helper encrypts items before writing to DynamoDB and decrypts them after reading — it does not wrap the AWS SDK, so you keep full control of your DynamoDB operations.
 
 ## Installation
@@ -469,3 +471,44 @@ const queryResult = await docClient.send(new QueryCommand({
 
 const decrypted = await dynamo.bulkDecryptModels(queryResult.Items ?? [], users)
 ```
+
+## FAQ
+
+<Faq
+  items={[
+    faqPrivacy,
+    {
+      title: "Can I query encrypted DynamoDB attributes?",
+      answer: (
+        <>
+          Yes, for exact equality. Each encrypted attribute stores an{" "}
+          <code>__hmac</code> term you match against, so you can look up by an
+          encrypted partition key, sort key, or GSI. Range, comparison, and
+          substring queries on encrypted attributes are not supported.
+        </>
+      ),
+    },
+    {
+      title: "Do I have to change how I write DynamoDB operations?",
+      answer: (
+        <>
+          No. <code>encryptedDynamoDB</code> encrypts items before writing and
+          decrypts them after reading; it does not wrap the AWS SDK, so you keep
+          full control of your PutItem, GetItem, and Query calls.
+        </>
+      ),
+    },
+    {
+      title: "What does adopting it look like?",
+      answer: (
+        <>
+          Install <code>@cipherstash/stack</code>, define an encrypted schema for
+          the attributes you want to protect, initialize the client, and encrypt
+          values before writing them. You can adopt it one table at a time.
+        </>
+      ),
+    },
+    faqKms,
+    faqFreeTier,
+  ]}
+/>
