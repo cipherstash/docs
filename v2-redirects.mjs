@@ -68,7 +68,7 @@ export const v2Redirects = [
   },
   {
     source: "/stack/cipherstash/encryption/supabase",
-    destination: "/integrations/supabase/api-reference",
+    destination: "/integrations/supabase",
     permanent: false,
   },
   {
