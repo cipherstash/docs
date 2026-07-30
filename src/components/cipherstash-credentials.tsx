@@ -2,6 +2,12 @@
 
 import type { CodeBlockProps } from "fumadocs-ui/components/codeblock";
 import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "fumadocs-ui/components/tabs";
 import { ExternalLink, Laptop, LayoutDashboard, Terminal } from "lucide-react";
 import { TrackedCodeBlock } from "@/components/code-block";
 import { cipherstashDark, cipherstashLight } from "@/lib/shiki-themes";
@@ -13,6 +19,7 @@ CS_CLIENT_ACCESS_KEY=CSAK...`;
 
 const options = [
   {
+    value: "developer-profile",
     title: "Developer profile",
     useFor: "Local development",
     icon: Laptop,
@@ -22,6 +29,7 @@ const options = [
       "The native Stack client uses the developer profile automatically.",
   },
   {
+    value: "stash-env",
     title: "stash env",
     useFor: "CI and Deployment",
     icon: Terminal,
@@ -31,6 +39,7 @@ const options = [
       "Creates a client and prints the four variables below. The access key is shown once.",
   },
   {
+    value: "dashboard",
     title: "Dashboard",
     useFor: "CI and Deployment",
     icon: LayoutDashboard,
@@ -85,53 +94,64 @@ export function CipherStashCredentials() {
         </p>
       </div>
 
-      <ol className="grid divide-y md:grid-cols-3 md:divide-x md:divide-y-0">
-        {options.map(
-          (
-            { title, useFor, icon: Icon, command, action, description },
-            index,
-          ) => (
-            <li key={title} className="p-5">
-              <div className="flex items-start gap-3">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-fd-primary/10 text-fd-primary">
-                  <Icon className="size-4" aria-hidden="true" />
+      <Tabs
+        defaultValue={options[0].value}
+        className="my-0 gap-0 overflow-visible rounded-none border-0 bg-transparent"
+      >
+        <TabsList className="grid grid-cols-3 gap-0 overflow-x-auto border-b px-0">
+          {options.map(({ value, title, useFor, icon: Icon }, index) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="group w-full min-w-40 justify-start border-b-2 px-5 py-4 text-left data-[state=active]:bg-fd-primary/5 data-[state=active]:text-fd-foreground"
+            >
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-fd-primary/10 text-fd-primary">
+                <Icon className="size-4" aria-hidden="true" />
+              </span>
+              <span className="min-w-0">
+                <span className="block font-medium">
+                  {index + 1}. {title}
                 </span>
-                <div>
-                  <p className="font-medium text-fd-foreground">
-                    {index + 1}. {title}
-                  </p>
-                  <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-fd-muted-foreground">
-                    {useFor}
-                  </p>
-                </div>
-              </div>
-              {command ? (
-                <div className="mt-3">
-                  <p className="mb-1 text-sm text-fd-foreground">Run:</p>
-                  <DynamicCodeBlock
-                    lang="bash"
-                    code={command}
-                    options={{
-                      themes: {
-                        light: cipherstashLight,
-                        dark: cipherstashDark,
-                      },
-                      components: { pre: TrackedBashCodeBlock },
-                    }}
-                  />
-                </div>
-              ) : (
-                <p className="mt-3 text-sm leading-relaxed text-fd-foreground">
-                  {action}
-                </p>
-              )}
-              <p className="mt-2 text-xs leading-relaxed text-fd-muted-foreground">
-                {description}
+                <span className="mt-0.5 block text-xs font-medium uppercase tracking-wide text-fd-muted-foreground">
+                  {useFor}
+                </span>
+              </span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {options.map(({ value, command, action, description }) => (
+          <TabsContent
+            key={value}
+            value={value}
+            className="rounded-none bg-transparent p-5"
+          >
+            {command ? (
+              <>
+                <p className="mb-2 text-sm text-fd-foreground">Run:</p>
+                <DynamicCodeBlock
+                  lang="bash"
+                  code={command}
+                  options={{
+                    themes: {
+                      light: cipherstashLight,
+                      dark: cipherstashDark,
+                    },
+                    components: { pre: TrackedBashCodeBlock },
+                  }}
+                />
+              </>
+            ) : (
+              <p className="text-sm leading-relaxed text-fd-foreground">
+                {action}
               </p>
-            </li>
-          ),
-        )}
-      </ol>
+            )}
+            <p className="mt-3 text-xs leading-relaxed text-fd-muted-foreground">
+              {description}
+            </p>
+          </TabsContent>
+        ))}
+      </Tabs>
 
       <div className="border-t px-5 py-4">
         <p className="text-sm font-medium text-fd-foreground">
