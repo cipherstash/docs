@@ -3,19 +3,26 @@
 import type { CodeBlockProps } from "fumadocs-ui/components/codeblock";
 import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
 import {
+  Popover,
+  PopoverClose,
+  PopoverContent,
+  PopoverTrigger,
+} from "fumadocs-ui/components/ui/popover";
+import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "fumadocs-ui/components/ui/tabs";
 import {
+  Check,
   ChevronDown,
   ExternalLink,
   Laptop,
   LayoutDashboard,
   Terminal,
 } from "lucide-react";
-import { useId, useState } from "react";
+import { useState } from "react";
 import { TrackedCodeBlock } from "@/components/code-block";
 import { cipherstashDark, cipherstashLight } from "@/lib/shiki-themes";
 
@@ -115,10 +122,12 @@ function DeploymentEnvironmentVariables() {
  * with the Stack authentication skill.
  */
 export function CipherStashCredentials() {
-  const selectId = useId();
   const [selectedOption, setSelectedOption] = useState<CredentialOptionValue>(
     options[0].value,
   );
+  const activeOption =
+    options.find(({ value }) => value === selectedOption) ?? options[0];
+  const ActiveIcon = activeOption.icon;
 
   return (
     <div className="not-prose my-6 overflow-hidden rounded-xl border border-t-2 border-t-fd-primary bg-fd-card">
@@ -140,29 +149,63 @@ export function CipherStashCredentials() {
         className="my-0 gap-0 overflow-visible rounded-none border-0 bg-transparent"
       >
         <div className="border-b p-4 md:hidden">
-          <label htmlFor={selectId} className="sr-only">
-            Credential source
-          </label>
-          <div className="relative">
-            <select
-              id={selectId}
-              value={selectedOption}
-              onChange={(event) =>
-                setSelectedOption(event.target.value as CredentialOptionValue)
-              }
-              className="w-full appearance-none rounded-lg border bg-fd-background px-3 py-2.5 pe-10 text-sm font-medium text-fd-foreground shadow-sm outline-none transition-colors focus:border-fd-primary focus:ring-2 focus:ring-fd-primary/20"
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="flex w-full items-center gap-3 rounded-lg border bg-fd-background px-3 py-2.5 text-left shadow-sm outline-none transition-colors hover:bg-fd-accent focus-visible:border-fd-primary focus-visible:ring-2 focus-visible:ring-fd-primary/20"
+              >
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-fd-primary/10 text-fd-primary">
+                  <ActiveIcon className="size-4" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium text-fd-foreground">
+                    {activeOption.title}
+                  </span>
+                  <span className="block text-xs font-medium uppercase tracking-wide text-fd-muted-foreground">
+                    {activeOption.useFor}
+                  </span>
+                </span>
+                <ChevronDown
+                  className="size-4 shrink-0 text-fd-muted-foreground"
+                  aria-hidden="true"
+                />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="start"
+              collisionPadding={16}
+              className="w-[var(--radix-popover-trigger-width)] p-1"
             >
-              {options.map(({ value, title, useFor }) => (
-                <option key={value} value={value}>
-                  {title} — {useFor}
-                </option>
+              {options.map(({ value, title, useFor, icon: Icon }) => (
+                <PopoverClose key={value} asChild>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOption(value)}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-fd-accent focus-visible:bg-fd-accent"
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-fd-primary/10 text-fd-primary">
+                      <Icon className="size-4" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-fd-foreground">
+                        {title}
+                      </span>
+                      <span className="block text-xs font-medium uppercase tracking-wide text-fd-muted-foreground">
+                        {useFor}
+                      </span>
+                    </span>
+                    {value === selectedOption && (
+                      <Check
+                        className="size-4 shrink-0 text-fd-primary"
+                        aria-hidden="true"
+                      />
+                    )}
+                  </button>
+                </PopoverClose>
               ))}
-            </select>
-            <ChevronDown
-              className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-fd-muted-foreground"
-              aria-hidden="true"
-            />
-          </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
         <TabsList className="hidden grid-cols-3 border-b md:grid">
