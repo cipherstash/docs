@@ -37,6 +37,7 @@ const SKIP_PATHS = [
   "content/stack/reference/stack/", // TypeDoc output
   "content/docs/reference/stack/api-reference/", // TypeDoc output
   "content/docs/integrations/supabase/api-reference/", // TypeDoc output
+  "content/docs/integrations/drizzle/api-reference/", // TypeDoc output
   "content/docs/integrations/prisma/api-reference/", // TypeDoc output
   "content/stack/reference/eql/index.mdx", // generated EQL API reference
   "content/docs/reference/eql/functions.mdx", // generated

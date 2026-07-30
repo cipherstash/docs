@@ -1,5 +1,5 @@
 ---
-title: Drizzle
+title: Overview
 description: "Encrypted columns with Drizzle ORM: pick a concrete EQL column type, and capability-checked operators encrypt your query operands for you."
 type: tutorial
 components: [encryption, eql]
@@ -9,8 +9,8 @@ integration:
   setup: code-only
   pairsWith: [supabase, prisma]
 verifiedAgainst:
-  stack: "1.0.0-rc.0"
-  eql: "3.0.0"
+  stack: "1.0.0-rc.4"
+  eql: "3.0.4"
 ---
 
 Drizzle keeps its shape. You declare each encrypted column with a concrete EQL type, and a set of query operators encrypt their operands before Drizzle builds the SQL. Your `select`, `where`, and `orderBy` read as they always did, and the database only ever compares ciphertext.
@@ -39,19 +39,23 @@ The native Stack client used below discovers the four `CS_*` variables first, th
 
 ## Declare the table
 
-The column type *is* the capability. There are no flags to configure. `TextEq` answers equality and nothing else, `IntegerOrd` answers ranges and ordering, `TextMatch` answers free-text containment, and a bare `Text` or `Bigint` is storage-only.
+The column type *is* the capability. There are no flags to configure. `TextEq` answers equality and nothing else, `IntegerOrd` answers ranges and ordering, `TextMatch` answers free-text matching, and a bare `Text` or `Bigint` is storage-only.
 
 ```typescript filename="src/schema.ts"
 import { pgTable, integer } from "drizzle-orm/pg-core"
-import { types } from "@cipherstash/stack-drizzle/v3"
+import { encryptedIndexes, types } from "@cipherstash/stack-drizzle"
 
-export const users = pgTable("users", {
-  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  email: types.TextEq("email"),      // equality
-  age: types.IntegerOrd("age"),      // ranges, ordering, and equality
-  bio: types.TextMatch("bio"),       // free-text containment
-  balance: types.Bigint("balance"),  // storage only
-})
+export const users = pgTable(
+  "users",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    email: types.TextEq("email"),      // equality
+    age: types.IntegerOrd("age"),      // ranges, ordering, and equality
+    bio: types.TextMatch("bio"),       // free-text token matching
+    balance: types.Bigint("balance"),  // storage only
+  },
+  (table) => [...encryptedIndexes(table)],
+)
 ```
 
 Each factory maps to the matching EQL domain, so `types.TextEq("email")` types the column as `public.eql_v3_text_eq`. The variant model behind those names is in [core concepts](/reference/eql/core-concepts).
@@ -61,7 +65,7 @@ Each factory maps to the matching EQL domain, so `types.TextEq("email")` types t
 | `types.Text(name)` | Store and decrypt only | `public.eql_v3_text` |
 | `types.TextEq(name)` | `eq`, `ne`, `inArray`, `notInArray` | `public.eql_v3_text_eq` |
 | `types.TextOrd(name)` | Ranges, ordering, plus equality | `public.eql_v3_text_ord` |
-| `types.TextMatch(name)` | `contains` | `public.eql_v3_text_match` |
+| `types.TextMatch(name)` | `matches` | `public.eql_v3_text_match` |
 | `types.TextSearch(name)` | All of the above, on text | `public.eql_v3_text_search` |
 | `types.IntegerOrd(name)` | Ranges, ordering, plus equality | `public.eql_v3_integer_ord` |
 
@@ -76,21 +80,21 @@ Derive the encryption schema from the Drizzle table, build a typed client, and c
 ```typescript filename="src/db.ts"
 import { drizzle } from "drizzle-orm/postgres-js"
 import {
-  createEncryptionOperatorsV3,
-  extractEncryptionSchemaV3,
-} from "@cipherstash/stack-drizzle/v3"
-import { EncryptionV3 } from "@cipherstash/stack/v3"
+  createEncryptionOperators,
+  extractEncryptionSchema,
+} from "@cipherstash/stack-drizzle"
+import { Encryption } from "@cipherstash/stack"
 import { users } from "./schema"
 
-export const usersSchema = extractEncryptionSchemaV3(users)
+export const usersSchema = extractEncryptionSchema(users)
 
-export const client = await EncryptionV3({ schemas: [usersSchema] })
-export const ops = createEncryptionOperatorsV3(client)
+export const client = await Encryption({ schemas: [usersSchema] })
+export const ops = createEncryptionOperators(client)
 
 export const db = drizzle({ client: sqlClient })
 ```
 
-`extractEncryptionSchemaV3` reads the encryption config straight off the column types, so there is no second schema to keep in sync with the first.
+`extractEncryptionSchema` reads the encryption config straight off the column types, so there is no second schema to keep in sync with the first.
 
 ## Query
 
@@ -118,15 +122,15 @@ const listed = await db.select().from(users)
 
 // Free-text token containment — bio is TextMatch
 const coffee = await db.select().from(users)
-  .where(await ops.contains(users.bio, "coffee"))
+  .where(await ops.matches(users.bio, "coffee"))
 ```
 
-The full operator set is `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `between`, `notBetween`, `inArray`, `notInArray`, `contains`, `exists`, `notExists`, `and`, `or`, `not`, `isNull`, `isNotNull`, `asc`, and `desc`. Null checks need no encryption, because a SQL `NULL` is never encrypted.
+The full operator set is `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `between`, `notBetween`, `matches`, `contains`, `selector`, `inArray`, `notInArray`, `exists`, `notExists`, `and`, `or`, `not`, `isNull`, `isNotNull`, `asc`, and `desc`. Null checks need no encryption, because a SQL `NULL` is never encrypted. See the [API reference](/integrations/drizzle/api-reference#createencryptionoperators) for signatures and per-operator capability requirements.
 
 Applying an operator the column's type cannot answer throws `EncryptionOperatorError` rather than silently returning wrong rows. Ordering a `TextEq` column, for instance, has no ordering term to compare.
 
 <Callout type="warn">
-There is no `like` or `ilike`. SQL pattern matching is meaningless on ciphertext, so free-text search is `ops.contains`, which compares encrypted token sets. It matches whole indexed tokens rather than arbitrary substrings.
+There is no `like` or `ilike`. SQL pattern matching is meaningless on ciphertext, so free-text search is `ops.matches`, which compares encrypted token sets. It matches whole indexed tokens rather than arbitrary substrings. `ops.contains` is reserved for encrypted JSON containment.
 </Callout>
 
 ## Insert and read
@@ -156,20 +160,16 @@ await db.insert(users).values(rows.data)
 
 ## Indexes
 
-At real row counts, add a functional index for each capability you query. The encrypted operators inline into these extractor functions, so an ordinary `CREATE INDEX` is all it takes:
+`encryptedIndexes(table)` derives the recommended functional indexes from each encrypted column's capabilities. In the schema above it produces equality, ordering, and free-text indexes while ignoring the storage-only `balance` column. Generate and apply the result through your normal `drizzle-kit` migration workflow, then run `ANALYZE users`.
 
-```sql filename="indexes.sql"
-CREATE INDEX users_email_eq  ON users USING hash  (eql_v3.eq_term(email));
-CREATE INDEX users_age_ord   ON users USING btree (eql_v3.ord_term(age));
-CREATE INDEX users_bio_match ON users USING gin   (eql_v3.match_term(bio));
-ANALYZE users;
-```
-
-Index selection, `EXPLAIN` verification, and large-table build guidance are in [EQL indexes](/reference/eql/indexes).
+See [`encryptedIndexes`](/integrations/drizzle/api-reference#encryptedindexes) for the emitted index forms. Index selection, `EXPLAIN` verification, and large-table build guidance are in [EQL indexes](/reference/eql/indexes).
 
 ## Where to next
 
 <Cards>
+  <Card title="API reference" href="/integrations/drizzle/api-reference">
+    Exported column types, schema helpers, codecs, indexes, and encrypted query operators.
+  </Card>
   <Card title="Supabase" href="/integrations/supabase">
     Drizzle over a Supabase Postgres connection.
   </Card>
