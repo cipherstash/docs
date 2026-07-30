@@ -1,20 +1,57 @@
 ---
-title: Supabase
-description: "Searchable, application-level encryption for your Supabase project — encrypt in your app, query in Postgres."
-type: tutorial
+title: Overview
+description: "Add searchable application-level encryption to Supabase while keeping the Supabase client, Auth, Row Level Security, and your choice of Postgres ORM."
+type: concept
 components: [encryption, eql, platform]
-audience: [developer]
+audience: [developer, ciso]
 integration:
   category: platform
-  setup: dashboard-required
-  pairsWith: [drizzle, prisma-next, clerk, nextjs]
+  setup: code-only
+  pairsWith: [drizzle, prisma, clerk]
+verifiedAgainst:
+  eql: "3.0.4"
+  stack: "1.0.0"
 ---
 
-CipherStash adds application-level encryption to your Supabase project:
-sensitive fields are encrypted in your application before they reach Postgres,
-and stay queryable with the same Supabase.js calls you already use.
+CipherStash adds searchable, field-level encryption to Supabase. Your application encrypts sensitive values before they reach Postgres, so the database, backups, replication streams, and Supabase dashboard contain ciphertext rather than plaintext.
 
-This page is being rebuilt as part of the docs V2 overhaul
-([CIP-3328](https://linear.app/cipherstash/issue/CIP-3328)). Until it lands,
-the current Supabase integration guide lives at
-[CipherStash + Supabase](/stack/cipherstash/supabase).
+Unlike ordinary application-level encryption, protected columns remain queryable. Equality filters, range queries, and ordering use the same Supabase query-builder methods as plaintext columns, while CipherStash encrypts query values and decrypts results around each request.
+
+## How it works
+
+CipherStash has two parts:
+
+1. [Encrypt Query Language (EQL)](/reference/eql) adds encrypted column types, operators, and functions to your Supabase Postgres database.
+2. [`encryptedSupabase`](/integrations/supabase/api-reference) wraps the Supabase JavaScript client and performs encryption and decryption in your application.
+
+The EQL type assigned to a column declares what can be queried. For example, an equality column supports `.eq()` and `.in()`, while an ordered column also supports ranges and `.order()`. Choose only the capabilities you need, because searchable encryption has defined leakage characteristics. See [EQL core concepts](/reference/eql/core-concepts) for the complete model.
+
+With EQL 3.0.4, the Supabase wrapper supports encrypted equality, range, and ordering queries. Encrypted free-text and JSON queries require an adapter such as Drizzle or Prisma ORM 8 because PostgREST cannot express the typed operands those operations require. The [supabase-js guide](/integrations/supabase/supabase-js#free-text-and-encrypted-json-queries) documents the limitation.
+
+## Choose your path
+
+| What you want to do | Start here |
+| --- | --- |
+| Encrypt and query your first Supabase column | [Supabase Quickstart](/integrations/supabase/quickstart) |
+| Use the Supabase JavaScript client | [supabase-js guide](/integrations/supabase/supabase-js) |
+| Look up the complete wrapper API | [`encryptedSupabase` API reference](/integrations/supabase/api-reference) |
+| Bind decryption to the signed-in user | [Supabase Auth](/integrations/supabase/auth) |
+| Encrypt inside Supabase Edge Functions | [Edge Functions](/integrations/supabase/edge-functions) |
+| Choose local or deployment credentials | [Workspace credentials](/reference/workspace/configuration#credentials) |
+| Use an ORM against Supabase Postgres | [Drizzle](/integrations/drizzle) or [Prisma ORM 8](/integrations/prisma) |
+| Encrypt columns that already contain data | [Encrypt existing data](/guides/migration/encrypt-existing-data) |
+| Plan a production rollout or rollback | [Deployment guide](/guides/deployment) |
+
+## Supabase, Drizzle, and Prisma
+
+Supabase is Postgres, so you are not limited to PostgREST or `supabase-js`. CipherStash's [Drizzle](/integrations/drizzle) and [Prisma ORM 8](/integrations/prisma) integrations can read and write the same EQL columns through a direct database connection. They produce the same ciphertext, so an application can use more than one adapter without re-encrypting its data.
+
+Use `encryptedSupabase` when you want Supabase's query builder and automatic propagation of the caller's JWT. Use an ORM when it better fits your application or when you need encrypted free-text or JSON queries. A privileged direct database connection may bypass Row Level Security, so preserve tenant or user scoping in the connection role or ORM query.
+
+## Row Level Security and indexes
+
+Encryption complements Supabase Row Level Security rather than replacing it. RLS controls which rows a caller may query; encryption controls whether the values in those rows can be read. Keep RLS predicates on plaintext ownership columns such as `user_id`, and encrypt the sensitive contents of the row. [Supabase Auth](/integrations/supabase/auth) can additionally bind decryption to the authenticated user's identity.
+
+Encrypted columns use ordinary functional Postgres indexes over EQL term-extractor functions. The recipes, query shapes, `EXPLAIN` checks, and large-table guidance are maintained in [EQL indexes](/reference/eql/indexes).
+
+In the Supabase Table Editor, encrypted columns appear as ciphertext payloads. Read and edit them through an application using CipherStash; the dashboard does not hold the keys required to decrypt them.

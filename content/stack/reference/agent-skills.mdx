@@ -39,7 +39,7 @@ Core field-level encryption with `@cipherstash/stack`. This is the foundational 
 - Single and bulk encrypt/decrypt operations
 - Model operations (`encryptModel`, `decryptModel`, `bulkEncryptModels`, `bulkDecryptModels`)
 - Searchable encryption (equality, free-text search, range queries, encrypted JSONB)
-- Identity-aware encryption with `LockContext` and JWT-based access control
+- Identity-aware encryption with `OidcFederationStrategy` and `.withLockContext()`
 - Multi-tenant isolation with keysets
 - Error handling with the `Result` pattern
 - Migration from `@cipherstash/protect`

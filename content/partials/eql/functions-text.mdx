@@ -1,0 +1,82 @@
+{/* GENERATED — do not edit. Produced by scripts/generate-eql-api-docs.ts from the EQL manifest. Edit the generator, not this file. */}
+
+Every operator has a function form, for managed platforms that disallow custom operators — same typed arguments, identical resolution. Each lists the encrypted domains it applies to; the `MIN` / `MAX` aggregates only exist as functions.
+
+### eql_v3.eq(a, b) [#fn-eq]
+
+<EqlFn ops="=" domains="text_eq,text_ord,text_ord_ope,text_ord_ore,text_search,text_search_ore">
+
+```sql
+SELECT * FROM users
+WHERE eql_v3.eq(email, $1::public.eql_v3_text_eq);
+```
+
+</EqlFn>
+
+### eql_v3.neq(a, b) [#fn-neq]
+
+<EqlFn ops="<>" domains="text_eq,text_ord,text_ord_ope,text_ord_ore,text_search,text_search_ore">
+
+```sql
+SELECT * FROM users
+WHERE eql_v3.neq(email, $1::public.eql_v3_text_eq);
+```
+
+</EqlFn>
+
+### eql_v3.lt / lte / gt / gte [#fn-comparison]
+
+<EqlFn ops="<,<=,>,>=" domains="text_ord,text_ord_ope,text_ord_ore,text_search,text_search_ore">
+
+```sql
+-- any of the four; ordering is the usual reason to index text
+SELECT id, email FROM users
+WHERE eql_v3.gt(email, $1::public.eql_v3_text_ord)
+ORDER BY eql_v3.ord_term(email);
+```
+
+</EqlFn>
+
+### eql_v3.contains(a, b) [#fn-contains]
+
+<EqlFn ops="@>" domains="text_match,text_search,text_search_ore">
+
+```sql
+-- token containment on the bloom-filter term
+SELECT * FROM users
+WHERE eql_v3.contains(email, $1::public.eql_v3_text_match);
+```
+
+</EqlFn>
+
+### eql_v3.contained_by(a, b) [#fn-contained_by]
+
+<EqlFn ops="<@" domains="text_match,text_search,text_search_ore">
+
+```sql
+SELECT * FROM users
+WHERE eql_v3.contained_by(email, $1::public.eql_v3_text_match);
+```
+
+</EqlFn>
+
+### eql_v3.min(col) [#fn-min]
+
+<EqlFn ops="MIN" agg domains="text_ord,text_ord_ope,text_ord_ore,text_search,text_search_ore">
+
+```sql
+-- compares ordering terms; result decrypts client-side
+SELECT eql_v3.min(email) FROM users;
+```
+
+</EqlFn>
+
+### eql_v3.max(col) [#fn-max]
+
+<EqlFn ops="MAX" agg domains="text_ord,text_ord_ope,text_ord_ore,text_search,text_search_ore">
+
+```sql
+SELECT eql_v3.max(email) FROM users;
+```
+
+</EqlFn>

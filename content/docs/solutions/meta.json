@@ -1,5 +1,5 @@
 {
   "title": "Solutions",
   "icon": "Target",
-  "pages": ["..."]
+  "pages": ["index", "...", "data-residency", "provable-access"]
 }

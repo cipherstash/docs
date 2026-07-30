@@ -33,6 +33,11 @@ const config = {
         destination: "/get-started/quickstart",
         permanent: false,
       },
+      {
+        source: "/integrations/prisma-next",
+        destination: "/integrations/prisma",
+        permanent: true,
+      },
       ...(enableV2Redirects ? v2Redirects : []),
       // === 4-section consolidation: product sections under /cipherstash/ ===
       {
@@ -257,10 +262,10 @@ const config = {
         destination: "/stack/reference/proxy-reference",
         permanent: true,
       },
-      // Reference section index → latest
+      // Legacy generated Stack reference → the V2 API reference
       {
         source: "/stack/reference/stack",
-        destination: "/stack/reference/stack/latest",
+        destination: "/reference/stack/api-reference",
         permanent: false,
       },
       // === AI-cited URLs orphaned by the restructure ===

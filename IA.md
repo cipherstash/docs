@@ -159,7 +159,7 @@ Solutions
 └─ Protecting PII · Healthcare/HIPAA · AI & RAG · Data residency · Provable access
 Reference
 ├─ EQL            core-concepts · numbers · dates · text · json · … · joins
-├─ Stack SDK      client · schema · encrypt-decrypt · supabase · drizzle-operators · errors
+├─ Stack SDK      overview · usage · generated package API
 ├─ Auth           lock-contexts · cts-tokens · oidc · access-keys
 ├─ CLI · Proxy · Workspace
 └─ Benchmarks · Agent skills · Glossary
@@ -200,7 +200,7 @@ layer, not a layer every Stack page sits on.
 - Start here: Quickstart · Reference → Stack SDK (client + configuration)
 - Concepts: application-level encryption · searchable encryption · identity-aware encryption
 - Guides: schema design · encrypt existing data · testing & CI · serverless & bundling
-- Reference: `/reference/stack/*` (schema · encrypt-decrypt · supabase · drizzle-operators · errors)
+- Reference: `/reference/stack/*` (overview · usage · generated package API)
 - Security: `/security/stack-sdk`
 - Integrations (auto): Supabase · Drizzle · Prisma · DynamoDB · Next.js …
 
@@ -252,7 +252,6 @@ so it lives as facets and links, never as a tree section or a hub.
 | CTS | Identity service in the Platform | `platform` | `/security/cts`, `/reference/auth/*` |
 | `@cipherstash/auth` | Stack package (identity-aware encryption) | `[encryption, platform]` | `/reference/stack/auth` |
 | Proxy stack-auth | How auth works inside the Proxy | `[proxy, platform]` | `/reference/proxy/*`, `/security/proxy` |
-| Next.js adapter | Framework integration | `[encryption, platform]` | `/integrations/nextjs` |
 | Clerk / Auth0 / Okta | Auth-provider integrations | `[platform]` | `/integrations/*` (`category: auth-provider`) |
 
 None of these is filed under an "auth" section, because there isn't one. Each is
@@ -302,21 +301,20 @@ Two notes:
 ## Integrations — CIP-3328 (Supabase), CIP-3330 (auth), CIP-3336 (rest)
 
 - [x] Section scaffold 🚧 (index + supabase stub with facet exemplar)
-- [ ] `/integrations` index — category grid w/ setup badges
-- [ ] `/integrations/supabase` — flagship tutorial (CIP-3328)
-- [ ] `/integrations/supabase/database`
-- [ ] `/integrations/supabase/auth`
-- [ ] `/integrations/supabase/dashboard-experience` — Table Editor, expose eql schema
+- [x] `/integrations` index — category grid w/ setup badges
+- [x] `/integrations/supabase` — flagship tutorial (CIP-3328)
+- [x] `/integrations/supabase/database`
+- [x] `/integrations/supabase/auth`
+- [x] `/integrations/supabase/dashboard-experience` — Table Editor, expose eql schema
 - [ ] ⛔ `/integrations/supabase/edge-functions` — pending Deno/FFI answer
 - [ ] ⛔ `/integrations/supabase/realtime` — pending product verification
-- [ ] `/integrations/drizzle` — merge the two divergent Drizzle pages
-- [ ] `/integrations/prisma-next`
+- [x] `/integrations/drizzle` — overview and generated `@cipherstash/stack-drizzle` API reference
+- [x] `/integrations/prisma` — Prisma ORM 8 RC, EQL v3, Prisma Postgres, Prisma Compute, and generated API reference
 - [ ] `/integrations/aws/rds-aurora` — Proxy path
 - [ ] `/integrations/aws/dynamodb`
 - [ ] `/integrations/clerk`
 - [ ] `/integrations/auth0` — end-to-end example (Clerk parity)
 - [ ] `/integrations/okta` — end-to-end example (Clerk parity)
-- [ ] `/integrations/nextjs`
 - [ ] `/integrations/typescript` — thin router to Stack SDK reference
 - [ ] `/integrations/serverless` — Vercel/Lambda, bundling, CS_CONFIG_PATH
 - [ ] `/integrations/docker`
@@ -369,7 +367,7 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
 ## Architecture & security — CIP-3331, CIP-3332 (compliance)
 
 - [x] Section scaffold 🚧
-- [ ] `/security/architecture` — ONE reconciled ZeroKMS mechanism story (kills the 3 conflicting accounts)
+- [x] `/security/cryptography` — ONE reconciled ZeroKMS mechanism story (kills the 3 conflicting accounts)
 - [ ] `/security/zerokms`
 - [ ] `/security/cts` — auth layer architecture (CIP-3330)
 - [ ] `/security/stack-sdk`
@@ -417,13 +415,9 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
       rewritten for v3 upstream (v3 branch folded it into database-indexes.md; verify
       nothing from the v2 guide on main was lost) — see CIP-3351
 - **Stack SDK:**
-- [ ] `/reference/stack` — client + configuration (port encryption/* pages)
-- [ ] `/reference/stack/schema`
-- [ ] `/reference/stack/encrypt-decrypt` (+ bulk, models)
-- [ ] `/reference/stack/supabase` — THE canonical `encryptedSupabase` page, ONE signature (CIP-3328)
-- [ ] `/reference/stack/drizzle-operators`
-- [ ] `/reference/stack/errors` — port error-handling; miette catalog later (CIP-3338)
-- [ ] `/reference/stack/upgrading-from-protect` (retitled package-rename guide)
+- [x] `/reference/stack` — core package overview and usage
+- [x] `/reference/stack/api-reference` — generated `@cipherstash/stack` API
+- [x] `/integrations/supabase/api-reference` — generated `@cipherstash/stack-supabase` API (CIP-3328)
 - **Auth (CIP-3330):**
 - [ ] `/reference/auth/lock-contexts`
 - [ ] `/reference/auth/cts-tokens`
@@ -434,7 +428,7 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
 - [ ] `/reference/proxy/*` (configuration, message-flow, multitenant, errors)
 - [ ] `/reference/workspace/billing` + `/members` + `/configuration`
 - **Cross-cutting:**
-- [ ] `/reference/benchmarks` — listing numbers + methodology (CIP-3334)
+- [x] `/reference/benchmarks` — listing numbers + methodology (CIP-3334)
 - [ ] `/reference/agent-skills` (port; expand per CIP-3339)
 - [ ] `/reference/glossary` (port)
 - [ ] Repoint `scripts/generate-docs.ts` TypeDoc output → `content/docs/reference/stack`
@@ -449,9 +443,10 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
 - [ ] OG images for v2 pages (route only covers legacy tree)
 - [ ] Correctness CI: snippet type-checking, SQL-vs-EQL-Docker, terminology lint (CIP-3337)
 - [ ] llms.txt curation + Cloudflare AI crawl policy + md-degradation check (CIP-3339)
-- [ ] ⛔ EQL 3.0.0 release alignment (CIP-3352, blocks CIP-3335) — the EQL reference
-      documents the release as decided, ahead of the eql_v3 branch: payload `v: 3`,
-      OPE SEM specifier, Docker tag `:17-3.0.0`, `version()` output, schema files.
-      Each must land upstream or be walked back in the docs before merge
+- [x] EQL 3.0.4 release alignment (CIP-3352) — the EQL reference and CLI target
+      the released v3 schema and payload.
+- [x] Stack SDK and Supabase-wrapper v3 alignment (CIP-3355) —
+      `@cipherstash/stack` and `@cipherstash/stack-supabase` 1.0.0 are released,
+      and the integration docs target their stable v3 surfaces.
 - [ ] Flip `ENABLE_V2_REDIRECTS=1`, delete `content/stack` + `/stack` routes + legacy loader (CIP-3335)
 - [ ] Consistency sweep + Supabase listing v3 revision (CIP-3335)

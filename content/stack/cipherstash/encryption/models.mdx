@@ -9,7 +9,7 @@ Model methods encrypt or decrypt an entire object in one call. The SDK inspects 
 
 This is the recommended approach when working with database records: pass the object in, get the encrypted (or decrypted) version back, and write it to the database.
 
-For full method signatures, see the [`EncryptionClient` API reference](/stack/reference/stack/latest/packages/stack/src/encryption/classes/EncryptionClient).
+For full method signatures, see the [`EncryptionClient` API reference](/reference/stack/api-reference).
 
 ## How schema-driven selection works
 
@@ -216,27 +216,24 @@ See [Error handling](/stack/reference/error-handling) for the full set of error 
 
 ## Identity-aware model operations
 
-Chain `.withLockContext()` to bind encryption to a user's JWT:
+Chain `.withLockContext()` to bind encryption to a claim from the signed-in user's JWT. The client must be authenticated as that user with `OidcFederationStrategy`.
 
 ```typescript filename="model-with-identity.ts"
-import { LockContext } from "@cipherstash/stack/identity"
-
-const lc = new LockContext()
-const lockContext = (await lc.identify(userJwt)).data!
+const claim = { identityClaim: ["sub"] }
 
 // Single record
 const encrypted = await client
   .encryptModel(user, users)
-  .withLockContext(lockContext)
+  .withLockContext(claim)
 
 // Bulk records — one ZeroKMS call, all locked to the same identity
 const bulkEncrypted = await client
   .bulkEncryptModels(records, users)
-  .withLockContext(lockContext)
+  .withLockContext(claim)
 
 const bulkDecrypted = await client
   .bulkDecryptModels(encryptedRecords)
-  .withLockContext(lockContext)
+  .withLockContext(claim)
 ```
 
 See [Identity-aware encryption](/stack/cipherstash/encryption/identity) for the full flow.

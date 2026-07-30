@@ -3,6 +3,7 @@ import { rehypeCodeDefaultOptions } from "fumadocs-core/mdx-plugins";
 import { metaSchema, pageSchema } from "fumadocs-core/source/schema";
 import { defineConfig, defineDocs } from "fumadocs-mdx/config";
 import { z } from "zod";
+import { cipherstashDark, cipherstashLight } from "./src/lib/shiki-themes";
 
 // You can customise Zod schemas for frontmatter and `meta.json` here
 // see https://fumadocs.dev/docs/mdx/collections
@@ -32,6 +33,11 @@ export const v2docs = defineDocs({
   docs: {
     schema: pageSchema.extend({
       seoTitle: z.string().optional(),
+      // Sidebar label, when it should differ from the page's `title` (which is
+      // also the H1). Mainly for section index pages: the folder already names
+      // the section, so repeating it on the index item is noise. Applied to the
+      // page tree in `src/lib/source.ts`; never affects the URL or the H1.
+      navTitle: z.string().optional(),
       // Diátaxis page type. Every page should declare one; enforced by the
       // docs lint (CIP-3337) rather than the schema so stubs can land first.
       type: z.enum(["tutorial", "guide", "concept", "reference"]).optional(),
@@ -71,6 +77,7 @@ export const v2docs = defineDocs({
   },
 });
 
+// ── Syntax highlighting: the CipherStash code theme ──────────────────────────
 // Parse the leftover code-fence meta string (what remains after Fumadocs
 // extracts `title`, `tab`, and line-number directives) for the analytics
 // attributes documented for authors: `example-id`, `cta`, and `cta-type`.
@@ -96,6 +103,14 @@ const codeCopyTrackingTransformer: ShikiTransformer = {
   name: "cipherstash:code-copy-tracking",
   pre(node) {
     node.properties["data-language"] = this.options.lang ?? "plaintext";
+
+    // A ```mermaid fence stays a code fence in the mdast, so the processed
+    // markdown we serve at `.mdx` and in llms.txt keeps the diagram as
+    // readable source. Carry the raw source through to the client, where
+    // `TrackedCodeBlock` swaps the highlighted block for a rendered diagram.
+    if (this.options.lang === "mermaid") {
+      node.properties["data-mermaid"] = this.source;
+    }
 
     const raw =
       typeof this.options.meta?.__raw === "string"
@@ -139,11 +154,13 @@ const codeCopyTrackingTransformer: ShikiTransformer = {
 export default defineConfig({
   mdxOptions: {
     rehypeCodeOptions: {
-      // Preserve Fumadocs' default Shiki config (themes, parseMetaString) and
-      // its default transformers (notation highlight, diff, focus, word
-      // highlight) — passing `transformers` alone would replace them entirely —
-      // then append our copy-tracking transformer.
+      // Preserve Fumadocs' default Shiki config (dual-theme mode,
+      // parseMetaString) and its default transformers (notation highlight, diff,
+      // focus, word highlight) — passing `transformers` alone would replace them
+      // entirely — then append our copy-tracking transformer.
       ...rehypeCodeDefaultOptions,
+      // Swap GitHub's themes for the CipherStash palette (defined above).
+      themes: { light: cipherstashLight, dark: cipherstashDark },
       transformers: [
         ...(rehypeCodeDefaultOptions.transformers ?? []),
         codeCopyTrackingTransformer,

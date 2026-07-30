@@ -22,6 +22,28 @@ export interface DocsConfig {
   tagFilter: (tag: string) => boolean;
   /** Reference URL path segment (e.g., 'stack' or 'drizzle') */
   referencePathSegment: string;
+  /** Generate from a branch or commit instead of selecting a release tag. */
+  sourceRef?: string;
+  /** Public route before the generated version directory. */
+  publicPath?: string;
+  /** Navigation title written to the package-level meta.json. */
+  metaTitle?: string;
+  /** TypeDoc project name. */
+  projectName?: string;
+  /** Additional frontmatter added to every generated page. */
+  frontmatterGlobals?: Record<string, unknown>;
+  /** Generate directly into baseOutputDir instead of a latest/version folder. */
+  versionedOutput?: boolean;
+  /** Base path TypeDoc uses to name entry-point modules. */
+  entryPointBasePath?: string;
+  /** TypeDoc Markdown output router. */
+  router?: "member" | "module";
+  /** Write generated module pages into one directory. */
+  flattenOutputFiles?: boolean;
+  /** Promote one TypeDoc entry module into the generated root page. */
+  entryModule?: string;
+  /** Synthetic source entry points written into the temporary checkout. */
+  generatedSources?: Record<string, string>;
 }
 
 /**
@@ -31,6 +53,95 @@ export interface VersionInfo {
   major: number;
   minor: number;
   patch: number;
+}
+
+/**
+ * Keep inline code spans on one physical line.
+ *
+ * TSDoc comments are commonly wrapped at a fixed width, including in the
+ * middle of a backtick span. Markdown permits that, but MDX can reinterpret a
+ * `{ ... }` on the continuation line as an expression inside its surrounding
+ * list or blockquote container. Fenced code blocks are deliberately excluded.
+ */
+function collapseMultilineInlineCode(content: string): string {
+  // TypeDoc's frontmatter plugin can truncate a summary midway through an
+  // inline-code span. Never pair that unmatched backtick with one in the MDX
+  // body: frontmatter is YAML and does not need Markdown normalization.
+  const frontmatter = content.match(/^---\n[\s\S]*?\n---\n?/)?.[0] ?? "";
+  const lines = content.slice(frontmatter.length).split("\n");
+  const output: string[] = [];
+  let prose: string[] = [];
+  let fence: { character: string; length: number } | undefined;
+
+  const collapseProse = () => {
+    if (prose.length === 0) return;
+    const block = prose.join("\n");
+    let result = "";
+    let cursor = 0;
+
+    while (cursor < block.length) {
+      const start = block.indexOf("`", cursor);
+      if (start === -1) {
+        result += block.slice(cursor);
+        break;
+      }
+
+      let openingLength = 1;
+      while (block[start + openingLength] === "`") openingLength += 1;
+      result += block.slice(cursor, start + openingLength);
+      cursor = start + openingLength;
+
+      let closing = cursor;
+      while (closing < block.length) {
+        closing = block.indexOf("`", closing);
+        if (closing === -1) break;
+        let closingLength = 1;
+        while (block[closing + closingLength] === "`") closingLength += 1;
+        if (closingLength === openingLength) break;
+        closing += closingLength;
+      }
+
+      if (closing === -1) {
+        result += block.slice(cursor);
+        cursor = block.length;
+        break;
+      }
+
+      const body = block.slice(cursor, closing);
+      result += body.includes("\n")
+        ? body.replace(/[ \t]*\n[ \t]*/g, " ")
+        : body;
+      result += "`".repeat(openingLength);
+      cursor = closing + openingLength;
+    }
+
+    output.push(...result.split("\n"));
+    prose = [];
+  };
+
+  for (const line of lines) {
+    const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    const marker = match?.[1];
+    if (!fence && marker) {
+      collapseProse();
+      output.push(line);
+      fence = { character: marker[0] ?? "", length: marker.length };
+    } else if (fence) {
+      output.push(line);
+      if (
+        marker?.[0] === fence.character &&
+        marker.length >= fence.length &&
+        match?.[2]?.trim() === ""
+      ) {
+        fence = undefined;
+      }
+    } else {
+      prose.push(line);
+    }
+  }
+  collapseProse();
+
+  return `${frontmatter}${output.join("\n")}`;
 }
 
 /**
@@ -57,6 +168,7 @@ export async function stripMdxExtensions(dir: string): Promise<void> {
       await stripMdxExtensions(fullPath);
     } else if (entry.isFile() && entry.name.endsWith(".mdx")) {
       let content = await fs.readFile(fullPath, "utf8");
+      content = collapseMultilineInlineCode(content);
       content = content.replace(/\]\(([^)#]+)\.mdx([#)])/g, "]($1$2");
       content = content.replace(
         /\]\(\/docs\/reference\//g,
@@ -66,6 +178,9 @@ export async function stripMdxExtensions(dir: string): Promise<void> {
       // TypeDoc generates links to index pages (e.g., ../index or /stack/.../index)
       // but Fumadocs serves index.mdx at the directory URL without /index.
       content = content.replace(/\]\(([^)#]*)\/index([#)])/g, "]($1$2");
+      // A flattened module sits beside the root index and links back to it as
+      // `(index)`, without a preceding slash for the rule above to match.
+      content = content.replace(/\]\(index([#)])/g, "](./$1");
       // Strip temp directory prefix from source link text (e.g., .tmp-stack/)
       // Matches: [.tmp-stack/packages/...](url) → [packages/...](url)
       content = content.replace(/\[\.tmp-[^/]+\//g, "[");
@@ -102,7 +217,16 @@ export async function generateMetaJson(dir: string): Promise<void> {
   }
 
   const metaPath = path.join(dir, "meta.json");
-  await fs.writeFile(metaPath, JSON.stringify({ pages }, null, 2), "utf8");
+  await fs.writeFile(metaPath, serializeMetaJson({ pages }), "utf8");
+}
+
+/** Keep generated metadata aligned with Biome's compact single-item arrays. */
+function serializeMetaJson(meta: { title?: string; pages: string[] }): string {
+  const json = JSON.stringify(meta, null, 2).replace(
+    /"pages": \[\n {4}"([^"]+)"\n {2}\]/,
+    '"pages": ["$1"]',
+  );
+  return `${json}\n`;
 }
 
 /**
@@ -142,9 +266,14 @@ export function getVersionsToGenerate(
     }
   }
 
+  // Only the latest major. The module layout diverged across majors — Stack 1.0
+  // moved the Drizzle/Supabase adapters to their own packages and dropped
+  // secrets — so a single `entryPoints` config (which must match the layout it
+  // documents) can only correctly generate one line. The launch documents 1.0;
+  // older-major reference lives on the previous docs site.
   const majorVersions = Array.from(versionMap.keys())
     .sort((a, b) => b - a)
-    .slice(0, 3);
+    .slice(0, 1);
 
   return majorVersions.map((major, index) => {
     const tag = versionMap.get(major);
@@ -153,6 +282,55 @@ export function getVersionsToGenerate(
     }
     return { tag, isLatest: index === 0 };
   });
+}
+
+/**
+ * TypeScript `paths` that resolve a workspace package to its SOURCE.
+ *
+ * An adapter package (`stack-supabase`) imports its sibling by package name —
+ * `@cipherstash/stack`, `@cipherstash/stack/schema`, `.../adapter-kit` — which
+ * resolves through that package's `exports` map to `./dist/*`. The clone is
+ * never built, so there is no `dist` and every such import is TS2307. TypeDoc
+ * then documents the adapter with all its cross-package types missing.
+ *
+ * Derive the mapping from the sibling's own `exports` map rather than hardcoding
+ * it: rewrite each subpath's `./dist/x.js` target to `./packages/<pkg>/src/x.ts`.
+ * A hand-written list would silently rot the next time Stack adds a subpath, and
+ * the failure mode is exactly the one this is fixing — a missing type quietly
+ * becoming `any` in the published reference.
+ */
+async function workspaceSourcePaths(
+  workingDir: string,
+  packageName: string,
+): Promise<Record<string, string[]>> {
+  const dir = packageName.split("/").pop();
+  const manifest = path.join(workingDir, "packages", dir ?? "", "package.json");
+
+  let exportsMap: Record<string, unknown>;
+  try {
+    const pkg = JSON.parse(await fs.readFile(manifest, "utf8"));
+    exportsMap = pkg.exports ?? {};
+  } catch {
+    // The layout moved. Better to emit nothing and let TS2307 name the missing
+    // module than to invent paths that point at files which do not exist.
+    console.warn(`  ! no exports map at ${manifest}; skipping source paths`);
+    return {};
+  }
+
+  const paths: Record<string, string[]> = {};
+  for (const [subpath, target] of Object.entries(exportsMap)) {
+    if (subpath.endsWith("package.json")) continue;
+    // Any condition will do — every branch points at the same module, and only
+    // the path shape matters here.
+    const dist = JSON.stringify(target).match(/\.\/dist\/[^"]+\.js/)?.[0];
+    if (!dist) continue;
+
+    const stem = dist.replace(/^\.\/dist\//, "").replace(/\.js$/, "");
+    const specifier =
+      subpath === "." ? packageName : `${packageName}/${subpath.slice(2)}`;
+    paths[specifier] = [`./packages/${dir}/src/${stem}.ts`];
+  }
+  return paths;
 }
 
 /**
@@ -169,18 +347,26 @@ export async function generateDocsForTag(
   const versionString = version
     ? `v${version.major}.${version.minor}.${version.patch}`
     : tag;
-  const dirName = isLatest ? "latest" : versionString;
-  const outputDir = path.join(config.baseOutputDir, dirName);
+  const dirName =
+    config.versionedOutput === false ? "" : isLatest ? "latest" : versionString;
+  const outputDir = dirName
+    ? path.join(config.baseOutputDir, dirName)
+    : config.baseOutputDir;
+  const displayDirName = dirName || "unversioned API reference";
 
   console.log(`\n${"=".repeat(60)}`);
   console.log(
-    `Generating docs for ${dirName}${isLatest ? ` (${versionString})` : ""}`,
+    `Generating docs for ${displayDirName}${isLatest ? ` (${versionString})` : ""}`,
   );
   console.log("=".repeat(60));
 
   // Checkout the tag (skip if using local path)
   if (!localPath) {
+    // A prior tag's `bun install` rewrites the tracked package.json, which would
+    // block switching tags. Discard any working-tree changes first so the
+    // checkout is always clean (harmless on the first/only tag).
     console.log(`Checking out ${tag}...`);
+    execSync("git checkout -- .", { cwd: workingDir, stdio: "inherit" });
     execSync(`git checkout ${tag}`, { cwd: workingDir, stdio: "inherit" });
 
     console.log("Cleaning node_modules...");
@@ -198,16 +384,40 @@ export async function generateDocsForTag(
   // Create output directory
   await fs.mkdir(outputDir, { recursive: true });
 
+  // A package root named `index.ts` collides with TypeDoc's own `index.mdx`.
+  // Callers can add a synthetic, clearly named re-export module so the root
+  // package surface is documented without changing the source repository.
+  for (const [relativePath, source] of Object.entries(
+    config.generatedSources ?? {},
+  )) {
+    const generatedPath = path.join(workingDir, relativePath);
+    await fs.mkdir(path.dirname(generatedPath), { recursive: true });
+    await fs.writeFile(generatedPath, source, "utf8");
+  }
+
   // Create a custom tsconfig for TypeDoc
   const typedocTsConfig = {
     extends: "./tsconfig.json",
     include: config.tsconfigInclude,
     exclude: ["node_modules", "examples", "dist", "__tests__"],
     compilerOptions: {
+      // The stack repo's ROOT tsconfig (which this extends) sets
+      // `moduleResolution: "bundler"` but no `customConditions`;
+      // `packages/stack/tsconfig.json` — the config the stack team actually
+      // builds with — adds `customConditions: ["node"]`. That matters here:
+      // @cipherstash/protect-ffi's `exports` map routes the `node` condition to
+      // `lib/index.d.cts` (the real type surface) and everything else to
+      // `default: ./dist/wasm/protect_ffi.js`, which ships NO `types`. Without
+      // the condition, TypeScript falls through to the sibling
+      // `dist/wasm/protect_ffi.d.ts` — raw wasm-bindgen output — and every
+      // hand-written type resolves to nothing ("has no exported member
+      // 'ProtectError'. Did you mean 'encryptQuery'?").
+      customConditions: ["node"],
       paths: {
         "@/*": ["./packages/stack/src/*"],
         "@cipherstash/schema": ["./packages/schema/src/index.ts"],
         "@cipherstash/schema/*": ["./packages/schema/src/*"],
+        ...(await workspaceSourcePaths(workingDir, "@cipherstash/stack")),
       },
     },
   };
@@ -225,9 +435,12 @@ export async function generateDocsForTag(
 
   // Create TypeDoc configuration
   const typedocConfig = {
+    name: config.projectName,
     entryPoints: config.entryPoints,
     tsconfig: "./typedoc.tsconfig.json",
-    basePath: workingDir,
+    basePath: config.entryPointBasePath
+      ? path.join(workingDir, config.entryPointBasePath)
+      : workingDir,
     plugin: [
       "typedoc-plugin-markdown",
       "typedoc-plugin-frontmatter",
@@ -237,6 +450,7 @@ export async function generateDocsForTag(
     readme: "none",
     frontmatterGlobals: {
       packageVersion: versionString,
+      ...config.frontmatterGlobals,
     },
     frontmatterCommentTags: ["author", "description"],
     githubPages: false,
@@ -314,6 +528,17 @@ export async function generateDocsForTag(
     sanitizeComments: true,
     fileExtension: ".mdx",
     entryFileName: "index",
+    router: config.router,
+    flattenOutputFiles: config.flattenOutputFiles,
+    entryModule: config.entryModule,
+    // Type errors fail the build, deliberately. This was `true` to tolerate
+    // "cross-package type references unresolved even though the source is
+    // correct" — but that diagnosis was wrong, and tolerating it was not free:
+    // an unresolved import does not just warn, it makes TypeDoc emit `any`.
+    // The cause was the missing `customConditions` above, and with that fixed
+    // the whole surface typechecks cleanly. Leaving this off means the next
+    // resolution break surfaces as a failed build instead of a reference page
+    // that quietly documents `any`.
     skipErrorChecking: false,
     sort: ["source-order"],
     kindSortOrder: [
@@ -324,7 +549,7 @@ export async function generateDocsForTag(
       "Variable",
       "Enum",
     ],
-    publicPath: `/stack/reference/${config.referencePathSegment}/${dirName}/`,
+    publicPath: `${(config.publicPath ?? `/stack/reference/${config.referencePathSegment}`).replace(/\/$/, "")}${dirName ? `/${dirName}` : ""}/`,
   };
 
   const configPath = path.join(workingDir, "typedoc.json");
@@ -347,7 +572,7 @@ export async function generateDocsForTag(
   console.log("Generating meta.json files...");
   await generateMetaJson(outputDir);
 
-  console.log(`Docs for ${dirName} generated successfully!`);
+  console.log(`Docs for ${displayDirName} generated successfully!`);
   console.log(`Output directory: ${outputDir}`);
 
   return { dirName, versionString, isLatest };
@@ -396,27 +621,34 @@ export async function generateDocs(config: DocsConfig): Promise<void> {
       });
       workingDir = tempDir;
 
-      console.log("Fetching all tags...");
-      execSync("git fetch --tags", { cwd: workingDir, stdio: "inherit" });
+      if (config.sourceRef) {
+        allTags = [config.sourceRef];
+        console.log(`Using source ref ${config.sourceRef}`);
+      } else {
+        console.log("Fetching all tags...");
+        execSync("git fetch --tags", { cwd: workingDir, stdio: "inherit" });
 
-      allTags = execSync("git tag --sort=-v:refname", {
-        cwd: workingDir,
-        encoding: "utf8",
-      })
-        .trim()
-        .split("\n");
+        allTags = execSync("git tag --sort=-v:refname", {
+          cwd: workingDir,
+          encoding: "utf8",
+        })
+          .trim()
+          .split("\n");
 
-      if (allTags.length === 0 || allTags[0] === "") {
-        throw new Error(`No tags found in ${config.packageName} repository`);
+        if (allTags.length === 0 || allTags[0] === "") {
+          throw new Error(`No tags found in ${config.packageName} repository`);
+        }
+
+        console.log(`Found ${allTags.length} tags`);
       }
-
-      console.log(`Found ${allTags.length} tags`);
     }
 
     // Determine which versions to generate
     const versionsToGenerate = localPath
       ? [{ tag: "local-dev", isLatest: true }]
-      : getVersionsToGenerate(allTags, config.tagFilter);
+      : config.sourceRef
+        ? [{ tag: config.sourceRef, isLatest: true }]
+        : getVersionsToGenerate(allTags, config.tagFilter);
 
     if (!localPath && versionsToGenerate.length === 0) {
       throw new Error(
@@ -432,12 +664,17 @@ export async function generateDocs(config: DocsConfig): Promise<void> {
     // Clean existing generated output (preserve hand-authored files)
     for (const { tag, isLatest } of versionsToGenerate) {
       const version = parseVersion(tag);
-      const dirName = isLatest
-        ? "latest"
-        : version
-          ? `v${version.major}.${version.minor}.${version.patch}`
-          : tag;
-      const versionDir = path.join(config.baseOutputDir, dirName);
+      const dirName =
+        config.versionedOutput === false
+          ? ""
+          : isLatest
+            ? "latest"
+            : version
+              ? `v${version.major}.${version.minor}.${version.patch}`
+              : tag;
+      const versionDir = dirName
+        ? path.join(config.baseOutputDir, dirName)
+        : config.baseOutputDir;
       await fs.rm(versionDir, { recursive: true, force: true });
     }
 
@@ -454,16 +691,20 @@ export async function generateDocs(config: DocsConfig): Promise<void> {
       generatedVersions.push(versionInfo);
     }
 
-    // Generate a meta.json for the package directory listing versions
+    // Generate package-level navigation. An unversioned reference already has
+    // a complete meta.json from generateMetaJson; preserve its page list.
     const packageMetaPath = path.join(config.baseOutputDir, "meta.json");
-    const packageMeta = {
-      pages: generatedVersions.map(({ dirName }) => dirName),
-    };
-    await fs.writeFile(
-      packageMetaPath,
-      JSON.stringify(packageMeta, null, 2),
-      "utf8",
-    );
+    const packageMeta =
+      config.versionedOutput === false
+        ? {
+            ...(config.metaTitle ? { title: config.metaTitle } : {}),
+            ...JSON.parse(await fs.readFile(packageMetaPath, "utf8")),
+          }
+        : {
+            ...(config.metaTitle ? { title: config.metaTitle } : {}),
+            pages: generatedVersions.map(({ dirName }) => dirName),
+          };
+    await fs.writeFile(packageMetaPath, serializeMetaJson(packageMeta), "utf8");
 
     // Clean up temp directory
     console.log("\nCleaning up...");

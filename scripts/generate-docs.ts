@@ -2,7 +2,7 @@
 /**
  * Main orchestrator for generating TypeDoc API reference documentation.
  *
- * Generates docs for @cipherstash/stack (which includes all integrations).
+ * Generates docs for the core @cipherstash/stack package.
  *
  * Set PROTECT_WORKSPACE_PATH to point to a local protectjs checkout
  * for development (e.g., /Users/cj/Documents/CipherStash/Github/protectjs).
@@ -14,25 +14,45 @@ import { type DocsConfig, generateDocs } from "./lib/docs-generator.js";
 
 const stackConfig: DocsConfig = {
   packageName: "@cipherstash/stack",
+  projectName: "@cipherstash/stack",
   repoUrl: "https://github.com/cipherstash/stack.git",
+  sourceRef: "@cipherstash/stack@1.0.0",
   tempDirName: ".tmp-stack",
-  baseOutputDir: path.join(process.cwd(), "content/stack/reference/stack"),
+  baseOutputDir: path.join(
+    process.cwd(),
+    "content/docs/reference/stack/api-reference",
+  ),
+  publicPath: "/reference/stack/api-reference",
+  metaTitle: "API reference",
+  versionedOutput: false,
+  entryPointBasePath: "packages/stack/src",
+  router: "module",
+  flattenOutputFiles: true,
+  generatedSources: {
+    "packages/stack/src/package-exports.ts":
+      '/** Exports available from the `@cipherstash/stack` package root.\n * @module Package exports\n */\nexport * from "./index.js"\n',
+  },
   entryPoints: [
+    "./packages/stack/src/package-exports.ts",
     "./packages/stack/src/encryption/index.ts",
-    "./packages/stack/src/secrets/index.ts",
     "./packages/stack/src/schema/index.ts",
-    "./packages/stack/src/drizzle/index.ts",
+    "./packages/stack/src/eql/v3/index.ts",
+    "./packages/stack/src/encryption/v3.ts",
     "./packages/stack/src/dynamodb/index.ts",
-    "./packages/stack/src/supabase/index.ts",
     "./packages/stack/src/identity/index.ts",
     "./packages/stack/src/types-public.ts",
-    "./packages/stack/src/client.ts",
     "./packages/stack/src/errors/index.ts",
+    "./packages/stack/src/adapter-kit.ts",
+    "./packages/stack/src/wasm-inline.ts",
   ],
   tsconfigInclude: ["packages/stack/src/**/*"],
-  tagFilter: (tag: string) =>
-    tag.includes("@cipherstash/stack@") && !tag.includes("stack-"),
+  tagFilter: () => false,
   referencePathSegment: "stack",
+  frontmatterGlobals: {
+    type: "reference",
+    components: ["encryption", "eql"],
+    audience: ["developer"],
+  },
 };
 
 async function main() {

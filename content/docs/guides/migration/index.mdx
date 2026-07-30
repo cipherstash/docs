@@ -1,8 +1,19 @@
 ---
 title: Data migration
-description: "Data migration documentation — being built as part of the docs V2 overhaul."
+navTitle: Overview
+description: "Safely introduce CipherStash encryption to existing schemas and populated production data."
+type: guide
+components: [encryption, eql, cli]
+audience: [developer]
 ---
 
-This section is being built as part of the docs V2 overhaul ([CIP-3307](https://linear.app/cipherstash/issue/CIP-3307)). Track progress in [IA.md](https://github.com/cipherstash/docs/blob/v2/IA.md).
+Encryption migrations coordinate schema changes, application writes, historical data, and read cutovers. Keep each stage independently verifiable and reversible until the plaintext data is intentionally removed.
 
-Until it lands, current documentation lives in the [existing docs](/stack).
+<Cards>
+  <Card title="Encrypt existing data" href="/guides/migration/encrypt-existing-data">
+    Add encrypted mirrors, deploy dual-writes, backfill historical rows, cut reads over, and remove plaintext safely.
+  </Card>
+  <Card title="Deployment" href="/guides/deployment">
+    Plan environment promotion, credentials, release gates, monitoring, and rollback.
+  </Card>
+</Cards>

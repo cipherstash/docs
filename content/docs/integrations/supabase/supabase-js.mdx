@@ -1,0 +1,235 @@
+---
+title: supabase-js
+description: "Use the encryptedSupabase wrapper for transparent encryption, decryption, filtering, and ordering through the Supabase JavaScript client."
+type: guide
+components: [encryption, eql, platform]
+audience: [developer]
+integration:
+  category: orm
+  setup: code-only
+  pairsWith: [supabase]
+verifiedAgainst:
+  stack: "1.0.0"
+  eql: "3.0.4"
+---
+
+`encryptedSupabase` wraps a [`@supabase/supabase-js`](https://supabase.com/docs/reference/javascript/introduction) client. It encrypts values before mutations leave your application, encrypts query operands for searchable columns, and decrypts selected rows before returning them. Plaintext columns pass through unchanged.
+
+The result is the familiar supabase-js query shape:
+
+```typescript
+const { data, error } = await db
+  .from("patients")
+  .select("id, name, date_of_birth")
+  .eq("name", "Alice Chen")
+```
+
+The `name` operand and returned `name` value are plaintext in your code. Supabase and Postgres only receive their encrypted representations.
+
+<Callout type="info">
+This guide assumes EQL is installed and your encrypted columns use `public.eql_v3_*` domain types. Complete the [Quickstart](/integrations/supabase/quickstart) first if your database is not ready.
+</Callout>
+
+## Install
+
+Install the Stack SDK, its Supabase adapter, supabase-js, and the Postgres driver used for schema introspection:
+
+```bash cta cta-type="install" example-id="install-supabase-js"
+npm install @cipherstash/stack @cipherstash/stack-supabase @supabase/supabase-js pg
+```
+
+Your server needs these environment variables:
+
+```bash
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_ANON_KEY=...
+DATABASE_URL=postgresql://...
+```
+
+## Credentials
+
+<CipherStashCredentials />
+
+The [Quickstart setup](/integrations/supabase/quickstart#initialize-cipherstash) creates and uses the developer profile. In CI or a deployed application, add the four `CS_*` variables to the same server environment as the Supabase settings above.
+
+## Create the client
+
+Pass your Supabase URL and key to `encryptedSupabase`. The async factory uses `DATABASE_URL` once at startup to inspect the `public` schema and identify its EQL columns. Application queries still go through the Supabase URL and PostgREST.
+
+```typescript title="lib/db.ts"
+import { encryptedSupabase } from "@cipherstash/stack-supabase"
+
+export const db = await encryptedSupabase(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!,
+)
+```
+
+Pass `databaseUrl` when your direct connection uses another environment variable:
+
+```typescript
+export const db = await encryptedSupabase(supabaseUrl, supabaseKey, {
+  databaseUrl: process.env.SUPABASE_DATABASE_URL,
+})
+```
+
+If your application already creates a Supabase client, wrap that instance instead. Its Auth session, custom headers, and Row Level Security context are preserved:
+
+```typescript title="lib/db.ts"
+import { createClient } from "@supabase/supabase-js"
+import { encryptedSupabase } from "@cipherstash/stack-supabase"
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+export const db = await encryptedSupabase(supabase, {
+  databaseUrl: process.env.DATABASE_URL,
+})
+```
+
+<Callout type="warn">
+Create this client on the server. It needs a direct database connection and CipherStash credentials, so it cannot run in a browser or Worker. For Deno, use the [Edge Functions guide](/integrations/supabase/edge-functions).
+</Callout>
+
+`encryptedSupabaseV3` remains as a deprecated, type-identical alias for existing applications. Use `encryptedSupabase` in new code.
+
+## Add optional TypeScript schemas
+
+Database introspection is enough at runtime. An optional declared schema adds compile-time row and filter types, and verifies at startup that the declaration matches the live database.
+
+```typescript title="lib/db.ts"
+import { encryptedTable, types } from "@cipherstash/stack/eql/v3"
+import { encryptedSupabase } from "@cipherstash/stack-supabase"
+
+const patients = encryptedTable("patients", {
+  name: types.TextEq("name"),
+  dateOfBirth: types.DateOrd("date_of_birth"),
+})
+
+export const typedDb = await encryptedSupabase(supabaseUrl, supabaseAnonKey, {
+  schemas: { patients },
+})
+```
+
+The record key must match the database table name. A property may map to a different database column, as `dateOfBirth` does above; the wrapper applies that mapping to selects, mutations, filters, and returned rows.
+
+## Insert, update, and upsert
+
+Write plaintext values. The wrapper encrypts only the columns backed by EQL domains and sends every other column through unchanged.
+
+```typescript
+const { data, error } = await db
+  .from("patients")
+  .insert({
+    email: "alice@example.com", // plaintext column
+    name: "Alice Chen",         // encrypted column
+    date_of_birth: "1988-06-15", // encrypted column
+    plan: "standard",           // plaintext column
+  })
+  .select("id, email, name, date_of_birth, plan")
+  .single()
+
+await db
+  .from("patients")
+  .update({ name: "Alice Jones" })
+  .eq("id", data!.id)
+
+await db.from("patients").upsert(
+  { email: "alice@example.com", name: "Alice Jones" },
+  { onConflict: "email" },
+)
+```
+
+`insert` and `upsert` accept one row or an array. The wrapper batches a mutation's encryption work into one ZeroKMS round trip.
+
+## Select and filter
+
+Encrypted values are decrypted before they appear in `data`. Bare `.select()` and `.select("*")` work because the wrapper expands the column list discovered during introspection.
+
+```typescript
+const { data } = await db
+  .from("patients")
+  .select("*")
+  .eq("name", "Alice Chen")
+```
+
+The EQL domain on each encrypted column determines which filters it accepts:
+
+| supabase-js method | Required encrypted domain | Behaviour |
+| --- | --- | --- |
+| `.eq()`, `.neq()`, `.in()` | `_eq`, `_ord`, or `text_search` | Compares encrypted equality terms |
+| `.gt()`, `.gte()`, `.lt()`, `.lte()` | `_ord` or `text_search` | Compares encrypted ordering terms |
+| `.is(column, null)` | Any column | Passes SQL `NULL` through without encryption |
+| `.match()`, `.or()`, `.not()`, `.filter()` | Depends on the operator | Encrypts operands for encrypted columns |
+| `.contains()` | Plaintext JSON or array | Uses native PostgREST containment |
+
+Encrypted and plaintext predicates compose in the same query:
+
+```typescript
+const { data } = await db
+  .from("patients")
+  .select("id, name, date_of_birth, plan")
+  .gte("date_of_birth", "1980-01-01") // encrypted range
+  .lt("date_of_birth", "1990-01-01")  // encrypted range
+  .eq("plan", "standard")             // plaintext equality
+```
+
+Use `.is(column, null)` for null checks. Passing `null` to a comparison such as `.eq()` cannot create an encrypted query term and is forwarded to PostgREST; it is almost never the intended SQL operation.
+
+## Order and paginate
+
+`.order()` works on plaintext columns and OPE-backed encrypted ordering domains such as `date_ord`, `integer_ord`, and `text_search`. The wrapper orders an encrypted column by the `op` term inside its payload, reproducing plaintext order without decrypting in Postgres.
+
+```typescript
+const { data } = await db
+  .from("patients")
+  .select("id, name, date_of_birth")
+  .order("date_of_birth", { ascending: false })
+  .range(0, 19)
+```
+
+Storage-only, equality-only, and match-only encrypted columns cannot be ordered. ORE-backed `_ord_ore` domains also cannot be ordered through PostgREST; Supabase installations disable those domains because their operator class requires superuser privileges.
+
+`.limit()`, `.range()`, `.single()`, `.maybeSingle()`, `.abortSignal()`, `.throwOnError()`, and `.returns<T>()` otherwise mirror supabase-js. `.csv()` throws because PostgREST serializes ciphertext before the wrapper has a chance to decrypt it; select rows normally and serialize the plaintext result in your application.
+
+## Free-text and encrypted JSON queries
+
+<Callout type="warn">
+**The current EQL 3.0.4 release cannot run encrypted free-text or encrypted JSON queries through supabase-js.** `.matches()`, encrypted `.contains()`, `.selectorEq()`, and `.selectorNe()` fail before a request is sent. Their SQL operators require an `eql_v3.query_*` cast that PostgREST cannot express. This PostgREST boundary was introduced in EQL 3.0.2 and remains in 3.0.4, which is why the runtime error describes it as `3.0.2+`.
+
+Inserts, selects, decryption, equality, ranges, and ordering are unaffected. Use [Drizzle](/integrations/drizzle), [Prisma ORM 8](/integrations/prisma), or a carefully scoped SQL/RPC function for free-text and encrypted JSON queries.
+</Callout>
+
+Scalar encrypted filters currently use a full encrypted storage envelope as the PostgREST operand because PostgREST cannot cast a term-only query envelope. PostgREST sends filters in GET query strings, so configure application and proxy logs not to retain query strings. The operand is encrypted, but it can contain ciphertext and every index term for the queried value.
+
+## Responses and errors
+
+Awaiting the builder returns the normal supabase-js response fields. Encryption failures use the same response path and add `error.encryptionError`:
+
+```typescript
+const { data, error, count, status, statusText } = await db
+  .from("patients")
+  .select("id, name")
+  .eq("name", "Alice Chen")
+
+if (error?.encryptionError) {
+  // CipherStash authentication, encryption, or decryption failed
+} else if (error) {
+  // Supabase or Postgres rejected the request
+}
+```
+
+Chain `.throwOnError()` when the surrounding code prefers exceptions. Chain `.audit({ metadata })` to attach context to ZeroKMS audit events, or `.withLockContext({ identityClaim: ["sub"] })` to bind encryption to a federated user. See [Supabase Auth](/integrations/supabase/auth) before using lock contexts.
+
+## Where to next
+
+<Cards>
+  <Card title="Supabase Auth" href="/integrations/supabase/auth">
+    Preserve the signed-in Supabase user and optionally lock decryption to their identity.
+  </Card>
+  <Card title="Edge Functions" href="/integrations/supabase/edge-functions">
+    Run encryption in Deno with the WebAssembly build.
+  </Card>
+  <Card title="Supabase wrapper API reference" href="/integrations/supabase/api-reference">
+    The complete query-builder API, response types, and implementation details.
+  </Card>
+</Cards>

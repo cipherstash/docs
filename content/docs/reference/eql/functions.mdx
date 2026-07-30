@@ -1,0 +1,72 @@
+---
+title: Functions
+description: "Generated catalog of EQL SQL functions and operators (EQL 3.0.0-sample)."
+type: reference
+components: [eql]
+verifiedAgainst:
+  eql: "3.0.0-sample"
+---
+
+{/* GENERATED — do not edit. Produced by scripts/generate-eql-api-docs.ts from the EQL manifest (v3.0.0-sample). */}
+
+<EqlVersion />
+
+<Callout type="info">
+Generated from the **EQL 3.0.0-sample** manifest (the Doxygen'd SQL is the source of truth). For the model behind these — variants, terms, typed operands — see [Core concepts](/reference/eql/core-concepts).
+</Callout>
+
+The EQL SQL surface — encrypted domains (in the `public` schema) and the `eql_v3` functions behind them. The type and query pages explain *when* to use these; this page is the exhaustive reference they link to.
+
+## Encrypted domains
+
+A column's capability is declared by its **domain variant**. This matrix comes straight from the Rust catalog (`eql-codegen dump-catalog`) — the source of truth the SQL is generated from. See [Core concepts](/reference/eql/core-concepts) for the model.
+
+| Domain | Type | Variant | Capabilities | Operators |
+| --- | --- | --- | --- | --- |
+| `public.integer` | integer | _(storage only)_ | storage | — |
+| `public.integer_eq` | integer | `_eq` | equality | `=` `<>` |
+| `public.integer_ord` | integer | `_ord` | equality, order | `=` `<>` `<` `<=` `>` `>=` |
+| `public.integer_ord_ope` | integer | `_ord_ope` | equality, order | `=` `<>` `<` `<=` `>` `>=` |
+| `public.text_match` | text | `_match` | match | `@>` `<@` |
+| `public.text_search` | text | `_search` | equality, order, match | `=` `<>` `<` `<=` `>` `>=` `@>` `<@` |
+| `public.json` | jsonb | _(storage only)_ | json | — |
+| `public.jsonb_entry` | jsonb | _(storage only)_ | json | — |
+| `public.jsonb_query` | jsonb | _(storage only)_ | json | — |
+
+## Functions
+
+The public `eql_v3` API — 2 functions (2 overloads). Internal `eql_v3_internal` functions (3) are implementation detail and omitted.
+
+### `jsonb_path_query`
+
+Query encrypted JSONB for sv elements matching a selector.
+
+Returns one jsonb_entry row per matching encrypted element.
+
+**Signature:**
+
+```sql
+jsonb_path_query(jsonb, text)
+```
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `val` | `jsonb` | encrypted EQL payload with sv |
+| `selector` | `text` | selector hash |
+
+
+**Returns:** `public.jsonb_entry` — matching encrypted entries
+
+### `version`
+
+Get the installed EQL version string.
+
+Returns the version string for the installed EQL library.
+
+**Signature:**
+
+```sql
+version()
+```
+
+**Returns:** `text` — the version string

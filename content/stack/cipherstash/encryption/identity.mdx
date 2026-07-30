@@ -1,9 +1,9 @@
 ---
 title: Identity-aware encryption
-description: Use LockContext in @cipherstash/stack to tie encryption to a user JWT so only that identity can decrypt their data, including Clerk and Next.js setup.
+description: Authenticate as the end user with OidcFederationStrategy and bind encryption to a JWT claim with withLockContext, so only that identity can decrypt their data.
 ---
 
-Lock encryption to a specific user by requiring a valid JWT for decryption. When a value is encrypted with a lock context, it can only be decrypted by presenting the same user's identity token.
+Lock encryption to a specific user, so a value can only be decrypted while the client is authenticated as the identity that encrypted it.
 
 ## How it works
 
@@ -11,185 +11,165 @@ Lock encryption to a specific user by requiring a valid JWT for decryption. When
   Lock contexts require a Business or Enterprise workspace plan.
 </Callout>
 
+Two pieces combine.
+
+**An auth strategy** decides who the client is when it talks to ZeroKMS. `OidcFederationStrategy` federates a signed-in user's OIDC JWT (from Supabase, Clerk, Auth0, or Okta) into a CipherStash token, so every ZeroKMS request is made as that user rather than as your service.
+
+**A lock context** names which claim from that user's JWT to bind the value to, typically `sub`. ZeroKMS resolves the claim's value from the token authenticating the request and bakes it into the data key's tag.
+
+Lock context is layered on top of the strategy: it requires `OidcFederationStrategy`, but the strategy does not require lock context. Authenticating as the user gives you a per-user audit trail; adding lock context gives you the cryptographic binding.
+
 Lock contexts are useful for:
 
 - Multi-tenant applications where each user's data must be isolated
 - Compliance requirements that demand per-user encryption boundaries
 - Applications where you need to prove that only authorized users accessed specific records
 
-The flow is:
-
-1. Create a `LockContext` instance.
-2. Identify the user with their JWT.
-3. Pass the lock context to encrypt and decrypt operations.
-
 ## Basic usage
 
+Register your identity provider with the workspace first, on the [OIDC providers](https://dashboard.cipherstash.com/workspaces/_/oidc-providers) page in the Dashboard. The `_` in that URL resolves to whichever workspace you have selected.
+
+Construct the client with `OidcFederationStrategy`. Pass a function returning the **current** provider JWT: the strategy calls it again whenever it needs to re-federate, so do not capture a token once.
+
+```typescript filename="client.ts"
+import { Encryption, OidcFederationStrategy } from "@cipherstash/stack"
+import { users } from "./schema"
+
+export const client = await Encryption({
+  schemas: [users],
+  config: {
+    authStrategy: OidcFederationStrategy.create(
+      process.env.CS_WORKSPACE_CRN,
+      () => getUserJwt(),
+    ),
+  },
+})
+```
+
+`OidcFederationStrategy` is re-exported from `@cipherstash/stack`, so a separate `@cipherstash/auth` import is not needed.
+
+<Callout type="warn">
+`OidcFederationStrategy` is the only strategy that supports lock contexts. `AccessKeyStrategy` authenticates as your service rather than as an end user, so there is no user identity for ZeroKMS to resolve the claim against.
+</Callout>
+
+Then bind operations to the user's claim. Every example below uses the `client` above: without its `authStrategy`, `.withLockContext()` has no end-user identity to bind to.
+
 ```typescript filename="identity.ts"
-import { LockContext } from "@cipherstash/stack/identity"
-
-// 1. Create a lock context (defaults to the "sub" claim)
-const lc = new LockContext()
-
-// 2. Identify the user with their JWT
-const identifyResult = await lc.identify(userJwt)
-
-if (identifyResult.failure) {
-  throw new Error(identifyResult.failure.message)
-}
-
-const lockContext = identifyResult.data
-
-// 3. Encrypt with lock context
+// Encrypt, binding the data key to the user's `sub` claim
 const encrypted = await client
   .encrypt("sensitive data", { column: users.email, table: users })
-  .withLockContext(lockContext)
+  .withLockContext({ identityClaim: ["sub"] })
 
-// 4. Decrypt with the same lock context
+// Decrypt with the same claim, as the same user
 const decrypted = await client
   .decrypt(encrypted.data)
-  .withLockContext(lockContext)
+  .withLockContext({ identityClaim: ["sub"] })
 ```
+
+<Callout type="warn">
+`lockContext.identify(jwt)` is **deprecated**. Per-operation CTS tokens were removed in `protect-ffi` 0.25, so `identify()` no longer affects encryption: code that still calls it compiles and logs a deprecation warning, but the token it fetches is unused. Authenticate the client with `OidcFederationStrategy` and pass the claim to `.withLockContext()` instead.
+
+Constructing a `LockContext` is not deprecated, it is simply optional here. `.withLockContext()` accepts either a `LockContext` or a plain `{ identityClaim }`.
+</Callout>
 
 ## Supported operations
 
 Lock contexts work with all encrypt and decrypt operations:
 
 ```typescript filename="identity.ts"
-// Single operations
-const encrypted = await client
-  .encryptModel(user, users)
-  .withLockContext(lockContext)
+const claim = { identityClaim: ["sub"] }
 
-const decrypted = await client
-  .decryptModel(encryptedUser)
-  .withLockContext(lockContext)
+// Single operations
+const encrypted = await client.encryptModel(user, users).withLockContext(claim)
+const decrypted = await client.decryptModel(encryptedUser).withLockContext(claim)
 
 // Bulk operations
 const bulkEncrypted = await client
   .bulkEncryptModels(userModels, users)
-  .withLockContext(lockContext)
+  .withLockContext(claim)
 
 const bulkDecrypted = await client
   .bulkDecryptModels(encryptedUsers)
-  .withLockContext(lockContext)
+  .withLockContext(claim)
 
 // Query operations
 const term = await client
-  .encryptQuery("user@example.com", {
-    column: users.email,
-    table: users,
-  })
-  .withLockContext(lockContext)
+  .encryptQuery("user@example.com", { column: users.email, table: users })
+  .withLockContext(claim)
 ```
 
 ## Custom identity claims
 
-Override the default context by specifying which identity claims to use:
-
-```typescript filename="identity.ts"
-const lc = new LockContext({
-  context: {
-    identityClaim: ["sub"],  // this is the default
-  },
-})
-```
+`identityClaim` selects which claim (or claims) of the user's JWT ZeroKMS binds to.
 
 | Identity claim | Description |
 |---|---|
 | `sub` | The user's subject identifier |
-| `scopes` | The user's scopes set by your IDP policy |
+| `scopes` | The user's scopes, set by your IdP policy |
 
-Combine claims for identity and permissions scoping:
+Combine claims to scope by identity and permissions together:
 
 ```typescript filename="identity.ts"
-const lc = new LockContext({
-  context: {
-    identityClaim: ["sub", "scopes"],
-  },
-})
+await client
+  .encrypt("sensitive data", { column: users.email, table: users })
+  .withLockContext({ identityClaim: ["sub", "scopes"] })
 ```
+
+The same claim must be supplied to decrypt. A value encrypted under `["sub"]` will not decrypt under `["sub", "scopes"]`.
 
 ## Using with Clerk and Next.js
 
-Install the `@cipherstash/nextjs` package for automatic CTS token setup with [Clerk](https://clerk.com/):
+Clerk is an OIDC provider like any other: hand `OidcFederationStrategy` a function that returns the current Clerk session token.
 
-```bash cta cta-type="install" example-id="install-nextjs-identity"
-npm install @cipherstash/nextjs
-```
+```typescript filename="client.ts"
+import { auth } from "@clerk/nextjs/server"
+import { Encryption, OidcFederationStrategy } from "@cipherstash/stack"
+import { users } from "./schema"
 
-### Set up middleware
-
-In your `middleware.ts`, use `protectClerkMiddleware` to automatically generate CTS tokens for every user session:
-
-```typescript filename="middleware.ts"
-import { clerkMiddleware } from "@clerk/nextjs/server"
-import { protectClerkMiddleware } from "@cipherstash/nextjs/clerk"
-
-export default clerkMiddleware(async (auth, req) => {
-  return protectClerkMiddleware(auth, req)
-})
-```
-
-### Retrieve the CTS token
-
-Use `getCtsToken` to get the CTS token for the current user:
-
-```typescript filename="page.tsx"
-import { getCtsToken } from "@cipherstash/nextjs"
-
-export default async function Page() {
-  const ctsToken = await getCtsToken()
-
-  if (!ctsToken.success) {
-    // handle error
-  }
-
-  // ctsToken is ready to use
+export async function getClient() {
+  return Encryption({
+    schemas: [users],
+    config: {
+      authStrategy: OidcFederationStrategy.create(
+        process.env.CS_WORKSPACE_CRN,
+        async () => {
+          const { getToken } = await auth()
+          return await getToken()
+        },
+      ),
+    },
+  })
 }
 ```
 
-### Create a LockContext with an existing CTS token
+Because the callback is re-invoked on every re-federation, it picks up a refreshed Clerk token automatically.
 
-Since the CTS token is already available from the middleware, construct the `LockContext` directly. The CTS token has the shape `{ accessToken: string, expiry: number }`. Passing it directly avoids a second round-trip to CTS.
-
-```typescript filename="page.tsx"
-import { LockContext } from "@cipherstash/stack/identity"
-import { getCtsToken } from "@cipherstash/nextjs"
-
-export default async function Page() {
-  const ctsToken = await getCtsToken()
-
-  if (!ctsToken.success) {
-    // handle error
-  }
-
-  const lockContext = new LockContext({ ctsToken })
-
-  // Use lockContext with encrypt/decrypt operations
-}
-```
-
-`getCtsToken` returns `{ success: true, ctsToken: CtsToken }` on success or `{ success: false, error: string }` on failure.
+<Callout type="info">
+The `@cipherstash/nextjs` package (`protectClerkMiddleware`, `getCtsToken`) belongs to the earlier CTS-token flow, in which a token was fetched per request and handed to `new LockContext({ ctsToken })`. Encryption operations no longer consume a CTS token, so that middleware is not required for identity-aware encryption.
+</Callout>
 
 ## Error handling
 
-The `identify` method returns a `Result` type:
+Encryption operations return a `Result`.
 
 ```typescript filename="identity.ts"
-const result = await lc.identify(userJwt)
+const result = await client
+  .encrypt("sensitive data", { column: users.email, table: users })
+  .withLockContext({ identityClaim: ["sub"] })
 
 if (result.failure) {
-  // result.failure.type is 'CtsTokenError'
-  console.error("CTS token exchange failed:", result.failure.message)
+  console.error("Encryption failed:", result.failure.message)
 }
 ```
 
 Common failure scenarios:
 
-| Scenario | Error type | Description |
-|---|---|---|
-| Invalid JWT | `CtsTokenError` | The JWT token was rejected by CTS |
-| Network failure | `CtsTokenError` | Could not reach the CTS endpoint |
-| Missing workspace | Runtime error | `CS_WORKSPACE_CRN` is not configured |
-| Expired CTS token | `LockContextError` | The CTS token has expired. Call `identify` again |
+| Scenario | Description |
+|---|---|
+| Invalid or expired provider JWT | Federation is rejected. The callback should return a live token, not one captured earlier |
+| Provider not registered | The OIDC provider has not been added to the workspace |
+| Network failure | The CipherStash API could not be reached |
+| Missing workspace | `CS_WORKSPACE_CRN` is not configured |
+| Claim mismatch on decrypt | The value was encrypted under a different `identityClaim`, or as a different user |
+
+See [Error handling](/stack/reference/error-handling) for the full set of error types.

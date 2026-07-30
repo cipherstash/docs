@@ -6,7 +6,7 @@ description: Register an identity provider so end users can authenticate cryptog
 OIDC Providers let you federate your existing identity provider (IdP) with CipherStash.
 Once registered, end users can authenticate cryptographic operations using the identity tokens your IdP issues, not just application credentials.
 
-This pairs with [identity-aware encryption](/stack/reference/stack/latest/packages/stack/src/identity/classes/LockContext) via `LockContext`, which binds encryption operations to a specific user identity.
+This pairs with [identity-aware encryption](/reference/stack/api-reference) via `LockContext`, which binds encryption operations to a specific user identity.
 
 <Callout type="info">
 If you are only encrypting data at rest with application credentials, you do not need an OIDC provider.
@@ -61,4 +61,4 @@ No client secret or shared key is stored. CipherStash validates tokens by fetchi
 ## Using it from code
 
 Once a provider is registered, use `LockContext` in the Encryption SDK to bind encryption operations to a user's identity token.
-See the [`LockContext` API reference](/stack/reference/stack/latest/packages/stack/src/identity/classes/LockContext) for the full API.
+See the [Stack API reference](/reference/stack/api-reference) for the full `LockContext` API.

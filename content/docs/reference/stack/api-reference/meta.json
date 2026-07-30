@@ -1,0 +1,17 @@
+{
+  "title": "API reference",
+  "pages": [
+    "index",
+    "Package-exports",
+    "adapter-kit",
+    "dynamodb",
+    "encryption",
+    "encryption.v3",
+    "eql.v3",
+    "errors",
+    "identity",
+    "schema",
+    "types-public",
+    "wasm-inline"
+  ]
+}

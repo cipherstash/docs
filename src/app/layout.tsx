@@ -2,7 +2,7 @@ import { RootProvider } from "fumadocs-ui/provider/next";
 import { PostHogProvider } from "@/lib/posthog/provider";
 import "./global.css";
 import type { Metadata } from "next";
-import { Fira_Code, Inter } from "next/font/google";
+import { Fira_Code, Geist, Inter } from "next/font/google";
 
 // Site-wide title template so every page gets a descriptive, branded
 // <title>. Per-page metadata returns a bare title (e.g. "Keysets") which
@@ -27,11 +27,17 @@ const firaCode = Fira_Code({
   variable: "--font-fira-code",
 });
 
+// Geist Sans for H2 and below, matching the marketing site. H1 stays Fira Code.
+const geistSans = Geist({
+  subsets: ["latin"],
+  variable: "--font-geist-sans",
+});
+
 export default function Layout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${firaCode.variable} ${inter.className}`}
+      className={`${inter.variable} ${firaCode.variable} ${geistSans.variable} ${inter.className}`}
       suppressHydrationWarning
     >
       <body className="flex flex-col min-h-screen">

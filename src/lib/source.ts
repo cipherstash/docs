@@ -3,9 +3,13 @@ import type * as PageTree from "fumadocs-core/page-tree";
 import { type InferPageType, loader } from "fumadocs-core/source";
 import { icons } from "lucide-react";
 import { createElement } from "react";
+import { DrizzleIcon } from "@/components/icons/drizzle";
+import { PrismaIcon } from "@/components/icons/prisma";
 import { SupabaseIcon } from "@/components/icons/supabase";
 
 const customIcons: Record<string, () => React.ReactElement> = {
+  Drizzle: () => createElement(DrizzleIcon, { width: 16, height: 16 }),
+  Prisma: () => createElement(PrismaIcon, { width: 16, height: 16 }),
   Supabase: () => createElement(SupabaseIcon, { width: 16, height: 16 }),
 };
 
@@ -47,9 +51,43 @@ function flattenEmptyFolders(nodes: PageTree.Node[]): PageTree.Node[] {
   });
 }
 
+// The sidebar label comes from a page's `title`, which is also its H1. A
+// section index wants a short nav label ("Overview") under a folder that
+// already names the section, while keeping the descriptive H1. `navTitle`
+// frontmatter overrides the label only; the URL and H1 are untouched.
+function applyNavTitles(nodes: PageTree.Node[]): PageTree.Node[] {
+  const navTitles = new Map<string, string>();
+  for (const page of v2source.getPages()) {
+    const navTitle = page.data.navTitle;
+    if (navTitle) navTitles.set(page.url, navTitle);
+  }
+  if (navTitles.size === 0) return nodes;
+
+  const rename = (list: PageTree.Node[]): PageTree.Node[] =>
+    list.map((node) => {
+      if (node.type === "folder") {
+        return {
+          ...node,
+          index: node.index
+            ? (rename([node.index])[0] as typeof node.index)
+            : undefined,
+          children: rename(node.children),
+        };
+      }
+      if (node.type !== "page") return node;
+      const navTitle = navTitles.get(node.url);
+      return navTitle ? { ...node, name: navTitle } : node;
+    });
+
+  return rename(nodes);
+}
+
 export function getV2PageTree(): PageTree.Root {
   const tree = v2source.getPageTree();
-  return { ...tree, children: flattenEmptyFolders(tree.children) };
+  return {
+    ...tree,
+    children: applyNavTitles(flattenEmptyFolders(tree.children)),
+  };
 }
 
 export function getPageImage(page: InferPageType<typeof source>) {

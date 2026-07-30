@@ -1,107 +1,134 @@
 ---
 title: JSON
-description: "The complete reference for encrypted JSON documents with eql_v3.json — the ste_vec payload shape, containment, field access, and path queries over ciphertext, with the native jsonb operators that don't apply blocked outright."
+description: "The complete reference for encrypted JSON documents with public.eql_v3_json_search — the ste_vec payload shape, value-selector containment, field access, and path queries over ciphertext, with the native jsonb operators that don't apply blocked outright."
 type: reference
 components: [eql]
 verifiedAgainst:
-  eql: "3.0.0"
+  eql: "3.0.3"
 ---
 
-`eql_v3.json` is EQL's encrypted JSON document type, built on structured encryption (**ste_vec**). The document is encrypted as a vector of encrypted entries — one entry per path inside the document — and every path is queryable without decryption: containment, field and array access, and equality or range comparisons on extracted leaves.
+<EqlVersion />
 
-Like every EQL type, `eql_v3.json` holds ciphertext the database can't read. Encryption, decryption, and selector generation happen in the client — the [Stack SDK](/reference/stack) or [CipherStash Proxy](/reference/proxy). See [Searchable encryption](/concepts/searchable-encryption) for how querying ciphertext works at all.
+`public.eql_v3_json_search` is EQL's searchable encrypted JSON document type, built on structured encryption (**ste_vec**). The document is encrypted as a vector of encrypted entries — one entry per path inside the document — and every path is queryable without decryption: containment, field and array access, exact field matching, and range comparisons on extracted leaves.
+
+Like every EQL type, it holds ciphertext the database can't read. Encryption, decryption, and selector generation happen in the client — the [Stack SDK](/reference/stack) or [CipherStash Proxy](/reference/proxy). See [Searchable encryption](/concepts/searchable-encryption) for how querying ciphertext works at all.
 
 ## The types
 
-Three `jsonb`-backed domains make up the encrypted JSON surface:
+Four `jsonb`-backed domains make up the encrypted JSON surface. The family follows the same convention as the scalars: the bare name is storage-only, and a suffix adds capability.
 
 | Type | What it is |
 | --- | --- |
-| `eql_v3.json` | The column type. An encrypted document envelope carrying an `sv` array — one encrypted entry per path in the document. |
-| `eql_v3.ste_vec_entry` | A single entry from the vector: a selector, a ciphertext, and exactly one index term. This is what `->` returns. |
-| `eql_v3.ste_vec_query` | A containment needle: entries with selectors and index terms but **no ciphertext**. This is what you cast a `@>` operand to. |
+| `public.eql_v3_json_search` | The searchable column type. An encrypted document envelope carrying an `sv` array — one encrypted entry per path in the document. |
+| `public.eql_v3_json` | Storage-only encrypted JSON: one opaque ciphertext (`{v, i, c}`), no index terms, no server-side searchability. Every comparison and containment operator is blocked on it. |
+| `public.eql_v3_json_entry` | A single entry from the vector: a selector, a ciphertext, and an optional ordering term. This is what `->` returns. |
+| `eql_v3.query_json` | A containment needle: entries with selectors but **no ciphertext**. This is what you cast a `@>` operand to. |
+
+<Callout type="info">
+These domains were renamed in EQL 3.0.1: the searchable document was `public.eql_v3_json`, the entry was `public.eql_v3_jsonb_entry`, and the needle was `eql_v3.query_jsonb`. The bare `public.eql_v3_json` name now means the storage-only domain, which rejects a ste_vec document, so retype searchable columns: `ALTER TABLE t ALTER COLUMN doc TYPE public.eql_v3_json_search`.
+</Callout>
 
 ## Payload shape
 
-An encrypted JSON document uses a different payload shape from the scalar types: the standard envelope keys are present (`v`, `i`, plus the `k: "sv"` discriminator — envelope anatomy is covered in [Core concepts](/reference/eql/core-concepts)), but there is no root ciphertext. Instead, an `sv` array carries one encrypted entry per path in the document. Each entry has:
+An encrypted JSON document uses a different payload shape from the scalar types: the standard envelope keys are present (`v`, `i`, plus the `k: "sv"` discriminator — envelope anatomy is covered in [Core concepts](/reference/eql/core-concepts)), but there is no root ciphertext — the root document's ciphertext is the root `sv` entry. Two document-level keys plus the vector:
 
 | Key | Contents |
 | --- | --- |
-| `s` | Selector — a deterministic hash of the JSON path. Required; entry matching compares selectors first. |
-| `c` | Ciphertext for the node at that path. |
-| `hm` **or** `oc` | Exactly one, never both — the domain `CHECK` enforces the exclusivity. `hm` (HMAC-256) on Boolean/`null` leaves and Object/Array roots; `oc` (CLLW ORE, backed by `eql_v3.ore_cllw`) on String/Number leaves. |
+| `h` | Key header — the key-retrieval material (IV, tag, descriptor, keyset) for the whole document. Required. Hoisted here once rather than repeated in every entry, which shrinks a document by roughly 30%. |
+| `sv` | The vector: one encrypted entry per path in the document. |
+
+Each entry has:
+
+| Key | Contents |
+| --- | --- |
+| `s` | Selector — a deterministic hash. On a **path entry** it covers the JSON path; on a **value entry** it covers the path *and* the canonical value, which is what makes exact matching work. Required; entry matching compares selectors first. |
+| `c` | Ciphertext for the node at that path — raw AEAD output, with the nonce derived from the entry's own selector rather than a shared per-document IV. A value entry encrypts a fixed versioned sentinel, so it stays distinguishable from a genuine `""` leaf. |
+| `op` | Optional ordering term (CLLW OPE, backed by `eql_v3_internal.ope_cllw`) on String and Number path entries. |
 | `a` | Optional array marker — `true` when the selector points at an array context. |
 
-The decoded `oc` value starts with a domain-tag byte (`0x00` numeric, `0x01` string) followed by the CLLW ciphertext, so numeric and string values in one column keep a consistent total order. Earlier payload versions split this into two fields — `ocf` (fixed-width, numeric) and `ocv` (variable-width, string) — which consolidated into the single `oc` key; the tag byte now carries the distinction.
+The decoded `op` value starts with a domain-tag byte (`0x00` numeric, `0x01` string) followed by the CLLW ciphertext, so numeric and string values in one column keep a consistent total order. Pre-release payloads named this key `oc` and backed it with CLLW ORE, and older ones split it further, into `ocf` (fixed-width, numeric) and `ocv` (variable-width, string).
 
-A document payload for an `eql_v3.json` column:
+<Callout type="warn">
+**Entries no longer carry `hm`.** The per-value HMAC equality term was retired in EQL 3.0.1 in favour of value-inclusive selectors, and an `hm`-bearing entry now fails the domain `CHECK`. Along with the key header and the selector-derived nonces, that makes this a wire-format change: stored documents need re-encrypting by a current client, and there is no mechanical conversion.
+</Callout>
+
+A document payload for a `public.eql_v3_json_search` column:
 
 ```json
 {
   "v": 3,
   "k": "sv",
   "i": { "t": "orders", "c": "metadata" },
+  "h": "a4f1c2...",
   "sv": [
-    { "s": "2517068c0d1f9d4d41d2c666211f785e", "c": "mBbKmM...", "hm": "b0e0..." },
-    { "s": "f510853a4ab9d4f75f51a533ac264c5d", "c": "mBbKmQ...", "oc": "01a3f2..." },
-    { "s": "33743aed3ae636f6bf05cff11ac4b519", "c": "mBbKmR...", "oc": "004e19..." }
+    { "s": "2517068c0d1f9d4d41d2c666211f785e", "c": "mBbKmM..." },
+    { "s": "f510853a4ab9d4f75f51a533ac264c5d", "c": "mBbKmQ...", "op": "01a3f2..." },
+    { "s": "33743aed3ae636f6bf05cff11ac4b519", "c": "mBbKmR...", "op": "004e19..." }
   ]
 }
 ```
 
-- First entry: an object root — `hm` only, equality/containment
-- Second entry: a string leaf — `oc` starting with tag `01`
-- Third entry: a numeric leaf — `oc` starting with tag `00`
+- First entry: an object root — no ordering term
+- Second entry: a string leaf — `op` starting with tag `01`
+- Third entry: a numeric leaf — `op` starting with tag `00`
 
-A containment **query** payload (`eql_v3.ste_vec_query`) has the same `sv` shape but its entries carry no `c` — containment matches selectors and index terms, never ciphertexts. This is the needle the client builds for a `@>` query:
+A containment **query** payload (`eql_v3.query_json`) has the same `sv` shape but its entries carry no `c` — containment matches selectors, never ciphertexts. This is the needle the client builds for a `@>` query:
 
 ```json
 {
   "sv": [
-    { "s": "f510853a4ab9d4f75f51a533ac264c5d", "oc": "01a3f2..." }
+    { "s": "f510853a4ab9d4f75f51a533ac264c5d", "op": "01a3f2..." }
   ]
 }
 ```
 
 ## Storing encrypted JSON
 
-Type the column as `eql_v3.json`:
+Type the column as `public.eql_v3_json_search`:
 
 ```sql
 CREATE TABLE orders (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  metadata eql_v3.json
+  metadata public.eql_v3_json_search
 );
 ```
 
-There is no database-side configuration step. Which index terms a document carries is decided by the encryption client; typing the column as `eql_v3.json` is what makes the encrypted operators and functions resolve. The domain's `CHECK` constraint validates the payload shape on insert, so malformed values are rejected at write time.
+There is no database-side configuration step. Which selectors and terms a document carries is decided by the encryption client; typing the column as `public.eql_v3_json_search` is what makes the encrypted operators and functions resolve. The domain's `CHECK` constraint validates the payload shape on insert, so malformed values are rejected at write time.
+
+For a document you never search, type the column as the storage-only `public.eql_v3_json` instead: it takes the plain `{v, i, c}` envelope, rejects a ste_vec document, and blocks every comparison operator — the JSON analogue of `public.eql_v3_boolean`.
 
 Insert and read through the Stack SDK or Proxy, which encrypt the document into the ste_vec payload on write and decrypt it on read.
 
 ## What each node type supports
 
-During encryption, the client flattens the document: each unique path gets a deterministic **selector** hash, and each node gets an entry in the `sv` vector carrying index terms for its JSON type:
+During encryption, the client flattens the document: each unique path gets a deterministic **selector** hash. Each node then emits a **path entry** (selector over the path, carrying the ordering term where the type has one) and a **value entry**, whose selector covers the path *and* the canonical value:
 
-| JSON node type | Index term | Equality (`=`, `<>`, `GROUP BY`) | Ordering (`<` … `>=`, `MIN`/`MAX`) |
-| --- | --- | --- | --- |
-| Object | `hm` (HMAC-256) | Yes | No |
-| Array | `hm` (HMAC-256) | Yes | No |
-| Boolean / JSON `null` | `hm` (HMAC-256) | Yes | No |
-| String | `oc` (CLLW ORE, string domain) | Yes | Yes |
-| Number | `oc` (CLLW ORE, numeric domain) | Yes | Yes |
+| JSON node type | Ordering term | Exact match (`@>` on the value selector) | Ordering (`<` … `>=`, `MIN`/`MAX`) |
+| --- | --- | :---: | :---: |
+| Object | — | Yes | No |
+| Array | — | Yes | No |
+| Boolean / JSON `null` | — | Yes | No |
+| String | `op` (CLLW OPE, string domain) | Yes | Yes |
+| Number | `op` (CLLW OPE, numeric domain) | Yes | Yes |
 
-Each entry carries exactly one of `hm` or `oc` — the domain `CHECK` enforces the exclusivity. `hm` is a deterministic hash, so it supports equality only. `oc` is a CLLW ORE term that reveals ordering and, being deterministic, collapses to equality on matching selectors — `eql_v3.eq_term` reads whichever term an entry carries, so equality works uniformly across all node types.
+Exact matching is the *presence* of a value selector in the stored document, which makes it injective and loss-free for every type — including `text`, `bigint` and `numeric`, where the old ordering-term comparison collided (`"café"` with `"cafe"`, `9007199254740993` with `…992`). It is expressed as document containment, not as `=` on an extracted leaf:
+
+```sql
+SELECT * FROM orders WHERE metadata @> $1::eql_v3.query_json;
+```
 
 JSON `null` here means a `null` literal *inside* the document. A SQL `NULL` column value is not encrypted at all.
 
 ## Blocked native jsonb operators
 
-These native PostgreSQL `jsonb` operators are **blocked** on `eql_v3.json`. They raise an error rather than silently running plaintext-jsonb semantics against the encrypted payload:
+These native PostgreSQL `jsonb` operators are **blocked** on `public.eql_v3_json_search`. They raise an error rather than silently running plaintext-jsonb semantics against the encrypted payload:
 
 - Key/path existence: `?`, `?|`, `?&`, `@?`, `@@`
 - Path extraction: `#>`, `#>>`
 - Mutation: `-`, `#-`, `||`
 - Root-document comparison: `=`, `<>`, `<`, `<=`, `>`, `>=`
+
+Equality on the **extract surface** raises too: `col -> 'sel'::text = $1::…` is a blocker for every family, because an extracted path entry carries no value selector and so cannot answer an exact match. Use value-selector containment for that.
 
 Use containment (`@>` / `<@`), field access (`->` / `->>`), or the `eql_v3.jsonb_path_*` functions instead. There is no server-side mutation of an encrypted document — updates re-encrypt in the client.
 
@@ -109,85 +136,120 @@ Use containment (`@>` / `<@`), field access (`->` / `->>`), or the `eql_v3.jsonb
 **Operands must be typed** (`doc -> 'email'::text`, not `doc -> 'email'`) — an untyped operand resolves the native `jsonb` operator, bypassing both the encrypted operator and the blockers. See [Core concepts](/reference/eql/core-concepts).
 </Callout>
 
-## Containment: `@>` and `<@`
+## Functions
 
-`@>` tests whether the encrypted document contains a structure; `<@` is the reverse. Build the needle with the client and cast it to `eql_v3.ste_vec_query` (a typed `eql_v3.json` or `eql_v3.ste_vec_entry` operand also works):
+Every JSON query addresses paths by **selector hash** — the deterministic identifier the client emits for a JSON path during encryption, not a plaintext path like `$.customer.tier`. Operands must be typed, or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one.
+
+The examples below all query one encrypted `metadata` document. In plaintext:
+
+```json
+{
+  "customer": {
+    "tier": "premium",
+    "region": "apac"
+  },
+  "total": 149.95,
+  "items": ["sku-1042", "sku-2210"]
+}
+```
+
+The `*_selector` placeholders stand for the selector hash of each path: `region_selector` for `$.customer.region`, `total_selector` for `$.total`, and `items_selector` for `$.items`.
+
+### Containment and exact matching [#fn-contains]
+
+`@>` tests whether the encrypted document contains a structure; `<@` is the reverse. Build the needle in the client and cast it to `eql_v3.query_json`; `eql_v3.ste_vec_contains(a, b)` is the function form. This is both the structural-containment operator and the way to match a field exactly — the client emits a value-selector needle for the field and value you're matching.
+
+<EqlFn ops="@>,<@" domains="eql_v3_json_search">
 
 ```sql
 SELECT * FROM orders
-WHERE metadata @> $1::eql_v3.ste_vec_query;
+WHERE metadata @> $1::eql_v3.query_json;
 ```
 
-This is the encrypted equivalent of the plaintext `metadata @> '{"customer": {"tier": "premium"}}'`: containment checks that every encrypted term in the needle exists in the document's `sv` vector. `eql_v3.to_ste_vec_query(doc)` converts a stored document into the needle shape, and `eql_v3.ste_vec_contains(a, b)` is the function form backing `@>`.
+</EqlFn>
 
-For large tables, back containment with a GIN index. The typed `@>` overload inlines to a native `jsonb @>` over `eql_v3.to_ste_vec_query(col)::jsonb`, so a GIN index on that same expression engages:
+For large tables, back containment with a GIN index. The typed `@>` inlines to a native `jsonb @>` over `eql_v3.to_ste_vec_query(col)::jsonb`, so a GIN index on that same expression engages:
 
 ```sql
 CREATE INDEX orders_metadata_gin
   ON orders USING gin (eql_v3.to_ste_vec_query(metadata)::jsonb jsonb_path_ops);
-ANALYZE orders;
 ```
 
-See [Indexes](/reference/eql/indexes) for the full recipes.
+### Field access [#fn-field-access]
 
-## Field access: `->` and `->>`
+`->` returns a `public.eql_v3_json_entry`; `->>` serializes that entry as ciphertext text. Fields are addressed by selector hash, and array elements by 0-based index.
 
-Fields are addressed by **selector hash** — the deterministic identifier the client emits for a JSON path during encryption — not a plaintext path string like `$.customer.tier`.
+<EqlFn ops="->,->>" domains="eql_v3_json_entry">
 
 ```sql
--- Field access by selector (returns eql_v3.ste_vec_entry)
-SELECT metadata -> 'selector_hash'::text FROM orders;
-
--- The entry serialized as text (ciphertext JSON, not decrypted plaintext)
-SELECT metadata ->> 'selector_hash'::text FROM orders;
-
--- Array element by 0-based index
-SELECT metadata -> 0 FROM orders;
+SELECT metadata -> 'selector_hash'::text  FROM orders;  -- entry
+SELECT metadata ->> 'selector_hash'::text FROM orders;  -- entry as ciphertext text
+SELECT metadata -> 0 FROM orders;                       -- array element by index
 ```
 
-The extracted `eql_v3.ste_vec_entry` is itself comparable:
+</EqlFn>
 
-- `=` / `<>` resolve via `eql_v3.eq_term` — works on every node type
-- `<` / `<=` / `>` / `>=` resolve via `eql_v3.ore_cllw` — String and Number leaves only
-- `MIN` / `MAX` over an extracted ordered leaf use the `eql_v3.min` / `eql_v3.max` aggregates
+An extracted `public.eql_v3_json_entry` is ordered-comparable, but not equality-comparable: `=` / `<>` on it raise.
+
+<Callout type="warn">
+`eql_v3.eq_term` has a `public.eql_v3_json_entry` overload, but it is **deprecated** — it is an alias for `eql_v3.ope_term`, returning raw OPE bytes rather than an exact equality term, so it inherits the ordering term's encoding collisions (float rounding on large integers, collation on text). Exact field matching is value-selector containment, above.
+</Callout>
+
+### eql_v3.ord_term [#fn-ord-term]
+
+Range comparisons and `ORDER BY` on an extracted **String or Number** leaf, via `eql_v3.ord_term`.
+
+<EqlFn ops="<,<=,>,>=" domains="eql_v3_json_entry">
 
 ```sql
--- Equality on an extracted leaf
 SELECT * FROM orders
-WHERE metadata -> 'email_selector'::text = $1::eql_v3.ste_vec_entry;
-
--- Group by an extracted leaf's equality term
-SELECT eql_v3.eq_term(metadata -> 'region_selector'::text) AS region, COUNT(*)
-FROM orders
-GROUP BY eql_v3.eq_term(metadata -> 'region_selector'::text);
+WHERE (metadata -> 'total_selector'::text) > $1::public.eql_v3_json_entry;
 ```
 
-A hash index on `eql_v3.eq_term(col -> '<selector>'::text)` engages the equality lookup; a btree on `eql_v3.ore_cllw(...)` engages range and `ORDER BY`. See [Indexes](/reference/eql/indexes).
+</EqlFn>
 
-## Path queries and array helpers
+A btree on `eql_v3.ord_term(col -> '<selector>'::text)` engages range and `ORDER BY`; the GIN index on `eql_v3.to_ste_vec_query(col)::jsonb` engages exact matching. See [Indexes](/reference/eql/indexes).
 
-The function forms take the same selector hashes:
+### eql_v3.min / max [#fn-min-max]
+
+`MIN` / `MAX` over an extracted ordered leaf.
+
+<EqlFn agg ops="MIN,MAX" domains="eql_v3_json_entry">
 
 ```sql
--- All entries matching a selector
-SELECT eql_v3.jsonb_path_query(metadata, 'selector_hash') FROM orders;
-
--- First match only
-SELECT eql_v3.jsonb_path_query_first(metadata, 'selector_hash') FROM orders;
-
--- Does the selector exist in this document?
-SELECT eql_v3.jsonb_path_exists(metadata, 'selector_hash') FROM orders;
+SELECT eql_v3.min(metadata -> 'total_selector'::text) FROM orders;
 ```
 
-For encrypted array nodes:
+</EqlFn>
+
+### eql_v3.jsonb_path_query [#fn-path-query]
+
+Path queries take the same selector hashes. `jsonb_path_query` returns every matching entry, `jsonb_path_query_first` the first, and `jsonb_path_exists` a boolean.
+
+<EqlFn domains="eql_v3_json_search">
 
 ```sql
-SELECT eql_v3.jsonb_array_length(metadata -> 'items_selector'::text) FROM orders;
+SELECT eql_v3.jsonb_path_query(metadata, 'selector_hash')       FROM orders;  -- all matches
+SELECT eql_v3.jsonb_path_query_first(metadata, 'selector_hash') FROM orders;  -- first match
+SELECT eql_v3.jsonb_path_exists(metadata, 'selector_hash')      FROM orders;  -- boolean
+```
+
+</EqlFn>
+
+### eql_v3.jsonb_array_* [#fn-array]
+
+Helpers over an encrypted array node. `jsonb_array_elements` yields encrypted entries — each carrying the grafted key header, which makes it the decryptable unit.
+
+<EqlFn domains="eql_v3_json_search">
+
+```sql
+SELECT eql_v3.jsonb_array_length(metadata -> 'items_selector'::text)   FROM orders;
 SELECT eql_v3.jsonb_array_elements(metadata -> 'items_selector'::text) FROM orders;
-SELECT eql_v3.jsonb_array_elements_text(metadata -> 'items_selector'::text) FROM orders;
 ```
 
-`jsonb_array_elements` yields encrypted entries; `jsonb_array_elements_text` yields each element as ciphertext text.
+</EqlFn>
+
+`eql_v3.jsonb_array_elements_text`, which streamed each element as bare ciphertext text, was **removed** in EQL 3.0.1: an entry's ciphertext is no longer independently decryptable, so the rows it produced were useless. Use `eql_v3.jsonb_array_elements`.
 
 ## Worked example
 
@@ -213,7 +275,7 @@ The client encrypts this into a ste_vec payload with selectors for `$`, `$.custo
 ```sql
 CREATE TABLE orders (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  metadata eql_v3.json
+  metadata public.eql_v3_json_search
 );
 
 INSERT INTO orders (metadata) VALUES ($1);
@@ -225,11 +287,11 @@ INSERT INTO orders (metadata) VALUES ($1);
 
 ### Query by containment
 
-Find premium orders. The client encrypts the needle `{"customer": {"tier": "premium"}}` into a `ste_vec_query`:
+Find premium orders. The client encrypts the needle `{"customer": {"tier": "premium"}}` into a `ste_vec_query` — a value-selector needle, so this is an exact match on the field, not a fuzzy one:
 
 ```sql
 SELECT id FROM orders
-WHERE metadata @> $1::eql_v3.ste_vec_query;
+WHERE metadata @> $1::eql_v3.query_json;
 ```
 
 Add the GIN index from above once the table grows.
@@ -239,13 +301,12 @@ Add the GIN index from above once the table grows.
 
 ### Query by path
 
-Count orders per region, grouping on the encrypted leaf — the database never sees `"apac"`:
+Path existence and range comparisons work on the extract surface — the database never sees `"apac"` or `149.95`:
 
 ```sql
-SELECT eql_v3.eq_term(metadata -> 'region_selector'::text) AS region, COUNT(*)
-FROM orders
+SELECT id FROM orders
 WHERE eql_v3.jsonb_path_exists(metadata, 'region_selector')
-GROUP BY 1;
+  AND (metadata -> 'total_selector'::text) > $1::public.eql_v3_json_entry;
 ```
 
 The rows come back as ciphertext; decrypt them in the client.

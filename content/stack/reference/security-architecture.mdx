@@ -9,7 +9,7 @@ This page is the single reference for CipherStash's cryptographic design. It cov
 
 | Purpose | Algorithm | Details |
 |---|---|---|
-| Data encryption | AES-GCM-SIV | 256-bit keys, authenticated encryption with nonce-misuse resistance |
+| Data encryption | AES-256-GCM-SIV | 256-bit keys, authenticated encryption with nonce-misuse resistance |
 | Equality search tokens | HMAC-SHA-256 | Deterministic tokens for exact-match lookups |
 | Range and sorting indexes | Block ORE | Order-Revealing Encryption ([Lewi-Wu 2016](https://eprint.iacr.org/2016/612)) with security enhancements from [Bogatov et al 2018](https://arxiv.org/abs/1810.05135) |
 | Free-text search indexes | Encrypted Bloom filters | Trigram-based tokenization ([Nojima/Kadobayashi 2009](https://link.springer.com/chapter/10.1007/978-3-642-04474-8_17), [Chum/Zhang 2017](https://link.springer.com/chapter/10.1007/978-3-319-66399-9_15)) |
@@ -24,37 +24,47 @@ CipherStash uses a **distributed trust model** with a dual-party key split. No s
 
 ### Key types
 
-| Key | Where it lives | Purpose |
+| Key | Where it lives | Protected by |
 |---|---|---|
-| **Authority key** | ZeroKMS (server-side, HSM-friendly) | Server half of the key derivation input |
-| **Client key** | Your application / workload | Client half of the key derivation input (`CS_CLIENT_KEY` env var) |
-| **Data key** | Ephemeral (in-memory only) | Per-value encryption key, derived from both halves, never stored |
+| **Authority key** | ZeroKMS (server-side) | Encrypted at rest under an AWS KMS root key |
+| **Client key** | Your application / workload | You (`CS_CLIENT_KEY` env var). It never leaves your infrastructure |
+| **Data key** | Ephemeral (in-memory only) | Nothing. Derived per value, then discarded |
 
 ### Key derivation
 
-ZeroKMS uses an **HMAC-based key derivation scheme**:
+The mechanism operates at two layers. Descriptions that name only one of them are incomplete.
 
-1. The SDK sends a key derivation request to ZeroKMS with the client key component.
-2. ZeroKMS combines the authority key and client key to produce a **key seed**.
-3. The SDK uses the key seed to derive a unique data encryption key locally.
-4. The data key encrypts the value using AES-GCM-SIV, then is immediately discarded.
+**Layer 1, server-side.** Your application requests a key seed by sending a **key ID**. ZeroKMS applies **proxy symmetric re-encryption** (patent pending) to the authority key and returns the **key seed** for that ID. It does this *without* the client key: ZeroKMS never receives it, and the request carries no key material of yours, only the ID.
 
-Data keys are **ephemeral**: they are never stored, cached, or transmitted. This eliminates wrapped-key storage overhead and removes the risk of key cache compromise.
+The ID is what gives every data key a unique identity, so a value can be decrypted later by requesting the seed for the same ID.
+
+**Layer 2, client-side.** Your application **processes the key seed with the client key**, then expands the result into a unique data encryption key per value, using an **HMAC-based key derivation function**. The data key encrypts the value with AES-256-GCM-SIV, then is discarded.
+
+Only the key seed crosses the boundary, and it crosses inward. Nothing crosses outward: not the client key, not the processed seed, not the data key.
+
+Re-encryption describes how the seed is produced. HMAC key derivation describes how the processed seed becomes per-value keys. Both are true, at different layers.
+
+### What is cached, and what is not
+
+Data keys are **never stored, cached, or transmitted**. They are derived per value, held for one operation, and discarded. This eliminates wrapped-key storage overhead.
+
+[CipherStash Proxy](/stack/cipherstash/proxy) does cache **keyset-scoped cipher objects**, bounded by `cipher_cache_size` (64 entries) and `cipher_cache_ttl_seconds` (3600 seconds), with hit rates exposed as `cipherstash_proxy_keyset_cipher_cache_hits_total`. That is not the same as caching a data key: the cipher still requires the client key to derive anything, and per-value keys are still derived per value. The Encryption SDK derives per operation and caches nothing.
 
 ### Why this matters
 
 | Traditional KMS | CipherStash ZeroKMS |
 |---|---|
 | Wrapped data keys stored alongside data | Data keys are ephemeral (never stored) |
-| Key caching required for performance | No caching needed. HMAC derivation at 10,000+ ops/sec per node |
+| Data keys cached to make performance tolerable | No data key is ever cached, at any layer |
 | Single point of trust (KMS provider) | Distributed trust: both authority key and client key required |
-| Compromising KMS exposes all data keys | Compromising ZeroKMS alone is insufficient. Attacker also needs client key |
+| Compromising KMS exposes all data keys | Compromising ZeroKMS alone is insufficient. An attacker also needs the client key, which ZeroKMS never sees |
 
 ## Trust model
 
 CipherStash implements a **zero-knowledge architecture**:
 
 - **CipherStash never sees plaintext data.** All encryption and decryption happens in your application using the native Rust FFI module.
+- **CipherStash never sees your client key,** nor anything the client key has processed.
 - **CipherStash never sees unwrapped data keys.** Data keys are derived ephemerally and exist only in the client's memory.
 - **Both parties are required.** An attacker must compromise both the ZeroKMS authority key and the client key to derive data keys.
 
@@ -81,10 +91,10 @@ CipherStash uses [keysets](/stack/cipherstash/kms/keysets) to scope encryption k
 ### Encryption (write path)
 
 1. Application calls `client.encrypt(plaintext, { column, table })`.
-2. SDK sends a key derivation request to ZeroKMS (over TLS).
-3. ZeroKMS combines authority key + client key → returns key seed.
-4. SDK derives a unique data key from the seed locally.
-5. SDK encrypts the plaintext using AES-GCM-SIV with the data key.
+2. SDK requests a key seed from ZeroKMS (over TLS), sending a unique key ID. The request carries no key material.
+3. ZeroKMS re-encrypts under the authority key → returns the key seed for that ID.
+4. SDK processes the seed with the client key, then derives the data key from the result, locally.
+5. SDK encrypts the plaintext using AES-256-GCM-SIV with the data key.
 6. SDK generates search index tokens (HMAC, ORE, Bloom filter) if the column has indexes configured.
 7. SDK packages ciphertext + index tokens into a [CipherCell](/stack/reference/cipher-cell) (JSON payload).
 8. Data key is discarded from memory.
@@ -94,9 +104,9 @@ CipherStash uses [keysets](/stack/cipherstash/kms/keysets) to scope encryption k
 
 1. Application reads the CipherCell from PostgreSQL.
 2. Application calls `client.decrypt(encryptedData)`.
-3. SDK sends a key derivation request to ZeroKMS.
-4. ZeroKMS combines authority key + client key → returns key seed.
-5. SDK derives the data key and decrypts the ciphertext.
+3. SDK requests a key seed from ZeroKMS, sending the key ID stored with the value.
+4. ZeroKMS re-encrypts under the authority key → returns the key seed for that ID.
+5. SDK processes the seed with the client key, derives the data key, and decrypts the ciphertext.
 6. Data key is discarded from memory.
 7. Plaintext is returned to the application.
 

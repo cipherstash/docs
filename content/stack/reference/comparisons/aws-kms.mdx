@@ -127,18 +127,24 @@ const searchTerms = await client.encryptQuery('secret', {
 **CipherStash Encryption** has built-in identity-aware encryption:
 
 ```typescript
-import { LockContext } from '@cipherstash/stack/identity';
+import { Encryption, OidcFederationStrategy } from '@cipherstash/stack';
 
-const lc = new LockContext();
-const lockContext = await lc.identify(userJwt);
+// Authenticate every ZeroKMS request as the signed-in user
+const client = await Encryption({
+  schemas: [users],
+  config: {
+    authStrategy: OidcFederationStrategy.create(workspaceCrn, () => getUserJwt()),
+  },
+});
 
+// Bind the data key to the user's `sub` claim
 const encryptResult = await client.encrypt(
   'secret@squirrel.example',
   { column: users.email, table: users }
-).withLockContext(lockContext);
+).withLockContext({ identityClaim: ['sub'] });
 
 const decryptResult = await client.decrypt(ciphertext)
-  .withLockContext(lockContext);
+  .withLockContext({ identityClaim: ['sub'] });
 ```
 
 ### 3. Bulk operations: Native API vs manual batching

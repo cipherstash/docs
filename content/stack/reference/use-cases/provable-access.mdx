@@ -19,23 +19,30 @@ This creates a provable access boundary:
 
 ### Bind encryption to an identity
 
+Authenticate the client as the signed-in provider, then bind values to a claim from their JWT.
+
 ```typescript filename="identity-encrypt.ts"
-import { Encryption } from "@cipherstash/stack"
+import { Encryption, OidcFederationStrategy } from "@cipherstash/stack"
 import { patients } from "./schema"
 
-const client = await Encryption({ schemas: [patients] })
+// Every ZeroKMS request is made as the signed-in healthcare provider
+const client = await Encryption({
+  schemas: [patients],
+  config: {
+    authStrategy: OidcFederationStrategy.create(
+      process.env.CS_WORKSPACE_CRN,
+      () => getProviderJwt(),
+    ),
+  },
+})
 
-// The JWT identifies the healthcare provider performing the action
-async function encryptPatientRecord(
-  record: { diagnosis: string },
-  providerJWT: string
-) {
+async function encryptPatientRecord(record: { diagnosis: string }) {
   const result = await client
-    .withLockContext({ identityToken: providerJWT })
     .encrypt(record.diagnosis, {
       column: patients.diagnosis,
       table: patients,
     })
+    .withLockContext({ identityClaim: ["sub"] })
 
   if (result.failure) {
     throw new Error(`Encryption failed: ${result.failure.message}`)
@@ -48,13 +55,10 @@ async function encryptPatientRecord(
 ### Decrypt with identity verification
 
 ```typescript filename="identity-decrypt.ts"
-async function decryptPatientRecord(
-  encryptedDiagnosis: unknown,
-  providerJWT: string
-) {
+async function decryptPatientRecord(encryptedDiagnosis: unknown) {
   const result = await client
-    .withLockContext({ identityToken: providerJWT })
     .decrypt(encryptedDiagnosis)
+    .withLockContext({ identityClaim: ["sub"] })
 
   if (result.failure) {
     // Decryption fails if the identity doesn't have access
@@ -95,10 +99,10 @@ Together, these provide an end-to-end audit trail: **who** accessed **what data*
 HIPAA requires audit controls that record who accessed Protected Health Information (PHI). With Lock Contexts, every access to patient data is cryptographically tied to the authenticated provider:
 
 ```typescript filename="hipaa-audit.ts"
-// Each access is provably tied to the authenticated provider
+// The client is authenticated as Dr Smith, so each access is provably tied to her
 const diagnosis = await client
-  .withLockContext({ identityToken: drSmithJWT })
   .decrypt(patient.encryptedDiagnosis)
+  .withLockContext({ identityClaim: ["sub"] })
 
 // ZeroKMS audit log shows:
 // - Identity: dr.smith@hospital.example (from JWT)
@@ -112,13 +116,13 @@ const diagnosis = await client
 Ensure that only authorized roles can access specific data categories:
 
 ```typescript filename="segregation.ts"
-// Compliance team can decrypt audit records
+// A client authenticated as a compliance-team member can decrypt audit records
 const auditData = await client
-  .withLockContext({ identityToken: complianceTeamJWT })
   .decrypt(encryptedAuditRecord)
+  .withLockContext({ identityClaim: ["sub"] })
 
-// Trading team uses a different Lock Context — cannot decrypt audit records
-// The key derivation will fail because the identity doesn't match
+// Someone on the trading desk, authenticated as themselves, resolves a different
+// claim value, so key derivation fails and the records do not decrypt
 ```
 
 ### Multi-tenant SaaS: Tenant isolation
@@ -126,13 +130,13 @@ const auditData = await client
 Bind encryption to tenant identity to provide cryptographic tenant isolation:
 
 ```typescript filename="tenant-isolation.ts"
-// Encrypt data with tenant-scoped identity
+// Encrypt data bound to the signed-in tenant user's identity
 const encrypted = await client
-  .withLockContext({ identityToken: tenantAJWT })
   .encrypt(sensitiveData, {
     column: tenants.data,
     table: tenants,
   })
+  .withLockContext({ identityClaim: ["sub"] })
 
 // Only Tenant A's identity can decrypt this data
 // Tenant B's JWT will fail key derivation

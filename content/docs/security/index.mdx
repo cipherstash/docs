@@ -1,9 +1,21 @@
 ---
 title: Architecture & security
-description: "Trust model, components, availability, audit, and compliance — self-contained for security review."
+navTitle: Overview
+description: "Trust model, cryptographic design, availability, audit, and compliance, written to be read end to end during a vendor security review."
 type: concept
+audience: [ciso, cto]
 ---
 
-This section is being built as part of the docs V2 overhaul ([CIP-3307](https://linear.app/cipherstash/issue/CIP-3307)). Track progress in [IA.md](https://github.com/cipherstash/docs/blob/v2/IA.md).
+This section is written to be self-contained. A security team should be able to assess CipherStash from these pages without piecing the story together from reference material elsewhere.
 
-Until it lands, current documentation lives in the [existing docs](/stack).
+Start with [Cryptography](/security/cryptography). It is the canonical account of the cryptographic design: the key hierarchy, what ZeroKMS learns and does not learn, and what is cached. Every other page that touches key management links to it rather than restating it.
+
+## In this section
+
+- [Cryptography](/security/cryptography) covers the primitives, the key hierarchy, the trust model, and the data flow.
+- [Compliance](/security/compliance) maps CipherStash onto specific frameworks.
+
+## Related
+
+- [Searchable encryption](/concepts/searchable-encryption) is the canonical account of what each index term reveals to the database.
+- [Provable access control](/solutions/provable-access) covers binding decryption to an authenticated identity.

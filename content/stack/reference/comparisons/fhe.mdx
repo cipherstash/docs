@@ -67,7 +67,7 @@ In practice, only the 3–5 sensitive columns per table use these schemes. Forei
 | **Encrypted Bloom filter** | Token / substring containment (`LIKE`, full-text) | Trigram tokens hashed into a fixed-size bit vector; queried via GIN containment with client-side false-positive filtering. | Tuneable false-positive rate doubles as a security knob — higher FPR obscures token-frequency patterns at the cost of more client-side filtering. |
 | **Block ORE — Lewi-Wu (2016)** | Range and ordering (`<`, `>`, `BETWEEN`, `ORDER BY`) | Two-component ciphertexts (left / right). Right ciphertexts are stored; left ciphertexts are query-time only. Comparison is performed via the Postgres operator class. | Semantically-secure right-ciphertexts. Because left ciphertexts are not stored, **static order is not leaked** — only the order revealed by the queries you actually run. |
 
-Underlying every encrypted value, AES-GCM-SIV provides the authenticated encryption used for retrieval. The schemes above are *searchable indexes* alongside the ciphertext, not replacements for it. The database stores `ciphertext + indexes`; the application receives plaintext only after key-bound decryption.
+Underlying every encrypted value, AES-256-GCM-SIV provides the authenticated encryption used for retrieval. The schemes above are *searchable indexes* alongside the ciphertext, not replacements for it. The database stores `ciphertext + indexes`; the application receives plaintext only after key-bound decryption.
 
 For full leakage definitions and parameter-selection guidance, see [Security architecture](/stack/reference/security-architecture).
 
@@ -103,7 +103,7 @@ Two architectural consequences are worth calling out:
 
 **Schemes are swappable.** A column's index can be re-keyed or migrated to a different scheme without changing application SQL. As stronger primitives mature — lattice-based searchable schemes, structured encryption variants, eventually practical FHE for specific operations — they slot in behind the same EQL surface.
 
-**Quantum-resistant by construction.** The current primitives (AES-GCM-SIV, HMAC-SHA-256, BLAKE3) avoid the cryptographic assumptions known to fall to a sufficiently large quantum computer. No RSA, no elliptic curves. A column encrypted today is still secure on the day post-quantum migration becomes urgent.
+**Quantum-resistant by construction.** The current primitives (AES-256-GCM-SIV, HMAC-SHA-256, BLAKE3) avoid the cryptographic assumptions known to fall to a sufficiently large quantum computer. No RSA, no elliptic curves. A column encrypted today is still secure on the day post-quantum migration becomes urgent.
 
 ## What this looks like in SQL
 

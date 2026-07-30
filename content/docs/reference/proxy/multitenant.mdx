@@ -1,0 +1,77 @@
+---
+title: Multitenant operation
+description: "Scope CipherStash Proxy connections to tenant-specific keysets and manage encrypted mapping at runtime."
+type: reference
+components: [proxy, platform]
+---
+
+CipherStash Proxy supports multitenant applications using ZeroKMS keysets, giving strong cryptographic separation between tenants.
+
+Each tenant is associated with a keyset, and data is protected by separate encryption keys. Scope a Proxy connection to a specific keyset at runtime with the `SET CIPHERSTASH.KEYSET` commands. Once a keyset is set for a connection, all subsequent operations are scoped to it, and data can only be decrypted by the keyset that encrypted it.
+
+A keyset `name` is unique to a workspace and functions as an alias, so you can associate a keyset with an arbitrary identifier such as an internal `TenantId`.
+
+<Callout type="info">
+Proxy must be configured **without** a `CS_DEFAULT_KEYSET_ID` to enable multitenant operation. If a default keyset is configured, the `SET CIPHERSTASH.KEYSET` commands return an error.
+</Callout>
+
+## Keyset commands
+
+### SET CIPHERSTASH.KEYSET_ID
+
+Sets the active keyset for the current connection using a keyset UUID.
+
+```sql
+SET CIPHERSTASH.KEYSET_ID = '2cace9db-3a2a-4b46-a184-ba412b3e0730';
+```
+
+### SET CIPHERSTASH.KEYSET_NAME
+
+Sets the active keyset for the current connection using a keyset name.
+
+```sql
+SET CIPHERSTASH.KEYSET_NAME = 'tenant-1';
+```
+
+### Usage notes
+
+- Execute `SET CIPHERSTASH.KEYSET` before performing any encryption operations.
+- The keyset remains active for the duration of the connection, or until a subsequent `SET CIPHERSTASH.KEYSET` command.
+- The active keyset is connection-scoped and does not affect other connections.
+- Both commands take a literal value in single quotes. PostgreSQL `SET` does not support parameterised queries.
+
+Joining encrypted columns across two keysets does not work, because equality is only meaningful within a keyset. See [joins](/reference/eql/joins) for the same-keyset constraint.
+
+## Disabling encrypted mapping
+
+CipherStash Proxy transforms the plaintext SQL statements your application issues into statements on encrypted columns. This process is called encrypted mapping.
+
+In some circumstances you may need to disable encrypted mapping for one or more SQL statements, for example when performing a data transformation with complex logic directly in the database using `plpgsql`.
+
+Use `SET` to change the `CIPHERSTASH.UNSAFE_DISABLE_MAPPING` configuration parameter. It is always scoped to the connection session.
+
+```sql
+SET CIPHERSTASH.UNSAFE_DISABLE_MAPPING = true;   -- disable
+SET CIPHERSTASH.UNSAFE_DISABLE_MAPPING = false;  -- re-enable
+```
+
+<Callout type="warn">
+If mapping is disabled, sensitive data may not be encrypted and may appear in logs.
+</Callout>
+
+Proxy and EQL together give some protection against reading or writing plaintext in encrypted columns. An unmapped `SELECT` returns the encrypted payload rather than plaintext. An unmapped `INSERT` or `UPDATE` fails the encrypted column's domain `CHECK` with a PostgreSQL type error, because every EQL domain variant requires its index terms to be present in the payload. See [core concepts](/reference/eql/core-concepts) for the variant model.
+
+## Prepared statements and mapping
+
+CipherStash Proxy only decrypts data from SQL statements it has explicitly checked and mapped.
+
+If mapping is disabled, any subsequent `PREPARE` skips the mapping process. If mapping is re-enabled later, data returned from those prepared statements is still not decrypted.
+
+To restore mapping, encryption, and decryption of prepared statements, either open a new connection or prepare the statement again after re-enabling mapping.
+
+This behaviour is expected. When a client prepares a statement, it sends the SQL in a `parse` message. Once prepared, the client refers to the statement by name and skips the `parse` step. If mapping was disabled during `parse`, Proxy never mapped the statement, so data returned from subsequent executions is never decrypted. See [message flow](/reference/proxy/message-flow).
+
+## Related
+
+- [Keysets](/stack/cipherstash/kms/keysets) for the cryptographic isolation model.
+- [Proxy configuration](/reference/proxy/configuration) for `CS_DEFAULT_KEYSET_ID`.

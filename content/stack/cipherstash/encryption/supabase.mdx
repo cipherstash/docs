@@ -320,15 +320,42 @@ The following transform methods are also supported:
 
 ## Lock context and audit
 
-Chain `.withLockContext()` to tie encryption to a specific user's JWT:
+Identity-aware encryption has two parts. Authenticate the encryption client as the signed-in user with `OidcFederationStrategy`, then chain `.withLockContext()` to bind values to a claim from that user's JWT.
+
+Register your Supabase project as an OIDC provider on the [OIDC providers](https://dashboard.cipherstash.com/workspaces/_/oidc-providers) page in the Dashboard first. The `_` in that URL resolves to whichever workspace you have selected.
+
+<Callout type="warn">
+`OidcFederationStrategy` is the only strategy that supports lock contexts. `AccessKeyStrategy` authenticates as your service rather than as an end user, so there is no user identity for ZeroKMS to resolve the claim against.
+</Callout>
+
+```typescript filename="lib/encryption.ts"
+import { Encryption, OidcFederationStrategy } from "@cipherstash/stack"
+import { users } from "./schema"
+
+// Every ZeroKMS request is authenticated as the signed-in Supabase user
+export const encryptionClient = await Encryption({
+  schemas: [users],
+  config: {
+    authStrategy: OidcFederationStrategy.create(
+      process.env.CS_WORKSPACE_CRN,
+      async () => {
+        const { data } = await supabase.auth.getSession()
+        return data.session?.access_token
+      },
+    ),
+  },
+})
+```
+
+Pass a function that returns the **current** access token. The strategy calls it again whenever it re-federates, so a token captured once will go stale.
+
+Build `eSupabase` from that `encryptionClient`. Without its `authStrategy`, `.withLockContext()` has no end-user identity to bind to.
 
 ```typescript filename="app/actions.ts"
 import { LockContext } from "@cipherstash/stack/identity"
 
-const lc = new LockContext()
-const identified = await lc.identify(userJwt)
-if (identified.failure) throw new Error(identified.failure.message)
-const lockContext = identified.data
+// Bind the data key to the user's `sub` claim
+const lockContext = new LockContext({ context: { identityClaim: ["sub"] } })
 
 const { data } = await eSupabase
   .from("users", users)
@@ -336,6 +363,10 @@ const { data } = await eSupabase
   .withLockContext(lockContext)
   .select("id")
 ```
+
+<Callout type="warn">
+`lockContext.identify(jwt)` is **deprecated**. Per-operation CTS tokens were removed in `protect-ffi` 0.25, so calling it no longer affects encryption. Authenticate the client with `OidcFederationStrategy` instead.
+</Callout>
 
 Lock contexts work with all operations (insert, select, update, delete):
 

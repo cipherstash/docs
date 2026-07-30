@@ -1,5 +1,5 @@
 {
   "title": "Comparisons",
   "icon": "Scale",
-  "pages": ["fhe", "aws-kms", "hashicorp-vault", "zerokms-vs-hsm"]
+  "pages": ["!index", "aws-kms", "hashicorp-vault", "zerokms-vs-hsm", "fhe"]
 }

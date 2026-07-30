@@ -1,8 +1,33 @@
 ---
-title: Stack SDK
-description: "Stack SDK documentation — being built as part of the docs V2 overhaul."
+title: Overview
+description: "The core @cipherstash/stack package for client-side encryption, searchable schemas, identity controls, and encrypted query operands."
+type: reference
+components: [encryption, eql]
+audience: [developer]
 ---
 
-This section is being built as part of the docs V2 overhaul ([CIP-3307](https://linear.app/cipherstash/issue/CIP-3307)). Track progress in [IA.md](https://github.com/cipherstash/docs/blob/v2/IA.md).
+`@cipherstash/stack` is the core TypeScript SDK for CipherStash. It encrypts and decrypts values in your application, defines the searchable capabilities of encrypted columns, and creates encrypted operands for queries against [EQL](/reference/eql).
 
-Until it lands, current documentation lives in the [existing docs](/stack).
+Database and framework wrappers are separate packages. Use the [Supabase](/integrations/supabase), [Prisma ORM 8](/integrations/prisma), or [Drizzle](/integrations/drizzle) integration when you want encryption built into that library's query flow.
+
+## What the package provides
+
+| Area | Purpose |
+| --- | --- |
+| Encryption client | Encrypt and decrypt individual values, batches, and models. |
+| Schema builders | Describe tables, columns, value types, and searchable capabilities. |
+| Query encryption | Produce typed encrypted operands for equality, range, and search queries. |
+| Identity controls | Bind encryption and decryption to federated identity claims. |
+| DynamoDB helpers | Encrypt and decrypt DynamoDB attributes and expressions. |
+| Error types | Inspect operation failures without parsing error messages. |
+
+## Start here
+
+<Cards>
+  <Card title="Usage" href="/reference/stack/usage">
+    Install the package, define an encrypted schema, and encrypt, query, and decrypt a value.
+  </Card>
+  <Card title="API reference" href="/reference/stack/api-reference">
+    Browse the generated functions, classes, interfaces, and type aliases exported by the package.
+  </Card>
+</Cards>

@@ -1,0 +1,36 @@
+---
+title: Billing
+description: "How CipherStash per-workspace billing works, including plans, upgrades, downgrades, and Stripe."
+type: reference
+components: [platform]
+audience: [cto]
+reviewBy: "2027-01-09"
+---
+
+CipherStash uses a **per-workspace billing model**. Each workspace has its own plan and usage limits. Organizations and team members are always free and unlimited.
+
+## Plans
+
+Each workspace is on a plan. Plans differ in their usage limits and in which features they unlock, such as keyset isolation and [lock contexts](/stack/cipherstash/encryption/identity). See [pricing](https://cipherstash.com/pricing) for the current plans, their prices, and their limits.
+
+Enterprise is an organization-level plan with custom pricing and dedicated support. Enterprise organizations bypass per-workspace billing entirely. Contact [sales@cipherstash.com](mailto:sales@cipherstash.com).
+
+## Managing workspace billing
+
+Each workspace has a billing page reachable from the workspace sidebar in the [Dashboard](https://dashboard.cipherstash.com). From there you can view your current plan and usage metrics, upgrade or downgrade, cancel your subscription, and open the Stripe billing portal for payment methods and invoices.
+
+## How billing works
+
+- **One Stripe customer per organization.** All workspaces in your organization share the same Stripe customer.
+- **One subscription per workspace.** Each workspace has its own Stripe subscription tied to its plan.
+- **Proration on upgrades.** Upgrading mid-cycle charges a prorated amount for the remainder of the billing period.
+- **Downgrades at period end.** Downgrading takes effect at the end of the current billing period.
+- **Cancellation.** Canceling keeps the plan active until the end of the billing period, then reverts to Free.
+
+## Enterprise and AWS Marketplace
+
+Organizations on Enterprise plans or subscribed through AWS Marketplace have billing managed at the organization level, and all their workspaces have unlimited access to all features. Manage enterprise billing from the Organization Profile.
+
+## Need help?
+
+Contact [support@cipherstash.com](mailto:support@cipherstash.com) for billing questions.

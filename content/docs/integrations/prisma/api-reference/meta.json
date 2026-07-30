@@ -1,0 +1,14 @@
+{
+  "title": "API reference",
+  "pages": [
+    "index",
+    "codec-types",
+    "column-types",
+    "control",
+    "operation-types",
+    "pack",
+    "runtime",
+    "stack",
+    "v3"
+  ]
+}

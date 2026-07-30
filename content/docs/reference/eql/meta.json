@@ -1,6 +1,7 @@
 {
   "title": "EQL",
   "pages": [
+    "index",
     "core-concepts",
     "---Types---",
     "numbers",
@@ -14,6 +15,10 @@
     "filtering",
     "sorting",
     "grouping-and-aggregates",
-    "joins"
+    "joins",
+    "---Reference---",
+    "functions",
+    "---Previous versions---",
+    "v2"
   ]
 }

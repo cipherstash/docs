@@ -1,26 +1,30 @@
 ---
 title: Text
-description: "The complete reference for encrypted text columns: all six text domain variants, the multi-term payload, why LIKE is gone everywhere, and bloom-filter token containment as the encrypted free-text match."
+description: "The complete reference for encrypted text columns: every text domain variant, the multi-term payload, why LIKE is gone everywhere, and @@ bloom-filter fuzzy match as the encrypted free-text search."
 type: reference
 components: [eql]
 verifiedAgainst:
-  eql: "3.0.0"
+  eql: "3.0.3"
 ---
 
-Text is the richest encrypted scalar. Beyond the four variants every scalar type gets, `text` adds two of its own: `text_match` for encrypted free-text matching, and `text_search` for columns you need to look up, sort, *and* search. Emails, names, tax IDs, addresses — this page is the full surface for all of them.
+<EqlVersion />
+
+Text is the richest encrypted scalar. Beyond the variants every scalar type gets, `text` adds its own: `text_match` for encrypted free-text matching, and `text_search` for columns you need to look up, sort, *and* search. Emails, names, tax IDs, addresses — this page is the full surface for all of them.
 
 ## Variants
 
-All six are `jsonb`-backed domains. Which one you declare fixes the column's query capability — the variant model itself is covered in [Core concepts](/reference/eql/core-concepts):
+All of these are `jsonb`-backed domains. Which one you declare fixes the column's query capability — the variant model itself is covered in [Core concepts](/reference/eql/core-concepts):
 
 | Domain variant | Capability |
 | --- | --- |
-| `eql_v3.text` | Storage and decryption only. |
-| `eql_v3.text_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
-| `eql_v3.text_ord` | Comparisons, `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
-| `eql_v3.text_ord_ore` | As `text_ord`, with the ORE mechanism pinned — see [SEM specifiers](#sem-specifiers). |
-| `eql_v3.text_match` | Free-text token containment: `@>` / `<@`. |
-| `eql_v3.text_search` | Equality + ordering + token containment. |
+| `public.eql_v3_text` | Storage and decryption only. |
+| `public.eql_v3_text_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
+| `public.eql_v3_text_ord` | Comparisons, `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
+| `public.eql_v3_text_ord_ope` | The byte-identical twin of `text_ord`, with OPE pinned. See [SEM specifiers](#sem-specifiers). |
+| `public.eql_v3_text_ord_ore` | As `text_ord`, with the ORE mechanism pinned. |
+| `public.eql_v3_text_match` | Free-text fuzzy match: `@@`. |
+| `public.eql_v3_text_search` | Equality + ordering + fuzzy match. |
+| `public.eql_v3_text_search_ore` | As `text_search`, with the ORE mechanism pinned. |
 
 Declare only the capabilities you query on — each capability stores extra searchable material with defined leakage (see [Searchable encryption](/concepts/searchable-encryption)).
 
@@ -31,10 +35,10 @@ A users table mixing the variants by how each column is queried:
 ```sql
 CREATE TABLE users (
     id      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email   eql_v3.text_search,   -- lookup, sort, and free-text match
-    name    eql_v3.text_match,    -- free-text match only
-    tax_id  eql_v3.text_eq,       -- exact lookup only
-    notes   eql_v3.text           -- store and decrypt only
+    email   public.eql_v3_text_search,   -- lookup, sort, and free-text match
+    name    public.eql_v3_text_match,    -- free-text match only
+    tax_id  public.eql_v3_text_eq,       -- exact lookup only
+    notes   public.eql_v3_text           -- store and decrypt only
 );
 ```
 
@@ -42,12 +46,19 @@ CREATE TABLE users (
 
 Text takes the same mechanism specifiers as the other orderable types (the concept is defined in [Core concepts](/reference/eql/core-concepts#sem-specifiers)):
 
-| Specifier | Meaning |
-| --- | --- |
-| `_ord` | Orderable, using EQL's default mechanism (currently ORE). |
-| `_ord_ore` | Orderable via ORE, pinned explicitly. |
+| Specifier | Mechanism | Ordering term | Extractor |
+| --- | --- | --- | --- |
+| `_ord` | The default, currently CLLW OPE | `op` | `eql_v3.ord_term` |
+| `_ord_ope` | CLLW OPE, pinned explicitly | `op` | `eql_v3.ord_term` |
+| `_ord_ore` | Block-ORE, pinned explicitly | `ob` | `eql_v3.ord_term_ore` |
+| `text_search` | The default, currently CLLW OPE | `op` | `eql_v3.ord_term` |
+| `text_search_ore` | Block-ORE, pinned explicitly | `ob` | `eql_v3.ord_term_ore` |
 
-The EQL v3 release adds an OPE specifier for every orderable type — including `text` — so lexicographic ordering can be pinned to either mechanism; unspecified `_ord` columns keep tracking the default.
+`text_ord` and `text_ord_ope` are byte-identical today. Pin `_ord_ope` when you want a column's mechanism frozen against a future change of the default.
+
+<Callout type="warn">
+Block-ORE terms sort only under a custom btree operator class, and creating one requires superuser. Where the EQL installer runs as a non-superuser, which is the case on most managed Postgres including cloud Supabase, it cannot create the class, so it **disables every ORE-backed domain** rather than let them install half-working. `text_ord_ore` and `text_search_ore` then raise `feature_not_supported` on the first value written to them. Use `text_ord` or `text_search` there.
+</Callout>
 
 ## Payload
 
@@ -59,111 +70,80 @@ A value for a `text_search` column carries the shared envelope keys (`v`, `i`, `
   "i": { "t": "users", "c": "email" },
   "c": "mBbKmsMM%bK#QQOx1yLDBHyD...",
   "hm": "9c8ec1d2f9932b979b1bf3f09f8a4e2f6a41f8de2f0c8b7a52e1f5c3d4b6a790",
-  "ob": ["7a1fd0c2...", "d24c9be1...", "03fa66b8..."],
+  "op": "5f2b1a9e4c07d38b6ea15c92...",
   "bf": [42, 1290, -8113, 30201]
 }
 ```
 
 - `hm` — equality term: `WHERE email = $1` compares this
-- `ob` — ordering term: `ORDER BY` and range comparisons walk these blocks
-- `bf` — bloom-filter term: `@>` token containment tests these bit positions
+- `op` — ordering term: a hex-encoded CLLW OPE ciphertext, which `ORDER BY` and range comparisons sort by native `bytea` comparison
+- `bf` — bloom-filter term: `@@` fuzzy match tests these bit positions
 
-The narrower variants carry only their own term: a `text_eq` payload carries `hm` only, `text_match` carries `bf` only, and `text_ord` / `text_ord_ore` carry `ob` only (no `hm` — equality on `_ord` variants compares ORE terms, see [Core concepts](/reference/eql/core-concepts)). A payload missing its variant's required term fails the domain `CHECK` at write time.
+A `text_search_ore` payload carries `ob` in place of `op`: an array of block-ORE ciphertexts rather than a single string.
+
+The narrower variants carry only their own terms. A `text_eq` payload carries `hm` alone, `text_match` carries `bf` alone, and the orderable variants carry `hm` plus their ordering term (`op` for `text_ord` / `text_ord_ope`, `ob` for `text_ord_ore`). Text keeps `hm` on every orderable variant, because ordering over text is not equality-lossless the way it is over the numeric scalars: `=` and `<>` resolve against the HMAC term rather than the ordering term. A payload missing its variant's required term fails the domain `CHECK` at write time.
 
 **`bf` positions are signed**: EQL stores the filter as PostgreSQL `smallint[]`, and filters sized above 32768 emit upper-half bit positions as *negative* signed values. Consumers must use a signed 16-bit integer type.
 
 ## Operators
 
-| SQL operator | `eql_v3.text` | `text_eq` | `text_ord` / `text_ord_ore` | `text_match` | `text_search` |
+| SQL operator | `public.eql_v3_text` | `text_eq` | `text_ord` variants | `text_match` | `text_search` variants |
 | --- | :---: | :---: | :---: | :---: | :---: |
 | `=` / `<>` | ❌ | ✅ | ✅ | ❌ | ✅ |
 | `<` `<=` `>` `>=` | ❌ | ❌ | ✅ | ❌ | ✅ |
-| `@>` / `<@` | ❌ | ❌ | ❌ | ✅ | ✅ |
+| `@@` (fuzzy match) | ❌ | ❌ | ❌ | ✅ | ✅ |
+| `@>` / `<@` | ❌ | ❌ | ❌ | ❌ | ❌ |
 | `LIKE` / `ILIKE` (`~~` / `~~*`) | ❌ | ❌ | ❌ | ❌ | ❌ |
 | `IN` / `GROUP BY` / `DISTINCT` | ❌ | ✅ | ✅ | ❌ | ✅ |
 | `ORDER BY` | ❌ | ❌ | ✅ | ❌ | ✅ |
 | `IS NULL` / `IS NOT NULL` | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-Blocked *operator* cells raise an `operator … is not supported` exception — they never silently return wrong rows. `ORDER BY` is the one blocked cell that doesn't raise: it isn't an operator, so sorting a variant without an ordering term runs — but the order is meaningless (see [Sorting](/reference/eql/sorting)). Operands must be typed (`$1::eql_v3.text_eq`), or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one. Both rules are covered in [Core concepts](/reference/eql/core-concepts).
+Blocked *operator* cells raise an `operator … is not supported` exception — they never silently return wrong rows. `ORDER BY` is the one blocked cell that doesn't raise: it isn't an operator, so sorting a variant without an ordering term runs — but the order is meaningless (see [Sorting](/reference/eql/sorting)). Operands must be typed (`$1::public.eql_v3_text_eq`), or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one. Both rules are covered in [Core concepts](/reference/eql/core-concepts).
 
 ## Functions
 
-Every operator has a function form, for managed platforms that disallow custom operators — same typed arguments, identical resolution. The `MIN` / `MAX` aggregates only exist as functions:
+<include cwd>content/partials/eql/functions-text.mdx</include>
 
-| Function | Equivalent | Available on |
-| --- | --- | --- |
-| `eql_v3.eq(a, b)` / `eql_v3.neq(a, b)` | `=` / `<>` | `text_eq`, `text_ord` / `text_ord_ore`, `text_search` |
-| `eql_v3.lt` / `lte` / `gt` / `gte` | `<` `<=` `>` `>=` | `text_ord` / `text_ord_ore`, `text_search` |
-| `eql_v3.contains(a, b)` / `eql_v3.contained_by(a, b)` | `@>` / `<@` | `text_match`, `text_search` |
-| `eql_v3.min(col)` / `eql_v3.max(col)` | aggregate `MIN` / `MAX` | `text_ord` / `text_ord_ore`, `text_search` |
-
-There are no `like` / `ilike` function forms — encrypted text matching is `eql_v3.contains` on a `text_match` value.
+There are no `like` / `ilike` function forms — encrypted text matching is `eql_v3.matches` on a `text_match` value.
 
 ## There is no `LIKE`
 
-`LIKE` and `ILIKE` (`~~` / `~~*`) raise on **every** encrypted-domain variant — including `text_match` and `text_search`. SQL pattern matching is meaningless on ciphertext. Encrypted text matching is bloom-filter token containment — `@>` on a `text_match` or `text_search` column:
+`LIKE` and `ILIKE` (`~~` / `~~*`) raise on **every** encrypted-domain variant — including `text_match` and `text_search`. SQL pattern matching is meaningless on ciphertext. Encrypted text matching is bloom-filter fuzzy match — `@@` on a `text_match` or `text_search` column:
+
+<BadExample label="Raises — LIKE is blocked on every encrypted variant">
 
 ```sql
--- ❌ Raises: operator not supported
 SELECT * FROM users WHERE email LIKE '%alice%';
-
--- ✅ Encrypted free-text match
-SELECT * FROM users WHERE email @> $1::eql_v3.text_match;
 ```
 
-`@>` / `<@` here is **probabilistic ngram-bloom containment** — it tests whether the encrypted text contains the (encrypted) search terms. It is not JSONB containment and not `LIKE`. The client encrypts the search term into a bloom-filter query value; false positives are possible, false negatives are not. There are no `like` / `ilike` function forms either — text matching is `eql_v3.contains` on a `text_match` value.
-
-## Example queries
-
-### Exact lookup
-
-Equality on a `text_eq` column compares HMAC terms. `IN` desugars to `=`:
+</BadExample>
 
 ```sql
-SELECT * FROM users WHERE tax_id = $1::eql_v3.text_eq;
+-- Encrypted free-text match
+SELECT * FROM users WHERE email @@ $1::public.eql_v3_text_match;
 
-SELECT * FROM users
-WHERE tax_id IN ($1::eql_v3.text_eq, $2::eql_v3.text_eq);
+-- Function form
+SELECT * FROM users WHERE eql_v3.matches(email, $1::public.eql_v3_text_match);
 ```
 
-### Free-text match
+`@@` is **probabilistic ngram-bloom matching** — it reduces to array containment over two bloom filters built from the downcased 3-gram token sets, so a `true` may be a false positive and a `false` never is. It is not `LIKE`, and it is not containment: it is order- and multiplicity-insensitive. The client encrypts the search term into a bloom-filter query value.
 
-The client encrypts the search term into the bloom-filter needle:
+<Callout type="warn">
+**`@>` / `<@` raise on the match variants.** The fuzzy match was renamed in EQL 3.0.1: it used to be spelled `@>` / `<@`, backed by `eql_v3.contains` / `eql_v3.contained_by`, which are no longer public functions on these domains. That naming promised containment semantics it never had, so the operator became the directional `@@` and the old spellings are now blockers that raise `operator … is not supported`. Genuine containment on encrypted JSON is unaffected and keeps `@>` / `<@`; see [JSON](/reference/eql/json). Repoint any query, view, or adapter still emitting the old form, and coordinate with the client: an SDK emitting `eql_v3.contains(` for text match must move to `eql_v3.matches(` in the same release.
+</Callout>
 
-```sql
-SELECT * FROM users WHERE name @> $1::eql_v3.text_match;
+### Search terms too short to tokenise
 
--- Function form, for platforms without custom operators
-SELECT * FROM users WHERE eql_v3.contains(name, $1::eql_v3.text_match);
-```
+A search string below the tokeniser's floor — a 2-character term, say — produces no 3-grams and encrypts to an empty bloom (`bf: []`). Because an empty array is contained by every array, such a needle once matched **every row in the table**, silently. Since EQL 3.0.3 the match is guarded, giving `LIKE ''`-shaped semantics:
 
-### The works: `text_search`
+| Stored value's bloom | Needle's bloom | `LIKE` analogue | Result |
+| --- | --- | --- | :---: |
+| empty | empty | `'' LIKE ''` | ✅ |
+| non-empty | empty | `'catty' LIKE ''` | ❌ (was ✅) |
+| empty | non-empty | `'' LIKE 'cat'` | ❌ |
+| non-empty | non-empty | — | bloom match |
 
-A `text_search` column answers exact lookup, free-text match, and ordering — here, all three in one query:
-
-```sql
-SELECT id, email FROM users
-WHERE email @> $1::eql_v3.text_match       -- token containment on bf
-  AND email <> $2::eql_v3.text_eq          -- exclude an exact value via hm
-ORDER BY eql_v3.ord_term(email)            -- sort on ob
-LIMIT 20;
-```
-
-### Sorting text
-
-ORE terms are order-preserving, so `ORDER BY` sorts encrypted text correctly. Write the sort key in extractor form so a btree index can do the ordering instead of a `Sort` node — see [Sorting](/reference/eql/sorting):
-
-```sql
-SELECT * FROM users
-ORDER BY eql_v3.ord_term(email)
-LIMIT 50;
-```
-
-`MIN` / `MAX` work on any ord-capable text column too:
-
-```sql
-SELECT eql_v3.min(email) FROM users;
-```
+Only the second row changed: an empty needle now matches only a value whose own bloom is also empty. Nothing to rewrite, and values legitimately stored with an empty bloom are unaffected. On EQL 3.0.2 and earlier, reject sub-floor search terms client-side — the SDK already does.
 
 ## Where to next
 

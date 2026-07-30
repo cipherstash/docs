@@ -1,0 +1,87 @@
+---
+title: Usage
+description: "Install @cipherstash/stack and use its core encryption client with an EQL v3 encrypted column."
+type: reference
+components: [encryption, eql]
+audience: [developer]
+---
+
+## Install
+
+```bash cta cta-type="install" example-id="install-stack"
+npm install @cipherstash/stack
+```
+
+Authenticate locally with `stash auth login`, or configure the `CS_*` machine credentials described in [workspace configuration](/reference/workspace/configuration).
+
+## Define a schema and client
+
+The application schema tells Stack which columns are encrypted and which query capabilities they need. It must match the [EQL domain](/reference/eql/core-concepts) used by the database column.
+
+```typescript filename="src/encryption.ts"
+import { Encryption, encryptedColumn, encryptedTable } from "@cipherstash/stack"
+
+export const users = encryptedTable("users", {
+  email: encryptedColumn("email").equality(),
+})
+
+export const encryption = await Encryption({ schemas: [users] })
+```
+
+An equality-enabled text column uses the corresponding EQL type:
+
+```sql
+CREATE TABLE users (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  email public.eql_v3_text_eq
+);
+```
+
+## Encrypt and store
+
+Stack operations return a `Result` with either `data` or `failure`:
+
+```typescript
+const encrypted = await encryption.encrypt("alice@example.com", {
+  table: users,
+  column: users.email,
+})
+
+if (encrypted.failure) throw encrypted.failure
+
+await db.query("INSERT INTO users (email) VALUES ($1)", [encrypted.data])
+```
+
+Encryption happens before the value leaves the application process.
+
+## Query an encrypted column
+
+Encrypt the operand with the same table and column definition, then cast it to the column's EQL domain in SQL:
+
+```typescript
+const term = await encryption.encryptQuery("alice@example.com", {
+  table: users,
+  column: users.email,
+})
+
+if (term.failure) throw term.failure
+
+const result = await db.query(
+  "SELECT id, email FROM users WHERE email = $1::public.eql_v3_text_eq",
+  [term.data],
+)
+```
+
+The database compares encrypted terms and never receives the plaintext operand. See [EQL filtering](/reference/eql/filtering) for the available query forms.
+
+## Decrypt a result
+
+```typescript
+const decrypted = await encryption.decrypt(result.rows[0].email)
+
+if (decrypted.failure) throw decrypted.failure
+
+console.log(decrypted.data)
+```
+
+For every exported signature and option, use the [generated API reference](/reference/stack/api-reference). For an end-to-end project setup, follow the [quickstart](/get-started/quickstart).
