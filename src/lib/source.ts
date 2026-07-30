@@ -3,9 +3,11 @@ import type * as PageTree from "fumadocs-core/page-tree";
 import { type InferPageType, loader } from "fumadocs-core/source";
 import { icons } from "lucide-react";
 import { createElement } from "react";
+import { PrismaIcon } from "@/components/icons/prisma";
 import { SupabaseIcon } from "@/components/icons/supabase";
 
 const customIcons: Record<string, () => React.ReactElement> = {
+  Prisma: () => createElement(PrismaIcon, { width: 16, height: 16 }),
   Supabase: () => createElement(SupabaseIcon, { width: 16, height: 16 }),
 };
 

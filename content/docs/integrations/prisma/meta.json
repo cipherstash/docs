@@ -1,6 +1,6 @@
 {
   "title": "Prisma ORM",
-  "icon": "Database",
+  "icon": "Prisma",
   "pages": [
     "index",
     "quickstart",
