@@ -306,6 +306,7 @@ function renderIndex(
   const frontmatter = [
     "---",
     "title: CLI",
+    "navTitle: Overview",
     `description: "Command reference for the ${CLI_NAME} CLI, generated from v${CLI_VERSION}."`,
     "type: reference",
     "components: [cli]",
@@ -345,7 +346,7 @@ ${sections}
 }
 
 function renderMeta(manifest: Manifest, groups: Map<string, string[]>): string {
-  const pages: string[] = [];
+  const pages: string[] = ["index"];
   for (const g of manifest.groupOrder) {
     const groupPages = groups.get(g);
     if (!groupPages) continue;

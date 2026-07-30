@@ -415,13 +415,9 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
       rewritten for v3 upstream (v3 branch folded it into database-indexes.md; verify
       nothing from the v2 guide on main was lost) — see CIP-3351
 - **Stack SDK:**
-- [ ] `/reference/stack` — client + configuration (port encryption/* pages)
-- [ ] `/reference/stack/schema`
-- [ ] `/reference/stack/encrypt-decrypt` (+ bulk, models)
-- [x] `/reference/stack/supabase` — THE canonical `encryptedSupabase` page, ONE signature (CIP-3328)
-- [ ] `/reference/stack/drizzle-operators`
-- [ ] `/reference/stack/errors` — port error-handling; miette catalog later (CIP-3338)
-- [ ] `/reference/stack/upgrading-from-protect` (retitled package-rename guide)
+- [x] `/reference/stack` — core package overview and usage
+- [x] `/reference/stack/api-reference` — generated `@cipherstash/stack` API
+- [x] `/integrations/supabase/api-reference` — generated `@cipherstash/stack-supabase` API (CIP-3328)
 - **Auth (CIP-3330):**
 - [ ] `/reference/auth/lock-contexts`
 - [ ] `/reference/auth/cts-tokens`

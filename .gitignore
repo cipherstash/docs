@@ -39,6 +39,10 @@ content/stack/reference/drizzle/latest/
 content/stack/reference/drizzle/v*/
 content/docs/integrations/prisma/api-reference/*
 !content/docs/integrations/prisma/api-reference/meta.json
+content/docs/integrations/supabase/api-reference/*
+!content/docs/integrations/supabase/api-reference/meta.json
+content/docs/reference/stack/api-reference/*
+!content/docs/reference/stack/api-reference/meta.json
 .tmp-*
 .env.local
 

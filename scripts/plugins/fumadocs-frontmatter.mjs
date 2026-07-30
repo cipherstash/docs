@@ -113,6 +113,7 @@ export function load(app) {
 
       page.frontmatter = {
         ...meta,
+        ...(isRoot ? { navTitle: "Overview" } : {}),
         // Author-provided frontmatter (e.g. @description comment tags,
         // frontmatterGlobals) still wins.
         ...page.frontmatter,

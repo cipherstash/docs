@@ -68,7 +68,7 @@ export const v2Redirects = [
   },
   {
     source: "/stack/cipherstash/encryption/supabase",
-    destination: "/reference/stack/supabase",
+    destination: "/integrations/supabase/api-reference",
     permanent: false,
   },
   {
@@ -377,7 +377,7 @@ export const v2Redirects = [
   // Generated TypeDoc API reference (scripts/generate-docs.ts output)
   {
     source: "/stack/reference/stack/:path*",
-    destination: "/reference/stack/:path*",
+    destination: "/reference/stack/api-reference",
     permanent: false,
   },
 ];
