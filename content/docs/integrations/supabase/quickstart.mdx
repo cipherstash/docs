@@ -9,8 +9,8 @@ integration:
   setup: dashboard-required
   pairsWith: [drizzle, prisma-next, clerk]
 verifiedAgainst:
-  eql: "3.0.0"
-  stack: "1.0.0-rc.0"
+  eql: "3.0.2"
+  stack: "1.0.0"
 ---
 
 This tutorial takes a Supabase table that already exists, already holds real rows, and stores sensitive data in plaintext — and converts two of its columns to searchable encryption without downtime or data loss. It takes about twenty minutes. For what CipherStash is and why you'd add it, start with the [overview](/integrations/supabase).
@@ -116,12 +116,12 @@ Mint one set of credentials per environment with `npx stash env --name patients-
 
 ### Wrap your Supabase client
 
-There is no schema to declare. `encryptedSupabaseV3` introspects the database over `DATABASE_URL`, finds the columns typed as EQL domains, and derives each one's encryption config from its type. Plain `text` and `date` columns pass through untouched, so wrapping the client changes nothing until encrypted columns exist.
+There is no schema to declare. `encryptedSupabase` introspects the database over `DATABASE_URL`, finds the columns typed as EQL domains, and derives each one's encryption config from its type. Plain `text` and `date` columns pass through untouched, so wrapping the client changes nothing until encrypted columns exist.
 
 ```typescript title="lib/db.ts"
-import { encryptedSupabaseV3 } from "@cipherstash/stack-supabase"
+import { encryptedSupabase } from "@cipherstash/stack-supabase"
 
-export const db = await encryptedSupabaseV3(
+export const db = await encryptedSupabase(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_ANON_KEY!,
 )
@@ -293,7 +293,7 @@ const { data: recent } = await db
 **Free-text search is not available through this wrapper on EQL 3.0.2+.** `.matches()` — and `.like()` / `.ilike()`, which delegate to it — raise, because the operator needs an `eql_v3.query_*` operand that PostgREST cannot express. Encrypted-JSON queries are unavailable for the same reason. Equality, ordering, and range all work, as shown above. For encrypted free-text, use the [Drizzle](/integrations/drizzle) or [Prisma Next](/integrations/prisma-next) adapter for that query, or a scoped SQL/RPC function. Full detail in the [wrapper reference](/reference/stack/supabase#free-text-and-json-need-a-different-adapter).
 </Callout>
 
-The full method surface, including filters, upserts, error shapes, and identity-locked queries, is in the [`encryptedSupabaseV3` reference](/reference/stack/supabase).
+The full method surface, including filters, upserts, error shapes, and identity-locked queries, is in the [`encryptedSupabase` reference](/reference/stack/supabase).
 
 </Step>
 <Step>
@@ -323,7 +323,7 @@ Sequencing that drop safely across environments, wiring `CS_*` into build and ru
 
 ## Using an ORM instead
 
-Everything above goes through PostgREST, Supabase's REST API, with `encryptedSupabaseV3` encrypting around each request. The other way to reach the same tables is a direct Postgres connection from an ORM, where the [Stack SDK](/reference/stack) encrypts values in your application and the EQL-typed columns store and search them. Both paths write the **same ciphertext into the same columns**, so the database setup above is identical either way — and you can mix them, using an `encryptedSupabaseV3` client for application queries and Drizzle for migrations against the same tables.
+Everything above goes through PostgREST, Supabase's REST API, with `encryptedSupabase` encrypting around each request. The other way to reach the same tables is a direct Postgres connection from an ORM, where the [Stack SDK](/reference/stack) encrypts values in your application and the EQL-typed columns store and search them. Both paths write the **same ciphertext into the same columns**, so the database setup above is identical either way — and you can mix them, using an `encryptedSupabase` client for application queries and Drizzle for migrations against the same tables.
 
 <Cards>
   <Card title="Drizzle" href="/integrations/drizzle">
@@ -358,7 +358,7 @@ Both integrations are database-agnostic — Supabase is Postgres, so the encrypt
   <Card title="EQL indexes" href="/reference/eql/indexes">
     Full indexing recipes and EXPLAIN verification.
   </Card>
-  <Card title="encryptedSupabaseV3 reference" href="/reference/stack/supabase">
+  <Card title="encryptedSupabase reference" href="/reference/stack/supabase">
     The complete wrapper API: every filter, response shapes, and how it works.
   </Card>
 </Cards>

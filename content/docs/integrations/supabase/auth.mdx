@@ -5,8 +5,8 @@ type: guide
 components: [encryption, platform]
 audience: [developer]
 verifiedAgainst:
-  stack: "1.0.0-rc.0"
-  auth: "0.41.0"
+  stack: "1.0.0"
+  auth: "0.42.0"
 ---
 
 Supabase Auth already knows who your user is. This page connects that identity to CipherStash in two layers you can adopt independently:
@@ -33,7 +33,7 @@ Authenticate the `Encryption` client with an `OidcFederationStrategy`. It takes 
 ```typescript title="lib/db.ts"
 import { createClient } from "@supabase/supabase-js"
 import { OidcFederationStrategy } from "@cipherstash/stack"
-import { encryptedSupabaseV3 } from "@cipherstash/stack-supabase"
+import { encryptedSupabase } from "@cipherstash/stack-supabase"
 
 const supabaseClient = createClient(
   process.env.SUPABASE_URL!,
@@ -47,9 +47,15 @@ const getJwt = async () => {
   return session.access_token
 }
 
-export const db = await encryptedSupabaseV3(supabaseClient, {
+const federation = OidcFederationStrategy.create(
+  process.env.CS_WORKSPACE_CRN!,
+  getJwt,
+)
+if (federation.failure) throw new Error(federation.failure.error.message)
+
+export const db = await encryptedSupabase(supabaseClient, {
   config: {
-    authStrategy: OidcFederationStrategy.create(process.env.CS_WORKSPACE_CRN!, getJwt),
+    authStrategy: federation.data,
   },
 })
 ```
@@ -70,13 +76,12 @@ Federation authenticates *as* the user. **Lock context** goes further: it bakes 
 Lock context requires the client to be authenticated with `OidcFederationStrategy` (above). It cannot be used with `AccessKeyStrategy`, which authenticates a *service*, not a user — there is no user `sub` claim to bind to. Lock context also requires a Business or Enterprise workspace plan.
 </Callout>
 
-Attach a lock context to any [`encryptedSupabaseV3`](/reference/stack/supabase) query with `.withLockContext()`. The query builder takes a `LockContext` **instance**. `sub` is the Supabase user's UUID:
+Attach a lock context to any [`encryptedSupabase`](/reference/stack/supabase) query with `.withLockContext()`. `sub` is the Supabase user's UUID:
 
 ```typescript
-import { LockContext } from "@cipherstash/stack/identity"
 import { db } from "./lib/db"
 
-const lockContext = new LockContext({ context: { identityClaim: ["sub"] } })
+const lockContext = { identityClaim: ["sub"] }
 
 // Insert — the value is bound to the signed-in user's `sub` claim
 await db.from("patients")
@@ -91,7 +96,7 @@ const { data } = await db.from("patients")
 ```
 
 <Callout type="info">
-The query builder's `.withLockContext()` takes a `LockContext` instance. The core `Encryption` client's operations take a plain object instead, as `.withLockContext({ identityClaim: ["sub"] })`. The two surfaces differ.
+The query builder accepts either the plain `{ identityClaim: ["sub"] }` shape shown above or a `LockContext` instance. The plain shape is sufficient for new code.
 </Callout>
 
 ZeroKMS resolves the claim's *value* from the token that authenticated the request — the federated Supabase identity — so no separate identify step or per-operation token is needed. Reading a locked value without a matching context, or as a different user, fails with an encryption error regardless of what RLS allows.
@@ -128,7 +133,7 @@ The strategy's own factory and token errors follow the `@cipherstash/auth` `Resu
   <Card title="Edge Functions" href="/integrations/supabase/edge-functions">
     Run the federation strategy server-side in Supabase Edge Functions.
   </Card>
-  <Card title="encryptedSupabaseV3 reference" href="/reference/stack/supabase">
+  <Card title="encryptedSupabase reference" href="/reference/stack/supabase">
     `.withLockContext()` and `.audit()` on the query builder.
   </Card>
   <Card title="Auth reference" href="/reference/auth">

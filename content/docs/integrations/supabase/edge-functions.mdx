@@ -5,8 +5,8 @@ type: guide
 components: [encryption, platform]
 audience: [developer]
 verifiedAgainst:
-  stack: "1.0.0-rc.0"
-  auth: "0.41.0"
+  stack: "1.0.0"
+  auth: "0.42.0"
 ---
 
 Encryption and decryption must run somewhere your keys and credentials are safe — never in the browser. Supabase Edge Functions are that place: server-side compute next to your database. CipherStash ships a **WebAssembly build** of the SDK for exactly this runtime, so the same encrypt/decrypt code runs in Deno with no native bindings.
@@ -123,7 +123,7 @@ const authStrategy = OidcFederationStrategy.create(
     Federation and identity-locked encryption — the full identity story.
   </Card>
   <Card title="Quickstart" href="/integrations/supabase/quickstart">
-    The standard (Node) setup with the encryptedSupabaseV3 wrapper.
+    The standard (Node) setup with the encryptedSupabase wrapper.
   </Card>
   <Card title="Stack reference" href="/reference/stack">
     The core Encryption client API used here.

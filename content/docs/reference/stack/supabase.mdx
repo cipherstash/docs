@@ -1,15 +1,15 @@
 ---
 title: Supabase wrapper
-description: "The canonical encryptedSupabaseV3 reference: connect-time introspection, the full query-builder surface, and how each filter maps to an encrypted index term."
+description: "The canonical encryptedSupabase reference: connect-time introspection, the full query-builder surface, and how each filter maps to an encrypted index term."
 type: reference
 components: [encryption, eql]
 audience: [developer]
 verifiedAgainst:
-  stack: "1.0.0-rc.0"
-  eql: "3.0.0"
+  stack: "1.0.0"
+  eql: "3.0.2"
 ---
 
-`encryptedSupabaseV3` wraps a `@supabase/supabase-js` client so that queries on encrypted columns work like queries on plaintext ones. Mutations are encrypted before they leave your app, filter values are encrypted into the matching index term, and results are decrypted on the way back. You keep writing `.eq()`, `.gt()`, `.order()`, and the wrapper handles the encryption on both sides of every call.
+`encryptedSupabase` wraps a `@supabase/supabase-js` client so that queries on encrypted columns work like queries on plaintext ones. Mutations are encrypted before they leave your app, filter values are encrypted into the matching index term, and results are decrypted on the way back. You keep writing `.eq()`, `.gt()`, `.order()`, and the wrapper handles the encryption on both sides of every call.
 
 This page is the single source of truth for the wrapper's API. The [Supabase integration](/integrations/supabase) shows it in context; the [EQL reference](/reference/eql) covers the database side it queries against.
 
@@ -21,14 +21,14 @@ npm install @cipherstash/stack @cipherstash/stack-supabase @supabase/supabase-js
 
 ## Setup
 
-`encryptedSupabaseV3` **introspects your database when you call it**. It reads the column types, finds the ones typed as EQL v3 domains, and derives each column's encryption config from the domain. The database already records which columns are encrypted and what they can do, so you do not declare it a second time.
+`encryptedSupabase` **introspects your database when you call it**. It reads the column types, finds the ones typed as EQL v3 domains, and derives each column's encryption config from the domain. The database already records which columns are encrypted and what they can do, so you do not declare it a second time.
 
 That makes it async, and it makes `.from()` take a table name and nothing else.
 
 ```typescript
-import { encryptedSupabaseV3 } from "@cipherstash/stack-supabase"
+import { encryptedSupabase } from "@cipherstash/stack-supabase"
 
-const supabase = await encryptedSupabaseV3(
+const supabase = await encryptedSupabase(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_ANON_KEY!,
 )
@@ -42,7 +42,7 @@ const { data, error } = await supabase
 Introspection needs a direct Postgres connection, which is a different credential from the Supabase URL and anon key. It reads `DATABASE_URL` from the environment, or `options.databaseUrl` if you pass it.
 
 ```typescript
-const supabase = await encryptedSupabaseV3(supabaseUrl, supabaseKey, {
+const supabase = await encryptedSupabase(supabaseUrl, supabaseKey, {
   databaseUrl: process.env.PG_URL,
 })
 ```
@@ -50,7 +50,7 @@ const supabase = await encryptedSupabaseV3(supabaseUrl, supabaseKey, {
 Pass an existing client instead of a URL and key when you already build one, for example to attach a Supabase Auth session:
 
 ```typescript
-const supabase = await encryptedSupabaseV3(supabaseClient, {
+const supabase = await encryptedSupabase(supabaseClient, {
   databaseUrl: process.env.PG_URL,
 })
 ```
@@ -100,7 +100,7 @@ The capability model is the same one the database enforces through [EQL's domain
 Without `schemas`, rows are `Record<string, unknown>` and any table name is accepted. Declare a table and `.from()` returns a typed builder for it, with row types, filter-value types, and capability-narrowed methods. Declared tables are also verified against the live database before the client is handed back, so a column that was dropped or retyped fails at startup rather than at the first query.
 
 ```typescript
-import { encryptedSupabaseV3 } from "@cipherstash/stack-supabase"
+import { encryptedSupabase } from "@cipherstash/stack-supabase"
 import { encryptedTable, types } from "@cipherstash/stack/eql/v3"
 
 const users = encryptedTable("users", {
@@ -108,7 +108,7 @@ const users = encryptedTable("users", {
   age: types.IntegerOrd("age"),
 })
 
-const supabase = await encryptedSupabaseV3(supabaseUrl, supabaseKey, {
+const supabase = await encryptedSupabase(supabaseUrl, supabaseKey, {
   schemas: { users },
 })
 
@@ -221,13 +221,13 @@ Prefer `.matches()` in new code — it is the operation that actually runs, and 
 
 ## Ordering and pagination
 
-`.order()` on an `_ord` or `text_search` column sorts on the encrypted ordering terms, which is exactly what that capability exists for. See [ordering encrypted values](/reference/eql/sorting). `.limit()`, `.range()`, `.single()`, `.maybeSingle()`, and `.csv()` behave as in supabase-js.
+`.order()` on an `_ord` or `text_search` column sorts on the encrypted ordering terms, which is exactly what that capability exists for. See [ordering encrypted values](/reference/eql/sorting). `.limit()`, `.range()`, `.single()`, and `.maybeSingle()` behave as in supabase-js.
 
 ```typescript
 await supabase.from("users").select("id, email, age").order("age", { ascending: false }).limit(20)
 ```
 
-Ordering a column without an ordering term does not error. It sorts on the raw stored payload, which is meaningless.
+Ordering a storage-only, equality-only, match-only, or `_ord_ore` encrypted column throws instead of sorting the raw stored payload. `.csv()` also throws because PostgREST serializes the rows before the wrapper can decrypt them; select rows normally and serialize the plaintext result in your application.
 
 ## Identity and audit
 

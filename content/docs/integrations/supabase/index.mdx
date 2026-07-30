@@ -9,8 +9,8 @@ integration:
   setup: dashboard-required
   pairsWith: [drizzle, prisma-next, clerk]
 verifiedAgainst:
-  eql: "3.0.0"
-  stack: "1.0.0-rc.0"
+  eql: "3.0.2"
+  stack: "1.0.0"
 ---
 
 import { faqPrivacy, faqScaling, faqKms, faqRlsVsEncryption, faqFreeTier } from "@/components/faq/shared";
@@ -101,13 +101,13 @@ Encrypted columns and RLS compose — they solve different problems:
 - **RLS** decides *which rows* a role may query. It's enforced in the database, on whatever the database stores.
 - **Encryption** decides *whether a value can be read at all*. Keys stay outside the database, so anything that bypasses RLS — a leaked `service_role` key, an over-broad policy, a stolen backup, direct disk access — yields ciphertext, not plaintext.
 
-Run both. Keep writing policies exactly as before; the `encryptedSupabaseV3` wrapper goes through your own supabase-js client, so the caller's JWT and your policies apply to every query. Policies can freely reference *non-encrypted* columns (`user_id`, `tenant_id`, timestamps). Policies **cannot usefully compare encrypted values to plaintext** — the database never sees plaintext, so keep RLS predicates on plaintext columns and encrypted-value filtering in your queries.
+Run both. Keep writing policies exactly as before; the `encryptedSupabase` wrapper goes through your own supabase-js client, so the caller's JWT and your policies apply to every query. Policies can freely reference *non-encrypted* columns (`user_id`, `tenant_id`, timestamps). Policies **cannot usefully compare encrypted values to plaintext** — the database never sees plaintext, so keep RLS predicates on plaintext columns and encrypted-value filtering in your queries.
 
 One practical pattern: leave your row-ownership predicate on a plaintext `user_id uuid` column, and encrypt the *contents* of the row. RLS scopes the rows to `auth.uid()`; CipherStash makes their contents unreadable to everything except your app. To go one step further and make a row's contents decryptable *only* by its owner — even to your own service role — see [Supabase Auth](/integrations/supabase/auth).
 
 ## Connections and pooling
 
-The `encryptedSupabaseV3` wrapper talks to Supabase over PostgREST (your existing `SUPABASE_URL`), so connection pooling concerns don't change — nothing about encryption touches the connection layer. It does open one direct Postgres connection at startup, over `DATABASE_URL`, to introspect your encrypted columns. If you also connect to the database directly (migrations, [CipherStash Proxy](/reference/proxy), or an ORM like [Drizzle](/integrations/drizzle)), use the same connection strings you'd use without encryption; EQL is passive SQL and has no session requirements. The direct-connection path is covered in [Quickstart → Using an ORM instead](/integrations/supabase/quickstart#using-an-orm-instead).
+The `encryptedSupabase` wrapper talks to Supabase over PostgREST (your existing `SUPABASE_URL`), so connection pooling concerns don't change — nothing about encryption touches the connection layer. It does open one direct Postgres connection at startup, over `DATABASE_URL`, to introspect your encrypted columns. If you also connect to the database directly (migrations, [CipherStash Proxy](/reference/proxy), or an ORM like [Drizzle](/integrations/drizzle)), use the same connection strings you'd use without encryption; EQL is passive SQL and has no session requirements. The direct-connection path is covered in [Quickstart → Using an ORM instead](/integrations/supabase/quickstart#using-an-orm-instead).
 
 ## Working in the dashboard
 
@@ -187,6 +187,7 @@ The hub emits the `CS_*` credentials block for your app's environment, ready to 
 ## The rest of this section
 
 - **[Quickstart](/integrations/supabase/quickstart):** the end-to-end walkthrough — install EQL, wrap your client, and convert two live plaintext columns to encrypted ones — plus the direct-connection path if you use Drizzle or Prisma.
+- **[supabase-js](/integrations/supabase/supabase-js):** create the encrypted client, then insert, select, filter, and order encrypted columns with the familiar query builder.
 - **[Supabase Auth](/integrations/supabase/auth):** federate the signed-in session so encryption authenticates as the user, and optionally lock decryption to their identity.
 - **[Edge Functions](/integrations/supabase/edge-functions):** run encryption server-side through the WebAssembly build.
 - **[Key management and audit logging](/security/audit-logging):** per-value keys and rotation through CipherStash ZeroKMS, a decryption access trail out of the box, optional Bring Your Own Key, and FIPS and SOC 2 compliance.
@@ -240,13 +241,16 @@ The hub emits the `CS_*` credentials block for your app's environment, ready to 
   <Card title="Quickstart" href="/integrations/supabase/quickstart">
     The end-to-end walkthrough: install EQL, wrap your client, and encrypt two columns that already hold live data.
   </Card>
+  <Card title="supabase-js" href="/integrations/supabase/supabase-js">
+    Insert, select, filter, and order encrypted columns through the Supabase JavaScript client.
+  </Card>
   <Card title="Supabase Auth" href="/integrations/supabase/auth">
     Federate the Supabase session and lock decryption to the authenticated user.
   </Card>
   <Card title="Edge Functions" href="/integrations/supabase/edge-functions">
     Run encryption server-side in Supabase Edge Functions.
   </Card>
-  <Card title="encryptedSupabaseV3 reference" href="/reference/stack/supabase">
+  <Card title="encryptedSupabase reference" href="/reference/stack/supabase">
     The complete wrapper API: every filter, response shapes, and how it works.
   </Card>
 </Cards>
