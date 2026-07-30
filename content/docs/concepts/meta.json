@@ -1,5 +1,11 @@
 {
   "title": "Concepts",
   "icon": "Lightbulb",
-  "pages": ["index", "...", "compare"]
+  "pages": [
+    "!index",
+    "searchable-encryption",
+    "key-management",
+    "...",
+    "compare"
+  ]
 }
