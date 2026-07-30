@@ -15,7 +15,7 @@ This page is the single reference for CipherStash's cryptographic design. Every 
 |---|---|---|
 | Data encryption | AES-256-GCM-SIV | Authenticated encryption with nonce-misuse resistance |
 | Equality search terms | HMAC-SHA-256 | Deterministic terms for exact-match lookups |
-| Range and sorting terms | Block ORE | Order-revealing encryption ([Lewi-Wu 2016](https://eprint.iacr.org/2016/612)), with enhancements from [Bogatov et al. 2018](https://arxiv.org/abs/1810.05135) |
+| Range and sorting terms | CLLW OPE or block ORE | EQL defaults to a directly sortable CLLW order-preserving term; block ORE is available as a pinned alternative ([Lewi-Wu 2016](https://eprint.iacr.org/2016/612), [Bogatov et al. 2018](https://arxiv.org/abs/1810.05135)) |
 | Free-text search terms | Encrypted Bloom filters | Trigram tokenization ([Nojima/Kadobayashi 2009](https://link.springer.com/chapter/10.1007/978-3-642-04474-8_17), [Chum/Zhang 2017](https://link.springer.com/chapter/10.1007/978-3-319-66399-9_15)) |
 | Payload integrity | BLAKE3 | Structure validation of the encrypted payload |
 | Payload encoding | MessagePack + Base85 | Compact binary serialization, stored as `jsonb` in PostgreSQL |
@@ -130,7 +130,7 @@ An attacker must compromise **both** the ZeroKMS authority key and your client k
 3. ZeroKMS re-encrypts under the authority key and returns the key seed for that ID.
 4. The SDK processes the seed with the client key, then derives the data key from the result, locally.
 5. The SDK encrypts the plaintext with AES-256-GCM-SIV.
-6. If the column declares searchable capability, the SDK generates the index terms (HMAC, ORE, Bloom filter).
+6. If the column declares searchable capability, the SDK generates the index terms (HMAC, CLLW OPE or block ORE, Bloom filter).
 7. The SDK packs ciphertext and index terms into an [EQL payload](/reference/eql/core-concepts).
 8. The data key is discarded.
 9. The application stores the payload in PostgreSQL.
@@ -144,12 +144,12 @@ An attacker must compromise **both** the ZeroKMS authority key and your client k
 ### Query path
 
 1. The application encrypts a search term.
-2. The SDK generates the appropriate index term (HMAC for equality, ORE for range and ordering, Bloom filter for free text).
+2. The SDK generates the appropriate index term (HMAC for equality, CLLW OPE or block ORE for range and ordering, Bloom filter for free text).
 3. PostgreSQL compares encrypted terms using [EQL](/reference/eql) operators. The database never sees plaintext.
 
 ## What querying encrypted data reveals
 
-Searchable encryption is a trade. Each index term reveals bounded information to whoever can read the database: HMAC terms reveal equality and therefore frequency, ORE terms reveal relative order, and Bloom filter terms reveal probabilistic token membership.
+Searchable encryption is a trade. Each index term reveals bounded information to whoever can read the database: HMAC terms reveal equality and therefore frequency, OPE and ORE terms reveal relative order, and Bloom filter terms reveal probabilistic token membership.
 
 That leakage model is documented once, in [Searchable encryption](/concepts/searchable-encryption), with per-term detail and guidance on when the trade is not worth making. Assess it as part of your threat model. If the ordering or frequency of a column's values is itself sensitive, encrypt that column without a searchable index and filter after decryption.
 

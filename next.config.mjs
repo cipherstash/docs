@@ -33,6 +33,13 @@ const config = {
         destination: "/get-started/quickstart",
         permanent: false,
       },
+      // Concepts is a non-clickable sidebar group with no landing page.
+      // Keep its direct URL useful without rendering a synthetic Overview.
+      {
+        source: "/concepts",
+        destination: "/concepts/searchable-encryption",
+        permanent: false,
+      },
       {
         source: "/integrations/prisma-next",
         destination: "/integrations/prisma",

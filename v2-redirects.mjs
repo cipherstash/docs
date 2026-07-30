@@ -48,7 +48,7 @@ export const v2Redirects = [
   },
   {
     source: "/stack/cipherstash/encryption/identity",
-    destination: "/concepts/identity-aware-encryption",
+    destination: "/solutions/provable-access",
     permanent: false,
   },
   {

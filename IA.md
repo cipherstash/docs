@@ -141,7 +141,6 @@ Concepts
 ├─ Searchable encryption      canonical leakage model
 ├─ EQL                        typed-column model
 ├─ Key management
-├─ Identity-aware encryption
 ├─ Threat modelling
 └─ Compare                    aws-kms · fhe · rls-and-tde · hashicorp-vault
 Guides
@@ -198,7 +197,7 @@ layer, not a layer every Stack page sits on.
   ciphertext queryable there — but Stack also encrypts general-purpose values
   and non-Postgres stores (e.g. DynamoDB) with no EQL at all.
 - Start here: Quickstart · Reference → Stack SDK (client + configuration)
-- Concepts: application-level encryption · searchable encryption · identity-aware encryption
+- Concepts: application-level encryption · searchable encryption · key management
 - Guides: schema design · encrypt existing data · testing & CI · serverless & bundling
 - Reference: `/reference/stack/*` (overview · usage · generated package API)
 - Security: `/security/stack-sdk`
@@ -232,7 +231,7 @@ layer, not a layer every Stack page sits on.
 
 - Locator: the base everything relies on — key management (ZeroKMS) and identity-bound access (CTS).
 - Start here: Security → Architecture · Concepts → Key management
-- Concepts: key management · identity-aware encryption
+- Concepts: key management
 - Reference: `/reference/auth/*` (lock-contexts · cts-tokens · oidc · access-keys)
 - Security: architecture · zerokms · cts · availability · audit logging · key ownership
 - Integrations (auto): Clerk · Auth0 · Okta
@@ -261,8 +260,8 @@ queries, not by a subtree:
 
 - The Platform hub gathers all of it — everything above carries `platform`.
 - Faceted search on `integration.category: auth-provider` gives the providers.
-- `/concepts/identity-aware-encryption` is the one explanatory page that ties the
-  concept together in prose; everything else links to it (anti-drift rule).
+- `/solutions/provable-access` is the explanatory page that ties identity-bound
+  access together in prose; everything else links to it (anti-drift rule).
 
 Naming caution: `/reference/auth/*` means the CTS _service_; the `@cipherstash/auth`
 _package_ lives at `/reference/stack/auth`. Two different things both called
@@ -325,10 +324,9 @@ Two notes:
 - [x] Section scaffold 🚧
 - [ ] `/concepts/privacy-first-design`
 - [ ] `/concepts/application-level-encryption` — vs TDE/pgcrypto/RLS
-- [ ] `/concepts/searchable-encryption` — REWRITE with honest leakage model (canonical leakage page)
+- [x] `/concepts/searchable-encryption` — REWRITE with honest leakage model (canonical leakage page)
 - [ ] `/concepts/eql` — the typed-column model (declare capability in the schema)
-- [ ] `/concepts/key-management` — per-value keys, rotation, crypto-shredding
-- [ ] `/concepts/identity-aware-encryption` — lock contexts, CTS (CIP-3330)
+- [x] `/concepts/key-management` — per-value keys, split control, revocation, isolation, and audit
 - [ ] `/concepts/threat-modelling`
 
 ## Comparisons — CIP-3333
