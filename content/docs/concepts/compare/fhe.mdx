@@ -1,0 +1,130 @@
+---
+title: CipherStash vs homomorphic encryption
+navTitle: Homomorphic encryption
+description: "Compare CipherStash searchable encryption with fully homomorphic encryption: supported computations, performance, leakage, PostgreSQL integration, and where each fits."
+type: concept
+components: [encryption, eql]
+audience: [developer, cto, ciso]
+reviewBy: "2027-01-31"
+---
+
+CipherStash is sometimes described as homomorphic encryption for databases. It is not. CipherStash uses several specialized searchable-encryption mechanisms, each built for a database operation such as equality, ordering, range, or fuzzy text matching.
+
+Fully homomorphic encryption (FHE) pursues a more general goal: evaluate arbitrary computations over ciphertext and decrypt the result without revealing the inputs to the computing party.
+
+That difference in ambition drives the practical trade-off. FHE can express computations that CipherStash cannot. CipherStash supports a deliberately narrower query surface that runs inside ordinary PostgreSQL with conventional indexes.
+
+## At a glance
+
+| | Fully homomorphic encryption | CipherStash searchable encryption |
+| --- | --- | --- |
+| Goal | General computation over ciphertext | Practical encrypted database queries |
+| Computation model | Arithmetic or Boolean circuits supported by the FHE scheme | Purpose-built equality, ordering, range, fuzzy-match, and JSON terms |
+| Database integration | Usually custom application and execution layers | PostgreSQL domains, operators, functions, B-tree and GIN indexes through EQL |
+| Information revealed to the data store | Depends on the scheme and surrounding protocol; ciphertext aims to hide inputs and intermediate values | Explicitly reveals equality, order, or probabilistic token overlap for enabled query capabilities |
+| Unsupported today in CipherStash | Arbitrary functions, encrypted `SUM` and `AVG`, general ML inference | Not applicable |
+| Best fit | Computation where hiding inputs from the computing party justifies substantial complexity | OLTP and application search over protected PostgreSQL fields |
+
+## Why specialization is faster
+
+An FHE comparison or equality operation is evaluated as a cryptographic circuit. CipherStash does not evaluate that circuit. It stores a purpose-built term that PostgreSQL can compare or index directly.
+
+For example:
+
+- an equality-enabled column carries an HMAC term;
+- an orderable column carries an OPE or block-ORE term; and
+- a fuzzy-match text column carries an encrypted Bloom-filter term.
+
+The database learns the structure required for that operation, but gains a query path that resembles a normal indexed PostgreSQL query. [Searchable encryption](/concepts/searchable-encryption) explains exactly what each term reveals.
+
+## Primitive benchmark: TFHE and ORE
+
+CipherStash maintains a small open-source benchmark that compares similar primitive operations in the `tfhe` and `ore-rs` libraries. On the recorded Apple M2 run:
+
+| Operation | TFHE | ORE | Approximate difference |
+| --- | ---: | ---: | ---: |
+| Encrypt one value | 11.3 ms | 374 µs | 30x |
+| Equality | 151 ms | 756 ns | 200,000x |
+| Greater than | 162 ms | 750 ns | 215,000x |
+| Less than | 166 ms | 755 ns | 220,000x |
+
+These are **primitive microbenchmarks**, not a claim that every FHE system or every CipherStash query has those timings. They compare one TFHE implementation with one ORE implementation on one machine. The harness and full results are published at [cipherstash/tfhe-ore-bench](https://github.com/cipherstash/tfhe-ore-bench).
+
+The comparison illustrates why a specialized predicate can be dramatically cheaper than evaluating a general encrypted circuit. End-to-end database performance also includes planning, index traversal, row retrieval, network time, and client decryption.
+
+## Database performance
+
+EQL's database benchmarks compare encrypted columns with plaintext PostgreSQL using equivalent indexes. At one million rows on the reference machine:
+
+| Query | Encrypted median | Relative to plaintext |
+| --- | ---: | ---: |
+| Exact equality | 0.12 ms | 1.3x |
+| OPE range and ordering | 0.12 ms | 1.2x |
+| Block-ORE range and ordering | 0.52 ms | 5.2x |
+| JSON containment | 0.40 ms | 1.4x |
+
+Those results measure EQL v3 on PostgreSQL 17, not the SDK-to-database round trip. Methodology, scaling results, ingest performance, and reproduction commands are in [Benchmarks](/reference/benchmarks).
+
+## What CipherStash supports
+
+EQL v3 column domains declare the searchable capability stored with each value:
+
+| Capability | Typical operations | Stored structure |
+| --- | --- | --- |
+| Equality | `=`, `<>`, `IN`, equijoins, `GROUP BY`, `DISTINCT` | HMAC equality term, or an equality-lossless ordering term for some scalar types |
+| Ordering and range | `<`, `<=`, `>`, `>=`, `BETWEEN`, `ORDER BY`, `MIN`, `MAX` | CLLW OPE or block-ORE term |
+| Fuzzy text match | `@@` | Encrypted Bloom-filter term |
+| JSON search | Path equality, range, and containment | Per-path searchable terms |
+
+The full type and operator surface is in [EQL core concepts](/reference/eql/core-concepts).
+
+CipherStash does not currently support arithmetic over encrypted values. `SUM`, `AVG`, multiplication, and arbitrary user-defined computations require decryption at the application boundary or a different cryptographic system. That boundary is intentional rather than hidden behind an inefficient fallback.
+
+## Leakage is the central trade-off
+
+FHE is designed so the computing party can evaluate a supported circuit without learning the plaintext inputs or intermediate values. Its practical security still depends on the complete protocol, including who holds keys, which outputs are revealed, and whether access patterns are visible.
+
+CipherStash makes a different bargain. A column stores only the terms required by its declared query capabilities:
+
+- equality terms reveal which encrypted values repeat;
+- ordering terms reveal relative order; and
+- fuzzy-match terms reveal probabilistic token overlap.
+
+This structure is what lets PostgreSQL use ordinary index machinery. Teams should enable only the capabilities the application actually needs, especially for low-cardinality or highly predictable data.
+
+## Operational differences
+
+CipherStash keeps the database model familiar:
+
+- encrypted values are JSON-backed EQL domains;
+- ordinary SQL operators express supported queries;
+- B-tree and GIN indexes accelerate the corresponding terms;
+- the Stack SDK, ORM integrations, or Proxy encrypt query operands; and
+- PostgreSQL never receives the data key or plaintext operand.
+
+FHE applications generally need a computation expressed for a particular scheme or compiler, ciphertext parameter management, evaluation-key distribution, and an execution environment sized for the circuit. That can be the correct engineering choice when the computation itself must remain hidden, but it is a different system from adding encrypted predicates to an existing relational application.
+
+## Which should you use?
+
+### FHE is the better fit when
+
+- an untrusted compute service must evaluate a genuinely general function over private inputs;
+- the required computation cannot be reduced to CipherStash's supported query capabilities;
+- encrypted inference, private analytics, or multiparty computation is central to the product; and
+- the latency, ciphertext size, and operational complexity fit the workload.
+
+### CipherStash is the better fit when
+
+- the application needs equality, range, ordering, fuzzy matching, or JSON search over protected fields;
+- queries must run in standard PostgreSQL and work with existing SQL tooling;
+- low-latency OLTP behavior matters; and
+- the team accepts the explicit leakage profile of the selected capabilities.
+
+The choice is not “strong cryptography versus weak cryptography.” It is general encrypted computation versus specialized encrypted queries with different performance and disclosure properties.
+
+## Related
+
+- [Searchable encryption](/concepts/searchable-encryption)
+- [EQL reference](/reference/eql)
+- [EQL benchmarks](/reference/benchmarks)
+- [TFHE/ORE benchmark source](https://github.com/cipherstash/tfhe-ore-bench)

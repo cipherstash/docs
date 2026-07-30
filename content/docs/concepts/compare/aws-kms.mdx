@@ -1,0 +1,103 @@
+---
+title: CipherStash vs AWS KMS
+navTitle: AWS KMS
+description: "Compare AWS KMS envelope encryption with CipherStash ZeroKMS: trust boundaries, per-value keys, batching, audit, searchable encryption, and where each fits."
+type: concept
+components: [encryption, platform]
+audience: [developer, cto, ciso]
+reviewBy: "2027-01-31"
+---
+
+AWS Key Management Service and CipherStash overlap at key management, but they operate at different layers.
+
+AWS KMS is a general-purpose cloud key service. It protects root keys in AWS-managed hardware security modules and performs cryptographic operations under IAM control. CipherStash is an application-data protection system: the Stack SDK or CipherStash Proxy encrypts individual values, while ZeroKMS supplies one half of a split key-derivation process.
+
+They are often complementary. AWS KMS is a strong fit for infrastructure encryption and conventional envelope encryption. CipherStash is designed for field-level application data that needs per-value isolation, searchable ciphertext, and a key service that cannot decrypt the data by itself.
+
+## The architectural difference
+
+The conventional AWS KMS pattern is envelope encryption:
+
+1. The application asks KMS to generate or unwrap a data encryption key.
+2. KMS returns the plaintext data key to the authorized application.
+3. The application encrypts data locally.
+4. It stores the wrapped copy of the data key beside the ciphertext.
+5. Decryption sends the wrapped key back to KMS to recover the plaintext data key.
+
+ZeroKMS does not return a data key:
+
+1. ZeroKMS produces a key seed from its authority key and the value's key ID.
+2. The application processes that seed with a client key that never leaves its environment.
+3. A unique data key comes into existence locally for one value.
+4. The data key is discarded after the operation; it is never stored or transmitted.
+
+The full mechanism is described in [Cryptography](/security/cryptography#how-a-data-key-is-produced).
+
+| Property | AWS KMS envelope encryption | CipherStash ZeroKMS |
+| --- | --- | --- |
+| Root of trust | KMS key protected by AWS-managed HSMs | ZeroKMS authority key plus a client key held by the application |
+| Material returned to the client | Plaintext and wrapped data key when using `GenerateDataKey`, or a plaintext key from `Decrypt` | A key seed that is unusable without the client key |
+| Data-key persistence | Wrapped data key is normally stored with the ciphertext | Data key is never stored; the payload carries a reproducible key ID |
+| Key granularity | Chosen by the application; keys are commonly reused or cached | Unique data key for every encrypted value |
+| Server acting alone | KMS can perform an authorized decrypt operation | ZeroKMS cannot derive a usable data key without the client side of the split |
+
+## Trust and compromise
+
+AWS KMS keeps key material inside its managed boundary and gives customers detailed IAM policies, grants, encryption context, rotation, and CloudTrail integration. The application still needs credentials that authorize KMS operations, and an authorized KMS response contains the plaintext data key or plaintext data.
+
+ZeroKMS separates the capability across two systems. Stealing only the application's client key does not permit offline decryption of historical ciphertext, because the attacker still needs an authorized ZeroKMS interaction. Compromising only ZeroKMS is also insufficient because it never receives the client key.
+
+A live attacker controlling an authorized application can still request operations available to that application until access is revoked. The difference is that the capability remains scoped by keyset and authorization, is observed outside the application, and cannot be copied once as a reusable master key. See the [ZeroKMS trust model](/security/cryptography#trust-model).
+
+## Per-value keys without data-key caching
+
+AWS KMS cryptographic APIs operate on individual requests and share regional request quotas. AWS recommends data-key caching when applications need to reduce `GenerateDataKey` traffic. Caching improves throughput by allowing one plaintext data key to protect multiple values, but it also increases the amount of data that key can decrypt.
+
+ZeroKMS batches the server-side work, then derives each value's distinct key locally. A bulk operation therefore avoids one network round trip per value without turning the batch into one cryptographic failure domain.
+
+This distinction matters for reads as well as writes. With envelope encryption, independently keyed values require their wrapped keys to be unwrapped. Reusing cached data keys reduces those calls only by placing more values under each reusable key. ZeroKMS retains per-value granularity across scattered query results.
+
+## Audit granularity
+
+CloudTrail can record the KMS API operation, principal, KMS key, and request context. If one unwrapped or cached data key decrypts many application values locally, KMS cannot infer which of those values the application read.
+
+CipherStash key derivation is tied to the value's key ID and keyset. ZeroKMS participates before plaintext recovery, so the independent audit event follows the same per-value boundary as the encryption design. When federated identity is used, that event can also be associated with the authenticated user and lock context.
+
+## Searching encrypted data
+
+AWS KMS encrypts and decrypts bytes; it does not make ciphertext queryable. Building searchable fields on top of envelope encryption requires a separate indexing design, query transformation, and leakage analysis.
+
+CipherStash includes that layer. The client emits ciphertext plus only the searchable terms declared for the column, and [EQL](/reference/eql) gives PostgreSQL typed equality, ordering, range, and fuzzy-match operations. The trade-offs of those terms are covered in [Searchable encryption](/concepts/searchable-encryption).
+
+## Performance and cost model
+
+AWS KMS charges for customer-managed keys and API use; cryptographic operations also consume regional request quotas. The exact price and quota depend on key type and region, so production estimates should use the current [AWS KMS pricing](https://aws.amazon.com/kms/pricing/) and [request quota](https://docs.aws.amazon.com/kms/latest/developerguide/requests-per-second.html) documentation.
+
+CipherStash moves repeated work into local derivation and supports bulk operations. That makes its network cost track the batch rather than the number of values in the batch. Database query performance is a separate concern: published EQL measurements are in [Benchmarks](/reference/benchmarks).
+
+## Which should you use?
+
+### AWS KMS is usually the better fit when
+
+- you are encrypting AWS infrastructure such as S3 objects, EBS volumes, or service-managed resources;
+- AWS IAM, CloudTrail, and regional KMS controls are already the operational standard; or
+- the application does not need to query encrypted fields.
+
+### CipherStash is usually the better fit when
+
+- performance is a primary requirement: ZeroKMS batches the server-side work and derives per-value keys locally, avoiding one KMS network operation per value;
+- individual application values need independent keys;
+- the key service must not be capable of decrypting data by itself;
+- encrypted PostgreSQL fields still need equality, range, ordering, or fuzzy-match queries;
+- application identity needs to participate in cryptographic authorization; or
+- batching must not require reusing data keys.
+
+### Use both when
+
+AWS KMS protects infrastructure and root key material while CipherStash protects sensitive fields inside the application. CipherStash does not replace disk, volume, object, or backup encryption; those layers protect different failure modes.
+
+## Related
+
+- [Cryptography and key derivation](/security/cryptography)
+- [Searchable encryption](/concepts/searchable-encryption)
+- [AWS KMS concepts](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html)

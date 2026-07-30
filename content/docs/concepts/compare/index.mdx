@@ -1,10 +1,22 @@
 ---
 title: Comparisons
-navTitle: Overview
-description: "How CipherStash compares to other approaches to protecting data."
+description: "How CipherStash compares with cloud key management, HashiCorp Vault, hardware security modules, and fully homomorphic encryption."
 type: concept
 ---
 
-This section is being built as part of the docs V2 overhaul ([CIP-3307](https://linear.app/cipherstash/issue/CIP-3307)). Track progress in [IA.md](https://github.com/cipherstash/docs/blob/v2/IA.md).
+CipherStash combines application-level encryption, zero-trust key management, and purpose-built searchable encryption. These pages compare that combination with tools that overlap with one part of the system.
 
-Until it lands, current documentation lives in the [existing docs](/stack).
+<Cards>
+  <Card title="CipherStash vs AWS KMS" href="/concepts/compare/aws-kms">
+    Centralized cloud key management compared with ZeroKMS split control and per-value key derivation.
+  </Card>
+  <Card title="CipherStash vs HashiCorp Vault" href="/concepts/compare/hashicorp-vault">
+    Vault Transit direct and envelope modes compared with ZeroKMS and searchable encryption.
+  </Card>
+  <Card title="ZeroKMS vs hardware security modules" href="/concepts/compare/zerokms-vs-hsm">
+    Where HSMs fit, what operating one entails, and how the two approaches can complement each other.
+  </Card>
+  <Card title="CipherStash vs homomorphic encryption" href="/concepts/compare/fhe">
+    Specialized encrypted database queries compared with general computation over ciphertext.
+  </Card>
+</Cards>
