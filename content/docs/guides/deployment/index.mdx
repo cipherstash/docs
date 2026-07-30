@@ -21,7 +21,9 @@ For the detailed dual-write, backfill, and cutover procedure for populated colum
 
 ## Credentials at build and runtime
 
-An encryption client constructed at module load may authenticate when a build tool imports that module. In that case, `CS_WORKSPACE_CRN`, `CS_CLIENT_ID`, `CS_CLIENT_KEY`, and `CS_CLIENT_ACCESS_KEY` must be available during both the build and runtime phases.
+<CipherStashCredentials />
+
+An encryption client constructed at module load may authenticate when a build tool imports that module. In that case, the four `CS_*` variables shown above must be available during both the build and runtime phases.
 
 Do not let a local `stash auth login` session mask missing deployment credentials. Reproduce the production build in a clean environment that has only the secrets explicitly supplied by the deployment platform.
 

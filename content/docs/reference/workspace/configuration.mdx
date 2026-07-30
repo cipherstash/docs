@@ -7,19 +7,11 @@ components: [platform, encryption]
 
 A workspace is identified by its **CRN** and accessed with a **client key** and an **access key**. How those credentials reach your application differs between local development and production.
 
-## Local development
+## Credentials
 
-For local development, credentials are handled automatically by device-based authentication. Run `stash init` to set up your device:
+<CipherStashCredentials />
 
-```bash cta cta-type="quickstart" example-id="stash-init-workspace"
-npx stash init
-```
-
-This creates a device-backed client key with access to the workspace's default keyset. No environment variables are needed.
-
-## Production credentials
-
-In production and CI/CD, a workspace is configured with explicit credentials:
+## What the deployment variables mean
 
 | Credential | Description |
 |---|---|
@@ -28,9 +20,7 @@ In production and CI/CD, a workspace is configured with explicit credentials:
 | Client key | Your half of the dual-party key split |
 | Access key | Authenticates API calls to CipherStash |
 
-These are the same credentials the [Stack SDK](/reference/stack) and [Proxy](/reference/proxy/configuration) consume. For the full set of environment variables and programmatic options, see the [Stack SDK configuration reference](/reference/stack).
-
-See [going to production](/stack/deploy/going-to-production) for a step-by-step guide to generating them.
+These are the same credentials the [Stack SDK](/reference/stack) and [Proxy](/reference/proxy/configuration) consume. For build-time availability, environment separation, and production rollout gates, see [Deployment](/guides/deployment).
 
 ## Keysets
 

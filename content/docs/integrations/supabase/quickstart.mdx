@@ -58,7 +58,7 @@ If the command generates a Supabase migration instead of applying EQL directly, 
 npx stash eql status
 ```
 
-The native Stack client automatically uses the developer profile created by this login. You do not need `CS_*` machine credentials for local development; those are for deployed environments.
+The native Stack client automatically uses the developer profile created by this login. You do not need the four deployment environment variables for local development. When you deploy, [choose a deployment credential source](/guides/deployment#credentials-at-build-and-runtime).
 
 <Callout type="idea">
 **Using an agent?** An agent can drive the same setup. If no developer profile exists, it should start `npx stash auth login --json --region <region> --supabase`, show you the returned verification URL, and leave the command running until authorization completes. It can then run `npx stash init --supabase --region <region>`.

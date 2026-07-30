@@ -31,6 +31,12 @@ npx stash eql install
 The v3 install (the default) runs directly against the database and cannot generate a Drizzle migration: `--drizzle` is rejected for a v3 install. EQL is therefore not part of your migration history, so a database rebuilt from migrations will not have it. Re-run the install after a rebuild.
 </Callout>
 
+## Credentials
+
+<CipherStashCredentials />
+
+The native Stack client used below discovers the four `CS_*` variables first, then falls back to the developer profile. Use separate credentials for each deployed environment.
+
 ## Declare the table
 
 The column type *is* the capability. There are no flags to configure. `TextEq` answers equality and nothing else, `IntegerOrd` answers ranges and ordering, `TextMatch` answers free-text containment, and a bare `Text` or `Bigint` is storage-only.

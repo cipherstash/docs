@@ -46,7 +46,11 @@ SUPABASE_ANON_KEY=...
 DATABASE_URL=postgresql://...
 ```
 
-The encryption client also needs a local developer profile created by `stash auth login`, or `CS_*` machine credentials in a deployed environment. The [Quickstart setup](/integrations/supabase/quickstart#initialize-cipherstash) creates and uses the developer profile.
+## Credentials
+
+<CipherStashCredentials />
+
+The [Quickstart setup](/integrations/supabase/quickstart#initialize-cipherstash) creates and uses the developer profile. In CI or a deployed application, add the four `CS_*` variables to the same server environment as the Supabase settings above.
 
 ## Create the client
 

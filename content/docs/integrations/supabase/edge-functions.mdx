@@ -35,13 +35,15 @@ Map the `wasm-inline` entries in your function's `deno.json`:
 Provide the four `CS_*` values explicitly through an env file when serving locally and through Supabase secrets when deployed.
 </Callout>
 
-Provide the `CS_*` credentials when you serve the function. Generate them with `stash env` rather than assembling the file by hand — it prints the deployment variables for the workspace you are authenticated against, so redirect it straight to the env file:
+<CipherStashCredentials />
+
+For an Edge Function, use the CLI or Dashboard option; the developer profile cannot cross into the Deno runtime. To create a dedicated local credential set and write it directly to the function's env file:
 
 ```bash example-id="supabase-edge-stash-env"
-npx stash env > ./supabase/functions/.env.local
+npx stash env --name edge-dev --write ./supabase/functions/.env.local
 ```
 
-`--write` writes to a file instead of stdout if you would rather not redirect. The command is marked experimental, so read what it emits before committing to it — and never commit the file itself. The [CLI reference](/reference/cli/env) has the full flag set.
+Never commit this file. Each successful `stash env` run creates a new credential with a unique name, and the access key cannot be shown again.
 
 Then serve the function against that file:
 
@@ -49,14 +51,7 @@ Then serve the function against that file:
 supabase functions serve --env-file ./supabase/functions/.env.local
 ```
 
-```sh title="supabase/functions/.env.local"
-CS_WORKSPACE_CRN=crn:ap-southeast-2.aws:<workspace-id>
-CS_CLIENT_ID=...
-CS_CLIENT_KEY=...
-CS_CLIENT_ACCESS_KEY=...
-```
-
-For deployed functions, set the same values as [Edge Function secrets](https://supabase.com/dashboard/project/_/settings/functions).
+For deployed functions, add the same four values as [Edge Function secrets](https://supabase.com/dashboard/project/_/settings/functions). Use a separate credential set for production rather than copying the local values.
 
 ## Encrypt and decrypt in a function
 
