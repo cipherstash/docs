@@ -9,7 +9,7 @@ integration:
   setup: code-only
   pairsWith: [supabase, prisma]
 verifiedAgainst:
-  stack: "1.0.0-rc.4"
+  stack: "1.0.0"
   eql: "3.0.4"
 ---
 
@@ -19,16 +19,18 @@ Drizzle keeps its shape. You declare each encrypted column with a concrete EQL t
 
 ```bash cta cta-type="install" example-id="install-drizzle"
 npm install @cipherstash/stack @cipherstash/stack-drizzle drizzle-orm
+npm install --save-dev drizzle-kit
 ```
 
-Then install EQL into your database:
+Add EQL to your Drizzle migration history:
 
 ```bash
-npx stash eql install
+npx stash eql migration --drizzle
+npx drizzle-kit migrate
 ```
 
-<Callout type="warn">
-The v3 install (the default) runs directly against the database and cannot generate a Drizzle migration: `--drizzle` is rejected for a v3 install. EQL is therefore not part of your migration history, so a database rebuilt from migrations will not have it. Re-run the install after a rebuild.
+<Callout type="info">
+`stash eql migration --drizzle` uses your project-local `drizzle-kit` to create a custom migration, then fills it with the EQL v3 install SQL. Pass `--out` if your migration directory is not `drizzle/`. For a direct, out-of-band install instead, run `npx stash eql install`.
 </Callout>
 
 ## Credentials

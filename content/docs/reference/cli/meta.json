@@ -10,6 +10,7 @@
     "wizard",
     "doctor",
     "manifest",
+    "telemetry",
     "---Auth---",
     "auth",
     "---EQL---",
@@ -20,7 +21,7 @@
     "schema",
     "---Encrypt---",
     "encrypt",
-    "---Experimental---",
+    "---Deployment---",
     "env"
   ]
 }

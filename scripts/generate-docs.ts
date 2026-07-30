@@ -16,7 +16,7 @@ const stackConfig: DocsConfig = {
   packageName: "@cipherstash/stack",
   projectName: "@cipherstash/stack",
   repoUrl: "https://github.com/cipherstash/stack.git",
-  sourceRef: "main",
+  sourceRef: "@cipherstash/stack@1.0.0",
   tempDirName: ".tmp-stack",
   baseOutputDir: path.join(
     process.cwd(),

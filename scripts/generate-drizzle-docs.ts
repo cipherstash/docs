@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-/** Generate the Drizzle ORM integration's API reference from Stack main. */
+/** Generate the Drizzle integration's API reference from its Stack 1.0 tag. */
 import path from "node:path";
 import { type DocsConfig, generateDocs } from "./lib/docs-generator.js";
 
@@ -7,7 +7,7 @@ const drizzleConfig: DocsConfig = {
   packageName: "@cipherstash/stack-drizzle",
   projectName: "@cipherstash/stack-drizzle",
   repoUrl: "https://github.com/cipherstash/stack.git",
-  sourceRef: "main",
+  sourceRef: "@cipherstash/stack-drizzle@1.0.0",
   tempDirName: ".tmp-stack-drizzle",
   baseOutputDir: path.join(
     process.cwd(),

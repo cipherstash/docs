@@ -4,16 +4,19 @@ description: "Print the structured, versioned command surface"
 type: reference
 components: [cli]
 verifiedAgainst:
-  cli: "0.17.0"
+  cli: "1.0.0"
 ---
 
-{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v0.17.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v1.0.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
 
 <Callout type="info">
-Generated from **`stash` v0.17.0** via `npx stash@0.17.0 manifest --json`. Run `npx stash@0.17.0 --help` to see the live command surface.
+Generated from **`stash` v1.0.0** via `npx stash@1.0.0 manifest --json`. Run `npx stash@1.0.0 --help` to see the live command surface.
 </Callout>
 
-Print the structured, versioned command surface
+Emit the CLI command surface as data. `--json` produces the machine-
+readable manifest the docs generator and agents consume; without it a
+grouped command list is printed. The manifest is stamped with the CLI
+version, so a page generated from it always names the version it describes.
 
 ```bash
 npx stash manifest [flags]
