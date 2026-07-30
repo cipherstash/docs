@@ -253,9 +253,20 @@ Application logs can also leak encryption keys.
 
 ### Security improvement only marginal
 
-leaky logs - plaintext and keys
-keys visible to both database and app
-Describe what threats we are actually mitigating
+Step back and ask what this encryption actually buys you. Encryption puts a secret out of reach of anyone who doesn't hold the key, which only helps if the key lives somewhere the attacker can't reach. With `pgcrypto`, it doesn't.
 
+The key sits with the data. Every `pgp_sym_encrypt` and `pgp_sym_decrypt` call needs it, so it lives in the application (in an environment variable, in memory, in the query it sends) and passes through the database on every request. Both tiers that hold your plaintext also hold the key. The encryption hasn't moved the secret outside the trust boundary, it has copied the key inside it.
+
+Follow where the key travels and it gets worse. Over the last few sections it has already turned up:
+
+- in the **schema**, baked verbatim into the functional index and every `pg_dump`;
+- in the **database logs**, next to the statements that use it;
+- in the **application**: its environment, its config, its own logs and error reports.
+
+Those are the same places the plaintext and ciphertext already leak to. An attacker who reaches your database host, your backups, or your application doesn't find encryption in the way, they find the key sitting next to the data it unlocks.
+
+So what threat does `pgcrypto` actually mitigate? Essentially one: someone walks off with a copy of the table data and nothing else, no key, no logs, no backups, no application access. That's a narrow slice, and it's the same slice already covered by the at-rest disk encryption that managed Postgres platforms provide (see [RLS and TDE](/how-it-works/compare/rls-and-tde)), without breaking a single query.
+
+That's the trade you're being asked to make: give up equality, ordering, pattern matching, and indexing, in exchange for protection against a threat your platform likely already handles. The problem isn't that `pgcrypto` is built badly. It's that encrypting inside the database, with a key the database has to be handed, can't move the secret anywhere the database can't see. A real improvement needs the encryption and the keys to live somewhere the database doesn't.
 
 [pgcrypto]: https://www.postgresql.org/docs/current/pgcrypto.html
