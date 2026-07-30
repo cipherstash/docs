@@ -1,0 +1,12 @@
+{
+  "title": "Architecture & security",
+  "icon": "Shield",
+  "pages": [
+    "index",
+    "cryptography",
+    "!audit-logging",
+    "cts",
+    "!compliance",
+    "..."
+  ]
+}

@@ -1,0 +1,123 @@
+---
+title: CipherStash vs HashiCorp Vault
+navTitle: HashiCorp Vault
+description: "Why ZeroKMS is a faster and stronger security model than HashiCorp Vault Transit for high-volume application data encryption."
+type: concept
+components: [encryption, platform]
+audience: [developer, cto, ciso]
+reviewBy: "2027-01-31"
+---
+
+HashiCorp Vault is a broad secrets-management and cryptographic platform. The closest comparison with CipherStash is its **Transit secrets engine**, which offers encryption operations without storing the application data.
+
+For high-volume application data encryption, ZeroKMS has two decisive advantages:
+
+1. **Performance:** ZeroKMS was designed to derive a unique key for every value in bulk. A batch requires one service interaction, while final key derivation and encryption happen locally and scale with the application.
+2. **Security:** Vault either receives the plaintext or holds everything required to unwrap its data keys. ZeroKMS never receives plaintext and cannot derive a usable data key without the client key held in your environment.
+
+Vault remains a strong general-purpose platform for secrets, PKI, signing, and centralized cryptographic services. ZeroKMS is the stronger fit when the workload is protecting large volumes of application values.
+
+## Performance is the first difference
+
+Vault Transit supports batching, but the work still follows one of two centralized models.
+
+### Direct Transit centralizes every cryptographic operation
+
+In direct mode, the application sends every plaintext value to Vault. Vault encrypts every value and returns the ciphertext. `batch_input` reduces the number of HTTP round trips, but it does not move the cryptographic work out of the Vault cluster.
+
+Throughput therefore depends on the capacity of the Vault deployment. Scaling application workers does not scale encryption unless the Vault cluster scales with them. Every byte of plaintext also crosses the service boundary in both directions over its lifetime: into Vault for encryption and out of Vault after decryption.
+
+### Transit envelope mode still produces complete data keys
+
+Envelope mode moves the final encryption into the application. Vault generates a plaintext data key plus a wrapped copy, the application encrypts locally, and the wrapped data key is stored with the ciphertext. Decryption sends that wrapped key back to Vault to recover the plaintext data key.
+
+Current Vault versions document a plural `datakeys` endpoint that can return multiple key pairs in one request. That removes the old one-request-per-key limitation, but Vault must still generate and wrap a complete data key for every independently keyed value. The application must persist every wrapped data key and send it back for unwrapping on reads.
+
+### ZeroKMS was designed for per-value bulk encryption
+
+ZeroKMS returns key seeds rather than complete data keys. One bulk service interaction supplies the material for a batch, then the application combines each seed with its client key and derives each value's unique data key locally.
+
+The final derivation and AES operations scale horizontally with the application rather than being concentrated in the key-service cluster. No plaintext data key is transmitted, no wrapped data key is persisted, and performance does not depend on reusing or caching a data key across values.
+
+| Performance property | Vault direct | Vault envelope | ZeroKMS |
+| --- | --- | --- | --- |
+| Network interactions for a batch | One with `batch_input` | One where plural `datakeys` is available | One bulk interaction |
+| Who performs value encryption? | Vault cluster | Application | Application |
+| Server-side work per value | Encrypt or decrypt the value | Generate, wrap, or unwrap a complete data key | Produce seed material; final derivation remains local |
+| Material stored per value | Vault ciphertext | Ciphertext plus wrapped data key | Ciphertext plus non-secret key ID |
+| How encryption throughput scales | Scale the Vault cluster | Scale Vault key generation and application workers | Scale application workers |
+| Does performance require data-key reuse? | A named Transit key is normally shared | Reuse is optional but expands key blast radius | No; every value always receives a unique key |
+
+The exact latency of Vault depends on cluster size, storage, seal configuration, network placement, and mode. The architectural distinction is stable: ZeroKMS keeps the network interaction at batch granularity while distributing the final cryptographic work across the application fleet.
+
+## The security model is the second difference
+
+### Vault direct mode sees plaintext
+
+Direct Transit is encryption as a remote service. The application sends plaintext to Vault and Vault returns it during decryption. Anyone who controls the authorized Vault boundary has a path to both keys and data during the operation.
+
+Policies, audit devices, HSM-backed seals, and operational controls can harden that boundary. They do not remove it from the plaintext trust model.
+
+### Vault envelope mode can unwrap every data key
+
+Envelope encryption keeps application plaintext out of Vault, but Vault still holds the Transit key that unwraps every stored data key. An authorized Vault operation can return a complete plaintext data key without needing cryptographic material held separately by the application.
+
+Envelope mode also introduces durable wrapped-key material that must be stored and mapped to the correct ciphertext. If a plaintext data key is copied from application memory, it remains usable offline for every value protected by that key.
+
+### ZeroKMS splits the decryption capability
+
+ZeroKMS holds an authority key. The application holds a client key that never leaves its environment. Neither side can derive a data key alone, and the two long-lived components are never brought together.
+
+The encrypted payload contains a key ID, not a wrapped data key. Stealing the client key alone does not permit offline decryption of historical ciphertext; ZeroKMS must still authorize and participate in future derivations. Compromising ZeroKMS alone is also insufficient because it never receives the client key.
+
+A live attacker controlling an authorized application can use the operations granted to it until access is revoked. The important difference is that the capability remains **scoped, observable, and revocable** rather than becoming a complete key that can be copied and used offline.
+
+| Security property | Vault direct | Vault envelope | ZeroKMS |
+| --- | --- | --- | --- |
+| Plaintext reaches the key service | Yes | No | No |
+| Key service can enable decryption alone | Yes | Yes, by unwrapping the data key | No |
+| Client-held cryptographic half required | No | No | Yes |
+| Complete data key crosses the network | Not exposed to the application in direct mode | Yes | No |
+| Per-value key material stored | Ciphertext carries the Transit key version | Wrapped data key | Non-secret key ID |
+| Unique key per value | Must be designed through context or separate keys | Must be designed through separate data keys | Always |
+| Offline value of a copied application secret | A Vault token still needs the Vault service | A copied plaintext data key can decrypt every value that reused it | The client key alone cannot derive any historical data key |
+
+The full ZeroKMS mechanism and compromise model are in [Cryptography](/security/cryptography#trust-model).
+
+## Audit granularity
+
+Vault audit devices record requests to the service. In direct mode, a batch records a Transit operation over the batch. In envelope mode, Vault observes data-key generation and unwrapping; how those keys map to application records is left to the application's storage and metadata design.
+
+ZeroKMS makes the value's key ID and keyset part of derivation. Every decryption needs server participation before plaintext recovery, so independent audit follows the same per-value boundary as the key model. Federated identity and lock contexts can also bind that operation to an authenticated end user. See [Provable access control](/solutions/provable-access).
+
+## Searching encrypted data
+
+Vault's convergent encryption can make the same plaintext and context produce the same ciphertext, enabling limited deterministic lookup. It exposes equality directly in the ciphertext and does not provide range, ordering, fuzzy matching, JSON search, or PostgreSQL operator integration by itself.
+
+CipherStash separates randomized ciphertext from purpose-built search terms. The EQL domain selected for a column declares exactly which operations it supports and which structure the database learns. See [Searchable encryption](/concepts/searchable-encryption) for the leakage model and [EQL core concepts](/reference/eql/core-concepts) for the type system.
+
+## Which should you use?
+
+### CipherStash ZeroKMS is usually the better fit when
+
+- **performance is a primary requirement for high-volume field encryption;**
+- the key service must never receive plaintext or possess enough material to decrypt alone;
+- unique per-value keys must not require key caching or reuse;
+- PostgreSQL must query protected fields while they remain encrypted; or
+- key derivation, database types, SDKs, ORM wrappers, audit, and identity binding should work as one system.
+
+### Vault Transit is usually the better fit when
+
+- Vault is already the organization's standard security platform;
+- the workload needs Vault's broader secrets, PKI, signing, HMAC, or tokenization capabilities;
+- centralized encryption inside the Vault boundary is acceptable; or
+- the organization wants to own and operate the complete cryptographic service.
+
+The products can coexist: Vault can manage infrastructure secrets and other cryptographic workloads while CipherStash protects high-volume, queryable application data.
+
+## Related
+
+- [Vault Transit documentation](https://developer.hashicorp.com/vault/docs/secrets/transit)
+- [Vault Transit API](https://developer.hashicorp.com/vault/api-docs/secret/transit)
+- [Cryptography and key derivation](/security/cryptography)
+- [Searchable encryption](/concepts/searchable-encryption)

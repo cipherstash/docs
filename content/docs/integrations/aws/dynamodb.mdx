@@ -1,0 +1,143 @@
+---
+title: DynamoDB
+description: "Encrypt DynamoDB attributes with @cipherstash/stack, including bulk operations and equality lookups over HMAC attributes."
+type: guide
+components: [encryption, platform]
+audience: [developer]
+integration:
+  category: platform
+  setup: code-only
+verifiedAgainst:
+  stack: "1.0.0"
+---
+
+CipherStash's DynamoDB helper encrypts and decrypts items without wrapping the
+AWS SDK. Your application keeps control of every `PutCommand`, `GetCommand`,
+and `QueryCommand`; `encryptedDynamoDB` transforms the item immediately before
+a write and after a read.
+
+DynamoDB does not use EQL. Equality-enabled attributes store an HMAC search
+term alongside the ciphertext so they can participate in key conditions.
+
+## Install
+
+```bash cta cta-type="install" example-id="install-dynamodb"
+npm install @cipherstash/stack @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb
+```
+
+## Define the encrypted attributes
+
+Use the v3 schema builder. `TextEq` produces an equality term; `Text` is
+storage-only.
+
+```typescript filename="encryption.ts"
+import { Encryption } from "@cipherstash/stack"
+import { encryptedDynamoDB } from "@cipherstash/stack/dynamodb"
+import { encryptedTable, types } from "@cipherstash/stack/v3"
+
+export const users = encryptedTable("users", {
+  email: types.TextEq("email"),
+  name: types.Text("name"),
+})
+
+export const encryptionClient = await Encryption({ schemas: [users] })
+export const dynamo = encryptedDynamoDB({ encryptionClient })
+```
+
+For an equality-enabled `email`, the encrypted item contains:
+
+| Attribute | Purpose |
+| --- | --- |
+| `email__source` | Ciphertext used for decryption |
+| `email__hmac` | Equality term used in a partition key, sort key, or GSI |
+
+Non-encrypted attributes pass through unchanged. Ordering and free-text terms
+have no DynamoDB query surface and are not stored.
+
+## Encrypt and write an item
+
+```typescript filename="write-user.ts"
+import { PutCommand } from "@aws-sdk/lib-dynamodb"
+import { docClient } from "./aws"
+import { dynamo, users } from "./encryption"
+
+const encrypted = await dynamo.encryptModel(
+  { pk: "user#1", email: "alice@example.com", name: "Alice", role: "admin" },
+  users,
+)
+
+if (encrypted.failure) throw encrypted.failure
+
+await docClient.send(new PutCommand({
+  TableName: "Users",
+  Item: encrypted.data,
+}))
+```
+
+The result retains `pk` and `role`, replaces `email` with `email__source` and
+`email__hmac`, and replaces `name` with `name__source`.
+
+## Read and decrypt
+
+```typescript filename="read-user.ts"
+import { GetCommand } from "@aws-sdk/lib-dynamodb"
+
+const stored = await docClient.send(new GetCommand({
+  TableName: "Users",
+  Key: { pk: "user#1" },
+}))
+
+const decrypted = await dynamo.decryptModel(stored.Item ?? {}, users)
+if (decrypted.failure) throw decrypted.failure
+
+console.log(decrypted.data.email)
+```
+
+Use `bulkEncryptModels` and `bulkDecryptModels` before `BatchWriteCommand` and
+after `BatchGetCommand` to process many items in one ZeroKMS round trip.
+
+## Query an equality-enabled attribute
+
+Encrypt the operand with the same table and column definition, then use its
+HMAC as the DynamoDB key value:
+
+```typescript filename="find-by-email.ts"
+import { QueryCommand } from "@aws-sdk/lib-dynamodb"
+
+const term = await encryptionClient.encryptQuery("alice@example.com", {
+  table: users,
+  column: users.email,
+})
+
+if (term.failure) throw term.failure
+
+const result = await docClient.send(new QueryCommand({
+  TableName: "Users",
+  IndexName: "EmailIndex",
+  KeyConditionExpression: "email__hmac = :email",
+  ExpressionAttributeValues: { ":email": term.data.hm },
+}))
+
+const decrypted = await dynamo.bulkDecryptModels(result.Items ?? [], users)
+if (decrypted.failure) throw decrypted.failure
+```
+
+An encrypted HMAC attribute can back a table key or GSI. Ciphertext source
+attributes do not support ranges, `begins_with`, or `contains`.
+
+## Read items written by EQL v2
+
+Keep the current v3 table declaration and opt into legacy decoding while old
+items remain:
+
+```typescript
+const decrypted = await dynamo.decryptModel(storedItem, users, {
+  storedEqlVersion: 2,
+})
+```
+
+New writes always use the current format. Remove the option after every legacy
+item has been rewritten.
+
+For every method, option, and return type, see the generated
+[DynamoDB API reference](/reference/stack/api-reference/dynamodb).

@@ -1,0 +1,83 @@
+---
+title: stash auth
+description: "Reference for the `stash auth` commands."
+type: reference
+components: [cli]
+verifiedAgainst:
+  cli: "1.0.0"
+---
+
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v1.0.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
+
+<Callout type="info">
+Generated from **`stash` v1.0.0** via `npx stash@1.0.0 manifest --json`. Run `npx stash@1.0.0 --help` to see the live command surface.
+</Callout>
+
+The `stash auth` command group.
+
+### `auth login`
+
+Runs the OAuth 2.0 device authorization flow:
+1. Pick a region for your workspace.
+2. Approve in the browser — the URL is printed, so it works over SSH/headless.
+3. The CLI polls until you approve, then stores a short-lived token.
+4. Your device is bound to the workspace's default keyset, so later
+   commands authenticate without a fresh login.
+
+```bash
+npx stash auth login [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--region <slug>` | Region to authenticate against (e.g. us-east-1). Skips the interactive region picker. (env: `STASH_REGION`) |
+| `--json` | Emit newline-delimited JSON events instead of prose. The first event (authorization_required) carries the device verification URL for a human to open. Implies no prompt and no browser auto-open. |
+| `--no-open` | Don't auto-open the verification URL in a browser (already implied by --json). |
+| `--supabase` | Track Supabase as the referrer. |
+| `--drizzle` | Track Drizzle as the referrer. |
+| `--prisma` | Track Prisma as the referrer. |
+
+
+#### Examples
+
+```bash
+npx stash auth login
+npx stash auth login --region us-east-1
+npx stash auth login --supabase
+npx stash auth login --region us-east-1 --json
+```
+
+### `auth regions`
+
+List the regions you can authenticate against
+
+```bash
+npx stash auth regions [flags]
+```
+
+#### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--json` | Emit machine-readable [\{ slug, label \}] instead of a text list. |
+
+
+#### Examples
+
+```bash
+npx stash auth regions
+npx stash auth regions --json
+```
+
+## Switching workspaces
+
+`stash` 1.0.0 keeps one active device-session profile at
+`~/.cipherstash/auth.json`. To switch workspaces, run `npx stash auth login`
+again and complete authorization for the target workspace. The new login
+replaces the active session.
+
+`stash init` reuses the active session when it is still valid, so switch
+workspaces before running `init`. There is no separate profile manager or
+workspace-switch command in `stash` 1.0.0.

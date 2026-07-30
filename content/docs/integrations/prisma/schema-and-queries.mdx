@@ -1,0 +1,130 @@
+---
+title: Schema and queries
+description: "CipherStash column constructors, runtime envelopes, and encrypted query operators for Prisma ORM 8."
+type: reference
+components: [encryption, eql]
+audience: [developer]
+integration:
+  category: orm
+  setup: code-only
+verifiedAgainst:
+  prismaNext: "0.16.0"
+  eql: "3.0.4"
+  stack: "1.0.0"
+---
+
+The CipherStash Prisma extension separates the encrypted **column type** from the runtime **value envelope**:
+
+- In `schema.prisma`, a domain-named constructor such as `TextEq()` fixes the Postgres plaintext family and searchable capabilities.
+- In application code, a primitive-named envelope such as `EncryptedString` wraps a plaintext value for encryption.
+
+## Column constructors
+
+Choose the plaintext type first, then the narrowest query capability your application needs.
+
+| Plaintext | Storage only | Equality | Order and range | Free-text only | All text queries |
+| --- | --- | --- | --- | --- | --- |
+| `string` | `Text()` | `TextEq()` | `TextOrd()` | `TextMatch()` | `TextSearch()` |
+| `number` (`int4`) | `Integer()` | `IntegerEq()` | `IntegerOrd()` | — | — |
+| `number` (`int2`) | `Smallint()` | `SmallintEq()` | `SmallintOrd()` | — | — |
+| `bigint` (`int8`) | `BigInt()` | `BigIntEq()` | `BigIntOrd()` | — | — |
+| `number` (`numeric`) | `Numeric()` | `NumericEq()` | `NumericOrd()` | — | — |
+| `number` (`float4`) | `Real()` | `RealEq()` | `RealOrd()` | — | — |
+| `number` (`float8`) | `Double()` | `DoubleEq()` | `DoubleOrd()` | — | — |
+| `Date` (`date`) | `Date()` | `DateEq()` | `DateOrd()` | — | — |
+| `Date` (`timestamp`) | `Timestamp()` | `TimestampEq()` | `TimestampOrd()` | — | — |
+| `boolean` | `Boolean()` | — | — | — | — |
+| JSON document | `Json()` supports containment and JSONPath queries | — | — | — | — |
+
+Every `*Ord()` constructor includes equality. `TextMatch()` provides token matching without equality; `TextSearch()` combines equality, range, ordering, and token matching. Bare constructors such as `Text()` are storage-only.
+
+Each constructor maps directly to an EQL v3 Postgres domain. For example, `cipherstash.DoubleOrd()` creates an `eql_v3_double_ord` column. The type cannot be broadened at query time.
+
+## Runtime envelopes
+
+| Schema family | Write envelope |
+| --- | --- |
+| `Text*` | `EncryptedString.from(value)` |
+| `Integer*`, `Smallint*`, `Numeric*`, `Real*`, `Double*` | `EncryptedNumber.from(value)` |
+| `BigInt*` | `EncryptedBigInt.from(value)` |
+| `Date*`, `Timestamp*` | `EncryptedDate.from(value)` |
+| `Boolean` | `EncryptedBoolean.from(value)` |
+| `Json` | `EncryptedJson.from(value)` |
+
+Import envelopes and `decryptAll` from `@cipherstash/stack-prisma/runtime`.
+
+```typescript
+import {
+  decryptAll,
+  EncryptedDate,
+  EncryptedNumber,
+  EncryptedString,
+} from "@cipherstash/stack-prisma/runtime"
+
+await db.orm.public.User.create({
+  id: "user-0",
+  email: EncryptedString.from("alice@example.com"),
+  salary: EncryptedNumber.from(100_000),
+  birthday: EncryptedDate.from(new Date("1990-01-01")),
+})
+
+const rows = await db.orm.public.User.all()
+await decryptAll(rows)
+```
+
+`decryptAll` groups a result set by table and column to avoid one encryption-service round trip per value. Call `.decrypt()` on an envelope after the batch completes.
+
+## Query operators
+
+Operators are generated only where the declared domain supports them.
+
+| Operator | Meaning |
+| --- | --- |
+| `eqlEq(value)`, `eqlNeq(value)` | Equality and inequality |
+| `eqlIn(values)`, `eqlNotIn(values)` | Set membership |
+| `eqlMatch(term)` | Free-text token match |
+| `eqlGt/Gte/Lt/Lte(value)` | Range comparison |
+| `eqlBetween(low, high)`, `eqlNotBetween(low, high)` | Bounded range |
+| `eqlAsc(column)`, `eqlDesc(column)` | Encrypted ordering |
+| `eqlJsonContains(value)` | JSON containment |
+| `eqlJsonPathEq/Neq(path, value)` | Equality at a JSONPath |
+| `eqlJsonPathGt/Gte/Lt/Lte(path, value)` | Range comparison at a JSONPath |
+| `eqlJsonPathAsc/Desc(column, path)` | Ordering by a JSONPath leaf |
+
+```typescript
+import {
+  eqlAsc,
+  eqlJsonPathDesc,
+} from "@cipherstash/stack-prisma/runtime"
+
+const matches = await db.orm.public.User
+  .where((user) => user.email.eqlMatch("example.com"))
+  .all()
+
+const earners = await db.orm.public.User
+  .where((user) => user.salary.eqlBetween(100_000, 150_000))
+  .orderBy((user) => eqlAsc(user.salary))
+  .all()
+
+const preferences = await db.orm.public.User
+  .where((user) => user.profile.eqlJsonContains({ theme: "dark" }))
+  .orderBy((user) => eqlJsonPathDesc(user.profile, "$.score"))
+  .all()
+```
+
+Free-text search is token matching, not SQL `ILIKE`. Pass a term such as `example.com`, not a wildcard pattern such as `%example.com%`.
+
+## Indexes
+
+Encrypted predicates require functional Postgres indexes at meaningful scale. `schema.prisma` cannot express expression indexes, so put the index DDL in a Prisma raw-SQL migration operation and apply it with `prisma-next migrate`.
+
+The domain-to-index matrix, SQL recipes, rollout timing, `ANALYZE`, and `EXPLAIN` verification are maintained in [EQL indexes](/reference/eql/indexes).
+
+## Subpath exports
+
+| Import | Purpose |
+| --- | --- |
+| `@cipherstash/stack-prisma/control` | Prisma extension pack |
+| `@cipherstash/stack-prisma/v3` | `cipherstashFromStack` and the EQL v3 adapter |
+| `@cipherstash/stack-prisma/runtime` | Envelopes, `decryptAll`, and query helpers |
+| `@cipherstash/stack-prisma/column-types` | TypeScript-authored contract factories |

@@ -1,0 +1,31 @@
+---
+title: Auth
+navTitle: Overview
+description: "Authentication and credential reference for local development, production services, and identity-bound encryption."
+type: reference
+components: [platform]
+---
+
+CipherStash separates the credentials used by developers, deployed services,
+and signed-in end users. Choose the mechanism that matches who is performing
+the cryptographic operation.
+
+| Context | Authentication | Use it for |
+| --- | --- | --- |
+| Local development | Device session created by `stash init` | Per-developer access without shared environment variables |
+| Production and CI | Application client key plus access key | Non-interactive SDK and Proxy deployments |
+| Signed-in end user | OIDC federation | Identity-bound encryption and user-attributed key derivation |
+
+## In this section
+
+- [Access keys](/reference/auth/access-keys) authenticate programmatic requests
+  to CipherStash services and define their service-level permissions.
+- [Client keys](/reference/auth/clients) supply the client-held half of the
+  ZeroKMS key split and scope access to keysets.
+- [OIDC providers](/reference/auth/oidc-configuration) register an identity
+  provider for end-user federation.
+
+For the four environment variables used by deployed applications, see
+[workspace configuration](/reference/workspace/configuration). For the
+cryptographic effect of binding a value to an identity claim, see
+[provable access control](/solutions/provable-access).

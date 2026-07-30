@@ -1,0 +1,74 @@
+---
+title: Agent skills
+description: "Install CipherStash agent skills to give your AI coding assistant accurate knowledge of encryption setup, schema building, deployment, and integrations."
+type: reference
+components: [encryption, cli]
+verifiedAgainst:
+  stack: "1.0.0"
+  cli: "1.0.0"
+---
+
+CipherStash Stack 1.0 publishes 13 [agent skills](https://skills.sh/) covering the stable SDK, CLI, database surfaces, deployment workflow, and integrations. The skills give an AI coding assistant the exact APIs, commands, constraints, and rollout sequence it needs without making your application code part of the prompt.
+
+Skills work with AI coding tools that support the skills protocol, including Claude Code, Codex, Cursor, GitHub Copilot, Windsurf, Cline, Gemini, AMP, Goose, Roo, and Trae.
+
+## Install every skill
+
+Install the complete collection in your project root:
+
+```bash cta cta-type="install" example-id="install-agent-skills"
+npx skills add cipherstash/stack
+```
+
+This installs all 13 skills. Your agent activates the relevant ones from the task and code it is working on.
+
+## Install through the Stash workflow
+
+The `stash` 1.0 CLI bundles the skills and selects a smaller set for the integration detected by `stash init`. When `stash impl` hands the reviewed plan to an agent, it copies the selected skills into the tool's skill directory or includes their guidance in the generated agent instructions.
+
+| Integration | Skills selected |
+| --- | --- |
+| Drizzle | `stash-encryption`, `stash-drizzle`, `stash-indexing`, `stash-deployment`, `stash-zerokms`, `stash-auth`, `stash-cli` |
+| Supabase | `stash-encryption`, `stash-supabase`, `stash-indexing`, `stash-postgres`, `stash-edge`, `stash-deployment`, `stash-zerokms`, `stash-auth`, `stash-cli` |
+| Prisma ORM 8 | `stash-encryption`, `stash-prisma`, `stash-indexing`, `stash-deployment`, `stash-zerokms`, `stash-auth`, `stash-cli` |
+| PostgreSQL | `stash-encryption`, `stash-indexing`, `stash-postgres`, `stash-edge`, `stash-deployment`, `stash-zerokms`, `stash-auth`, `stash-cli` |
+
+Claude Code receives skills under `.claude/skills/`; Codex receives them under `.codex/skills/`. Handoffs to tools that do not load a skill directory receive the same guidance through the generated agent instructions.
+
+## Available skills
+
+| Skill | What it covers |
+| --- | --- |
+| `stash-encryption` | The stable `@cipherstash/stack` EQL v3 typed schema, `EncryptionClient`, encryption and model operations, searchable fields, encrypted JSON, bulk operations, and migration lifecycle. |
+| `stash-auth` | Credentials, `AutoStrategy`, `AccessKeyStrategy`, `OidcFederationStrategy`, `DeviceSessionStrategy`, the four `CS_*` variables, lock contexts, and authentication failures. |
+| `stash-zerokms` | Keysets, clients, client keys, grants, revocation, key hierarchy, multi-tenant isolation, and diagnosing keyset mismatches. |
+| `stash-indexing` | Functional indexes over EQL v3 term extractors, managed-Postgres constraints, `ORDER BY` and `GROUP BY` shapes, and `EXPLAIN` verification. |
+| `stash-deployment` | The safe multi-deploy encryption rollout, credentials, backfill, read cutover, rollback, Prisma Compute, and preview environments. |
+| `stash-cli` | `init`, `plan`, `impl`, `status`, authentication, `eql install/migration/repair/upgrade/status`, validation, backfill, drop, schema generation, and the agent interface. |
+| `stash-drizzle` | `@cipherstash/stack-drizzle` 1.0 column factories, schema extraction, indexes, EQL v3 migration generation, and encrypted query operators such as `eq`, `matches`, `contains`, and `selector`. |
+| `stash-supabase` | The `encryptedSupabase` wrapper, encrypted mutations and reads, filters and ordering, identity-aware encryption, and PostgREST limitations. |
+| `stash-prisma` | `@cipherstash/stack-prisma` 1.0, encrypted Prisma column types, runtime envelopes, `decryptAll`, `eql*` query operators, and Prisma-owned EQL migrations. |
+| `stash-postgres` | Hand-written EQL v3 SQL with `pg` or `postgres`, typed bind parameters, operator selection, `encryptQuery`, and double-encoding failures. |
+| `stash-edge` | The `@cipherstash/stack/wasm-inline` entry for Deno, Supabase Edge Functions, Cloudflare Workers, and Bun, including explicit credentials and WASM-specific client behavior. |
+| `stash-dynamodb` | The `@cipherstash/stack/dynamodb` surface, encrypted attributes, HMAC query attributes, nested values, bulk operations, and DynamoDB table design. |
+| `stash-supply-chain-security` | Dependency admission, install cooldowns, lockfile integrity, frozen CI installs, registry pinning, Dependabot, `CODEOWNERS`, and npm provenance. |
+
+## How skills work
+
+An installed skill activates when the task matches its description. Integration skills link back to the cross-cutting skills instead of duplicating their rules: authentication questions route to `stash-auth`, index design to `stash-indexing`, production rollout to `stash-deployment`, and key access to `stash-zerokms`.
+
+That separation keeps the guidance consistent. A Drizzle, Supabase, Prisma, or raw PostgreSQL task uses the same released encryption model and deployment safety rules while adding only the query and schema behavior specific to that integration.
+
+## Typical workflow
+
+1. **Initialize the project.** Run `npx stash init` with `--drizzle`, `--supabase`, or `--prisma` when appropriate. The CLI authenticates, inspects the project, installs compatible packages, and records context under `.cipherstash/`.
+2. **Draft a plan.** Run `npx stash plan`. The selected skills help the agent produce a reviewable `.cipherstash/plan.md` without changing the application.
+3. **Review the plan.** Confirm the selected columns, capabilities, indexes, migration sequence, and deployment gates.
+4. **Implement it.** Run `npx stash impl`. The CLI hands the plan and integration-specific skill set to your chosen agent.
+5. **Track the rollout.** Run `npx stash status` as schema changes, dual writes, backfill, read cutover, and plaintext removal progress.
+
+## Requirements
+
+- Node.js 22 or later
+- An AI coding tool that supports skills or generated agent instructions
+- A CipherStash account ([sign up](https://dashboard.cipherstash.com/sign-up))

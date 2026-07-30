@@ -1,0 +1,62 @@
+# Blocking documentation checks for pull requests.
+#
+# `validate-links` also runs inside `prebuild`, so a broken link already fails
+# the Vercel build. This job exists to make that a fast, named status check
+# that branch protection can require, rather than a failure buried in a
+# deploy log.
+name: Docs
+
+on:
+  pull_request:
+    # v2 is the live documentation line. `main` is deliberately excluded: it
+    # trails v2 by ~100 commits and its bun.lock is out of sync with its
+    # package.json, so `--frozen-lockfile` fails there for reasons that have
+    # nothing to do with links. Add `main` here once #37 lands and makes it
+    # current.
+    branches: [v2]
+  push:
+    branches: [v2]
+  workflow_dispatch:
+
+# A PR that gets pushed to twice shouldn't queue behind its own stale run.
+concurrency:
+  group: docs-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    name: Internal links
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          # Pinned rather than `latest` so a bun release can't turn a
+          # required check red on its own.
+          bun-version: 1.3.13
+
+      - run: bun install --frozen-lockfile
+
+      # The TypeDoc references under the V2 integration/reference sections are
+      # gitignored and built from a clone of cipherstash/stack. Links point
+      # into them, so without this step those targets report as missing.
+      # `prebuild` generates before validating for the same reason.
+      - name: Generate the SDK reference
+        run: bun run generate-docs
+
+      - name: Generate the Supabase reference
+        run: bun run generate-docs:supabase
+
+      - name: Generate the Drizzle reference
+        run: bun run generate-docs:drizzle
+
+      - name: Generate the Prisma reference
+        run: bun run generate-docs:prisma
+
+      - name: Validate internal links and anchors
+        run: bun run validate-links

@@ -1,0 +1,91 @@
+---
+title: ZeroKMS vs hardware security modules
+navTitle: ZeroKMS vs HSMs
+description: "Compare ZeroKMS with dedicated hardware security modules: custody, trust boundaries, integration, availability, per-value keys, and complementary deployment patterns."
+type: concept
+components: [platform]
+audience: [cto, ciso]
+reviewBy: "2027-01-31"
+---
+
+A hardware security module (HSM) is a tamper-resistant hardware boundary for generating, storing, and using cryptographic keys. ZeroKMS is a key-management protocol and service for deriving application data keys without either the service or application holding enough long-lived material to derive them alone.
+
+They are not exact substitutes. An HSM answers **where and under whose physical control a key is protected**. ZeroKMS answers **how authority is divided and how a unique key is made practical for every application value**.
+
+## Where HSMs fit
+
+HSMs are commonly used to protect certificate-authority keys, payment keys, code-signing keys, database master keys, and the root keys behind managed KMS products. They provide a well-defined cryptographic boundary, strong resistance to key extraction, and certifications required by some regulatory or procurement regimes.
+
+An HSM does not by itself provide an application encryption model. Teams still need to decide:
+
+- which keys exist and how much data each protects;
+- how applications authenticate and are authorized;
+- whether applications send plaintext to the HSM boundary or receive data keys;
+- how keys are rotated, backed up, replicated, and destroyed; and
+- how database queries work over encrypted fields.
+
+ZeroKMS is focused on those application-level decisions. Its authority keys are protected server-side, while each workload holds a separate client key. The two sides produce unique data keys locally through the process described in [Cryptography](/security/cryptography#how-a-data-key-is-produced).
+
+## Comparison
+
+| Property | Dedicated HSM deployment | CipherStash ZeroKMS |
+| --- | --- | --- |
+| Primary security boundary | Tamper-resistant hardware and its operator controls | Split authority key and client key in separate environments |
+| Long-lived key custody | Customer or cloud operator controls the HSM partition | CipherStash protects the authority side; customer protects the client side |
+| Application data-key model | Designed by the customer or KMS layer built above it | Unique derived key for every encrypted value |
+| Can one boundary decrypt alone? | Usually yes, when the HSM and authorization policy permit the operation | No; neither authority nor client key is sufficient alone |
+| Application integration | PKCS #11, JCE, CNG, or a KMS/service layer | Stack SDK, ORM integrations, or CipherStash Proxy |
+| Scaling | Appliance, partition, cluster, or provider capacity planning | Batched server interaction and local per-value derivation |
+| High availability and recovery | Customer or provider must design clustering, backup, quorum, and ceremonies | Operated as part of the ZeroKMS service; encrypted application data remains in the customer's database |
+| Searchable database fields | Not supplied by the HSM | Built into CipherStash through EQL |
+
+## Custody and split control
+
+Owning an HSM gives an organization direct control over the hardware boundary and its administrative procedures. That can be essential when a policy requires customer-held hardware, witnessed key ceremonies, a particular FIPS validation level, or an offline signing environment.
+
+Hardware custody does not automatically create split cryptographic control. An authorized application or operator may still ask the HSM to use the protected key. The security boundary is strong, but it is centralized.
+
+ZeroKMS distributes that capability. The authority side can produce only a key seed; it cannot turn that seed into a data key. The client side cannot reproduce seeds by itself. Compromise must cross both boundaries, and client access can be revoked at ZeroKMS without relying on the application to honor the decision.
+
+## Integration and operations
+
+Direct HSM integration normally uses low-level standards such as PKCS #11, or a higher-level key-management service built on top. Production operation also needs capacity planning, redundant devices or partitions, secure backup, credential quorum, monitoring, firmware management, and tested disaster recovery.
+
+Those costs can be worthwhile when the HSM boundary is itself the requirement. They are often unnecessary complexity when the real requirement is protecting application fields with fine-grained, revocable keys.
+
+CipherStash provides that higher layer. The SDK and Proxy handle encryption payloads, key IDs, bulk derivation, searchable terms, and identity binding. The database stores ciphertext while ZeroKMS handles only the server side of key derivation.
+
+## Performance and key granularity
+
+An HSM performs bounded cryptographic operations. Giving every database value a unique HSM-backed key can turn a bulk query into many service or device operations, so systems commonly introduce envelope keys, caching, or reuse.
+
+ZeroKMS batches the server-side work and derives the final keys locally. Every value can retain a distinct key without sending every encryption operation through a hardware boundary and without keeping a cache of plaintext data keys.
+
+## When to choose an HSM
+
+A dedicated HSM is usually appropriate when:
+
+- a regulation, customer contract, or internal policy explicitly requires a validated hardware boundary;
+- the organization must retain physical or administrative custody of root keys;
+- keys must operate in an offline or air-gapped environment;
+- the workload is certificate issuance, payment processing, signing, or another HSM-native use case; or
+- the organization already has the people and procedures to operate the hardware safely.
+
+## When to choose ZeroKMS
+
+ZeroKMS is usually appropriate when:
+
+- the workload is field-level application encryption;
+- one service or operator must not hold unilateral decryption capability;
+- each value needs an independent key and audit boundary;
+- high-volume batches must not require data-key reuse; or
+- encrypted PostgreSQL data still needs to be queried.
+
+## Use them together
+
+The strongest design may use both. An HSM or HSM-backed cloud KMS can protect root key material, while ZeroKMS supplies split control and per-value derivation above it. The HSM remains the hardened foundation; ZeroKMS defines the application-facing trust model.
+
+## Related
+
+- [Cryptography and key derivation](/security/cryptography)
+- [ZeroKMS vs AWS KMS](/concepts/compare/aws-kms)

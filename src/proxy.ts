@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import type { NextFetchEvent, NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { getPostHogClient } from "@/lib/posthog/server";
 
 const SKIP_PATHS = ["/api", "/_next/static", "/_next/image", "/ingest"];

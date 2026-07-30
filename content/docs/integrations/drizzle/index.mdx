@@ -1,0 +1,187 @@
+---
+title: Overview
+description: "Encrypted columns with Drizzle ORM: pick a concrete EQL column type, and capability-checked operators encrypt your query operands for you."
+type: tutorial
+components: [encryption, eql]
+audience: [developer]
+integration:
+  category: orm
+  setup: code-only
+  pairsWith: [supabase, prisma]
+verifiedAgainst:
+  stack: "1.0.0"
+  eql: "3.0.4"
+---
+
+Drizzle keeps its shape. You declare each encrypted column with a concrete EQL type, and a set of query operators encrypt their operands before Drizzle builds the SQL. Your `select`, `where`, and `orderBy` read as they always did, and the database only ever compares ciphertext.
+
+## Install
+
+```bash cta cta-type="install" example-id="install-drizzle"
+npm install @cipherstash/stack @cipherstash/stack-drizzle drizzle-orm
+npm install --save-dev drizzle-kit
+```
+
+Add EQL to your Drizzle migration history:
+
+```bash
+npx stash eql migration --drizzle
+npx drizzle-kit migrate
+```
+
+<Callout type="info">
+`stash eql migration --drizzle` uses your project-local `drizzle-kit` to create a custom migration, then fills it with the EQL v3 install SQL. Pass `--out` if your migration directory is not `drizzle/`. For a direct, out-of-band install instead, run `npx stash eql install`.
+</Callout>
+
+## Credentials
+
+<CipherStashCredentials />
+
+The native Stack client used below discovers the four `CS_*` variables first, then falls back to the developer profile. Use separate credentials for each deployed environment.
+
+## Declare the table
+
+The column type *is* the capability. There are no flags to configure. `TextEq` answers equality and nothing else, `IntegerOrd` answers ranges and ordering, `TextMatch` answers free-text matching, and a bare `Text` or `Bigint` is storage-only.
+
+```typescript filename="src/schema.ts"
+import { pgTable, integer } from "drizzle-orm/pg-core"
+import { encryptedIndexes, types } from "@cipherstash/stack-drizzle"
+
+export const users = pgTable(
+  "users",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    email: types.TextEq("email"),      // equality
+    age: types.IntegerOrd("age"),      // ranges, ordering, and equality
+    bio: types.TextMatch("bio"),       // free-text token matching
+    balance: types.Bigint("balance"),  // storage only
+  },
+  (table) => [...encryptedIndexes(table)],
+)
+```
+
+Each factory maps to the matching EQL domain, so `types.TextEq("email")` types the column as `public.eql_v3_text_eq`. The variant model behind those names is in [core concepts](/reference/eql/core-concepts).
+
+| Factory | Capability | EQL domain |
+| --- | --- | --- |
+| `types.Text(name)` | Store and decrypt only | `public.eql_v3_text` |
+| `types.TextEq(name)` | `eq`, `ne`, `inArray`, `notInArray` | `public.eql_v3_text_eq` |
+| `types.TextOrd(name)` | Ranges, ordering, plus equality | `public.eql_v3_text_ord` |
+| `types.TextMatch(name)` | `matches` | `public.eql_v3_text_match` |
+| `types.TextSearch(name)` | All of the above, on text | `public.eql_v3_text_search` |
+| `types.IntegerOrd(name)` | Ranges, ordering, plus equality | `public.eql_v3_integer_ord` |
+
+The same bare / `Eq` / `Ord` pattern exists for `Smallint`, `Bigint`, `Real`, `Double`, `Numeric`, `Date`, and `Timestamp`. `Boolean` is storage-only by design, because a two-value column has too little cardinality for any searchable index to be safe.
+
+Declare only the capability you query on. Each one stores an extra index term alongside the ciphertext, with a bounded, published leakage profile: see [searchable encryption](/concepts/searchable-encryption).
+
+## Wire up the client
+
+Derive the encryption schema from the Drizzle table, build a typed client, and create the operators:
+
+```typescript filename="src/db.ts"
+import { drizzle } from "drizzle-orm/postgres-js"
+import {
+  createEncryptionOperators,
+  extractEncryptionSchema,
+} from "@cipherstash/stack-drizzle"
+import { Encryption } from "@cipherstash/stack"
+import { users } from "./schema"
+
+export const usersSchema = extractEncryptionSchema(users)
+
+export const client = await Encryption({ schemas: [usersSchema] })
+export const ops = createEncryptionOperators(client)
+
+export const db = drizzle({ client: sqlClient })
+```
+
+`extractEncryptionSchema` reads the encryption config straight off the column types, so there is no second schema to keep in sync with the first.
+
+## Query
+
+Every where-clause operator is **async**, because it encrypts its operand before Drizzle sees it. `await` each one. `ops.asc` and `ops.desc` are synchronous.
+
+```typescript filename="src/queries.ts"
+import { db, ops } from "./db"
+import { users } from "./schema"
+
+// Equality — email is TextEq
+const exact = await db.select().from(users)
+  .where(await ops.eq(users.email, "alice@example.com"))
+
+// Ranges and ordering — age is IntegerOrd
+const adults = await db.select().from(users)
+  .where(await ops.gte(users.age, 18))
+  .orderBy(ops.asc(users.age))
+
+const midBand = await db.select().from(users)
+  .where(await ops.between(users.age, 25, 40))
+
+// Set membership, built on equality
+const listed = await db.select().from(users)
+  .where(await ops.inArray(users.email, ["alice@example.com", "bob@example.com"]))
+
+// Free-text token containment — bio is TextMatch
+const coffee = await db.select().from(users)
+  .where(await ops.matches(users.bio, "coffee"))
+```
+
+The full operator set is `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `between`, `notBetween`, `matches`, `contains`, `selector`, `inArray`, `notInArray`, `exists`, `notExists`, `and`, `or`, `not`, `isNull`, `isNotNull`, `asc`, and `desc`. Null checks need no encryption, because a SQL `NULL` is never encrypted. See the [API reference](/integrations/drizzle/api-reference#createencryptionoperators) for signatures and per-operator capability requirements.
+
+Applying an operator the column's type cannot answer throws `EncryptionOperatorError` rather than silently returning wrong rows. Ordering a `TextEq` column, for instance, has no ordering term to compare.
+
+<Callout type="warn">
+There is no `like` or `ilike`. SQL pattern matching is meaningless on ciphertext, so free-text search is `ops.matches`, which compares encrypted token sets. It matches whole indexed tokens rather than arbitrary substrings. `ops.contains` is reserved for encrypted JSON containment.
+</Callout>
+
+## Insert and read
+
+Rows are encrypted **before** they reach Drizzle, so Drizzle never sees plaintext. Encrypt a batch in one call, which is also one ZeroKMS round trip:
+
+```typescript filename="src/insert.ts"
+import { client, db, usersSchema } from "./db"
+import { users } from "./schema"
+
+const rows = await client.bulkEncryptModels(
+  [
+    { email: "alice@example.com", age: 30, bio: "climbing and coffee", balance: 100_000n },
+    { email: "bob@example.com", age: 41, bio: "cycling and coffee", balance: 250_000n },
+  ],
+  usersSchema,
+)
+
+if (rows.failure) {
+  throw new Error(rows.failure.message)
+}
+
+await db.insert(users).values(rows.data)
+```
+
+`Bigint` columns take a native JS `bigint`. Decrypt what comes back with `client.bulkDecryptModels(rows)`, which is likewise one round trip for the batch.
+
+## Indexes
+
+`encryptedIndexes(table)` derives the recommended functional indexes from each encrypted column's capabilities. In the schema above it produces equality, ordering, and free-text indexes while ignoring the storage-only `balance` column. Generate and apply the result through your normal `drizzle-kit` migration workflow, then run `ANALYZE users`.
+
+See [`encryptedIndexes`](/integrations/drizzle/api-reference#encryptedindexes) for the emitted index forms. Index selection, `EXPLAIN` verification, and large-table build guidance are in [EQL indexes](/reference/eql/indexes).
+
+## Where to next
+
+<Cards>
+  <Card title="API reference" href="/integrations/drizzle/api-reference">
+    Exported column types, schema helpers, codecs, indexes, and encrypted query operators.
+  </Card>
+  <Card title="Supabase" href="/integrations/supabase">
+    Drizzle over a Supabase Postgres connection.
+  </Card>
+  <Card title="EQL core concepts" href="/reference/eql/core-concepts">
+    The variant model behind each column type.
+  </Card>
+  <Card title="Searchable encryption" href="/concepts/searchable-encryption">
+    What each capability reveals, and how to choose.
+  </Card>
+  <Card title="EQL indexes" href="/reference/eql/indexes">
+    The functional-index recipes behind every query on this page.
+  </Card>
+</Cards>

@@ -1,0 +1,123 @@
+---
+title: Numbers
+description: "The complete reference for encrypted numeric columns: the int, float, and numeric domain variants, the ordering term they carry, and range, ORDER BY, and MIN/MAX queries."
+type: reference
+components: [eql]
+verifiedAgainst:
+  eql: "3.0.0"
+---
+
+<EqlVersion />
+
+Six numeric types share one identical query surface: `int2`, `int4`, `int8`, `float4`, `float8`, and `numeric`. These are the columns you filter by range, sort, and take a `MIN` / `MAX` over — salaries, totals, rates, quantities.
+
+Date and time columns have the same capabilities but their own semantics — see [Dates & times](/reference/eql/dates-and-times). There is no free-text matching for numeric types — `_match` and `_search` are [text-only variants](/reference/eql/text).
+
+## Variants
+
+Each numeric type generates the same `jsonb`-backed domain variants. The generic form:
+
+| Domain variant | Capability |
+| --- | --- |
+| `public.eql_v3_<T>` | Storage and decryption only. |
+| `public.eql_v3_<T>_eq` | Equality: `=`, `<>`, `IN`, `GROUP BY`, `DISTINCT`, equijoins. |
+| `public.eql_v3_<T>_ord` | Comparisons, `BETWEEN`, `ORDER BY`, `MIN` / `MAX` — plus equality. |
+| `public.eql_v3_<T>_ord_ope` | The byte-identical twin of `<T>_ord`, with OPE pinned. See [SEM specifiers](#sem-specifiers). |
+| `public.eql_v3_<T>_ord_ore` | As `<T>_ord`, with the ORE mechanism pinned. |
+
+`<T>` is the encrypted type name from the table below, so `public.eql_v3_<T>_ord` is `public.eql_v3_bigint_ord` for `int8`.
+
+And every concrete domain this page covers:
+
+| Type | Variants |
+| --- | --- |
+| `int2` | `public.eql_v3_smallint` · `public.eql_v3_smallint_eq` · `public.eql_v3_smallint_ord` · `public.eql_v3_smallint_ord_ope` · `public.eql_v3_smallint_ord_ore` |
+| `int4` | `public.eql_v3_integer` · `public.eql_v3_integer_eq` · `public.eql_v3_integer_ord` · `public.eql_v3_integer_ord_ope` · `public.eql_v3_integer_ord_ore` |
+| `int8` | `public.eql_v3_bigint` · `public.eql_v3_bigint_eq` · `public.eql_v3_bigint_ord` · `public.eql_v3_bigint_ord_ope` · `public.eql_v3_bigint_ord_ore` |
+| `float4` | `public.eql_v3_real` · `public.eql_v3_real_eq` · `public.eql_v3_real_ord` · `public.eql_v3_real_ord_ope` · `public.eql_v3_real_ord_ore` |
+| `float8` | `public.eql_v3_double` · `public.eql_v3_double_eq` · `public.eql_v3_double_ord` · `public.eql_v3_double_ord_ope` · `public.eql_v3_double_ord_ore` |
+| `numeric` | `public.eql_v3_numeric` · `public.eql_v3_numeric_eq` · `public.eql_v3_numeric_ord` · `public.eql_v3_numeric_ord_ope` · `public.eql_v3_numeric_ord_ore` |
+
+Declare only the capability you query on — each capability stores extra searchable material with defined leakage (see [Searchable encryption](/concepts/searchable-encryption)), and the variant model itself is covered in [Core concepts](/reference/eql/core-concepts).
+
+### Example
+
+A payroll table mixing the variants by how each column is queried:
+
+```sql
+CREATE TABLE employees (
+    id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    salary     public.eql_v3_bigint_ord,       -- range queries, ORDER BY, MIN/MAX
+    tax_rate   public.eql_v3_numeric_eq,     -- exact lookup only
+    net_worth  public.eql_v3_numeric         -- store and decrypt only, never queried
+);
+```
+
+### SEM specifiers
+
+All six types take the same mechanism specifiers on their orderable variant (the concept is defined in [Core concepts](/reference/eql/core-concepts#sem-specifiers)):
+
+| Specifier | Mechanism | Ordering term | Extractor |
+| --- | --- | --- | --- |
+| `_ord` | The default, currently CLLW OPE | `op` | `eql_v3.ord_term` |
+| `_ord_ope` | CLLW OPE, pinned explicitly | `op` | `eql_v3.ord_term` |
+| `_ord_ore` | Block-ORE, pinned explicitly | `ob` | `eql_v3.ord_term_ore` |
+
+`<T>_ord` and `<T>_ord_ope` are byte-identical today. Pin `_ord_ope` when you want a column's mechanism frozen against a future change of the default.
+
+<Callout type="warn">
+Block-ORE terms sort only under a custom btree operator class, and creating one requires superuser. Where the EQL installer runs as a non-superuser, which is the case on most managed Postgres including cloud Supabase, it cannot create the class, so it **disables every ORE-backed domain** rather than let them install half-working. `<T>_ord_ore` then raises `feature_not_supported` on the first value written to it. Use `<T>_ord` there.
+</Callout>
+
+## Payload
+
+A value for an `_ord` column carries the shared envelope keys (`v`, `i`, `c` — see [Core concepts](/reference/eql/core-concepts)) plus the `op` ordering term. Here is a payload for the `public.eql_v3_bigint_ord` `salary` column:
+
+```json
+{
+  "v": 3,
+  "i": { "t": "employees", "c": "salary" },
+  "c": "mBbKmsMM%bK#QQOx1yLDBHyD...",
+  "op": "5f2b1a9e4c07d38b6ea15c92..."
+}
+```
+
+- **`op` is the only index term.** It is a hex-encoded CLLW OPE ciphertext, which Postgres sorts by native `bytea` comparison. An `_ord` payload carries no `hm`, because ordering over a numeric scalar is equality-lossless: `=` and `<>` resolve against the same term. Only `_eq` payloads carry `hm` (a single hex HMAC-SHA-256 string) instead.
+- **An `_ord_ore` payload carries `ob` in place of `op`**: an array of block-ORE ciphertexts, 8 blocks for the int types and 14 for `numeric`.
+
+## Operators
+
+| SQL operator | `public.eql_v3_<T>` | `<T>_eq` | `<T>_ord` variants |
+| --- | :---: | :---: | :---: |
+| `=` / `<>` | ❌ | ✅ | ✅ |
+| `<` `<=` `>` `>=` | ❌ | ❌ | ✅ |
+| `BETWEEN` (desugars to `>=` and `<=`) | ❌ | ❌ | ✅ |
+| `IN` (desugars to `=`) | ❌ | ✅ | ✅ |
+| `GROUP BY` / `DISTINCT` | ❌ | ✅ | ✅ |
+| `ORDER BY` | ❌ | ❌ | ✅ |
+| `IS NULL` / `IS NOT NULL` | ✅ | ✅ | ✅ |
+
+Blocked *operator* cells raise an `operator … is not supported` exception — they never silently return wrong rows. `ORDER BY` is the one blocked cell that doesn't raise: it isn't an operator, so sorting a variant without an ordering term runs — but the order is meaningless (see [Sorting](/reference/eql/sorting)). Operands must be typed (`$1::public.eql_v3_bigint_ord`), or PostgreSQL resolves the native `jsonb` operator instead of the encrypted one. Both rules are covered in [Core concepts](/reference/eql/core-concepts).
+
+## Functions
+
+<include cwd>content/partials/eql/functions-numbers.mdx</include>
+
+**`SUM`, `AVG`, and other arithmetic aggregates are not supported** on encrypted columns — they would require homomorphic encryption. `MIN` / `MAX` work because they only need comparison; for sums and averages, decrypt at the application boundary and aggregate client-side.
+
+## Where to next
+
+<Cards>
+  <Card title="Dates & times" href="/reference/eql/dates-and-times">
+    The same capabilities on date and timestamp columns.
+  </Card>
+  <Card title="Indexes" href="/reference/eql/indexes">
+    Btree recipes on `eql_v3.ord_term` for range, ORDER BY, and MIN/MAX.
+  </Card>
+  <Card title="Filtering" href="/reference/eql/filtering">
+    WHERE-clause patterns across all encrypted types.
+  </Card>
+  <Card title="Grouping & aggregates" href="/reference/eql/grouping-and-aggregates">
+    GROUP BY, DISTINCT, and the aggregate surface on encrypted columns.
+  </Card>
+</Cards>

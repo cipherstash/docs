@@ -1,0 +1,184 @@
+---
+title: Deployment
+description: "Deploy CipherStash changes safely across environments, with explicit credential, migration, rollout, monitoring, and rollback gates."
+type: guide
+components: [encryption, eql, cli]
+audience: [developer]
+---
+
+CipherStash deployments coordinate application code, database schema, and credentials. Treat each independently deployable stage as a release with its own verification and rollback gate.
+
+For the detailed dual-write, backfill, and cutover procedure for populated columns, follow [Data migration](/guides/migration). This page covers the production rollout around that migration.
+
+## Before the first deployment
+
+- Create a separate CipherStash workspace or machine credential set for each environment.
+- Store `CS_*` values in the environment's secret manager rather than copying a developer's local profile.
+- Confirm the production database connection used by migrations and backfills.
+- Test encryption, decryption, and the queries you rely on against a non-production database with the same EQL version.
+- Inventory all application versions and background workers that may remain live during a rolling deployment.
+- Decide who can approve backfill, read cutover, and plaintext removal.
+
+## Credentials at build and runtime
+
+<CipherStashCredentials />
+
+An encryption client constructed at module load may authenticate when a build tool imports that module. In that case, the four `CS_*` variables shown above must be available during both the build and runtime phases.
+
+Do not let a local `stash auth login` session mask missing deployment credentials. Reproduce the production build in a clean environment that has only the secrets explicitly supplied by the deployment platform.
+
+Backfills must use credentials for the same workspace and keyset as the deployed application. `CS_*` environment variables take precedence over a local CipherStash profile.
+
+## Environment order
+
+Promote each stage through environments in this order:
+
+1. Local or ephemeral development database
+2. Shared development or test
+3. Staging with production-like data volume and connection behavior
+4. Production
+
+Run schema compatibility and application tests after each promotion. Do not use a successful local backfill as evidence that production credentials, row counts, locks, or query plans are safe.
+
+## Production rollout
+
+| Stage | Change | Verification gate | Rollback |
+| --- | --- | --- | --- |
+| Install EQL | Database-only, additive | EQL status and application connectivity | Leave installed |
+| Add encrypted mirrors | Nullable columns plus dual-writes | Every writer populates both columns | Revert writers; keep columns |
+| Backfill | Out-of-band data job | Zero uncovered rows and sampled decryptions match | Stop and resume later |
+| Build indexes | Database-only | Expected indexes engage under `EXPLAIN` | Drop or rebuild the index |
+| Cut reads over | Application-only | Known filters, ordering, nulls, and RLS behavior are correct | Revert reads to plaintext |
+| Remove plaintext | Application and destructive schema change | Soak complete; no old application versions remain | Restore or migrate from backup |
+
+Keep schema changes backward-compatible with both the old and new application version during rolling deployments. In particular, encrypted mirror columns must remain nullable until every historical row is covered.
+
+## Release gates
+
+### Before backfill
+
+- Dual-writes are deployed in every process that can mutate the table.
+- Known inserts, updates, upserts, imports, and background jobs populate both columns.
+- The backfill is using production's CipherStash credentials.
+- The primary key and chunk size are suitable for paging through the table.
+
+### Before read cutover
+
+- Coverage queries return zero missing encrypted values.
+- Encrypted indexes have been created and verified using [EQL indexes](/reference/eql/indexes).
+- Equality, range, ordering, null, and authorization tests pass against representative data.
+- The old plaintext read path remains deployable as a rollback.
+
+### Before dropping plaintext
+
+- The encrypted read path has soaked under real traffic.
+- No supported application version reads or writes the plaintext column.
+- Coverage has been checked again.
+- Required backups and restore procedures have been tested.
+- The destructive migration has a named approver and maintenance window where required.
+
+## Monitor after cutover
+
+Monitor ordinary database and application signals alongside encryption-specific failures:
+
+- Encryption and decryption errors
+- ZeroKMS request latency and availability
+- Query latency, sequential scans, and index use
+- Missing or unexpectedly null values
+- Authorization and Row Level Security regressions
+- Backfill progress, retry rate, and uncovered-row count
+
+Test the correctness of returned values, not only request success rates. An incorrectly scoped filter or ordering query may return plausible but incomplete data without raising an error.
+
+## Rollback principles
+
+Prefer application rollbacks while both plaintext and encrypted columns are being maintained. Before plaintext removal, a read cutover can be reversed without changing data: point reads back to the original columns and leave dual-writes running.
+
+After plaintext is dropped, rollback becomes a data-recovery operation. Avoid reaching that stage until operational evidence shows the encrypted path is stable and every supported application version has moved forward.
+
+## Serverless and bundled applications
+
+`@cipherstash/stack` must remain a runtime dependency when a build tool creates
+a server bundle. Configure the bundler to leave the package external, then make
+sure the deployment artifact installs it for the target platform.
+
+For Next.js, use `serverExternalPackages`:
+
+```typescript filename="next.config.ts"
+const nextConfig = {
+  serverExternalPackages: ["@cipherstash/stack"],
+}
+
+export default nextConfig
+```
+
+For esbuild, pass `--external:@cipherstash/stack`; for webpack, declare it as a
+CommonJS external. An SST function needs both the esbuild exclusion and a
+runtime install:
+
+```typescript filename="sst.config.ts"
+{
+  nodejs: {
+    esbuild: { external: ["@cipherstash/stack"] },
+    install: ["@cipherstash/stack"],
+  },
+}
+```
+
+Build and start the artifact in a Linux container before release when local
+development uses macOS or Windows. This catches a lockfile or deployment bundle
+that omitted the target platform's runtime package.
+
+## Testing and CI
+
+Use a separate workspace and database for integration tests. Supply the test
+workspace's four `CS_*` credentials only to the CI job, install the same EQL
+release used by production, and test:
+
+- encryption followed by decryption returns the original typed value;
+- every required equality, range, ordering, token, or JSON query returns the
+  expected records;
+- a client without the required keyset grant cannot decrypt the data;
+- schema migrations and application code work in both rolling-deployment
+  orders.
+
+Mocks are useful for business logic that merely passes encrypted values
+through, but they do not test ciphertext compatibility, key access, query
+terms, or EQL behavior. Keep at least one real end-to-end test for every
+encrypted query capability used in production.
+
+## Team onboarding
+
+Invite each developer to the organization and workspace, then have them run:
+
+```bash
+npx stash init
+```
+
+Each device receives its own developer identity and client key. Do not share
+production credentials with developers or copy one developer's local profile
+into CI. Remove a departing developer from the workspace and revoke their
+device client keys without changing application credentials.
+
+See [workspace members](/reference/workspace/members) and
+[client keys](/reference/auth/clients) for the complete access model.
+
+## Deploying Proxy
+
+Run CipherStash Proxy as a container in the same private network as PostgreSQL.
+Supply database credentials and CipherStash application credentials from the
+platform's secret manager, expose the PostgreSQL listener only to application
+clients, and expose health or metrics endpoints only to the monitoring plane.
+
+For ECS, Kubernetes, or another orchestrator, keep these concerns separate:
+
+1. Pull the published Proxy image from the approved registry.
+2. Grant the task or pod permission to read only its deployment secrets.
+3. Configure security groups or network policies for application → Proxy and
+   Proxy → database traffic.
+4. Roll out at least two instances where connection availability requires it.
+5. Verify a plaintext write, encrypted database value, encrypted query, and
+   decrypted read through the deployed endpoint.
+
+Use the [Proxy configuration reference](/reference/proxy/configuration) for
+environment variables, TOML settings, ports, logging, and metrics.

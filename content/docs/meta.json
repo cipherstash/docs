@@ -1,0 +1,12 @@
+{
+  "pages": [
+    "index",
+    "get-started",
+    "integrations",
+    "concepts",
+    "guides",
+    "security",
+    "solutions",
+    "reference"
+  ]
+}

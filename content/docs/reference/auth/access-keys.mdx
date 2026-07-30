@@ -1,0 +1,63 @@
+---
+title: Access keys
+description: "Create and manage access keys for production applications, CI, and workspace automation."
+type: reference
+components: [platform]
+audience: [developer]
+---
+
+Access keys authenticate non-interactive requests to CipherStash services such
+as ZeroKMS and CTS. A deployed Stack SDK or Proxy client uses an access key
+alongside its [client key](/reference/auth/clients).
+
+Local development normally does not need one. `stash init` creates a
+device-backed session and client key for the current developer. Use access
+keys for production, CI, or workspace automation where an interactive login is
+not available.
+
+## Create an access key
+
+Open **Access Keys** for the workspace in the
+[CipherStash Dashboard](https://dashboard.cipherstash.com/workspaces/_/access-keys),
+select **Create access key**, and choose the least-privileged role that covers
+the workload.
+
+The key value is shown when it is created. Store it in the deployment's secret
+manager as `CS_CLIENT_ACCESS_KEY`; do not commit it or share a developer key
+with production.
+
+## Roles
+
+### Member
+
+Use `member` for applications performing cryptographic operations. It can list
+keysets and generate or retrieve data-key material:
+
+```text
+keyset:list
+data_key:generate
+data_key:retrieve
+```
+
+### Control
+
+Use `control` for workspace automation that manages keysets and client access.
+It can create, list, enable, disable, grant, modify, and revoke keysets, and
+list clients. It cannot derive data keys.
+
+### Admin
+
+`admin` combines service administration and cryptographic permissions. Avoid
+it in production applications: use `member` for runtime operations and
+`control` for automation so a compromised credential has the smallest useful
+scope.
+
+## Rotate or revoke a key
+
+Create the replacement first, update every consumer, verify that the new key
+is in use, and then delete the old key from the Dashboard. Rotating an access
+key changes authentication; it does not re-encrypt stored data.
+
+See [workspace configuration](/reference/workspace/configuration) for the full
+production credential set and [Deployment](/guides/deployment) for rollout
+gates.

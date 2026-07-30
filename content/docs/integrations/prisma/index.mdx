@@ -1,0 +1,60 @@
+---
+title: Overview
+description: "Searchable field-level encryption for Prisma ORM 8: declare encrypted columns in schema.prisma and query them with the Prisma ORM."
+type: concept
+components: [encryption, eql]
+audience: [developer]
+integration:
+  category: orm
+  setup: code-only
+  pairsWith: [supabase, drizzle]
+verifiedAgainst:
+  prismaNext: "0.16.0"
+  eql: "3.0.4"
+  stack: "1.0.0"
+---
+
+CipherStash adds searchable, field-level encryption to Prisma ORM 8. Encrypted columns are declared in `schema.prisma`, EQL is installed through Prisma's migration graph, and the generated query API encrypts operands and values before they reach Postgres.
+
+<Callout type="info">
+This integration targets the **Prisma ORM 8 release candidate**, formerly known as **Prisma Next**. The prerelease CLI, package names, and configuration file still use `prisma-next` or `@prisma-next/*`; the examples preserve those names exactly. CipherStash setup uses `stash init --prisma`.
+
+It does not extend the classic `@prisma/client` API. For earlier Prisma releases, use the [Stack SDK](/reference/stack) around your existing reads and writes.
+</Callout>
+
+## Choose your path
+
+| What you want to do | Start here |
+| --- | --- |
+| Encrypt and query your first Prisma field | [Prisma ORM Quickstart](/integrations/prisma/quickstart) |
+| Choose column types or look up query operators | [Schema and queries](/integrations/prisma/schema-and-queries) |
+| Look up every exported function and type | [API reference](/integrations/prisma/api-reference) |
+| Encrypt data already in production | [Prisma deployment guide](/integrations/prisma/deployment) |
+| Use Prisma's managed database | [Prisma Postgres](/integrations/prisma/prisma-postgres) |
+| Deploy the application with Prisma | [Prisma Compute](/integrations/prisma/prisma-compute) |
+| Design and verify encrypted indexes | [EQL indexes](/reference/eql/indexes) |
+| Look up the Prisma 8 prerelease itself | [Prisma ORM 8 documentation](https://www.prisma.io/docs/orm/next) |
+
+## How it works
+
+The [`@cipherstash/stack-prisma`](https://www.npmjs.com/package/@cipherstash/stack-prisma) extension has three integration points:
+
+1. Domain-named constructors such as `cipherstash.TextSearch()` declare encrypted EQL v3 columns in `schema.prisma`.
+2. The CipherStash extension pack adds EQL and those columns to Prisma's contract and migration graph.
+3. `cipherstashFromStack` connects the generated Prisma runtime to the Stack encryption client.
+
+The column type fixes which encrypted queries are possible. For example, `TextEq()` supports equality, while `TextSearch()` also supports ranges, ordering, and token matching. Choosing the narrowest useful type minimizes the information disclosed by searchable encryption. [Schema and queries](/integrations/prisma/schema-and-queries) contains the complete type and operator tables.
+
+## EQL and migration ownership
+
+This integration targets EQL v3 only. Prisma owns the EQL installation: `npx prisma-next migrate` installs the EQL bundle alongside your application schema. Do not run `stash eql install` in a Prisma ORM 8 project.
+
+Encrypted functional indexes also belong in the Prisma migration graph. `schema.prisma` cannot express expression indexes, so add their SQL as a Prisma raw-SQL migration operation. The canonical recipes and `EXPLAIN` checks live in [EQL indexes](/reference/eql/indexes).
+
+## Runtime and authentication
+
+Local development uses the CipherStash developer profile created by `stash init`. CI and deployed applications use credentials created with the CLI or Dashboard. [Credentials](/integrations/prisma/deployment#credentials) lists all three options and the four deployment environment variables.
+
+The Prisma adapter currently uses the native Stack client, so deploy it to a server runtime that can load native packages; it is not an edge-runtime adapter.
+
+For a new project, continue with the [Quickstart](/integrations/prisma/quickstart).
