@@ -85,3 +85,24 @@ console.log(decrypted.data)
 ```
 
 For every exported signature and option, use the [generated API reference](/reference/stack/api-reference). For an end-to-end project setup, follow the [quickstart](/get-started/quickstart).
+
+## Upgrading from `@cipherstash/protect`
+
+The current package is `@cipherstash/stack`. Replace the retired package and
+rename its schema builders:
+
+| Retired API | Stack API |
+| --- | --- |
+| `protect(config)` | `Encryption(config)` |
+| `csTable(name, columns)` | `encryptedTable(name, columns)` |
+| `csColumn(name)` | A typed column from `types`, such as `types.TextEq(name)` |
+
+```bash
+npm uninstall @cipherstash/protect
+npm install @cipherstash/stack
+```
+
+Use the v3 exports shown above for new schemas. Data already written in an
+older format needs an explicit migration plan; do not change the package and
+database column format in a single irreversible deployment. Follow
+[Data migration](/guides/migration) for the staged rollout.

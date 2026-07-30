@@ -126,7 +126,7 @@ Every encryption and decryption through ZeroKMS produces an audit event:
 
 ### Combining with Proxy audit
 
-[CipherStash Proxy](/reference/proxy) adds statement-level audit on top: statement fingerprinting to identify unique query patterns against encrypted data, SQL redaction to strip sensitive values from logged queries, primary key injection to track which records were touched, and record reconciliation to map access events back to rows. See [Proxy audit](/stack/cipherstash/proxy/audit).
+[CipherStash Proxy](/reference/proxy) adds statement-level audit on top: statement fingerprinting to identify unique query patterns against encrypted data, SQL redaction to strip sensitive values from logged queries, primary key injection to track which records were touched, and record reconciliation to map access events back to rows. See [Audit logging](/security/audit-logging).
 
 Together these answer who accessed what data, when, and using which query.
 
@@ -142,7 +142,7 @@ Encrypt audit records under a compliance-team member's identity. Someone on the 
 
 ### Multi-tenant SaaS: tenant isolation
 
-Bind encryption to a per-user claim so only that user's identity can decrypt their data. For coarser isolation that does not depend on a signed-in end user, separate [keysets](/stack/cipherstash/kms/keysets) usually fit better: a keyset boundary is per-client or per-connection, where a lock context is per-identity.
+Bind encryption to a per-user claim so only that user's identity can decrypt their data. For coarser isolation that does not depend on a signed-in end user, separate [keysets](/concepts/key-management#keysets-define-the-isolation-boundary) usually fit better: a keyset boundary is per-client or per-connection, where a lock context is per-identity.
 
 ## Compared to application-level access control
 
@@ -156,5 +156,5 @@ Bind encryption to a per-user claim so only that user's identity can decrypt the
 ## Next steps
 
 - [Data residency](/solutions/data-residency) for revoking access per region.
-- [Proxy audit](/stack/cipherstash/proxy/audit) for statement-level audit logging.
+- [Audit logging](/security/audit-logging) for statement-level access evidence.
 - [Compliance](/security/compliance) for GDPR, HIPAA, and PCI-DSS mapping.

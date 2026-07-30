@@ -2,7 +2,7 @@
   "title": "Reference",
   "icon": "Library",
   "pages": [
-    "index",
+    "!index",
     "eql",
     "stack",
     "auth",

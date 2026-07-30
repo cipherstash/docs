@@ -119,7 +119,7 @@ An attacker must compromise **both** the ZeroKMS authority key and your client k
 
 ### Blast radius
 
-[Keysets](/stack/cipherstash/kms/keysets) scope keys. Each keyset is a full cryptographic boundary: one tenant's keyset cannot decrypt another's data. Compromising a client key affects only the keysets that application can reach, and revoking its access key stops further key derivation immediately.
+[Keysets](/concepts/key-management#keysets-define-the-isolation-boundary) scope keys. Each keyset is a full cryptographic boundary: one tenant's keyset cannot decrypt another's data. Compromising a client key affects only the keysets that application can reach, and revoking its access key stops further key derivation immediately.
 
 ## Data flow
 
@@ -161,7 +161,7 @@ All communication between the SDK and CipherStash services uses TLS 1.2 or later
 - SDK to CTS, for token exchange during identity-aware encryption.
 - SDK to your database: your existing connection. CipherStash does not proxy it.
 
-Key material does not leave the region your workspace is configured in. See [regions](/stack/cipherstash/kms/regions).
+Key material does not leave the region your workspace is configured in. See [data residency](/solutions/data-residency#regional-zerokms-deployment).
 
 ## Open-source components
 
@@ -176,6 +176,6 @@ The core cryptographic implementations are open source and independently auditab
 ## Related
 
 - [Searchable encryption](/concepts/searchable-encryption) for the canonical index-term leakage model.
-- [Keysets](/stack/cipherstash/kms/keysets) for the isolation boundary.
+- [Key management](/concepts/key-management) for the isolation boundary.
 - [Proxy configuration](/reference/proxy/configuration) for the cipher cache settings.
 - [Provable access control](/solutions/provable-access) for binding decryption to an authenticated identity.

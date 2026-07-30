@@ -1,9 +1,54 @@
 ---
 title: Audit logging
-description: "Decryption-event logging: what's recorded, and how to attach query metadata."
+description: "How CipherStash Proxy identifies query patterns, redacts SQL, and associates access events with records and identities."
 type: concept
+components: [proxy, platform]
+audience: [ciso, developer]
 ---
 
-This page is being built as part of the docs V2 overhaul ([CIP-3331](https://linear.app/cipherstash/issue/CIP-3331)). Track progress in [IA.md](https://github.com/cipherstash/docs/blob/v2/IA.md).
+CipherStash Proxy can produce data-access events without requiring application
+queries to be instrumented. Its audit pipeline identifies the query pattern,
+removes literal values, determines which records were accessed, and associates
+the event with the authenticated client or identity context.
 
-Until it lands, the current version lives in the [existing docs](/stack/cipherstash/proxy/audit).
+This page describes what Proxy contributes to an event. Retention, export, and
+SIEM integration depend on the audit service and deployment configuration.
+
+## Statement fingerprinting
+
+Proxy fingerprints the parsed SQL statement so semantically equivalent query
+shapes can be grouped across parameter values and environments. The fingerprint
+identifies a query pattern without using the literal values supplied by the
+application.
+
+## SQL redaction
+
+Literal values are stripped before SQL is included in an event. Table, column,
+and function names remain so the event is useful for investigation. If Proxy
+cannot safely parse and redact a statement, it does not transmit the statement
+text.
+
+Parameterized queries sent through PostgreSQL's extended protocol already
+keep bound values separate from the SQL text; redaction also covers literals
+embedded directly in a statement.
+
+## Record identification
+
+Proxy can add missing primary-key columns to an internal form of the query,
+then reconcile returned identifiers with their source tables. Injected columns
+are removed before the result is returned to the application, so the result
+shape remains unchanged.
+
+## Event pipeline
+
+1. **Fingerprint** the parsed query shape.
+2. **Redact** static values from the SQL representation.
+3. **Identify** primary keys for records touched by the query.
+4. **Reconcile** identifiers with tables and remove injected fields from the
+   application result.
+5. **Attribute** the event to the client and, when OIDC federation is used, the
+   authenticated identity.
+
+For cryptographic identity binding and SDK audit metadata, see
+[provable access control](/solutions/provable-access#audit-logging). For Proxy
+operation and configuration, see the [Proxy reference](/reference/proxy).

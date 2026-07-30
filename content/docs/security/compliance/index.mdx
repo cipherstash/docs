@@ -1,9 +1,49 @@
 ---
 title: Compliance
 navTitle: Overview
-description: "Compliance documentation — being built as part of the docs V2 overhaul."
+description: "How CipherStash capabilities support a compliance control design, and which responsibilities remain with the customer."
+type: concept
+components: [encryption, platform, proxy]
+audience: [ciso, cto]
+reviewBy: "2027-01-31"
 ---
 
-This section is being built as part of the docs V2 overhaul ([CIP-3307](https://linear.app/cipherstash/issue/CIP-3307)). Track progress in [IA.md](https://github.com/cipherstash/docs/blob/v2/IA.md).
+CipherStash supplies technical controls that can support a compliance program:
+field-level encryption, regional key management, cryptographic isolation,
+identity-bound decryption, and data-access evidence. A framework outcome still
+depends on how those controls are configured and on the surrounding application,
+cloud, operational, and organizational controls.
 
-Until it lands, current documentation lives in the [existing docs](/stack).
+## Capability map
+
+| Requirement area | Relevant CipherStash capability | Customer responsibility |
+| --- | --- | --- |
+| Protect sensitive stored data | Application-level field encryption | Classify fields and ensure every write path encrypts them |
+| Restrict key access | Client keys, access-key roles, and keyset grants | Apply least privilege, rotate credentials, and control the deployment secret store |
+| Isolate tenants or environments | Separate keysets or workspaces | Define and enforce the boundary consistently in application and database access |
+| Attribute access to a user | OIDC federation and lock contexts | Configure the identity provider and choose stable, appropriate claims |
+| Produce data-access evidence | ZeroKMS derivation context and Proxy audit events | Configure retention, review, alerting, and SIEM ingestion |
+| Keep key material regional | Region-bound workspaces | Deploy applications and databases in the intended region and govern cross-border access |
+| Remove access to encrypted data | Revoke client grants or destroy the relevant key boundary | Confirm scope, backups, legal holds, and recovery requirements before destructive action |
+
+## Common frameworks
+
+These capabilities can contribute evidence or control implementation for
+frameworks such as SOC 2, HIPAA, GDPR, PCI DSS, ISO 27001, and regional privacy
+laws. They do not by themselves make a workload compliant, and the exact
+mapping depends on the organization's scope and assessor interpretation.
+
+Use the following pages when building a control narrative:
+
+- [Cryptography](/security/cryptography) for algorithms, key hierarchy, data
+  flow, and trust boundaries.
+- [Key management](/concepts/key-management) for per-value keys, split control,
+  keysets, and revocation.
+- [Data residency](/solutions/data-residency) for regional deployment patterns.
+- [Provable access control](/solutions/provable-access) and
+  [audit logging](/security/audit-logging) for identity and evidence.
+- [Access keys](/reference/auth/access-keys) and
+  [client keys](/reference/auth/clients) for least-privilege credentials.
+
+Contact [support@cipherstash.com](mailto:support@cipherstash.com) for current
+assurance reports, contractual documents, or framework-specific questions.

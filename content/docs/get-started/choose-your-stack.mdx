@@ -33,7 +33,7 @@ EQL installs into any Postgres you can connect to. It needs no extension, no sup
 | Neon, RDS, Aurora, Cloud SQL | Yes | `stash eql install` detects a non-superuser role and adapts. |
 | Self-hosted Postgres | Yes | Full operator-class support, so the ORE ordering mechanism is available. |
 | Postgres behind PgBouncer | Yes | Transaction pooling is fine. Proxy has its own pooling. |
-| DynamoDB | Yes, without EQL | [DynamoDB integration](/stack/cipherstash/encryption/dynamodb). Encrypted attributes and HMAC key lookups; no EQL, because there's no Postgres. |
+| DynamoDB | Yes, without EQL | [DynamoDB integration](/integrations/aws/dynamodb). Encrypted attributes and HMAC key lookups; no EQL, because there's no Postgres. |
 | MySQL, MongoDB, others | Not yet | The SDK still encrypts values for you, but nothing is queryable server-side. |
 
 <Callout type="info">

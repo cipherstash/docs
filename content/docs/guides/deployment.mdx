@@ -1,6 +1,5 @@
 ---
 title: Deployment
-navTitle: Overview
 description: "Deploy CipherStash changes safely across environments, with explicit credential, migration, rollout, monitoring, and rollback gates."
 type: guide
 components: [encryption, eql, cli]
@@ -9,7 +8,7 @@ audience: [developer]
 
 CipherStash deployments coordinate application code, database schema, and credentials. Treat each independently deployable stage as a release with its own verification and rollback gate.
 
-For the detailed dual-write, backfill, and cutover procedure for populated columns, follow [Encrypt existing data](/guides/migration/encrypt-existing-data). This page covers the production rollout around that migration.
+For the detailed dual-write, backfill, and cutover procedure for populated columns, follow [Data migration](/guides/migration). This page covers the production rollout around that migration.
 
 ## Before the first deployment
 
@@ -96,3 +95,90 @@ Test the correctness of returned values, not only request success rates. An inco
 Prefer application rollbacks while both plaintext and encrypted columns are being maintained. Before plaintext removal, a read cutover can be reversed without changing data: point reads back to the original columns and leave dual-writes running.
 
 After plaintext is dropped, rollback becomes a data-recovery operation. Avoid reaching that stage until operational evidence shows the encrypted path is stable and every supported application version has moved forward.
+
+## Serverless and bundled applications
+
+`@cipherstash/stack` must remain a runtime dependency when a build tool creates
+a server bundle. Configure the bundler to leave the package external, then make
+sure the deployment artifact installs it for the target platform.
+
+For Next.js, use `serverExternalPackages`:
+
+```typescript filename="next.config.ts"
+const nextConfig = {
+  serverExternalPackages: ["@cipherstash/stack"],
+}
+
+export default nextConfig
+```
+
+For esbuild, pass `--external:@cipherstash/stack`; for webpack, declare it as a
+CommonJS external. An SST function needs both the esbuild exclusion and a
+runtime install:
+
+```typescript filename="sst.config.ts"
+{
+  nodejs: {
+    esbuild: { external: ["@cipherstash/stack"] },
+    install: ["@cipherstash/stack"],
+  },
+}
+```
+
+Build and start the artifact in a Linux container before release when local
+development uses macOS or Windows. This catches a lockfile or deployment bundle
+that omitted the target platform's runtime package.
+
+## Testing and CI
+
+Use a separate workspace and database for integration tests. Supply the test
+workspace's four `CS_*` credentials only to the CI job, install the same EQL
+release used by production, and test:
+
+- encryption followed by decryption returns the original typed value;
+- every required equality, range, ordering, token, or JSON query returns the
+  expected records;
+- a client without the required keyset grant cannot decrypt the data;
+- schema migrations and application code work in both rolling-deployment
+  orders.
+
+Mocks are useful for business logic that merely passes encrypted values
+through, but they do not test ciphertext compatibility, key access, query
+terms, or EQL behavior. Keep at least one real end-to-end test for every
+encrypted query capability used in production.
+
+## Team onboarding
+
+Invite each developer to the organization and workspace, then have them run:
+
+```bash
+npx stash init
+```
+
+Each device receives its own developer identity and client key. Do not share
+production credentials with developers or copy one developer's local profile
+into CI. Remove a departing developer from the workspace and revoke their
+device client keys without changing application credentials.
+
+See [workspace members](/reference/workspace/members) and
+[client keys](/reference/auth/clients) for the complete access model.
+
+## Deploying Proxy
+
+Run CipherStash Proxy as a container in the same private network as PostgreSQL.
+Supply database credentials and CipherStash application credentials from the
+platform's secret manager, expose the PostgreSQL listener only to application
+clients, and expose health or metrics endpoints only to the monitoring plane.
+
+For ECS, Kubernetes, or another orchestrator, keep these concerns separate:
+
+1. Pull the published Proxy image from the approved registry.
+2. Grant the task or pod permission to read only its deployment secrets.
+3. Configure security groups or network policies for application → Proxy and
+   Proxy → database traffic.
+4. Roll out at least two instances where connection availability requires it.
+5. Verify a plaintext write, encrypted database value, encrypted query, and
+   decrypted read through the deployed endpoint.
+
+Use the [Proxy configuration reference](/reference/proxy/configuration) for
+environment variables, TOML settings, ports, logging, and metrics.
