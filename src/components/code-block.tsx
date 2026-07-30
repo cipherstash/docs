@@ -47,6 +47,16 @@ export function TrackedCodeBlock(props: CodeBlockProps) {
     return <Mermaid chart={mermaidChart} />;
   }
 
+  return <TrackedFumadocsCodeBlock {...props} />;
+}
+
+/**
+ * Instrumented Fumadocs code block, split from the Mermaid dispatch above so
+ * every hook in this component is called unconditionally.
+ */
+function TrackedFumadocsCodeBlock(props: CodeBlockProps) {
+  const attrs = props as CodeBlockProps & TrackingProps;
+  const language = attrs["data-language"] ?? "plaintext";
   const exampleId = attrs["data-example-id"];
   const isCta = attrs["data-cta"] === "true";
   const ctaType = attrs["data-cta-type"];

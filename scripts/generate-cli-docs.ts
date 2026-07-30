@@ -317,8 +317,7 @@ function renderIndex(
   const sections = manifest.groupOrder
     .filter((g) => groups.has(g))
     .map((g) => {
-      const rows = groups
-        .get(g)!
+      const rows = (groups.get(g) ?? [])
         .flatMap((base) =>
           manifest.commands
             .filter((c) => c.base === base)
@@ -348,9 +347,10 @@ ${sections}
 function renderMeta(manifest: Manifest, groups: Map<string, string[]>): string {
   const pages: string[] = [];
   for (const g of manifest.groupOrder) {
-    if (!groups.has(g)) continue;
+    const groupPages = groups.get(g);
+    if (!groupPages) continue;
     pages.push(`---${g}---`);
-    pages.push(...groups.get(g)!);
+    pages.push(...groupPages);
   }
   return `${JSON.stringify({ title: "CLI", pages }, null, 2)}\n`;
 }
@@ -379,8 +379,16 @@ function main() {
   const groups = new Map<string, string[]>();
   for (const g of manifest.groupOrder) groups.set(g, []);
   for (const base of bases) {
-    const g = manifest.commands.find((c) => c.base === base)!.group;
-    groups.get(g)!.push(base);
+    const command = manifest.commands.find((c) => c.base === base);
+    if (!command) throw new Error(`No command found for base "${base}".`);
+
+    const group = groups.get(command.group);
+    if (!group) {
+      throw new Error(
+        `Command "${command.path}" uses undeclared group "${command.group}".`,
+      );
+    }
+    group.push(base);
   }
   for (const [g, list] of groups) if (!list.length) groups.delete(g);
 

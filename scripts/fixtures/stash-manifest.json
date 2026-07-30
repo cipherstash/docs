@@ -48,10 +48,7 @@
         {
           "name": "plan",
           "summary": "Draft a reviewable encryption plan at .cipherstash/plan.md",
-          "examples": [
-            "plan",
-            "plan --target claude-code"
-          ],
+          "examples": ["plan", "plan --target claude-code"],
           "flags": [
             {
               "name": "--complete-rollout",
@@ -114,10 +111,7 @@
           "name": "manifest",
           "summary": "Print the structured, versioned command surface",
           "long": "Emit the CLI command surface as data. `--json` produces the machine-\nreadable manifest the docs generator and agents consume; without it a\ngrouped command list is printed. The manifest is stamped with the CLI\nversion, so a page generated from it always names the version it describes.",
-          "examples": [
-            "manifest --json",
-            "manifest"
-          ],
+          "examples": ["manifest --json", "manifest"],
           "flags": [
             {
               "name": "--json",
@@ -168,10 +162,7 @@
         {
           "name": "auth regions",
           "summary": "List the regions you can authenticate against",
-          "examples": [
-            "auth regions",
-            "auth regions --json"
-          ],
+          "examples": ["auth regions", "auth regions --json"],
           "flags": [
             {
               "name": "--json",
