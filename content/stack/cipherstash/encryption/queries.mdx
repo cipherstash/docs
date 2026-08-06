@@ -224,6 +224,59 @@ const { data } = await eSupabase
 
 ---
 
+## SELECT DISTINCT
+
+`SELECT DISTINCT` on an encrypted column deduplicates by plaintext. The stored ciphertext is randomized per row, so identical plaintexts would not otherwise collapse — CipherStash Proxy rewrites the query so they do. No query changes are needed.
+
+**Raw SQL:**
+
+```sql
+SELECT DISTINCT email FROM users;
+```
+
+**With `ORDER BY`:**
+
+`SELECT DISTINCT ... ORDER BY <encrypted column>` is also supported, with no query changes needed.
+
+```sql
+SELECT DISTINCT age FROM users ORDER BY age ASC;
+```
+
+<Callout type="warn">
+  Deduplication is equality-based. A column with no equality index — most commonly a storage-only column with no `.equality()`, `.freeTextSearch()`, or `.orderAndRange()` configured — cannot be deduplicated. `SELECT DISTINCT` on that column raises a capability error.
+</Callout>
+
+### Unsupported shapes
+
+Two combinations of `DISTINCT` and `ORDER BY` on an encrypted column are not supported and raise an error:
+
+**`DISTINCT ON (...)` combined with `ORDER BY`:**
+
+```sql
+-- Not supported
+SELECT DISTINCT ON (email) * FROM users ORDER BY email;
+```
+
+**`DISTINCT *` combined with `ORDER BY`, or with an encrypted column anywhere in the projection:**
+
+```sql
+-- Not supported: DISTINCT * with ORDER BY on an encrypted column
+SELECT DISTINCT * FROM users ORDER BY email;
+
+-- Not supported: an encrypted column reached via `*` in the projection
+SELECT DISTINCT * FROM users;
+```
+
+List columns explicitly instead of using `*`:
+
+```sql
+SELECT DISTINCT id, email FROM users ORDER BY email;
+```
+
+**Underlying index:** [Equality index setup](/stack/cipherstash/encryption/indexes#equality)
+
+---
+
 ## JSONB queries
 
 Query encrypted JSON columns using path existence or containment. Uses the `ste_vec` index.

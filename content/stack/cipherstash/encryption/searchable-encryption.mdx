@@ -21,6 +21,7 @@ The result: your data is encrypted at rest, in transit, and during query evaluat
 | JSON containment | `searchableJson` | `WHERE metadata @> '{"role": "admin"}'` |
 | Ordering | `orderAndRange` | `ORDER BY salary DESC` |
 | Grouping | `equality` | `GROUP BY department` |
+| Deduplication | `equality` | `SELECT DISTINCT email` |
 | Uniqueness | `equality` | `UNIQUE` constraints on encrypted columns |
 
 ## Prerequisites
