@@ -8,8 +8,9 @@ import { createRelativeLink } from "fumadocs-ui/mdx";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LLMCopyButton, ViewOptions } from "@/components/ai/page-actions";
+import { LastUpdated } from "@/components/last-updated";
 import { gitConfig } from "@/lib/layout.shared";
-import { v2source } from "@/lib/source";
+import { getV2PageImage, v2source } from "@/lib/source";
 import { getMDXComponents } from "@/mdx-components";
 
 // Page route for the V2 IA tree (content/docs), including the /docs landing
@@ -42,6 +43,12 @@ export default async function Page(props: PageProps<"/[[...slug]]">) {
           markdownUrl={markdownUrl(page.url)}
           githubUrl={`https://github.com/${gitConfig.user}/${gitConfig.repo}/blob/${gitConfig.branch}/content/docs/${page.path}`}
         />
+        {/* Absent for pages generated at build time (the API reference has no
+            git history) and on shallow clones — omitted rather than faked, the
+            same rule the sitemap's <lastmod> follows. */}
+        {page.data.lastModified && (
+          <LastUpdated date={page.data.lastModified} />
+        )}
       </div>
       <DocsBody>
         <MDX
@@ -77,8 +84,7 @@ export async function generateMetadata(
       url,
       title,
       description: page.data.description,
-      // TODO(v2): OG images — the /og route only covers the legacy tree.
-      // Add a v2 OG route when the first real (non-stub) pages land.
+      images: getV2PageImage(page).url,
     },
   };
 }

@@ -2,6 +2,7 @@ import type { ShikiTransformer } from "@shikijs/types";
 import { rehypeCodeDefaultOptions } from "fumadocs-core/mdx-plugins";
 import { metaSchema, pageSchema } from "fumadocs-core/source/schema";
 import { defineConfig, defineDocs } from "fumadocs-mdx/config";
+import lastModifiedPlugin from "fumadocs-mdx/plugins/last-modified";
 import { z } from "zod";
 import { cipherstashDark, cipherstashLight } from "./src/lib/shiki-themes";
 
@@ -152,6 +153,23 @@ const codeCopyTrackingTransformer: ShikiTransformer = {
 };
 
 export default defineConfig({
+  // Stamps each page with `lastModified` from `git log -1` on its source file,
+  // which the sitemap reports as <lastmod>. Only the v2 collection needs it —
+  // it is the only tree in the sitemap, and skipping the legacy one avoids a
+  // git invocation per file for pages nothing reads.
+  //
+  // Two cases yield no timestamp, and both are correct: a page generated at
+  // build time (the API reference) is untracked and has no history, and a
+  // shallow clone has no history to read. Fumadocs omits `lastModified`
+  // rather than guessing, and the sitemap omits <lastmod> in turn — so a
+  // missing entry is always "unknown", never a wrong date.
+  //
+  // NOTE: Vercel clones shallow by default, which is the second case above.
+  // The project must set VERCEL_DEEP_CLONE=true or production sitemaps carry
+  // no <lastmod> at all.
+  plugins: [
+    lastModifiedPlugin({ filter: (collection) => collection === "v2docs" }),
+  ],
   mdxOptions: {
     rehypeCodeOptions: {
       // Preserve Fumadocs' default Shiki config (dual-theme mode,

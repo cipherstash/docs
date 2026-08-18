@@ -90,12 +90,25 @@ export function getV2PageTree(): PageTree.Root {
   };
 }
 
-export function getPageImage(page: InferPageType<typeof source>) {
+/**
+ * OG image for a v2 page, rendered on demand by the /og/docs/[...slug] route.
+ * `segments` feeds that route's `generateStaticParams`.
+ *
+ * The URL is absolute deliberately. The app sets no `metadataBase` (see
+ * layout.tsx), so a relative path would resolve against Vercel's inferred
+ * deployment origin rather than the public one — the same reason `canonical`
+ * and `og:url` are written out in full alongside it.
+ *
+ * Replaces a legacy `getPageImage` that pointed at `/og/stack/...`, a path no
+ * route ever served, so every legacy page's og:image was a 404. Those pages
+ * now redirect into this tree and inherit these images instead.
+ */
+export function getV2PageImage(page: InferPageType<typeof v2source>) {
   const segments = [...page.slugs, "image.png"];
 
   return {
     segments,
-    url: `/og/stack/${segments.join("/")}`,
+    url: `https://cipherstash.com/docs/og/docs/${segments.join("/")}`,
   };
 }
 
