@@ -8,6 +8,7 @@ import { createRelativeLink } from "fumadocs-ui/mdx";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LLMCopyButton, ViewOptions } from "@/components/ai/page-actions";
+import { LastUpdated } from "@/components/last-updated";
 import { gitConfig } from "@/lib/layout.shared";
 import { getV2PageImage, v2source } from "@/lib/source";
 import { getMDXComponents } from "@/mdx-components";
@@ -42,6 +43,12 @@ export default async function Page(props: PageProps<"/[[...slug]]">) {
           markdownUrl={markdownUrl(page.url)}
           githubUrl={`https://github.com/${gitConfig.user}/${gitConfig.repo}/blob/${gitConfig.branch}/content/docs/${page.path}`}
         />
+        {/* Absent for pages generated at build time (the API reference has no
+            git history) and on shallow clones — omitted rather than faked, the
+            same rule the sitemap's <lastmod> follows. */}
+        {page.data.lastModified && (
+          <LastUpdated date={page.data.lastModified} />
+        )}
       </div>
       <DocsBody>
         <MDX
