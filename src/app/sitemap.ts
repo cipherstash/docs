@@ -14,10 +14,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // so the slashed form made the sitemap point at a non-canonical URL — and
     // left the canonical one missing from the sitemap entirely.
     url: page.url === "/" ? BASE_URL : `${BASE_URL}${page.url}`,
-    // No `lastModified`: the only value available at build time is "now",
-    // which would claim every page changed on every deploy. Crawlers discount
-    // a lastmod that always moves, so omitting it beats asserting a false one.
-    // Restore it if the MDX config starts sourcing real modification times.
+    // The last commit that touched the page's source file, stamped by the
+    // last-modified plugin in source.config.ts. This was `new Date()`, which
+    // claimed every page changed on every deploy — a lastmod that always moves
+    // is one crawlers learn to ignore. Pages with no git history (generated at
+    // build time, or a shallow clone) carry no timestamp and correctly emit no
+    // <lastmod> rather than an invented one.
+    lastModified: page.data.lastModified,
     changeFrequency: "weekly",
     priority: 0.7,
   }));
