@@ -521,7 +521,16 @@ export async function generateDocsForTag(
     expandObjects: true,
     hideBreadcrumbs: true,
     hidePageHeader: false,
-    hidePageTitle: false,
+    // The page template emits `# <symbol>` as the body's first line, and
+    // Fumadocs renders `page.data.title` as an <h1> above it — the same string
+    // twice, so every generated page shipped two H1s. Suppressing TypeDoc's
+    // copy leaves Fumadocs' as the only one; the text is identical, so nothing
+    // changes visually.
+    //
+    // This is `hidePageTitle`, not the `hidePageHeader` above it: the heading
+    // in typedoc-plugin-markdown's `reflection.template.js` is gated on the
+    // former. `hidePageHeader` controls the breadcrumb/navigation block.
+    hidePageTitle: true,
     parametersFormat: "list",
     expandParameters: false,
     useHTMLEncodedBrackets: true,
