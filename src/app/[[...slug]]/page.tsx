@@ -9,7 +9,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LLMCopyButton, ViewOptions } from "@/components/ai/page-actions";
 import { gitConfig } from "@/lib/layout.shared";
-import { v2source } from "@/lib/source";
+import { getV2PageImage, v2source } from "@/lib/source";
 import { getMDXComponents } from "@/mdx-components";
 
 // Page route for the V2 IA tree (content/docs), including the /docs landing
@@ -77,8 +77,7 @@ export async function generateMetadata(
       url,
       title,
       description: page.data.description,
-      // TODO(v2): OG images — the /og route only covers the legacy tree.
-      // Add a v2 OG route when the first real (non-stub) pages land.
+      images: getV2PageImage(page).url,
     },
   };
 }

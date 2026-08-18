@@ -9,7 +9,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LLMCopyButton, ViewOptions } from "@/components/ai/page-actions";
 import { gitConfig } from "@/lib/layout.shared";
-import { getPageImage, source } from "@/lib/source";
+import { source } from "@/lib/source";
 import { getMDXComponents } from "@/mdx-components";
 
 export default async function Page(props: PageProps<"/stack/[[...slug]]">) {
@@ -71,7 +71,9 @@ export async function generateMetadata(
       url,
       title,
       description: page.data.description,
-      images: getPageImage(page).url,
+      // No og:image: these pages are served purely as 307s into the v2 tree
+      // (v2-redirects.mjs), which carries its own images. Deleted with
+      // content/stack in CIP-3335.
     },
   };
 }
