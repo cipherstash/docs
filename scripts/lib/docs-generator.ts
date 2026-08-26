@@ -425,13 +425,13 @@ export async function generateDocsForTag(
   const tsConfigPath = path.join(workingDir, "typedoc.tsconfig.json");
   await fs.writeFile(tsConfigPath, JSON.stringify(typedocTsConfig, null, 2));
 
-  // Copy plugin to temp directory
-  const pluginSource = path.join(
-    process.cwd(),
-    "scripts/plugins/fumadocs-frontmatter.mjs",
-  );
-  const pluginDest = path.join(workingDir, "fumadocs-frontmatter.mjs");
-  await fs.copyFile(pluginSource, pluginDest);
+  // Copy plugins to temp directory
+  for (const plugin of ["fumadocs-frontmatter.mjs", "strip-inherited.mjs"]) {
+    await fs.copyFile(
+      path.join(process.cwd(), "scripts/plugins", plugin),
+      path.join(workingDir, plugin),
+    );
+  }
 
   // Create TypeDoc configuration
   const typedocConfig = {
@@ -445,6 +445,7 @@ export async function generateDocsForTag(
       "typedoc-plugin-markdown",
       "typedoc-plugin-frontmatter",
       "./fumadocs-frontmatter.mjs",
+      "./strip-inherited.mjs",
     ],
     out: outputDir,
     readme: "none",
