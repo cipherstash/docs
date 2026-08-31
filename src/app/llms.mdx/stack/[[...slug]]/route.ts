@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getPostHogClient } from "@/lib/posthog/server";
-import { getLLMText, source } from "@/lib/source";
+import { getLLMText, renderStackPageNav, source } from "@/lib/source";
 
 export const revalidate = false;
 
@@ -28,7 +28,9 @@ export async function GET(
     await posthog.flush();
   }
 
-  return new Response(await getLLMText(page), {
+  const body = (await getLLMText(page)) + renderStackPageNav(page.url);
+
+  return new Response(body, {
     headers: {
       "Content-Type": "text/markdown",
       "Access-Control-Allow-Origin": "*",

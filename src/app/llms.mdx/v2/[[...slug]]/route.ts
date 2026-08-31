@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getPostHogClient } from "@/lib/posthog/server";
-import { getLLMText, v2source } from "@/lib/source";
+import { getLLMText, renderV2PageNav, v2source } from "@/lib/source";
 
 // Raw-markdown mirror for the V2 IA tree, reached via the
 // `/:path*.mdx` rewrite in next.config.mjs (same pattern as the legacy
@@ -35,7 +35,12 @@ export async function GET(
     await posthog.flush();
   }
 
-  return new Response(await getLLMText(page), {
+  // Nav is appended here rather than inside getLLMText: llms-full.txt runs
+  // the same text through, and a related-pages block repeated on every page of
+  // a single concatenated file is noise.
+  const body = (await getLLMText(page)) + renderV2PageNav(page.url);
+
+  return new Response(body, {
     headers: {
       "Content-Type": "text/markdown",
       "Access-Control-Allow-Origin": "*",

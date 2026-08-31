@@ -124,10 +124,37 @@ export function getV2PageImage(page: InferPageType<typeof v2source>) {
   };
 }
 
+/**
+ * Rewrite root-relative markdown links to absolute public URLs.
+ *
+ * Page bodies link internally as `/reference/auth/clients` — root-relative to
+ * this app, which serves under the /docs basePath. In the HTML page the
+ * browser resolves that correctly. In a markdown view it does not: the file is
+ * read at https://cipherstash.com/docs/<path>.mdx, or pasted wholesale into a
+ * model's context from llms-full.txt, and the link resolves against the origin
+ * to https://cipherstash.com/reference/auth/clients — a 404. Same defect the
+ * llms.txt index had, on every internal link in every page body.
+ *
+ * Fenced code is skipped: a path in a shell example is not a link to fix.
+ */
+function absolutizeLinks(markdown: string): string {
+  return markdown
+    .split(/(```[\s\S]*?```|~~~[\s\S]*?~~~)/)
+    .map((chunk, index) =>
+      index % 2 === 1
+        ? chunk
+        : chunk.replace(
+            /\]\((\/[^)\s]*)\)/g,
+            (_match, path: string) => `](${DOCS_BASE_URL}${path})`,
+          ),
+    )
+    .join("");
+}
+
 export async function getLLMText(
   page: InferPageType<typeof source> | InferPageType<typeof v2source>,
 ) {
-  const processed = await page.data.getText("processed");
+  const processed = absolutizeLinks(await page.data.getText("processed"));
 
   // The source URL is part of the payload, not decoration. This text is
   // served two ways — as one page at /docs/<path>.mdx, and concatenated into
@@ -139,4 +166,118 @@ export async function getLLMText(
 Source: ${docsUrl(page.url)}
 
 ${processed}`;
+}
+
+// ── Navigation for the markdown views ───────────────────────────────────────
+// The HTML page carries a sidebar; the markdown mirror at /docs/<path>.mdx
+// carries only prose. An agent that fetches one page therefore has no way to
+// discover what sits next to it, and its options are to guess URLs — which is
+// what produced the stale-IA 404s — or refetch llms.txt.
+//
+// Parent and siblings only, deliberately. The full tree is ~113 links; on
+// every page that is boilerplate, and boilerplate repeated across chunks makes
+// them harder to tell apart at retrieval time, not easier. A section's
+// immediate neighbourhood is the part that is actually local context.
+
+interface Neighbourhood {
+  /** Folder titles from the tree root down to the page, e.g. ["Integrations", "Prisma ORM"]. */
+  sections: string[];
+  /** Every page url at the page's own tree level, in sidebar order, including itself. */
+  levelUrls: string[];
+}
+
+/** Page urls at one tree level, in sidebar order; a folder contributes its index. */
+function levelUrls(nodes: PageTree.Node[]): string[] {
+  const urls: string[] = [];
+  for (const node of nodes) {
+    if (node.type === "page") urls.push(node.url);
+    else if (node.type === "folder" && node.index) urls.push(node.index.url);
+  }
+  return urls;
+}
+
+/** Folder labels are ReactNode in the page tree; only plain strings are usable here. */
+function folderTitle(node: PageTree.Folder): string | undefined {
+  return typeof node.name === "string" ? node.name : undefined;
+}
+
+function locate(
+  nodes: PageTree.Node[],
+  url: string,
+  sections: string[],
+): Neighbourhood | undefined {
+  const here = levelUrls(nodes);
+  if (here.includes(url)) return { sections, levelUrls: here };
+
+  for (const node of nodes) {
+    if (node.type !== "folder") continue;
+    const title = folderTitle(node);
+    const found = locate(
+      node.children,
+      url,
+      title ? [...sections, title] : sections,
+    );
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function renderNav(
+  tree: PageTree.Root,
+  titles: Map<string, string>,
+  url: string,
+): string {
+  const found = locate(tree.children, url, []);
+  if (!found) return "";
+
+  const others = found.levelUrls.filter((u) => u !== url);
+  const list = (urls: string[]) =>
+    urls
+      .map((u) => {
+        const title = titles.get(u);
+        return title ? `- [${title}](${docsUrl(u)})` : undefined;
+      })
+      .filter((line): line is string => line !== undefined);
+
+  // A section index sits at the same tree level as the pages it introduces —
+  // meta.json lists it as "index" rather than promoting it to folder.index —
+  // so it is recognised by every one of its neighbours living beneath it.
+  const isSectionIndex =
+    others.length > 0 && others.every((u) => u.startsWith(`${url}/`));
+  // Its own folder titles the section it introduces, so the section it belongs
+  // to is one level further out.
+  const parent = found.sections.at(isSectionIndex ? -2 : -1);
+
+  const links = list(others);
+  // The docs landing page is the only node with no neighbours — the top-level
+  // sections are folders with no index page, so there is nothing to link. A
+  // heading over a lone sentence is worse than no heading.
+  if (links.length === 0) return "";
+
+  const sections = [
+    parent
+      ? `Part of the ${parent} section of the CipherStash documentation.`
+      : "Part of the CipherStash documentation.",
+    [
+      isSectionIndex ? "Pages in this section:" : "Alongside this page:",
+      "",
+      ...links,
+    ].join("\n"),
+  ];
+
+  return `\n\n## Related pages\n\n${sections.join("\n\n")}\n`;
+}
+
+function titleMap(pages: { url: string; data: { title: string } }[]) {
+  return new Map(pages.map((page) => [page.url, page.data.title]));
+}
+
+/** Related-pages footer for a page in the canonical (v2) tree. */
+export function renderV2PageNav(url: string): string {
+  return renderNav(getV2PageTree(), titleMap(v2source.getPages()), url);
+}
+
+/** Related-pages footer for a page in the legacy /stack tree. */
+export function renderStackPageNav(url: string): string {
+  return renderNav(source.getPageTree(), titleMap(source.getPages()), url);
 }
