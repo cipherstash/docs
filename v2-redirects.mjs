@@ -126,7 +126,7 @@ export const v2Redirects = [
   },
   {
     source: "/stack/cipherstash/kms/cts",
-    destination: "/security/cts",
+    destination: "/concepts/auth",
     permanent: false,
   },
   {
@@ -173,7 +173,7 @@ export const v2Redirects = [
   },
   {
     source: "/stack/cipherstash/proxy/audit",
-    destination: "/security/audit-logging",
+    destination: "/concepts/access-analytics",
     permanent: false,
   },
   {
