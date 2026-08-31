@@ -8,17 +8,18 @@
 #
 # That is the fix this workflow exists to complete. The generator used to
 # resolve and invoke the published CLI on every build, falling back to the
-# fixture if it could not. `npx stash@<version> manifest --json` does not work
-# in the Vercel build sandbox, so from stash 1.1.1 (2026-08-20) every
-# production build logged
+# fixture if it could not. On Vercel it has never once succeeded — every
+# production build log going back as far as they are retained carries the
+# fallback, including builds where the fixture already matched the latest
+# release and nothing looked wrong.
 #
-#   ⚠ Could not run stash@1.1.1; using cached fixture.
-#   ✓ Generated 14 CLI reference page(s) for stash v1.0.0
+# Nothing failed, because a fallback that always works cannot fail. The first
+# visible symptom was eleven days of a version-old reference after 1.1.1
+# shipped. Why the `npx` invocation fails on Vercel is still unknown: stderr
+# was discarded on every one of those runs.
 #
-# and shipped a version-old reference for eleven days. Nothing failed, because
-# a fallback that always works cannot fail. Refreshing on a schedule moves that
-# step somewhere a failure is a red workflow run rather than a quietly stale
-# deploy.
+# This is also the place that answers that question. It is the one step that
+# runs the CLI, it inherits stderr, and it fails loudly.
 #
 # The refresh is not auto-merged. A CLI release can remove commands as well as
 # add them — 1.1.1 dropped `db validate` and added `eql preflight` and

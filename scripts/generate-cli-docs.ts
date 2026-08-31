@@ -24,17 +24,25 @@
  * schedule and by hand via `bun run generate-docs:cli:refresh`.
  *
  * This used to resolve and invoke the CLI on every build, falling back to the
- * fixture when that failed. The fallback was silent, and it fired: from stash
- * 1.1.1 (2026-08-20) every production build logged
+ * fixture when that failed. It has never once succeeded on Vercel. Every
+ * production build log carries the fallback, going back as far as the logs are
+ * retained:
  *
- *   ⚠ Could not run stash@1.1.1; using cached fixture.
- *   ✓ Generated 14 CLI reference page(s) for stash v1.0.0
+ *   2026-08-16  ⚠ Could not run stash@1.0.0; using cached fixture.
+ *   2026-08-18  ⚠ Could not run stash@1.1.0; using cached fixture.
+ *   2026-08-31  ⚠ Could not run stash@1.1.1; using cached fixture.
  *
- * and shipped a version-old reference for eleven days without failing anything.
- * `npx stash@<version> manifest --json` does not work in the Vercel build
- * sandbox, and a build is the wrong place to find that out. Refreshing on a
- * schedule instead means a failure surfaces in a workflow run rather than
- * degrading a deploy, and every build renders exactly what is in the repo.
+ * The docs looked right for as long as the committed fixture happened to be
+ * the latest published version. When 1.1.x shipped, a failure that was already
+ * there simply became visible — as eleven days of a version-old reference.
+ *
+ * WHY the `npx` invocation fails there is still unknown: it was run with
+ * `stdio: [..., "ignore"]`, so stderr was discarded on every one of those
+ * runs. It fails in a consistent ~8 seconds, and `npm view` in the same script
+ * succeeds, so the registry is reachable. The build is the wrong place to be
+ * finding this out either way: refreshing on a schedule means a failure
+ * surfaces as a red workflow run with its stderr intact, rather than as a
+ * quietly degraded deploy, and every build renders exactly what is in the repo.
  */
 import { execSync } from "node:child_process";
 import fs from "node:fs";
