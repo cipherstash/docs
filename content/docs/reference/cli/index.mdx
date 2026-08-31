@@ -1,20 +1,20 @@
 ---
 title: CLI
 navTitle: Overview
-description: "Command reference for the stash CLI, generated from v1.0.0."
+description: "Command reference for the stash CLI, generated from v1.1.1."
 type: reference
 components: [cli]
 verifiedAgainst:
-  cli: "1.0.0"
+  cli: "1.1.1"
 ---
 
-{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v1.0.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v1.1.1). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
 
 <Callout type="info">
-Generated from **`stash` v1.0.0** via `npx stash@1.0.0 manifest --json`. Run `npx stash@1.0.0 --help` to see the live command surface.
+Generated from **`stash` v1.1.1** via `npx stash@1.1.1 manifest --json`. Run `npx stash@1.1.1 --help` to see the live command surface.
 </Callout>
 
-The `stash` CLI. Install with `npx stash@1.0.0`. Every command accepts `--help` and `--version`.
+The `stash` CLI. Install with `npx stash@1.1.1`. Every command accepts `--help` and `--version`.
 
 ### Setup & workflow
 
@@ -40,17 +40,19 @@ The `stash` CLI. Install with `npx stash@1.0.0`. Every command accepts `--help` 
 
 | Command | Description |
 | --- | --- |
+| [`eql preflight`](/reference/cli/eql#eql-preflight) | Report whether this database role can install EQL, before trying |
 | [`eql install`](/reference/cli/eql#eql-install) | Scaffold stash.config.ts (if missing) and install EQL extensions |
-| [`eql migration`](/reference/cli/eql#eql-migration) | Generate an EQL v3 install migration for your ORM (Drizzle; Prisma Next installs EQL through its own migrations) |
+| [`eql verify`](/reference/cli/eql#eql-verify) | Check the installed EQL surface is complete, not just present |
+| [`eql migration`](/reference/cli/eql#eql-migration) | Generate an EQL v3 install migration (Drizzle, or supabase/migrations/; Prisma Next installs EQL through its own migrations) |
 | [`eql repair`](/reference/cli/eql#eql-repair) | Repair migrations drizzle-kit generated with an un-runnable ALTER COLUMN to an encrypted type |
 | [`eql upgrade`](/reference/cli/eql#eql-upgrade) | Upgrade EQL extensions to the latest version |
 | [`eql status`](/reference/cli/eql#eql-status) | Show EQL installation status |
+| [`eql validate`](/reference/cli/eql#eql-validate) | Validate your encryption schema against EQL v3 |
 
 ### Database
 
 | Command | Description |
 | --- | --- |
-| [`db validate`](/reference/cli/db#db-validate) | Validate encryption schema |
 | [`db migrate`](/reference/cli/db#db-migrate) | Run pending encrypt config migrations (not yet implemented) |
 | [`db test-connection`](/reference/cli/db#db-test-connection) | Test database connectivity |
 

@@ -1,0 +1,159 @@
+# Watches for new `stash` CLI releases and opens a PR refreshing the CLI
+# reference.
+#
+# The reference is generated from the CLI's own `manifest --json`, cached in
+# scripts/fixtures/stash-manifest.json and committed alongside the pages it
+# produces. The build reads that fixture and never the network, so what deploys
+# is exactly what is in the repo.
+#
+# That is the fix this workflow exists to complete. The generator used to
+# resolve and invoke the published CLI on every build, falling back to the
+# fixture if it could not. `npx stash@<version> manifest --json` does not work
+# in the Vercel build sandbox, so from stash 1.1.1 (2026-08-20) every
+# production build logged
+#
+#   ⚠ Could not run stash@1.1.1; using cached fixture.
+#   ✓ Generated 14 CLI reference page(s) for stash v1.0.0
+#
+# and shipped a version-old reference for eleven days. Nothing failed, because
+# a fallback that always works cannot fail. Refreshing on a schedule moves that
+# step somewhere a failure is a red workflow run rather than a quietly stale
+# deploy.
+#
+# The refresh is not auto-merged. A CLI release can remove commands as well as
+# add them — 1.1.1 dropped `db validate` and added `eql preflight` and
+# `eql verify` — and hand-written pages link to command anchors, so the diff
+# gets read.
+name: CLI manifest
+
+on:
+  schedule:
+    # Daily. NOTE: GitHub only runs scheduled workflows from the DEFAULT
+    # branch, so this file must stay on the default branch to fire at all.
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+
+env:
+  DOCS_BRANCH: main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: cli-manifest
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DOCS_BRANCH }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      - name: Compare the published CLI against the cached manifest
+        id: check
+        run: |
+          set -euo pipefail
+          latest=$(npm view stash version)
+          cached=$(node -p "require('./scripts/fixtures/stash-manifest.json').version")
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "cached=$cached" >> "$GITHUB_OUTPUT"
+          if [ "$latest" = "$cached" ]; then
+            echo "refresh=false" >> "$GITHUB_OUTPUT"
+            echo "CLI reference is current at $cached."
+          else
+            echo "refresh=true" >> "$GITHUB_OUTPUT"
+            echo "Published stash is $latest; the cached manifest is $cached."
+          fi
+
+      # Fails the job if it fails. That is the point: this is the one place
+      # that runs the CLI, so a failure here is the signal that the refresh is
+      # broken, rather than a build silently serving last month's commands.
+      - name: Refresh the manifest and regenerate the pages
+        if: steps.check.outputs.refresh == 'true'
+        run: bun run generate-docs:cli:refresh
+
+      # Named-anchor and cross-link breakage from removed commands shows up
+      # here. Reported, never fatal — a broken link is what the PR is for.
+      - name: Check links against the regenerated pages
+        if: steps.check.outputs.refresh == 'true'
+        id: links
+        run: |
+          set +e
+          out=$(bun run validate-links 2>&1)
+          code=$?
+          echo "$out"
+          {
+            echo "status=$([ $code -eq 0 ] && echo clean || echo failing)"
+            echo "log<<LINKS_EOF"
+            echo "$out" | tail -40
+            echo "LINKS_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the refresh PR
+        if: steps.check.outputs.refresh == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FROM: ${{ steps.check.outputs.cached }}
+          TO: ${{ steps.check.outputs.latest }}
+          LINKS_STATUS: ${{ steps.links.outputs.status }}
+          LINKS_LOG: ${{ steps.links.outputs.log }}
+        run: |
+          set -euo pipefail
+          branch="chore/cli-manifest-${TO}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add scripts/fixtures/stash-manifest.json content/docs/reference/cli
+          git commit -m "docs: refresh the CLI reference for stash ${TO}"
+          git push --force-with-lease -u origin "$branch"
+
+          if [ "$LINKS_STATUS" = "clean" ]; then
+            verdict="**Links check passes.** Every internal link and anchor still resolves, so this is a read of the command diff rather than a repair job."
+          else
+            verdict="**Links check fails.** Something links to a command or anchor that \`${TO}\` no longer has; the failures are below."
+          fi
+
+          body=$(cat <<EOF
+          Refreshes the CLI reference from \`stash\` \`${FROM}\` → \`${TO}\`.
+
+          Regenerated from \`stash@${TO} manifest --json\`: the cached manifest and the 14 pages built from it.
+
+          ${verdict}
+
+          **Read the command diff.** A release can remove commands as well as add them, and each removal is a page section that disappears and a URL anchor that stops resolving.
+
+          <details><summary>Links check output</summary>
+
+          \`\`\`
+          ${LINKS_LOG}
+          \`\`\`
+
+          </details>
+
+          ---
+
+          Opened automatically by \`.github/workflows/cli-manifest.yml\`.
+          EOF
+          )
+
+          open=$(gh pr list --head "$branch" --state open --json number --jq 'length')
+          if [ "$open" != "0" ]; then
+            gh pr edit "$branch" --body "$body"
+            echo "Updated the existing PR for $branch"
+          else
+            gh pr create \
+              --base "${DOCS_BRANCH}" \
+              --head "$branch" \
+              --title "docs: refresh the CLI reference for stash ${TO}" \
+              --body "$body"
+          fi

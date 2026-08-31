@@ -4,13 +4,13 @@ description: "Reference for the `stash auth` commands."
 type: reference
 components: [cli]
 verifiedAgainst:
-  cli: "1.0.0"
+  cli: "1.1.1"
 ---
 
-{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v1.0.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v1.1.1). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
 
 <Callout type="info">
-Generated from **`stash` v1.0.0** via `npx stash@1.0.0 manifest --json`. Run `npx stash@1.0.0 --help` to see the live command surface.
+Generated from **`stash` v1.1.1** via `npx stash@1.1.1 manifest --json`. Run `npx stash@1.1.1 --help` to see the live command surface.
 </Callout>
 
 The `stash auth` command group.
@@ -28,7 +28,7 @@ Runs the OAuth 2.0 device authorization flow:
 npx stash auth login [flags]
 ```
 
-#### Flags
+#### stash auth login flags
 
 | Flag | Description |
 | --- | --- |
@@ -40,7 +40,7 @@ npx stash auth login [flags]
 | `--prisma` | Track Prisma as the referrer. |
 
 
-#### Examples
+#### stash auth login examples
 
 ```bash
 npx stash auth login
@@ -57,14 +57,14 @@ List the regions you can authenticate against
 npx stash auth regions [flags]
 ```
 
-#### Flags
+#### stash auth regions flags
 
 | Flag | Description |
 | --- | --- |
 | `--json` | Emit machine-readable [\{ slug, label \}] instead of a text list. |
 
 
-#### Examples
+#### stash auth regions examples
 
 ```bash
 npx stash auth regions
