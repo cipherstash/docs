@@ -94,6 +94,32 @@ holds.
 short nav description deliberately. **Ratcheting baseline**, with index pages
 excluded from the tree exempted outright.
 
+### 5. The markdown views emit no root-relative link
+
+Renders what `/docs/<path>.mdx` actually returns and asserts no `](/…)` link
+survives it.
+
+This rule exists because `validate-links.ts` cannot catch that class of defect
+and should not be changed to try. It resolves links against the collections as
+the app serves them (`content/docs` at `baseUrl: ""`), so `/reference/auth/clients`
+is a correct link to a real page — and it actively *rejects* the absolute form,
+on the grounds that Next's basePath prepends `/docs` and a `/docs` prefix would
+resolve to `/docs/docs/…`. Both of those judgements are right for the HTML
+rendering.
+
+There are two renderings. The HTML page has a basePath and a browser to resolve
+against. The markdown view is a flat file read from an origin, where that
+context is gone and the same link resolves to `cipherstash.com/reference/auth/clients`
+— a 404, on every internal link in every page body and in all 3 MB of
+`llms-full.txt`. `getLLMText` now absolutises on the way out, so pages keep
+authoring the root-relative form the source checker enforces.
+
+The lesson generalises past this one bug: a source-level check validates one
+rendering. Anything that reshapes content on the way out needs its output
+asserted, not its input.
+
+**Hard failure.** It is an invariant of the route, not a matter of degree.
+
 ## How it runs
 
 Beside the validators that already exist, in the same style, wired into the
@@ -131,8 +157,8 @@ against 26 headings a regex can find today.
 
 ## Rollout
 
-1. Rules 1 and 3 as hard failures. They are at or near zero once the open
-   heading PRs land, so they start green and stay green.
+1. Rules 1, 3 and 5 as hard failures. They are at or near zero once the open
+   heading and markdown-view PRs land, so they start green and stay green.
 2. Rules 2 and 4 recorded as a baseline in the same PR, failing only on
    increase.
 3. Revisit after a quarter of real content changes: whether the baselines have
