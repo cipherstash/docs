@@ -111,7 +111,7 @@ const authStrategy = OidcFederationStrategy.create(
 )
 ```
 
-## Caveats
+## Caveats of running CipherStash in Edge Functions
 
 - **Cold start.** The first request pays the full path: WebAssembly compile, auth round-trip to CipherStash, and ZeroKMS dataset-key initialization. Subsequent requests reuse the cookie-cached token and only pay for the encrypt/decrypt work.
 - **Bundle size.** The inline wasm build is larger than a native binding (the module ships as base64 in the JS). That's the trade for zero runtime config — acceptable for an edge function that boots once per worker.

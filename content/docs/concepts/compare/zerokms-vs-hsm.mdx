@@ -81,7 +81,7 @@ ZeroKMS is usually appropriate when:
 - high-volume batches must not require data-key reuse; or
 - encrypted PostgreSQL data still needs to be queried.
 
-## Use them together
+## Using ZeroKMS and an HSM together
 
 The strongest design may use both. An HSM or HSM-backed cloud KMS can protect root key material, while ZeroKMS supplies split control and per-value derivation above it. The HSM remains the hardened foundation; ZeroKMS defines the application-facing trust model.
 

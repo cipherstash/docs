@@ -187,7 +187,7 @@ A steady `tuples_done` rate is healthy. A rate that decays over time is the cach
 
 Everything above is a functional index over an `IMMUTABLE` SQL function — no operator class on a column, no superuser, no `postgresql.conf` changes. Managed platforms that block custom operator classes (Supabase among them) run these recipes unchanged, so the indexing model is identical on Supabase, RDS, Cloud SQL, and self-hosted Postgres. See the [Supabase integration](/integrations/supabase).
 
-## Troubleshooting
+## Troubleshooting indexes on encrypted columns
 
 **Index not being used:**
 

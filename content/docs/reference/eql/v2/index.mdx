@@ -95,7 +95,7 @@ Enables substring and full-text search (`LIKE`, `ILIKE`) using encrypted Bloom f
 
 Enables containment queries and JSON-style operations on encrypted arrays and JSONB data.
 
-## How it works
+## How EQL v2 queries encrypted data
 
 EQL leverages PostgreSQL's native indexing capabilities to enable efficient queries on encrypted data. The searchable encrypted metadata within [CipherCells](/reference/eql/v2/payload) is indexed using standard PostgreSQL index types (B-tree for exact/range, GIN for pattern matching).
 

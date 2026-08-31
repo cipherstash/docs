@@ -292,7 +292,15 @@ function renderPage(
     );
     if (c.flags.length) parts.push(flagsTable(c.flags));
     if (c.examples.length)
-      parts.push("\n## Examples\n", "```bash", c.examples.join("\n"), "```");
+      // Named rather than a bare "## Examples": retrieval matches a query
+      // against this section alone, where the page H1 that supplied the
+      // command name is absent. "stash init examples" carries it.
+      parts.push(
+        `\n## ${CLI_NAME} ${c.path} examples\n`,
+        "```bash",
+        c.examples.join("\n"),
+        "```",
+      );
   }
 
   const supplement = readSupplement(base);
