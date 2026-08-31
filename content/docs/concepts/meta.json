@@ -5,6 +5,8 @@
     "!index",
     "searchable-encryption",
     "key-management",
+    "auth",
+    "access-analytics",
     "...",
     "compare"
   ]
