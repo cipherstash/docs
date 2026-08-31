@@ -426,7 +426,11 @@ export async function generateDocsForTag(
   await fs.writeFile(tsConfigPath, JSON.stringify(typedocTsConfig, null, 2));
 
   // Copy plugins to temp directory
-  for (const plugin of ["fumadocs-frontmatter.mjs", "strip-inherited.mjs"]) {
+  for (const plugin of [
+    "fumadocs-frontmatter.mjs",
+    "strip-inherited.mjs",
+    "source-link-labels.mjs",
+  ]) {
     await fs.copyFile(
       path.join(process.cwd(), "scripts/plugins", plugin),
       path.join(workingDir, plugin),
@@ -446,6 +450,7 @@ export async function generateDocsForTag(
       "typedoc-plugin-frontmatter",
       "./fumadocs-frontmatter.mjs",
       "./strip-inherited.mjs",
+      "./source-link-labels.mjs",
     ],
     out: outputDir,
     readme: "none",
