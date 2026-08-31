@@ -103,6 +103,8 @@ export function getV2PageTree(): PageTree.Root {
  * route ever served, so every legacy page's og:image was a 404. Those pages
  * now redirect into this tree and inherit these images instead.
  */
+const DOCS_BASE_URL = "https://cipherstash.com/docs";
+
 export function getV2PageImage(page: InferPageType<typeof v2source>) {
   const segments = [...page.slugs, "image.png"];
 
@@ -112,12 +114,28 @@ export function getV2PageImage(page: InferPageType<typeof v2source>) {
   };
 }
 
+/**
+ * Public URL for a page in either tree. `page.url` is root-relative to the
+ * app, which serves under the /docs basePath; the root page's url is "/",
+ * which would otherwise emit a trailing slash on the non-canonical form.
+ */
+export function docsUrl(pageUrl: string): string {
+  return pageUrl === "/" ? DOCS_BASE_URL : `${DOCS_BASE_URL}${pageUrl}`;
+}
+
 export async function getLLMText(
   page: InferPageType<typeof source> | InferPageType<typeof v2source>,
 ) {
   const processed = await page.data.getText("processed");
 
+  // The source URL is part of the payload, not decoration. This text is
+  // served two ways — as one page at /docs/<path>.mdx, and concatenated into
+  // /docs/llms-full.txt — and in the concatenated form a page body carried no
+  // way back to the page it came from. An agent could answer from the content
+  // and still not cite it or link a reader to it.
   return `# ${page.data.title}
+
+Source: ${docsUrl(page.url)}
 
 ${processed}`;
 }
