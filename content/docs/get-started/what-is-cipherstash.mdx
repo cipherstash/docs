@@ -10,7 +10,7 @@ CipherStash encrypts individual fields in your application, before they reach th
 
 A breach yields ciphertext. So does a compromised agent, an over-permissioned service, and a curious insider.
 
-## The problem
+## Why encrypting a column has meant losing the query
 
 Encrypting a column has always meant losing the query. So teams encrypt at rest, which protects the disk and nothing else: the moment a query runs, the database has plaintext, and so does anyone who reached the database.
 

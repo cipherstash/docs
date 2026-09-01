@@ -29,7 +29,7 @@ Point the [Stash CLI](/reference/cli) at your database and install the `eql_v3` 
 npx stash eql install
 ```
 
-`stash eql install` scaffolds a [`stash.config.ts`](#configuration) if your project doesn't have one, then installs the `eql_v3` schema — all domain types, operators, functions, and aggregates — along with the `cs_migrations` tracking schema that the `stash encrypt` commands depend on. It is idempotent: re-running reports that EQL is already installed and changes nothing. Pass `--force` to reinstall in place.
+`stash eql install` scaffolds a [`stash.config.ts`](#eql-install-configuration) if your project doesn't have one, then installs the `eql_v3` schema — all domain types, operators, functions, and aggregates — along with the `cs_migrations` tracking schema that the `stash encrypt` commands depend on. It is idempotent: re-running reports that EQL is already installed and changes nothing. Pass `--force` to reinstall in place.
 
 <Callout type="info">
 EQL v3 is the only installation target in `stash` 1.0.0, so no version flag is required. The [EQL v2 reference](/reference/eql/v2) remains available for applications maintaining an existing v2 deployment.
@@ -38,7 +38,7 @@ EQL v3 is the only installation target in `stash` 1.0.0, so no version flag is r
 </Step>
 <Step>
 
-### Point it at each database
+### Point the EQL installer at each database
 
 The CLI reads the connection string from `DATABASE_URL` (your environment or a `.env` file) and prompts if it can't find one. Override it for a single run — handy when installing across several databases — with `--database-url`, which is used for that run only and never written to disk:
 
@@ -74,7 +74,7 @@ To pull in a newer EQL release later, run `npx stash eql upgrade`.
 To uninstall, drop both EQL schemas: `DROP SCHEMA eql_v3, eql_v3_internal CASCADE`. This removes the encrypted operators and functions, so queries against encrypted columns stop resolving — but your data survives: the `public.*` domain types (and the columns typed as them) live in the `public` schema and are left untouched. Remove those separately only if you intend to drop or re-type the columns.
 </Callout>
 
-### Configuration
+### EQL install configuration
 
 `stash eql install` reads a `stash.config.ts` at your project root, scaffolding one on first run if it's missing. The same file is used by the `stash db` and `stash encrypt` commands. It exports a `defineConfig` object with two fields:
 

@@ -15,7 +15,7 @@ Your application can still look up a customer by email, order transactions by da
 
 That changes field-level encryption from an archival control into something you can use on live application data.
 
-## What it makes possible
+## What searchable encryption makes possible
 
 **A database breach yields ciphertext.** Backups, replicas, database consoles, and direct SQL access no longer expose the protected fields. Encryption happens in your application, outside the database trust boundary.
 
@@ -43,7 +43,7 @@ Two ciphertexts cannot be compared for plaintext equality, and sorting random-lo
 
 Searchable encryption solves this by separating **the value** from **the information needed to query it**.
 
-## How it works
+## How CipherStash makes an encrypted column searchable
 
 CipherStash stores a randomized ciphertext together with one or more encrypted index terms. Each term has one job: equality, ordering, text matching, or structured JSON search.
 

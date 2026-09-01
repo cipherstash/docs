@@ -105,13 +105,13 @@ ZeroKMS resolves the claim's *value* from the token that authenticated the reque
 Earlier releases used `new LockContext().identify(jwt)` to fetch a per-operation token. `identify()` and `getLockContext()` are **deprecated** — per-operation CTS tokens were removed in protect-ffi 0.25. The `LockContext` constructor itself is not deprecated. Authenticate the client with `OidcFederationStrategy` and pass the context straight to `.withLockContext()`, as above.
 </Callout>
 
-## Where it fits
+## When to lock a column to a user
 
 - **Per-user data** (a user's own medical history, messages, documents): lock to `sub`. The row is useless to anyone but its owner — including operators with database access and your own service role.
 - **Shared / tenant data** (a support queue, org-wide records): don't lock it, or you'll be unable to decrypt it outside a user session. Federation alone still authenticates access as the user; RLS scopes which rows they see.
 - **Server-side jobs** that must read locked data need the owning user's session — by design. If a background job must read a field, that field shouldn't be identity-locked.
 
-## Errors
+## Federation and lock context errors
 
 Both federation and lock context surface failures as values, not throws.
 

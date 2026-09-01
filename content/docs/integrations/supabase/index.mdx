@@ -17,7 +17,7 @@ CipherStash adds searchable, field-level encryption to Supabase. Your applicatio
 
 Unlike ordinary application-level encryption, protected columns remain queryable. Equality filters, range queries, and ordering use the same Supabase query-builder methods as plaintext columns, while CipherStash encrypts query values and decrypts results around each request.
 
-## How it works
+## How CipherStash encrypts Supabase data
 
 CipherStash has two parts:
 
