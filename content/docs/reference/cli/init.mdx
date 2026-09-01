@@ -4,13 +4,13 @@ description: "Initialize CipherStash for your project"
 type: reference
 components: [cli]
 verifiedAgainst:
-  cli: "1.0.0"
+  cli: "1.1.1"
 ---
 
-{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v1.0.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from the committed `stash manifest --json` fixture (v1.1.1). To describe a newer release: bump CLI_VERSION_PIN in that script, run `bun run generate-docs:cli:refresh`, and commit the result. */}
 
 <Callout type="info">
-Generated from **`stash` v1.0.0** via `npx stash@1.0.0 manifest --json`. Run `npx stash@1.0.0 --help` to see the live command surface.
+Generated from **`stash` v1.1.1**, via that release's own `manifest --json`. Run `npx stash@1.1.1 --help` to see the live command surface.
 </Callout>
 
 Set up CipherStash end-to-end: authenticate, introspect your database,
@@ -30,6 +30,7 @@ npx stash init [flags]
 | `--drizzle` | Use Drizzle-specific setup flow. |
 | `--prisma` | Use Prisma Next-specific setup flow (EQL bundle installed via prisma-next migrate). |
 | `--region <slug>` | Region to authenticate against (e.g. us-east-1). Skips the interactive region picker. Required for non-interactive init when not already logged in. (env: `STASH_REGION`) |
+| `--target <name>` | Which agent to install the bundled skills for: claude-code (.claude/skills) or codex (.codex/skills). Skips agent detection. Unlike `plan --target` and `impl --target`, this selects the skills destination only — init performs no handoff. agents-md, lovable and wizard install no skill directories (those handoffs inline the skills instead), so passing one here installs nothing. |
 
 
 ## stash init examples
@@ -39,4 +40,5 @@ npx stash init
 npx stash init --supabase
 npx stash init --prisma
 npx stash init --region us-east-1
+npx stash init --target claude-code
 ```

@@ -18,6 +18,7 @@
     "generate-docs:eql": "tsx scripts/generate-eql-docs.ts",
     "generate-docs:eql-api": "tsx scripts/generate-eql-api-docs.ts",
     "generate-docs:cli": "tsx scripts/generate-cli-docs.ts",
+    "generate-docs:cli:refresh": "tsx scripts/generate-cli-docs.ts --refresh",
     "check-eql-pin": "tsx scripts/check-eql-pin.ts",
     "validate-links": "tsx scripts/validate-links.ts",
     "validate-redirects": "tsx scripts/validate-v2-redirects.ts",

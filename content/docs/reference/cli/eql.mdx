@@ -4,16 +4,48 @@ description: "Reference for the `stash eql` commands."
 type: reference
 components: [cli, eql]
 verifiedAgainst:
-  cli: "1.0.0"
+  cli: "1.1.1"
 ---
 
-{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from `stash manifest --json` (v1.0.0). Re-run `bun run generate-docs:cli` to refresh from the latest published CLI. */}
+{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from the committed `stash manifest --json` fixture (v1.1.1). To describe a newer release: bump CLI_VERSION_PIN in that script, run `bun run generate-docs:cli:refresh`, and commit the result. */}
 
 <Callout type="info">
-Generated from **`stash` v1.0.0** via `npx stash@1.0.0 manifest --json`. Run `npx stash@1.0.0 --help` to see the live command surface.
+Generated from **`stash` v1.1.1**, via that release's own `manifest --json`. Run `npx stash@1.1.1 --help` to see the live command surface.
 </Callout>
 
 The `stash eql` command group.
+
+### `eql preflight`
+
+Read-only: probes the connected role — superuser, membership of
+`postgres`, CREATE on the database and on `public`, pgcrypto, and
+whether the EQL v3 schemas already exist — and names the statement
+each gap blocks. Exits 1 when a gap would abort `eql install`.
+
+Membership of `postgres` is reported but never blocks: on managed
+platforms whose role is not a member (e.g. Lovable), `eql install`
+skips the optional owner-scoped ALTER DEFAULT PRIVILEGES statements
+— the install is complete without them, since stash re-grants every
+object on each install/upgrade.
+
+```bash
+npx stash eql preflight [flags]
+```
+
+#### stash eql preflight flags
+
+| Flag | Description |
+| --- | --- |
+| `--json` | Emit the machine-readable preflight result instead of the table. |
+| `--database-url <url>` | Database URL for this run only — never written to disk. Highest precedence in the resolution order: --database-url flag → DATABASE_URL env → supabase status → interactive prompt. A stash.config.ts is not a separate tier (its default databaseUrl re-runs this same chain); a hand-set literal databaseUrl in the config bypasses the resolver and wins over all of these. (env: `DATABASE_URL`) |
+
+
+#### stash eql preflight examples
+
+```bash
+npx stash eql preflight
+npx stash eql preflight --json
+```
 
 ### `eql install`
 
@@ -23,7 +55,7 @@ Scaffold stash.config.ts (if missing) and install EQL extensions
 npx stash eql install [flags]
 ```
 
-#### Flags
+#### stash eql install flags
 
 | Flag | Description |
 | --- | --- |
@@ -33,31 +65,85 @@ npx stash eql install [flags]
 | `--database-url <url>` | Database URL for this run only — never written to disk. Highest precedence in the resolution order: --database-url flag → DATABASE_URL env → supabase status → interactive prompt. A stash.config.ts is not a separate tier (its default databaseUrl re-runs this same chain); a hand-set literal databaseUrl in the config bypasses the resolver and wins over all of these. (env: `DATABASE_URL`) |
 
 
+### `eql verify`
+
+Compare what the database actually has against everything the pinned
+EQL v3 bundle installs — every domain, function overload, operator,
+cast, and the ORE operator class — via read-only catalog queries. A
+partial install (domains present, some comparison functions or
+operators absent) reports success at install time and fails at query
+time on a specific predicate; this is the check that catches it.
+
+Expected absences read as such: on managed Postgres the bundle
+legitimately skips the ORE operator class (creating it requires
+superuser) and poisons the `_ord_ore` domains to fail loudly — that
+is a supported configuration, reported as info.
+
+Exit 0 means exactly one thing: the surface was checked and found
+complete. Damage, EQL not installed, and a version mismatch with
+the pinned bundle all exit 1 — on a mismatch the object-level diff
+is skipped (the pinned bundle is the wrong manifest to compare
+against) and the command suggests `eql upgrade` (or a one-shot
+`eql install --force --database-url ...` where no stash.config.ts
+exists — `eql upgrade` requires one).
+
+Runs automatically at the end of `stash eql install`, on the
+fresh-install path and the already-installed early exit alike.
+There, only damage fails the install — a version mismatch warns
+and continues, keeping a no-op re-run over an older EQL exit 0
+for idempotent provisioning scripts.
+
+```bash
+npx stash eql verify [flags]
+```
+
+#### stash eql verify flags
+
+| Flag | Description |
+| --- | --- |
+| `--json` | Emit the machine-readable verification report instead of the table. |
+| `--database-url <url>` | One-shot, like `eql install`'s: bypasses config loading entirely, so the database you name is the database that gets judged. Also settable via DATABASE_URL. (env: `DATABASE_URL`) |
+
+
+#### stash eql verify examples
+
+```bash
+npx stash eql verify
+npx stash eql verify --json
+```
+
 ### `eql migration`
 
-Generate an EQL v3 install migration for your ORM (Drizzle; Prisma Next installs EQL through its own migrations)
+Migration-first is the preferred way to install EQL: it lands in your
+migration history and ships to every environment through the same
+migrate step as the rest of your schema. On Supabase it is the only
+durable way — `supabase db reset` replays the migrations directory, so
+a direct `eql install` is wiped by the next reset.
 
 ```bash
 npx stash eql migration [flags]
 ```
 
-#### Flags
+#### stash eql migration flags
 
 | Flag | Description |
 | --- | --- |
 | `--drizzle` | Emit a Drizzle custom migration containing the EQL v3 install SQL. |
 | `--prisma` | Not needed: Prisma Next installs EQL through its own migration framework — run `prisma-next migrate` instead. |
-| `--supabase` | Append the Supabase role grants (eql_v3 + eql_v3_internal for anon/authenticated/service_role). |
+| `--supabase` | On its own, write the install into supabase/migrations/ so it survives `supabase db reset`. With --drizzle, instead append the Supabase role grants (eql_v3 + eql_v3_internal for anon/authenticated/service_role) to the Drizzle migration. |
 | `--name <name>` | Name for the generated migration (Drizzle). Letters, numbers, dashes, underscores only. Defaults to `install-eql`. |
-| `--out <path>` | Directory drizzle-kit writes the migration into (passed to `drizzle-kit generate --out`). Defaults to `drizzle`; set it to match your drizzle.config.ts. |
+| `--out <path>` | Where the migration is written. Drizzle: your drizzle.config.ts `out` decides that, and stash follows the path drizzle-kit reports — this is only the fallback directory to look in (defaults to `drizzle`) if it reports none. Supabase: leave it alone. The Supabase CLI replays `supabase/migrations` and has no setting to move it, so pointing elsewhere means `supabase db reset` / `db push` never apply the install; the command warns when you do. |
+| `--force` | Write a Supabase install migration even though one already exists. Not needed for --drizzle (drizzle-kit numbers each generated migration). |
 | `--dry-run` | Show what would happen without making changes. |
 
 
-#### Examples
+#### stash eql migration examples
 
 ```bash
 npx stash eql migration --drizzle
 npx stash eql migration --drizzle --supabase
+npx stash eql migration --supabase
+npx stash eql migration --supabase --force
 ```
 
 ### `eql repair`
@@ -83,7 +169,7 @@ relation, finds nothing, and reports applied state as unverified.
 npx stash eql repair [flags]
 ```
 
-#### Flags
+#### stash eql repair flags
 
 | Flag | Description |
 | --- | --- |
@@ -94,7 +180,7 @@ npx stash eql repair [flags]
 | `--database-url <url>` | Database URL for this run only — never written to disk. Highest precedence in the resolution order: --database-url flag → DATABASE_URL env → supabase status → interactive prompt. A stash.config.ts is not a separate tier (its default databaseUrl re-runs this same chain); a hand-set literal databaseUrl in the config bypasses the resolver and wins over all of these. (env: `DATABASE_URL`) |
 
 
-#### Examples
+#### stash eql repair examples
 
 ```bash
 npx stash eql repair --drizzle
@@ -110,7 +196,7 @@ Upgrade EQL extensions to the latest version
 npx stash eql upgrade [flags]
 ```
 
-#### Flags
+#### stash eql upgrade flags
 
 | Flag | Description |
 | --- | --- |
@@ -127,8 +213,48 @@ Show EQL installation status
 npx stash eql status [flags]
 ```
 
-#### Flags
+#### stash eql status flags
 
 | Flag | Description |
 | --- | --- |
 | `--database-url <url>` | Database URL for this run only — never written to disk. Highest precedence in the resolution order: --database-url flag → DATABASE_URL env → supabase status → interactive prompt. A stash.config.ts is not a separate tier (its default databaseUrl re-runs this same chain); a hand-set literal databaseUrl in the config bypasses the resolver and wins over all of these. (env: `DATABASE_URL`) |
+
+
+### `eql validate`
+
+Read the tables passed to `Encryption({ schemas })` and check each encrypted
+column against the EQL v3 domain vocabulary — then, if a database is
+reachable, against what that database actually has.
+
+Schema checks (no database needed): an `_ord_ore` domain, whose ORE operator
+class only a superuser can create; storage-only columns, reported so an
+unsearchable column is a decision rather than a surprise; and hand-authored
+configs that ask for free-text match on a non-text domain, encrypted-JSONB
+search without `types.Json`, or a searchable boolean.
+
+Database checks (skipped with a notice when no database is reachable):
+declared columns missing from the database, a column whose domain has drifted
+from the schema, an `_ord_ore` column on a database whose EQL install could
+not create the ORE operator class, and queryable columns with no functional
+index over their term extractor.
+
+Exits 1 on errors only — warnings and info do not fail the command.
+
+```bash
+npx stash eql validate [flags]
+```
+
+#### stash eql validate flags
+
+| Flag | Description |
+| --- | --- |
+| `--supabase` | Use Supabase-compatible mode. |
+| `--database-url <url>` | Database URL for this run only — never written to disk. Highest precedence in the resolution order: --database-url flag → DATABASE_URL env → supabase status → interactive prompt. A stash.config.ts is not a separate tier (its default databaseUrl re-runs this same chain); a hand-set literal databaseUrl in the config bypasses the resolver and wins over all of these. (env: `DATABASE_URL`) |
+
+
+#### stash eql validate examples
+
+```bash
+npx stash eql validate
+npx stash eql validate --database-url postgres://…
+```

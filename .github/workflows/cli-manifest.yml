@@ -1,0 +1,186 @@
+# Watches for new `stash` CLI releases and opens a PR refreshing the CLI
+# reference.
+#
+# The reference is generated from the CLI's own `manifest --json`, cached in
+# scripts/fixtures/stash-manifest.json and committed alongside the pages it
+# produces. The version is pinned in that script, and rendering asserts the
+# fixture matches the pin, so a bumped pin with a stale fixture fails the build
+# rather than shipping. The build reads the fixture and never the network: what
+# deploys is exactly what is in the repo.
+#
+# That is the fix this workflow exists to complete. The generator used to
+# resolve and invoke the published CLI on every build, falling back to the
+# fixture if it could not. On Vercel it has never once succeeded — every
+# production build log going back as far as they are retained carries the
+# fallback, including builds where the fixture already matched the latest
+# release and nothing looked wrong.
+#
+# Nothing failed, because a fallback that always works cannot fail. The first
+# visible symptom was eleven days of a version-old reference after 1.1.1
+# shipped. Why the `npx` invocation fails on Vercel is still unknown: stderr
+# was discarded on every one of those runs.
+#
+# Nothing runs `npx` any more. The refresh installs the pinned CLI into a temp
+# directory and runs it from there, so the question stops mattering — and it
+# inherits stderr, so if the equivalent ever fails it says why.
+#
+# A temp directory rather than a devDependency of this app, which was tried:
+# `stash` needs zod 3, fumadocs needs zod 4, and adding it hoists zod 3 to the
+# root, at which point the frontmatter schema stops inferring and the docs stop
+# type-checking. A docs build should not be breakable by the CLI's dep tree.
+#
+# The refresh is not auto-merged. A CLI release can remove commands as well as
+# add them — 1.1.1 dropped `db validate` and added `eql preflight` and
+# `eql verify` — and hand-written pages link to command anchors, so the diff
+# gets read.
+name: CLI manifest
+
+on:
+  schedule:
+    # Daily. NOTE: GitHub only runs scheduled workflows from the DEFAULT
+    # branch, so this file must stay on the default branch to fire at all.
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+
+env:
+  DOCS_BRANCH: main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: cli-manifest
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DOCS_BRANCH }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          # Pinned rather than `latest`, matching docs.yml: a bun release
+          # should not change what this workflow commits on its own.
+          bun-version: 1.3.13
+
+      - run: bun install --frozen-lockfile
+
+      - name: Compare the published CLI against the pinned one
+        id: check
+        run: |
+          set -euo pipefail
+          latest=$(npm view stash version)
+          pinned=$(node -p "/STASH_VERSION \?\? \"([^\"]+)\"/.exec(require('fs').readFileSync('scripts/generate-cli-docs.ts','utf8'))[1]")
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "pinned=$pinned" >> "$GITHUB_OUTPUT"
+          if [ "$latest" = "$pinned" ]; then
+            echo "refresh=false" >> "$GITHUB_OUTPUT"
+            echo "CLI reference is current at $pinned."
+          else
+            echo "refresh=true" >> "$GITHUB_OUTPUT"
+            echo "Published stash is $latest; the pin is $pinned."
+          fi
+
+      # Bumping the pin and regenerating are one action, not two: the generator
+      # refuses to render a fixture whose version disagrees with the pin, so a
+      # PR that did only the first would be red on arrival.
+      - name: Bump the pin and regenerate
+        if: steps.check.outputs.refresh == 'true'
+        env:
+          FROM: ${{ steps.check.outputs.pinned }}
+          TO: ${{ steps.check.outputs.latest }}
+        run: |
+          set -euo pipefail
+          node -e '
+            const fs = require("fs");
+            const file = "scripts/generate-cli-docs.ts";
+            const before = fs.readFileSync(file, "utf8");
+            const after = before.replace(
+              `STASH_VERSION ?? "${process.env.FROM}"`,
+              `STASH_VERSION ?? "${process.env.TO}"`,
+            );
+            if (after === before) throw new Error("Pin not found in " + file);
+            fs.writeFileSync(file, after);
+          '
+          bun run generate-docs:cli:refresh
+
+      # Named-anchor and cross-link breakage from removed commands shows up
+      # here. Reported, never fatal — a broken link is what the PR is for.
+      - name: Check links against the regenerated pages
+        if: steps.check.outputs.refresh == 'true'
+        id: links
+        run: |
+          set +e
+          out=$(bun run validate-links 2>&1)
+          code=$?
+          echo "$out"
+          {
+            echo "status=$([ $code -eq 0 ] && echo clean || echo failing)"
+            echo "log<<LINKS_EOF"
+            echo "$out" | tail -40
+            echo "LINKS_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the refresh PR
+        if: steps.check.outputs.refresh == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FROM: ${{ steps.check.outputs.pinned }}
+          TO: ${{ steps.check.outputs.latest }}
+          LINKS_STATUS: ${{ steps.links.outputs.status }}
+          LINKS_LOG: ${{ steps.links.outputs.log }}
+        run: |
+          set -euo pipefail
+          branch="chore/cli-manifest-${TO}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add scripts/generate-cli-docs.ts scripts/fixtures/stash-manifest.json content/docs/reference/cli
+          git commit -m "docs: refresh the CLI reference for stash ${TO}"
+          git push --force-with-lease -u origin "$branch"
+
+          if [ "$LINKS_STATUS" = "clean" ]; then
+            verdict="**Links check passes.** Every internal link and anchor still resolves, so this is a read of the command diff rather than a repair job."
+          else
+            verdict="**Links check fails.** Something links to a command or anchor that \`${TO}\` no longer has; the failures are below."
+          fi
+
+          body=$(cat <<EOF
+          Refreshes the CLI reference from \`stash\` \`${FROM}\` → \`${TO}\`.
+
+          Bumps the pin in \`scripts/generate-cli-docs.ts\` and regenerates from \`stash@${TO} manifest --json\`: the pin, the cached manifest, and the 14 pages built from it. The generator asserts the fixture's version matches the pin, so these move together or the build fails.
+
+          ${verdict}
+
+          **Read the command diff.** A release can remove commands as well as add them, and each removal is a page section that disappears and a URL anchor that stops resolving.
+
+          <details><summary>Links check output</summary>
+
+          \`\`\`
+          ${LINKS_LOG}
+          \`\`\`
+
+          </details>
+
+          ---
+
+          Opened automatically by \`.github/workflows/cli-manifest.yml\`.
+          EOF
+          )
+
+          open=$(gh pr list --head "$branch" --state open --json number --jq 'length')
+          if [ "$open" != "0" ]; then
+            gh pr edit "$branch" --body "$body"
+            echo "Updated the existing PR for $branch"
+          else
+            gh pr create \
+              --base "${DOCS_BRANCH}" \
+              --head "$branch" \
+              --title "docs: refresh the CLI reference for stash ${TO}" \
+              --body "$body"
+          fi

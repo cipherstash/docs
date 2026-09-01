@@ -1,6 +1,6 @@
 {
   "name": "stash",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "groups": [
     {
       "title": "Setup & workflow",
@@ -13,7 +13,8 @@
             "init",
             "init --supabase",
             "init --prisma",
-            "init --region us-east-1"
+            "init --region us-east-1",
+            "init --target claude-code"
           ],
           "flags": [
             {
@@ -33,6 +34,11 @@
               "value": "<slug>",
               "description": "Region to authenticate against (e.g. us-east-1). Skips the interactive region picker. Required for non-interactive init when not already logged in.",
               "env": "STASH_REGION"
+            },
+            {
+              "name": "--target",
+              "value": "<name>",
+              "description": "Which agent to install the bundled skills for: claude-code (.claude/skills) or codex (.codex/skills). Skips agent detection. Unlike `plan --target` and `impl --target`, this selects the skills destination only — init performs no handoff. agents-md, lovable and wizard install no skill directories (those handoffs inline the skills instead), so passing one here installs nothing."
             }
           ]
         },
@@ -56,7 +62,7 @@
             {
               "name": "--target",
               "value": "<name>",
-              "description": "Skip the agent-target picker and hand off directly to one of claude-code | codex | agents-md | wizard. Safe in non-TTY contexts."
+              "description": "Skip the agent-target picker and hand off directly to one of claude-code | codex | agents-md | lovable | wizard. Safe in non-TTY contexts."
             }
           ]
         },
@@ -76,7 +82,7 @@
             {
               "name": "--target",
               "value": "<name>",
-              "description": "Skip the agent-target picker and hand off directly to one of claude-code | codex | agents-md | wizard. Safe in non-TTY contexts."
+              "description": "Skip the agent-target picker and hand off directly to one of claude-code | codex | agents-md | lovable | wizard. Safe in non-TTY contexts."
             }
           ]
         },
@@ -110,7 +116,10 @@
           "name": "manifest",
           "summary": "Print the structured, versioned command surface",
           "long": "Emit the CLI command surface as data. `--json` produces the machine-\nreadable manifest the docs generator and agents consume; without it a\ngrouped command list is printed. The manifest is stamped with the CLI\nversion, so a page generated from it always names the version it describes.",
-          "examples": ["manifest --json", "manifest"],
+          "examples": [
+            "manifest --json",
+            "manifest"
+          ],
           "flags": [
             {
               "name": "--json",
@@ -175,7 +184,10 @@
         {
           "name": "auth regions",
           "summary": "List the regions you can authenticate against",
-          "examples": ["auth regions", "auth regions --json"],
+          "examples": [
+            "auth regions",
+            "auth regions --json"
+          ],
           "flags": [
             {
               "name": "--json",
@@ -188,6 +200,27 @@
     {
       "title": "EQL",
       "commands": [
+        {
+          "name": "eql preflight",
+          "summary": "Report whether this database role can install EQL, before trying",
+          "long": "Read-only: probes the connected role — superuser, membership of\n`postgres`, CREATE on the database and on `public`, pgcrypto, and\nwhether the EQL v3 schemas already exist — and names the statement\neach gap blocks. Exits 1 when a gap would abort `eql install`.\n\nMembership of `postgres` is reported but never blocks: on managed\nplatforms whose role is not a member (e.g. Lovable), `eql install`\nskips the optional owner-scoped ALTER DEFAULT PRIVILEGES statements\n— the install is complete without them, since stash re-grants every\nobject on each install/upgrade.",
+          "examples": [
+            "eql preflight",
+            "eql preflight --json"
+          ],
+          "flags": [
+            {
+              "name": "--json",
+              "description": "Emit the machine-readable preflight result instead of the table."
+            },
+            {
+              "name": "--database-url",
+              "value": "<url>",
+              "description": "Database URL for this run only — never written to disk. Highest precedence in the resolution order: --database-url flag → DATABASE_URL env → supabase status → interactive prompt. A stash.config.ts is not a separate tier (its default databaseUrl re-runs this same chain); a hand-set literal databaseUrl in the config bypasses the resolver and wins over all of these.",
+              "env": "DATABASE_URL"
+            }
+          ]
+        },
         {
           "name": "eql install",
           "summary": "Scaffold stash.config.ts (if missing) and install EQL extensions",
@@ -213,11 +246,35 @@
           ]
         },
         {
+          "name": "eql verify",
+          "summary": "Check the installed EQL surface is complete, not just present",
+          "long": "Compare what the database actually has against everything the pinned\nEQL v3 bundle installs — every domain, function overload, operator,\ncast, and the ORE operator class — via read-only catalog queries. A\npartial install (domains present, some comparison functions or\noperators absent) reports success at install time and fails at query\ntime on a specific predicate; this is the check that catches it.\n\nExpected absences read as such: on managed Postgres the bundle\nlegitimately skips the ORE operator class (creating it requires\nsuperuser) and poisons the `_ord_ore` domains to fail loudly — that\nis a supported configuration, reported as info.\n\nExit 0 means exactly one thing: the surface was checked and found\ncomplete. Damage, EQL not installed, and a version mismatch with\nthe pinned bundle all exit 1 — on a mismatch the object-level diff\nis skipped (the pinned bundle is the wrong manifest to compare\nagainst) and the command suggests `eql upgrade` (or a one-shot\n`eql install --force --database-url ...` where no stash.config.ts\nexists — `eql upgrade` requires one).\n\nRuns automatically at the end of `stash eql install`, on the\nfresh-install path and the already-installed early exit alike.\nThere, only damage fails the install — a version mismatch warns\nand continues, keeping a no-op re-run over an older EQL exit 0\nfor idempotent provisioning scripts.",
+          "examples": [
+            "eql verify",
+            "eql verify --json"
+          ],
+          "flags": [
+            {
+              "name": "--json",
+              "description": "Emit the machine-readable verification report instead of the table."
+            },
+            {
+              "name": "--database-url",
+              "value": "<url>",
+              "description": "One-shot, like `eql install`'s: bypasses config loading entirely, so the database you name is the database that gets judged. Also settable via DATABASE_URL.",
+              "env": "DATABASE_URL"
+            }
+          ]
+        },
+        {
           "name": "eql migration",
-          "summary": "Generate an EQL v3 install migration for your ORM (Drizzle; Prisma Next installs EQL through its own migrations)",
+          "summary": "Generate an EQL v3 install migration (Drizzle, or supabase/migrations/; Prisma Next installs EQL through its own migrations)",
+          "long": "Migration-first is the preferred way to install EQL: it lands in your\nmigration history and ships to every environment through the same\nmigrate step as the rest of your schema. On Supabase it is the only\ndurable way — `supabase db reset` replays the migrations directory, so\na direct `eql install` is wiped by the next reset.",
           "examples": [
             "eql migration --drizzle",
-            "eql migration --drizzle --supabase"
+            "eql migration --drizzle --supabase",
+            "eql migration --supabase",
+            "eql migration --supabase --force"
           ],
           "flags": [
             {
@@ -230,7 +287,7 @@
             },
             {
               "name": "--supabase",
-              "description": "Append the Supabase role grants (eql_v3 + eql_v3_internal for anon/authenticated/service_role)."
+              "description": "On its own, write the install into supabase/migrations/ so it survives `supabase db reset`. With --drizzle, instead append the Supabase role grants (eql_v3 + eql_v3_internal for anon/authenticated/service_role) to the Drizzle migration."
             },
             {
               "name": "--name",
@@ -240,7 +297,11 @@
             {
               "name": "--out",
               "value": "<path>",
-              "description": "Directory drizzle-kit writes the migration into (passed to `drizzle-kit generate --out`). Defaults to `drizzle`; set it to match your drizzle.config.ts."
+              "description": "Where the migration is written. Drizzle: your drizzle.config.ts `out` decides that, and stash follows the path drizzle-kit reports — this is only the fallback directory to look in (defaults to `drizzle`) if it reports none. Supabase: leave it alone. The Supabase CLI replays `supabase/migrations` and has no setting to move it, so pointing elsewhere means `supabase db reset` / `db push` never apply the install; the command warns when you do."
+            },
+            {
+              "name": "--force",
+              "description": "Write a Supabase install migration even though one already exists. Not needed for --drizzle (drizzle-kit numbers each generated migration)."
             },
             {
               "name": "--dry-run",
@@ -315,23 +376,19 @@
               "env": "DATABASE_URL"
             }
           ]
-        }
-      ]
-    },
-    {
-      "title": "Database",
-      "commands": [
+        },
         {
-          "name": "db validate",
-          "summary": "Validate encryption schema",
+          "name": "eql validate",
+          "summary": "Validate your encryption schema against EQL v3",
+          "long": "Read the tables passed to `Encryption({ schemas })` and check each encrypted\ncolumn against the EQL v3 domain vocabulary — then, if a database is\nreachable, against what that database actually has.\n\nSchema checks (no database needed): an `_ord_ore` domain, whose ORE operator\nclass only a superuser can create; storage-only columns, reported so an\nunsearchable column is a decision rather than a surprise; and hand-authored\nconfigs that ask for free-text match on a non-text domain, encrypted-JSONB\nsearch without `types.Json`, or a searchable boolean.\n\nDatabase checks (skipped with a notice when no database is reachable):\ndeclared columns missing from the database, a column whose domain has drifted\nfrom the schema, an `_ord_ore` column on a database whose EQL install could\nnot create the ORE operator class, and queryable columns with no functional\nindex over their term extractor.\n\nExits 1 on errors only — warnings and info do not fail the command.",
+          "examples": [
+            "eql validate",
+            "eql validate --database-url postgres://…"
+          ],
           "flags": [
             {
               "name": "--supabase",
               "description": "Use Supabase-compatible mode."
-            },
-            {
-              "name": "--exclude-operator-family",
-              "description": "Skip operator family creation."
             },
             {
               "name": "--database-url",
@@ -340,7 +397,12 @@
               "env": "DATABASE_URL"
             }
           ]
-        },
+        }
+      ]
+    },
+    {
+      "title": "Database",
+      "commands": [
         {
           "name": "db migrate",
           "summary": "Run pending encrypt config migrations (not yet implemented)"

@@ -14,12 +14,45 @@
  * projection of the real command set rather than a scrape of `--help`.
  *
  * ── Versioning ────────────────────────────────────────────────────────────
- * Always generated from the LATEST published `stash` on npm (resolved via
- * `npm view stash version`), so a new release plus a run of this script — it
- * runs in `prebuild` — refreshes the docs automatically. Every page carries
- * `verifiedAgainst.cli` and a visible banner, so readers and agents always
- * know which version the docs describe. Offline, it falls back to the cached
- * `scripts/fixtures/stash-manifest.json`.
+ * The manifest is read from the committed `scripts/fixtures/stash-manifest.json`,
+ * NOT from the network. Every page carries `verifiedAgainst.cli` and a visible
+ * banner, so readers and agents always know which version the docs describe.
+ *
+ * The version is PINNED here, the same way `EQL_RELEASE_TAG` pins EQL in
+ * generate-eql-docs.ts, rather than being whatever npm serves that morning.
+ * Rendering asserts the fixture matches the pin, so bumping one without
+ * regenerating the other fails the build — which is exactly the drift this
+ * file exists to prevent, caught without touching the network.
+ *
+ * `--refresh` installs the pinned CLI into a temp directory and runs it from
+ * there. A deliberate, separate step, run by .github/workflows/cli-manifest.yml
+ * on a schedule and by hand via `bun run generate-docs:cli:refresh`.
+ *
+ * It installs into a temp directory rather than depending on `stash` here, and
+ * that was tried first: `stash` needs zod 3, fumadocs needs zod 4, and adding
+ * it hoists zod 3 to the root, at which point the frontmatter schema in
+ * source.config.ts stops inferring and `page.data.navTitle` types as `{}`. A
+ * docs build should not be able to be broken by the CLI's dependency tree.
+ *
+ * This used to resolve and invoke the CLI on every build, falling back to the
+ * fixture when that failed. It has never once succeeded on Vercel. Every
+ * production build log carries the fallback, going back as far as the logs are
+ * retained:
+ *
+ *   2026-08-16  ⚠ Could not run stash@1.0.0; using cached fixture.
+ *   2026-08-18  ⚠ Could not run stash@1.1.0; using cached fixture.
+ *   2026-08-31  ⚠ Could not run stash@1.1.1; using cached fixture.
+ *
+ * The docs looked right for as long as the committed fixture happened to be
+ * the latest published version. When 1.1.x shipped, a failure that was already
+ * there simply became visible — as eleven days of a version-old reference.
+ *
+ * WHY the `npx` invocation failed there was never captured: it ran with
+ * `stdio: [..., "ignore"]`, so stderr was discarded on every one of those
+ * runs. It failed in a consistent ~8 seconds while `npm view` in the same
+ * script succeeded, so the registry was reachable. Nothing here runs `npx` any
+ * more — the CLI is installed, so the question stops mattering — but the
+ * refresh step inherits stderr, so if the equivalent ever fails it says why.
  */
 import { execSync } from "node:child_process";
 import fs from "node:fs";
@@ -27,8 +60,18 @@ import os from "node:os";
 import path from "node:path";
 
 const CLI_NAME = "stash";
-let CLI_VERSION = ""; // resolved to the latest published npm version at run time
-const RUNNER = "npx"; // normalized invocation shown in docs
+// The CLI release the reference describes. To upgrade: bump this, run
+// `bun run generate-docs:cli:refresh`, and read the command diff — a release
+// removes commands as well as adding them. .github/workflows/cli-manifest.yml
+// does all three and opens a PR.
+const CLI_VERSION_PIN = process.env.STASH_VERSION ?? "1.1.1";
+// Refresh the fixture from npm instead of reading it. CI and humans only.
+const REFRESH = process.argv.includes("--refresh");
+// Read back off the manifest in main(), not assumed from CLI_VERSION_PIN: the
+// manifest is what the pages are actually built from, and readFixture()
+// guarantees the two agree.
+let CLI_VERSION = "";
+const RUNNER = "npx"; // how a READER runs the CLI, shown in docs. Not how this script obtains it.
 const FIXTURE = path.join(
   process.cwd(),
   "scripts/fixtures",
@@ -99,55 +142,65 @@ const componentsFor = (base: string): string[] =>
   ["eql", "db", "schema", "encrypt"].includes(base) ? ["cli", "eql"] : ["cli"];
 
 // ── Source ──────────────────────────────────────────────────────────────────
-// Resolve the latest published version so the docs track releases automatically.
-function latestVersion(): string {
-  try {
-    return execSync(`npm view ${CLI_NAME} version`, {
-      encoding: "utf8",
-    }).trim();
-  } catch {
-    const cached = fs.existsSync(FIXTURE)
-      ? (JSON.parse(fs.readFileSync(FIXTURE, "utf8")) as CliManifest).version
-      : undefined;
-    if (cached) {
-      console.warn(`⚠ npm unreachable; using cached stash v${cached}.`);
-      return cached;
-    }
+function readFixture(): CliManifest {
+  if (!fs.existsSync(FIXTURE)) {
     throw new Error(
-      "Cannot resolve latest stash version (offline, no fixture).",
+      `No cached manifest at ${path.relative(process.cwd(), FIXTURE)}. Run \`bun run generate-docs:cli:refresh\` to create it.`,
     );
   }
+  const manifest = JSON.parse(fs.readFileSync(FIXTURE, "utf8")) as CliManifest;
+
+  // The gate. Bumping the pin without regenerating would ship a reference
+  // describing a version nobody is running. Costs no network.
+  if (manifest.version !== CLI_VERSION_PIN) {
+    throw new Error(
+      `Cached manifest is ${CLI_NAME} v${manifest.version} but the pin is v${CLI_VERSION_PIN}. Run \`bun run generate-docs:cli:refresh\` and commit the result.`,
+    );
+  }
+  return manifest;
 }
 
-// Run the resolved CLI and read its `manifest --json`, caching to a fixture for
-// offline builds. dotenvx (the CLI's launcher) may print tips before the JSON,
-// so slice from the first `{` to the last `}` defensively.
-function loadRawManifest(version: string): CliManifest {
+// Install the pinned CLI into a throwaway directory and read its
+// `manifest --json` from there, rewriting the fixture.
+//
+// Installed rather than run through `npx --yes stash@<version>`, which is what
+// this used to do and what never once worked on Vercel. dotenvx (the CLI's
+// launcher) may print tips before the JSON, so slice from the first `{` to the
+// last `}` defensively. stderr is inherited rather than discarded: when this
+// fails, the reason is the only useful output.
+function refreshFixture(): CliManifest {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "stash-manifest-"));
   try {
-    const out = execSync(`npx --yes ${CLI_NAME}@${version} manifest --json`, {
-      encoding: "utf8",
-      cwd: os.tmpdir(),
-      stdio: ["ignore", "pipe", "ignore"],
+    fs.writeFileSync(
+      path.join(dir, "package.json"),
+      `${JSON.stringify({ name: "stash-manifest-probe", private: true })}\n`,
+    );
+    execSync(`bun add ${CLI_NAME}@${CLI_VERSION_PIN}`, {
+      cwd: dir,
+      stdio: ["ignore", "ignore", "inherit"],
     });
+    const out = execSync(
+      `${path.join(dir, "node_modules", ".bin", CLI_NAME)} manifest --json`,
+      { encoding: "utf8", cwd: dir, stdio: ["ignore", "pipe", "inherit"] },
+    );
     const start = out.indexOf("{");
     const end = out.lastIndexOf("}");
     if (start === -1 || end < start) {
       throw new Error(
-        `\`${CLI_NAME}@${version} manifest --json\` did not emit a JSON object (got: ${out.trim().slice(0, 120)}…)`,
+        `\`${CLI_NAME} manifest --json\` did not emit a JSON object (got: ${out.trim().slice(0, 120)}…)`,
       );
     }
     const manifest = JSON.parse(out.slice(start, end + 1)) as CliManifest;
+    if (manifest.version !== CLI_VERSION_PIN) {
+      throw new Error(
+        `Installed ${CLI_NAME}@${CLI_VERSION_PIN} reported v${manifest.version} in its manifest.`,
+      );
+    }
     fs.mkdirSync(path.dirname(FIXTURE), { recursive: true });
     fs.writeFileSync(FIXTURE, `${JSON.stringify(manifest, null, 2)}\n`);
     return manifest;
-  } catch {
-    if (fs.existsSync(FIXTURE)) {
-      console.warn(`⚠ Could not run stash@${version}; using cached fixture.`);
-      return JSON.parse(fs.readFileSync(FIXTURE, "utf8")) as CliManifest;
-    }
-    throw new Error(
-      `Could not run stash@${version} manifest --json and no cached fixture exists.`,
-    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 }
 
@@ -189,11 +242,11 @@ function toManifest(m: CliManifest): Manifest {
 
 // ── Render ───────────────────────────────────────────────────────────────────
 const generatedMarker = (): string =>
-  `{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from \`${CLI_NAME} manifest --json\` (v${CLI_VERSION}). Re-run \`bun run generate-docs:cli\` to refresh from the latest published CLI. */}`;
+  `{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from the committed \`${CLI_NAME} manifest --json\` fixture (v${CLI_VERSION}). To describe a newer release: bump CLI_VERSION_PIN in that script, run \`bun run generate-docs:cli:refresh\`, and commit the result. */}`;
 
 function banner(): string {
   return `<Callout type="info">
-Generated from **\`${CLI_NAME}\` v${CLI_VERSION}** via \`${RUNNER} ${CLI_NAME}@${CLI_VERSION} manifest --json\`. Run \`${RUNNER} ${CLI_NAME}@${CLI_VERSION} --help\` to see the live command surface.
+Generated from **\`${CLI_NAME}\` v${CLI_VERSION}**, via that release's own \`manifest --json\`. Run \`${RUNNER} ${CLI_NAME}@${CLI_VERSION} --help\` to see the live command surface.
 </Callout>`;
 }
 
@@ -238,11 +291,21 @@ function commandSection(cmd: Command, level: "##" | "###"): string {
     synopsis,
     "```",
   ];
+  // Named after the command, for the same reason the single-command page names
+  // its examples section: a chunk lifted out of the page has to carry its own
+  // subject. On a group page it also stops the headings colliding — eql.mdx
+  // carried five identical "Examples" and eight identical "Flags", which is
+  // five and eight duplicate anchors as well as eight indistinguishable chunks.
   if (cmd.flags.length)
-    parts.push(flagsTable(cmd.flags).replace("### Flags", `${level}# Flags`));
+    parts.push(
+      flagsTable(cmd.flags).replace(
+        "### Flags",
+        `${level}# ${CLI_NAME} ${cmd.path} flags`,
+      ),
+    );
   if (cmd.examples.length) {
     parts.push(
-      `\n${level}# Examples\n`,
+      `\n${level}# ${CLI_NAME} ${cmd.path} examples\n`,
       "```bash",
       cmd.examples.join("\n"),
       "```",
@@ -374,15 +437,12 @@ function renderMeta(manifest: Manifest, groups: Map<string, string[]>): string {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 function loadManifest(): Manifest {
-  return toManifest(loadRawManifest(CLI_VERSION));
+  // The manifest is authoritative for what to stamp, so the version is read
+  // back off it rather than assumed.
+  return toManifest(REFRESH ? refreshFixture() : readFixture());
 }
 
 function main() {
-  // latestVersion() picks which published CLI to invoke; the manifest we get
-  // back is authoritative for what to stamp. Reconcile CLI_VERSION to it so
-  // pages never claim a version different from the data they were built from
-  // (e.g. when the live run fails and we fall back to an older cached fixture).
-  CLI_VERSION = latestVersion();
   const manifest = loadManifest();
   CLI_VERSION = manifest.version;
 
