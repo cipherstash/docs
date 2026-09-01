@@ -90,6 +90,18 @@ export function getV2PageTree(): PageTree.Root {
   };
 }
 
+/** Public origin and basePath this app is served under. */
+const DOCS_BASE_URL = "https://cipherstash.com/docs";
+
+/**
+ * Public URL for a path in either tree. `page.url` is root-relative to the
+ * app, which serves under the /docs basePath; the root page's url is "/",
+ * which would otherwise emit a trailing slash on the non-canonical form.
+ */
+export function docsUrl(pageUrl: string): string {
+  return pageUrl === "/" ? DOCS_BASE_URL : `${DOCS_BASE_URL}${pageUrl}`;
+}
+
 /**
  * OG image for a v2 page, rendered on demand by the /og/docs/[...slug] route.
  * `segments` feeds that route's `generateStaticParams`.
@@ -103,24 +115,13 @@ export function getV2PageTree(): PageTree.Root {
  * route ever served, so every legacy page's og:image was a 404. Those pages
  * now redirect into this tree and inherit these images instead.
  */
-const DOCS_BASE_URL = "https://cipherstash.com/docs";
-
 export function getV2PageImage(page: InferPageType<typeof v2source>) {
   const segments = [...page.slugs, "image.png"];
 
   return {
     segments,
-    url: `https://cipherstash.com/docs/og/docs/${segments.join("/")}`,
+    url: docsUrl(`/og/docs/${segments.join("/")}`),
   };
-}
-
-/**
- * Public URL for a page in either tree. `page.url` is root-relative to the
- * app, which serves under the /docs basePath; the root page's url is "/",
- * which would otherwise emit a trailing slash on the non-canonical form.
- */
-export function docsUrl(pageUrl: string): string {
-  return pageUrl === "/" ? DOCS_BASE_URL : `${DOCS_BASE_URL}${pageUrl}`;
 }
 
 export async function getLLMText(
