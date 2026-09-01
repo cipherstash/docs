@@ -18,10 +18,21 @@
  * NOT from the network. Every page carries `verifiedAgainst.cli` and a visible
  * banner, so readers and agents always know which version the docs describe.
  *
- * `--refresh` re-resolves the latest published `stash` (`npm view stash
- * version`), runs its `manifest --json`, and rewrites the fixture. That is a
- * deliberate, separate step, run by .github/workflows/cli-manifest.yml on a
- * schedule and by hand via `bun run generate-docs:cli:refresh`.
+ * The version is PINNED here, the same way `EQL_RELEASE_TAG` pins EQL in
+ * generate-eql-docs.ts, rather than being whatever npm serves that morning.
+ * Rendering asserts the fixture matches the pin, so bumping one without
+ * regenerating the other fails the build — which is exactly the drift this
+ * file exists to prevent, caught without touching the network.
+ *
+ * `--refresh` installs the pinned CLI into a temp directory and runs it from
+ * there. A deliberate, separate step, run by .github/workflows/cli-manifest.yml
+ * on a schedule and by hand via `bun run generate-docs:cli:refresh`.
+ *
+ * It installs into a temp directory rather than depending on `stash` here, and
+ * that was tried first: `stash` needs zod 3, fumadocs needs zod 4, and adding
+ * it hoists zod 3 to the root, at which point the frontmatter schema in
+ * source.config.ts stops inferring and `page.data.navTitle` types as `{}`. A
+ * docs build should not be able to be broken by the CLI's dependency tree.
  *
  * This used to resolve and invoke the CLI on every build, falling back to the
  * fixture when that failed. It has never once succeeded on Vercel. Every
@@ -36,13 +47,12 @@
  * the latest published version. When 1.1.x shipped, a failure that was already
  * there simply became visible — as eleven days of a version-old reference.
  *
- * WHY the `npx` invocation fails there is still unknown: it was run with
+ * WHY the `npx` invocation failed there was never captured: it ran with
  * `stdio: [..., "ignore"]`, so stderr was discarded on every one of those
- * runs. It fails in a consistent ~8 seconds, and `npm view` in the same script
- * succeeds, so the registry is reachable. The build is the wrong place to be
- * finding this out either way: refreshing on a schedule means a failure
- * surfaces as a red workflow run with its stderr intact, rather than as a
- * quietly degraded deploy, and every build renders exactly what is in the repo.
+ * runs. It failed in a consistent ~8 seconds while `npm view` in the same
+ * script succeeded, so the registry was reachable. Nothing here runs `npx` any
+ * more — the CLI is installed, so the question stops mattering — but the
+ * refresh step inherits stderr, so if the equivalent ever fails it says why.
  */
 import { execSync } from "node:child_process";
 import fs from "node:fs";
@@ -50,6 +60,11 @@ import os from "node:os";
 import path from "node:path";
 
 const CLI_NAME = "stash";
+// The CLI release the reference describes. To upgrade: bump this, run
+// `bun run generate-docs:cli:refresh`, and read the command diff — a release
+// removes commands as well as adding them. .github/workflows/cli-manifest.yml
+// does all three and opens a PR.
+const CLI_VERSION_PIN = process.env.STASH_VERSION ?? "1.1.1";
 // Refresh the fixture from npm instead of reading it. CI and humans only.
 const REFRESH = process.argv.includes("--refresh");
 let CLI_VERSION = ""; // resolved to the latest published npm version at run time
@@ -124,41 +139,66 @@ const componentsFor = (base: string): string[] =>
   ["eql", "db", "schema", "encrypt"].includes(base) ? ["cli", "eql"] : ["cli"];
 
 // ── Source ──────────────────────────────────────────────────────────────────
-// Resolve the latest published version. Only reached under --refresh.
-function latestVersion(): string {
-  return execSync(`npm view ${CLI_NAME} version`, { encoding: "utf8" }).trim();
-}
-
 function readFixture(): CliManifest {
   if (!fs.existsSync(FIXTURE)) {
     throw new Error(
       `No cached manifest at ${path.relative(process.cwd(), FIXTURE)}. Run \`bun run generate-docs:cli:refresh\` to create it.`,
     );
   }
-  return JSON.parse(fs.readFileSync(FIXTURE, "utf8")) as CliManifest;
-}
+  const manifest = JSON.parse(fs.readFileSync(FIXTURE, "utf8")) as CliManifest;
 
-// Run the published CLI and read its `manifest --json`, rewriting the fixture.
-// dotenvx (the CLI's launcher) may print tips before the JSON, so slice from
-// the first `{` to the last `}` defensively. stderr is inherited rather than
-// discarded: when this fails, the reason is the only useful output.
-function refreshFixture(version: string): CliManifest {
-  const out = execSync(`npx --yes ${CLI_NAME}@${version} manifest --json`, {
-    encoding: "utf8",
-    cwd: os.tmpdir(),
-    stdio: ["ignore", "pipe", "inherit"],
-  });
-  const start = out.indexOf("{");
-  const end = out.lastIndexOf("}");
-  if (start === -1 || end < start) {
+  // The gate. Bumping the pin without regenerating would ship a reference
+  // describing a version nobody is running. Costs no network.
+  if (manifest.version !== CLI_VERSION_PIN) {
     throw new Error(
-      `\`${CLI_NAME}@${version} manifest --json\` did not emit a JSON object (got: ${out.trim().slice(0, 120)}…)`,
+      `Cached manifest is ${CLI_NAME} v${manifest.version} but the pin is v${CLI_VERSION_PIN}. Run \`bun run generate-docs:cli:refresh\` and commit the result.`,
     );
   }
-  const manifest = JSON.parse(out.slice(start, end + 1)) as CliManifest;
-  fs.mkdirSync(path.dirname(FIXTURE), { recursive: true });
-  fs.writeFileSync(FIXTURE, `${JSON.stringify(manifest, null, 2)}\n`);
   return manifest;
+}
+
+// Install the pinned CLI into a throwaway directory and read its
+// `manifest --json` from there, rewriting the fixture.
+//
+// Installed rather than run through `npx --yes stash@<version>`, which is what
+// this used to do and what never once worked on Vercel. dotenvx (the CLI's
+// launcher) may print tips before the JSON, so slice from the first `{` to the
+// last `}` defensively. stderr is inherited rather than discarded: when this
+// fails, the reason is the only useful output.
+function refreshFixture(): CliManifest {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "stash-manifest-"));
+  try {
+    fs.writeFileSync(
+      path.join(dir, "package.json"),
+      `${JSON.stringify({ name: "stash-manifest-probe", private: true })}\n`,
+    );
+    execSync(`bun add ${CLI_NAME}@${CLI_VERSION_PIN}`, {
+      cwd: dir,
+      stdio: ["ignore", "ignore", "inherit"],
+    });
+    const out = execSync(
+      `${path.join(dir, "node_modules", ".bin", CLI_NAME)} manifest --json`,
+      { encoding: "utf8", cwd: dir, stdio: ["ignore", "pipe", "inherit"] },
+    );
+    const start = out.indexOf("{");
+    const end = out.lastIndexOf("}");
+    if (start === -1 || end < start) {
+      throw new Error(
+        `\`${CLI_NAME} manifest --json\` did not emit a JSON object (got: ${out.trim().slice(0, 120)}…)`,
+      );
+    }
+    const manifest = JSON.parse(out.slice(start, end + 1)) as CliManifest;
+    if (manifest.version !== CLI_VERSION_PIN) {
+      throw new Error(
+        `Installed ${CLI_NAME}@${CLI_VERSION_PIN} reported v${manifest.version} in its manifest.`,
+      );
+    }
+    fs.mkdirSync(path.dirname(FIXTURE), { recursive: true });
+    fs.writeFileSync(FIXTURE, `${JSON.stringify(manifest, null, 2)}\n`);
+    return manifest;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 // Fold the manifest's richer flag metadata (default + env) into the description
@@ -394,10 +434,9 @@ function renderMeta(manifest: Manifest, groups: Map<string, string[]>): string {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 function loadManifest(): Manifest {
-  // latestVersion() picks which published CLI to invoke; the manifest it
-  // returns is authoritative for what to stamp, so the version is read back
-  // off the manifest rather than assumed.
-  return toManifest(REFRESH ? refreshFixture(latestVersion()) : readFixture());
+  // The manifest is authoritative for what to stamp, so the version is read
+  // back off it rather than assumed.
+  return toManifest(REFRESH ? refreshFixture() : readFixture());
 }
 
 function main() {

@@ -3,8 +3,10 @@
 #
 # The reference is generated from the CLI's own `manifest --json`, cached in
 # scripts/fixtures/stash-manifest.json and committed alongside the pages it
-# produces. The build reads that fixture and never the network, so what deploys
-# is exactly what is in the repo.
+# produces. The version is pinned in that script, and rendering asserts the
+# fixture matches the pin, so a bumped pin with a stale fixture fails the build
+# rather than shipping. The build reads the fixture and never the network: what
+# deploys is exactly what is in the repo.
 #
 # That is the fix this workflow exists to complete. The generator used to
 # resolve and invoke the published CLI on every build, falling back to the
@@ -18,8 +20,14 @@
 # shipped. Why the `npx` invocation fails on Vercel is still unknown: stderr
 # was discarded on every one of those runs.
 #
-# This is also the place that answers that question. It is the one step that
-# runs the CLI, it inherits stderr, and it fails loudly.
+# Nothing runs `npx` any more. The refresh installs the pinned CLI into a temp
+# directory and runs it from there, so the question stops mattering — and it
+# inherits stderr, so if the equivalent ever fails it says why.
+#
+# A temp directory rather than a devDependency of this app, which was tried:
+# `stash` needs zod 3, fumadocs needs zod 4, and adding it hoists zod 3 to the
+# root, at which point the frontmatter schema stops inferring and the docs stop
+# type-checking. A docs build should not be breakable by the CLI's dep tree.
 #
 # The refresh is not auto-merged. A CLI release can remove commands as well as
 # add them — 1.1.1 dropped `db validate` and added `eql preflight` and
@@ -59,28 +67,44 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - name: Compare the published CLI against the cached manifest
+      - name: Compare the published CLI against the pinned one
         id: check
         run: |
           set -euo pipefail
           latest=$(npm view stash version)
-          cached=$(node -p "require('./scripts/fixtures/stash-manifest.json').version")
+          pinned=$(node -p "/STASH_VERSION \?\? \"([^\"]+)\"/.exec(require('fs').readFileSync('scripts/generate-cli-docs.ts','utf8'))[1]")
           echo "latest=$latest" >> "$GITHUB_OUTPUT"
-          echo "cached=$cached" >> "$GITHUB_OUTPUT"
-          if [ "$latest" = "$cached" ]; then
+          echo "pinned=$pinned" >> "$GITHUB_OUTPUT"
+          if [ "$latest" = "$pinned" ]; then
             echo "refresh=false" >> "$GITHUB_OUTPUT"
-            echo "CLI reference is current at $cached."
+            echo "CLI reference is current at $pinned."
           else
             echo "refresh=true" >> "$GITHUB_OUTPUT"
-            echo "Published stash is $latest; the cached manifest is $cached."
+            echo "Published stash is $latest; the pin is $pinned."
           fi
 
-      # Fails the job if it fails. That is the point: this is the one place
-      # that runs the CLI, so a failure here is the signal that the refresh is
-      # broken, rather than a build silently serving last month's commands.
-      - name: Refresh the manifest and regenerate the pages
+      # Bumping the pin and regenerating are one action, not two: the generator
+      # refuses to render a fixture whose version disagrees with the pin, so a
+      # PR that did only the first would be red on arrival.
+      - name: Bump the pin and regenerate
         if: steps.check.outputs.refresh == 'true'
-        run: bun run generate-docs:cli:refresh
+        env:
+          FROM: ${{ steps.check.outputs.pinned }}
+          TO: ${{ steps.check.outputs.latest }}
+        run: |
+          set -euo pipefail
+          node -e '
+            const fs = require("fs");
+            const file = "scripts/generate-cli-docs.ts";
+            const before = fs.readFileSync(file, "utf8");
+            const after = before.replace(
+              `STASH_VERSION ?? "${process.env.FROM}"`,
+              `STASH_VERSION ?? "${process.env.TO}"`,
+            );
+            if (after === before) throw new Error("Pin not found in " + file);
+            fs.writeFileSync(file, after);
+          '
+          bun run generate-docs:cli:refresh
 
       # Named-anchor and cross-link breakage from removed commands shows up
       # here. Reported, never fatal — a broken link is what the PR is for.
@@ -103,7 +127,7 @@ jobs:
         if: steps.check.outputs.refresh == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          FROM: ${{ steps.check.outputs.cached }}
+          FROM: ${{ steps.check.outputs.pinned }}
           TO: ${{ steps.check.outputs.latest }}
           LINKS_STATUS: ${{ steps.links.outputs.status }}
           LINKS_LOG: ${{ steps.links.outputs.log }}
@@ -114,7 +138,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          git add scripts/fixtures/stash-manifest.json content/docs/reference/cli
+          git add scripts/generate-cli-docs.ts scripts/fixtures/stash-manifest.json content/docs/reference/cli
           git commit -m "docs: refresh the CLI reference for stash ${TO}"
           git push --force-with-lease -u origin "$branch"
 
@@ -127,7 +151,7 @@ jobs:
           body=$(cat <<EOF
           Refreshes the CLI reference from \`stash\` \`${FROM}\` → \`${TO}\`.
 
-          Regenerated from \`stash@${TO} manifest --json\`: the cached manifest and the 14 pages built from it.
+          Bumps the pin in \`scripts/generate-cli-docs.ts\` and regenerates from \`stash@${TO} manifest --json\`: the pin, the cached manifest, and the 14 pages built from it. The generator asserts the fixture's version matches the pin, so these move together or the build fails.
 
           ${verdict}
 
