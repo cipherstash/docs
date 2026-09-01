@@ -67,8 +67,11 @@ const CLI_NAME = "stash";
 const CLI_VERSION_PIN = process.env.STASH_VERSION ?? "1.1.1";
 // Refresh the fixture from npm instead of reading it. CI and humans only.
 const REFRESH = process.argv.includes("--refresh");
-let CLI_VERSION = ""; // resolved to the latest published npm version at run time
-const RUNNER = "npx"; // normalized invocation shown in docs
+// Read back off the manifest in main(), not assumed from CLI_VERSION_PIN: the
+// manifest is what the pages are actually built from, and readFixture()
+// guarantees the two agree.
+let CLI_VERSION = "";
+const RUNNER = "npx"; // how a READER runs the CLI, shown in docs. Not how this script obtains it.
 const FIXTURE = path.join(
   process.cwd(),
   "scripts/fixtures",
@@ -239,11 +242,11 @@ function toManifest(m: CliManifest): Manifest {
 
 // ── Render ───────────────────────────────────────────────────────────────────
 const generatedMarker = (): string =>
-  `{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from \`${CLI_NAME} manifest --json\` (v${CLI_VERSION}). Re-run \`bun run generate-docs:cli\` to refresh from the latest published CLI. */}`;
+  `{/* GENERATED — do not edit. Produced by scripts/generate-cli-docs.ts from the committed \`${CLI_NAME} manifest --json\` fixture (v${CLI_VERSION}). To describe a newer release: bump CLI_VERSION_PIN in that script, run \`bun run generate-docs:cli:refresh\`, and commit the result. */}`;
 
 function banner(): string {
   return `<Callout type="info">
-Generated from **\`${CLI_NAME}\` v${CLI_VERSION}** via \`${RUNNER} ${CLI_NAME}@${CLI_VERSION} manifest --json\`. Run \`${RUNNER} ${CLI_NAME}@${CLI_VERSION} --help\` to see the live command surface.
+Generated from **\`${CLI_NAME}\` v${CLI_VERSION}**, via that release's own \`manifest --json\`. Run \`${RUNNER} ${CLI_NAME}@${CLI_VERSION} --help\` to see the live command surface.
 </Callout>`;
 }
 
