@@ -163,15 +163,25 @@ All communication between the SDK and CipherStash services uses TLS 1.2 or later
 
 Key material does not leave the region your workspace is configured in. See [data residency](/solutions/data-residency#regional-zerokms-deployment).
 
-## Open-source components
+## Source availability
 
-| Component | Repository |
-|---|---|
-| EQL | [cipherstash/encrypt-query-language](https://github.com/cipherstash/encrypt-query-language) |
-| ORE implementation | [cipherstash/ore.rs](https://github.com/cipherstash/ore.rs) |
-| CipherStash Proxy | [cipherstash/proxy](https://github.com/cipherstash/proxy) |
+You can read the source for every scheme on this page. Each component is published under one of two kinds of licence:
 
-The core cryptographic implementations are open source and independently auditable. ZeroKMS is a managed service operated by CipherStash.
+- **Open source**: an OSI-approved licence that lets you use, modify, and redistribute the code.
+- **Source-available**: the source is published so you can review it and check that it matches the builds we ship. The licence restricts how you can modify and use the code.
+
+| Component | What it contains | Source | Licence |
+|---|---|---|---|
+| EQL | PostgreSQL types, operators, and functions | [cipherstash/encrypt-query-language](https://github.com/cipherstash/encrypt-query-language) | MIT (open source) |
+| Stack SDK | The TypeScript packages and the native module bindings | [cipherstash/stack](https://github.com/cipherstash/stack), [cipherstash/protect-ffi](https://github.com/cipherstash/protect-ffi) | MIT (open source) |
+| Encryption core | AES-256-GCM-SIV encryption, data key derivation, and index-term generation, used by the Stack SDK's native module | [`cipherstash-client`](https://docs.rs/crate/cipherstash-client/latest/source/) | PolyForm Internal Use 1.0.0 (source-available) |
+| CLLW ordering terms | The default range and sorting term | [`cllw-ore`](https://docs.rs/crate/cllw-ore/latest/source/) | PolyForm Internal Use 1.0.0 (source-available) |
+| Block ORE | The pinned alternative range and sorting term | [cipherstash/ore.rs](https://github.com/cipherstash/ore.rs) | CipherStash Client Library Licence (source-available) |
+| CipherStash Proxy | SQL mapping, encryption, and decryption for unmodified applications | [cipherstash/proxy](https://github.com/cipherstash/proxy) | PolyForm Internal Use 1.0.0 (source-available) |
+
+The underlying primitives (AES-GCM-SIV, HMAC, SHA-2, and BLAKE3) come from widely used open-source Rust libraries, principally [RustCrypto](https://github.com/RustCrypto).
+
+ZeroKMS is a managed service operated by CipherStash, and its source is not published.
 
 ## Related
 
