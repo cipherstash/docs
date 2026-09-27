@@ -1,35 +1,55 @@
 ---
 title: Billing
-description: "How CipherStash per-workspace billing works, including plans, upgrades, downgrades, and Stripe."
+description: "How CipherStash billing works: one plan per organization, usage counted per encrypted value, and decryption always free."
 type: reference
 components: [platform]
 audience: [cto]
 reviewBy: "2027-01-09"
 ---
 
-CipherStash uses a **per-workspace billing model**. Each workspace has its own plan and usage limits. Organizations and team members are always free and unlimited.
+CipherStash bills per **organization**. Each organization has one plan and one usage allowance, and every workspace in the organization shares them. Workspaces, keysets, client apps, and organization members are unlimited on every plan.
+
+## What is metered
+
+Usage is counted in **encryption operations**, and one operation is one value encrypted. A bulk call that encrypts 500 values counts as 500 operations, the same as 500 single calls. Batching makes encryption faster but does not change the count.
+
+**Decryption is always free** and does not count against your allowance.
+
+Allowances reset monthly.
 
 ## Plans
 
-Each workspace is on a plan. Plans differ in their usage limits and in which features they unlock, such as keyset isolation and [lock contexts](/solutions/provable-access). See [pricing](https://cipherstash.com/pricing) for the current plans, their prices, and their limits.
+See [pricing](https://cipherstash.com/pricing) for the current plans, their prices, and their allowances.
 
-Enterprise is an organization-level plan with custom pricing and dedicated support. Enterprise organizations bypass per-workspace billing entirely. Contact [sales@cipherstash.com](mailto:sales@cipherstash.com).
+- **Dev** is free, with a fixed monthly allowance. It has no overage: it stops at its allowance, and you upgrade to keep encrypting.
+- **Pro** and **Business** include a monthly allowance, and usage beyond it is billed per 1,000 operations.
+- **Enterprise** has custom volume and pricing. Contact [sales@cipherstash.com](mailto:sales@cipherstash.com).
 
-## Managing workspace billing
+New organizations start on Dev.
 
-Each workspace has a billing page reachable from the workspace sidebar in the [Dashboard](https://dashboard.cipherstash.com). From there you can view your current plan and usage metrics, upgrade or downgrade, cancel your subscription, and open the Stripe billing portal for payment methods and invoices.
+### Identity providers
 
-## How billing works
+Dev and Pro organizations can use the free OIDC provider that the [Supabase connector](/integrations/supabase) sets up. Business and Enterprise allow unlimited OIDC providers.
 
-- **One Stripe customer per organization.** All workspaces in your organization share the same Stripe customer.
-- **One subscription per workspace.** Each workspace has its own Stripe subscription tied to its plan.
-- **Proration on upgrades.** Upgrading mid-cycle charges a prorated amount for the remainder of the billing period.
-- **Downgrades at period end.** Downgrading takes effect at the end of the current billing period.
-- **Cancellation.** Canceling keeps the plan active until the end of the billing period, then reverts to Free.
+## Managing billing
+
+Billing is managed at the organization level, from **Billing** in the [Dashboard](https://dashboard.cipherstash.com) navigation. The billing page shows:
+
+- the organization's current plan, status, and renewal date;
+- usage for the current period, with a breakdown by workspace;
+- the plan picker, to upgrade or downgrade;
+- on Pro and Business, a link to the billing portal for invoices, payment methods, and billing details;
+- on Pro and Business, the option to cancel.
+
+The workspace breakdown is informational. All workspaces draw on the organization's single allowance.
+
+## Cancellation
+
+Canceling keeps your plan active until the end of the current billing period, and you can reactivate it before then. After the period ends, the organization moves to Dev.
 
 ## Enterprise and AWS Marketplace
 
-Organizations on Enterprise plans or subscribed through AWS Marketplace have billing managed at the organization level, and all their workspaces have unlimited access to all features. Manage enterprise billing from the Organization Profile.
+Organizations on Enterprise, or subscribed through AWS Marketplace, see an Enterprise card on the billing page instead of the plan picker. Changes to an Enterprise plan go through your account manager.
 
 ## Need help?
 
