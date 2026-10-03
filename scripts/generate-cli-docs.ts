@@ -64,7 +64,7 @@ const CLI_NAME = "stash";
 // `bun run generate-docs:cli:refresh`, and read the command diff — a release
 // removes commands as well as adding them. .github/workflows/cli-manifest.yml
 // does all three and opens a PR.
-const CLI_VERSION_PIN = process.env.STASH_VERSION ?? "1.1.1";
+const CLI_VERSION_PIN = process.env.STASH_VERSION ?? "1.2.1";
 // Refresh the fixture from npm instead of reading it. CI and humans only.
 const REFRESH = process.argv.includes("--refresh");
 // Read back off the manifest in main(), not assumed from CLI_VERSION_PIN: the
