@@ -5,10 +5,15 @@ type: reference
 components: [eql]
 verifiedAgainst:
   eql: "2.2"
+  stack: "0.18.0"
 ---
 
 <Callout type="info">
 EQL v2 reference, for existing v2.2 deployments. New projects use [EQL v3](/reference/eql).
+</Callout>
+
+<Callout type="info">
+The TypeScript snippets on this page use the Stack 0.x schema builders: `encryptedTable` and `encryptedColumn` from `@cipherstash/stack/schema`. Stack 1.0 removed them with the rest of the EQL v2 authoring surface. Stack 1.x authors EQL v3 schemas with `encryptedTable` and `types` from `@cipherstash/stack/v3`.
 </Callout>
 
 This page covers the three query families available for encrypted columns: equality, match (free-text), and range/order. Each section shows the SDK predicate, the raw SQL form, the underlying EQL index, and links to the corresponding index setup.

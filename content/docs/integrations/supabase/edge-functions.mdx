@@ -58,11 +58,11 @@ For deployed functions, add the same four values as [Edge Function secrets](http
 Each invocation builds a fresh client, but the CipherStash service token is cached in an HTTP-only cookie via `cookieStore`, so only the first request per session pays the full round-trip to CipherStash:
 
 ```typescript title="supabase/functions/encrypt/index.ts"
-import { Encryption, AccessKeyStrategy, encryptedTable, encryptedColumn } from "@cipherstash/stack/wasm-inline"
+import { Encryption, AccessKeyStrategy, encryptedTable, types } from "@cipherstash/stack/wasm-inline"
 import { cookieStore } from "@cipherstash/auth/cookies"
 
 const patients = encryptedTable("patients", {
-  email: encryptedColumn("email").equality(),
+  email: types.TextEq("email"),
 })
 
 Deno.serve(async (req) => {
