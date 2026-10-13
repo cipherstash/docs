@@ -32,13 +32,26 @@ EQL installs into any Postgres you can connect to. It needs no extension, no sup
 | Prisma Postgres | Yes | [Prisma Postgres integration](/integrations/prisma/prisma-postgres). EQL is installed through the Prisma ORM 8 migration graph. |
 | Neon, RDS, Aurora, Cloud SQL | Yes | `stash eql install` detects a non-superuser role and adapts. |
 | Self-hosted Postgres | Yes | Full operator-class support, so the ORE ordering mechanism is available. |
-| Postgres behind PgBouncer | Yes | Transaction pooling is fine. Proxy has its own pooling. |
+| Postgres behind PgBouncer | Yes, with conditions | Pooler placement matters when you use Proxy. See [Proxy and connection poolers](#proxy-and-connection-poolers). |
 | DynamoDB | Yes, without EQL | [DynamoDB integration](/integrations/aws/dynamodb). Encrypted attributes and HMAC key lookups; no EQL, because there's no Postgres. |
 | MySQL, MongoDB, others | Not yet | The SDK still encrypts values for you, but nothing is queryable server-side. |
 
 <Callout type="info">
 Managed platforms usually block custom operator class creation. That's why the default ordering mechanism is moving to OPE, which indexes under Postgres's default btree operator class. See [SEM specifiers](/reference/eql/core-concepts#sem-specifiers).
 </Callout>
+
+### Proxy and connection poolers
+
+Proxy opens one Postgres connection for each client connection. It has no upstream connection pool. Proxy also keeps state for each client connection: the active keyset, prepared statement mappings, and the `UNSAFE_DISABLE_MAPPING` setting. A transaction-mode pooler in front of Proxy can hand one client's transaction to a connection that holds another client's state.
+
+Until the supported topologies are documented, use one of these setups:
+
+- **Pooler behind Proxy (recommended).** Run app, then Proxy, then pooler, then Postgres. Use PgBouncer 1.21 or later and set `max_prepared_statements`.
+- **Pooler in front of Proxy.** Use session mode only.
+
+Do not use `SET CIPHERSTASH.KEYSET_ID` or `SET CIPHERSTASH.KEYSET_NAME` behind a transaction-mode pooler. See [Multitenant operation](/reference/proxy/multitenant#connection-poolers).
+
+A table of supported topologies is coming. It is tracked as CIP-4167.
 
 ## 3. Your ORM
 

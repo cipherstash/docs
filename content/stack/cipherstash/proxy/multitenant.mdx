@@ -57,6 +57,10 @@ SET CIPHERSTASH.KEYSET_NAME = 'tenant-1';
 - If a default keyset is configured in the proxy, these commands return an error.
 - The active keyset is connection-scoped and does not affect other connections.
 
+<Callout type="warn">
+Do not use `SET CIPHERSTASH.KEYSET_ID` or `SET CIPHERSTASH.KEYSET_NAME` behind a transaction-mode connection pooler that sits in front of Proxy. The keyset belongs to the Proxy connection, not to your transaction. The pooler can run a later transaction on a Proxy connection with a different keyset. Run the pooler behind Proxy (PgBouncer 1.21 or later with `max_prepared_statements` set), or use session mode. A table of supported topologies is coming (CIP-4167).
+</Callout>
+
 ---
 
 ## Disabling encrypted mapping
