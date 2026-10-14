@@ -19,10 +19,10 @@ Authenticate locally with `stash auth login`, or configure the `CS_*` machine cr
 The application schema tells Stack which columns are encrypted and which query capabilities they need. It must match the [EQL domain](/reference/eql/core-concepts) used by the database column.
 
 ```typescript filename="src/encryption.ts"
-import { Encryption, encryptedColumn, encryptedTable } from "@cipherstash/stack"
+import { Encryption, encryptedTable, types } from "@cipherstash/stack/v3"
 
 export const users = encryptedTable("users", {
-  email: encryptedColumn("email").equality(),
+  email: types.TextEq("email"),
 })
 
 export const encryption = await Encryption({ schemas: [users] })
@@ -82,6 +82,73 @@ const decrypted = await encryption.decrypt(result.rows[0].email)
 if (decrypted.failure) throw decrypted.failure
 
 console.log(decrypted.data)
+```
+
+## Bulk operations
+
+Bulk methods encrypt or decrypt many values in one call. Each value keeps its own data key. Every bulk method returns a `Result`, and `null` values pass through without reaching ZeroKMS.
+
+| Method | Input | Success data |
+| --- | --- | --- |
+| `bulkEncrypt(plaintexts, { table, column })` | `Array<{ id?: string; plaintext: Plaintext \| null }>` | `Array<{ id?: string; data: Encrypted \| null }>` |
+| `bulkDecrypt(payloads)` | `Array<{ id?: string; data: Encrypted \| null }>` | `Array<{ id?: string; data } \| { id?: string; error }>` |
+| `bulkEncryptModels(models, table)` | An array of objects | The objects with each schema column replaced by an `Encrypted` payload |
+| `bulkDecryptModels(models, table, lockContext?)` | An array of objects with `Encrypted` fields | The objects with each encrypted field replaced by its plaintext |
+
+### Decrypt values
+
+`bulkDecrypt` takes stored payloads and returns one entry for each input, in input order. The optional `id` is echoed back so you can correlate results with your rows.
+
+```typescript
+const decrypted = await encryption.bulkDecrypt(
+  rows.map((row) => ({ id: String(row.id), data: row.email })),
+)
+
+if (decrypted.failure) throw decrypted.failure
+
+for (const item of decrypted.data) {
+  if (item.error !== undefined) {
+    console.error(`${item.id} failed: ${item.error}`)
+  } else {
+    console.log(`${item.id}: ${item.data}`)
+  }
+}
+```
+
+- **Per-value errors.** A value that fails to decrypt produces an entry with `error` and no `data`. The rest of the batch still decrypts. The `failure` on the `Result` reports a failure of the whole call.
+- **Nulls.** A payload with `data: null` returns `{ id, data: null }`. An empty array returns an empty array.
+- **Dates.** `bulkDecrypt` takes no table, so date and timestamp columns return their stored ISO 8601 strings, not `Date` values. Use `bulkDecryptModels` or build the date at the call site with `new Date(value)`.
+- **Lock contexts.** Chain `.withLockContext({ identityClaim: ["sub"] })` to decrypt identity-bound values. The context applies to every payload in the call. See [provable access](/solutions/provable-access).
+- **Request size.** The ZeroKMS client sends up to 500 values per request by default and runs up to 5 requests at once. Payloads from different keysets go in separate requests. A call with 500 or fewer values from one keyset is one request.
+
+### Decrypt models
+
+`bulkDecryptModels` decrypts the encrypted fields of many objects and rebuilds the plaintext types from the table, including `Date` values. Fields that are not encrypted pass through unchanged, and `null` fields stay `null`.
+
+```typescript
+const result = await encryption.bulkDecryptModels(rows, users)
+
+if (result.failure) throw result.failure
+
+console.log(result.data[0].email)
+```
+
+It returns one `Result` for the whole call and has no per-value entries. Use `bulkDecrypt` when you need per-value error handling. Pass the lock context as the third argument or chain `.withLockContext()`, but not both.
+
+### Encrypt values
+
+`bulkEncrypt` and `bulkEncryptModels` mirror the decrypt methods. `bulkEncrypt` takes the target `table` and `column`, and pins each plaintext to that column's type:
+
+```typescript
+const encrypted = await encryption.bulkEncrypt(
+  [
+    { id: "u1", plaintext: "alice@example.com" },
+    { id: "u2", plaintext: "bob@example.com" },
+  ],
+  { table: users, column: users.email },
+)
+
+if (encrypted.failure) throw encrypted.failure
 ```
 
 For every exported signature and option, use the [generated API reference](/reference/stack/api-reference). For an end-to-end project setup, follow the [quickstart](/get-started/quickstart).

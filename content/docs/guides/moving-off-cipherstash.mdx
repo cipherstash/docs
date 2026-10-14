@@ -1,0 +1,541 @@
+---
+title: Moving off CipherStash
+navTitle: Moving off CipherStash
+description: "Decrypt encrypted columns back to plaintext Postgres columns with a resumable backfill, then switch reads and remove EQL."
+type: guide
+components: [encryption, eql, proxy]
+audience: [developer, cto]
+---
+
+Leaving CipherStash is a decryption job. You decrypt each value once, write it to a plaintext column, and move your reads to that column. Nothing is re-encrypted.
+
+This guide moves a populated table from [EQL](/reference/eql) encrypted columns back to ordinary Postgres columns. It mirrors the [forward migration](/guides/migration): add the new columns, dual-write, backfill in batches, verify coverage, switch reads, and only then remove the old columns.
+
+## What leaving involves
+
+- **Cost.** Decryption is not charged. Decrypting your whole dataset on the way out costs nothing in usage fees. See [pricing](https://cipherstash.com/pricing).
+- **Data.** Each value is decrypted once. The backfill runs beside your live application, and every stage before the drop is reversible.
+- **Queries.** Queries that filter or sort on an encrypted column move to ordinary Postgres operators. Queries on other columns do not change.
+- **Dependency.** Decryption calls ZeroKMS. You need working CipherStash credentials until the last value is decrypted.
+
+## Plan around ZeroKMS
+
+Decryption needs ZeroKMS, so finish the backfill before your CipherStash access ends. Size the exit against your notice period. Allow time for the backfill, verification, a soak period on the new read path, and any lock-context rows that need a user to be present.
+
+Key export is in development. When it is available, it will remove the ZeroKMS dependency for decryption. It is not available today, so plan the exit around ZeroKMS being reachable.
+
+## Exit sequence
+
+```text
+DEPLOY 1                      OUT OF BAND                   DEPLOY 2                 DEPLOY 3
+Add plaintext columns         Decrypt backfill              Read plaintext columns   Stop writing encrypted columns
+Begin dual-writes             Verify coverage               Keep dual-writes         Drop encrypted columns
+Reads stay encrypted          Build plaintext indexes       Soak and verify          Optionally uninstall EQL
+```
+
+Do not start the backfill until dual-writes run in every deployed writer. Otherwise, a row written after the backfill passes it can stay uncovered. If you can pause every writer for the length of the backfill, you can skip dual-writes.
+
+<Callout type="info">
+The Stack CLI does not include a command for the reverse migration. This guide uses a script built on the Stack SDK. When a CLI command is available, this page will describe it.
+</Callout>
+
+## Before you start
+
+- Take a database backup. The drop stage is the first irreversible one.
+- Inventory every reader and writer of the encrypted columns: services, jobs, Edge Functions, imports, seeds, RPC functions, and administrative tools.
+- Make the same CipherStash credentials available to the backfill job that the deployed application uses; see [Credentials at build and runtime](/guides/deployment#credentials-at-build-and-runtime). `CS_*` environment variables take precedence over a local profile.
+- Confirm keyset access. Every payload names the keyset it was encrypted under, and the backfill client needs a grant for each one. A client with grants for several keysets decrypts values from all of them without extra options.
+- Find the columns your application encrypts with a lock context. They need separate handling; see [Lock contexts](#lock-contexts).
+- Install the SDK and a Postgres driver for the script:
+
+```bash
+npm install @cipherstash/stack pg
+npm install --save-dev tsx @types/pg
+```
+
+The examples move `patients.name` and `patients.date_of_birth`, the same columns as the forward migration. They assume that migration finished and that the original plaintext columns were dropped:
+
+```sql
+CREATE TABLE patients (
+    id                      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email                   text NOT NULL,
+    name_encrypted          public.eql_v3_text_eq,
+    date_of_birth_encrypted public.eql_v3_date_ord,
+    plan                    text
+);
+```
+
+If the original plaintext columns still exist and are current, you can reuse them. Skip to [Verify complete coverage](#verify-complete-coverage) and check them first.
+
+## Choose plaintext types
+
+Each EQL domain family maps back to one Postgres type. The searchable variants of a family (`_eq`, `_ord`, `_ord_ope`, `_ord_ore`, and for text `_match`, `_search`, `_search_ore`) map to the same type as the storage-only domain.
+
+| EQL domain family | Postgres type | `bulkDecrypt` returns |
+| --- | --- | --- |
+| `eql_v3_text*` | `text` | `string` |
+| `eql_v3_smallint*` | `smallint` | `number` |
+| `eql_v3_integer*` | `integer` | `number` |
+| `eql_v3_bigint*` | `bigint` | `bigint` |
+| `eql_v3_numeric*` | `numeric` | `number` |
+| `eql_v3_real*` | `real` | `number` |
+| `eql_v3_double*` | `double precision` | `number` |
+| `eql_v3_boolean` | `boolean` | `boolean` |
+| `eql_v3_date*` | `date` | `string` (stored ISO 8601 string) |
+| `eql_v3_timestamp*` | `timestamptz` or `timestamp` | `string` (stored ISO 8601 string) |
+| `eql_v3_json_search`, `eql_v3_json` | `jsonb` | The JSON document |
+
+The domain does not record everything about the original column. Take these from your schema before you encrypted:
+
+- The original `varchar(n)` length, `numeric(p, s)` precision and scale, and `char(n)` width.
+- Whether a time column was `timestamp` or `timestamptz`, and whether a JSON column was `json` or `jsonb`.
+- `NOT NULL` constraints, defaults, `CHECK` constraints, and unique constraints.
+
+<Callout type="warn">
+Stack decrypts `numeric`, `real`, and `double` columns to JavaScript numbers. A value with more precision than a double holds cannot round-trip through a number. Compare high-precision values against your system of record before you drop the encrypted column.
+</Callout>
+
+The searchable JSON domain decrypts to the full document. Store it as `jsonb`. Containment (`@>`), field access, and JSONPath queries that used encrypted operands become native `jsonb` operators.
+
+## Move your data
+
+<Steps>
+<Step>
+
+### Add nullable plaintext columns
+
+Add one plaintext column beside each encrypted column. Use the types from the table above:
+
+```sql
+ALTER TABLE patients
+    ADD COLUMN name_plain          text,
+    ADD COLUMN date_of_birth_plain date;
+```
+
+The columns must be nullable because existing rows do not have plaintext yet. The `_plain` suffix is a temporary name. Step 8 renames the columns back to the names your application used before encryption.
+
+Ship this schema change together with the dual-write code in the next step. Do not remove or rename the encrypted columns yet.
+
+</Step>
+<Step>
+
+### Dual-write every mutation
+
+Update every insert, update, and upsert path to write the encrypted value and the plaintext value in the same statement:
+
+```typescript filename="lib/patients.ts"
+export async function updatePatientName(id: number, name: string) {
+  const encrypted = await encryption.encrypt(name, {
+    table: patients,
+    column: patients.name_encrypted,
+  })
+  if (encrypted.failure) throw new Error(encrypted.failure.message)
+
+  await db.query(
+    "UPDATE patients SET name_encrypted = $1, name_plain = $2 WHERE id = $3",
+    [encrypted.data, name, id],
+  )
+}
+```
+
+Writing both values in one statement prevents one half of the write from succeeding without the other. Search the codebase for every writer before you deploy. A missed importer, background job, or administrative path creates uncovered rows.
+
+</Step>
+<Step>
+
+### Deploy and verify dual-writes
+
+Deploy the schema and application changes to the environment that owns the database. The backfill is not safe while dual-writes exist only locally or in CI.
+
+After the deployment, create and update known rows through each important write path. Confirm that both the encrypted and plaintext columns are populated. Reads still use the encrypted columns.
+
+</Step>
+<Step>
+
+### Run the decrypt backfill
+
+The script below decrypts one column pair at a time. It reads a batch of rows that have ciphertext and no plaintext, decrypts the batch with `bulkDecrypt`, and writes the results. Each batch is one `bulkDecrypt` call. The ZeroKMS client sends up to 500 values per request by default, so a batch of 500 or fewer values from one keyset is one ZeroKMS request.
+
+```typescript filename="scripts/decrypt-backfill.ts"
+import type { Encrypted } from "@cipherstash/stack"
+import { Encryption, encryptedTable, types } from "@cipherstash/stack/v3"
+import pg from "pg"
+
+const BATCH_SIZE = 500
+
+// Declare the same schema your application uses for the encrypted columns.
+const patients = encryptedTable("patients", {
+  name_encrypted: types.TextEq("name_encrypted"),
+  date_of_birth_encrypted: types.DateOrd("date_of_birth_encrypted"),
+})
+
+const encryption = await Encryption({ schemas: [patients] })
+
+const db = new pg.Client({ connectionString: process.env.DATABASE_URL })
+await db.connect()
+
+const quote = (identifier: string) => db.escapeIdentifier(identifier)
+
+type Target = {
+  table: string
+  primaryKey: string
+  encrypted: string
+  plaintext: string
+  sqlType: string
+}
+
+type Row = { id: string; payload: Encrypted }
+
+async function decryptColumn(target: Target) {
+  const { table, primaryKey, encrypted, plaintext, sqlType } = target
+  let cursor: string | null = null
+  let decrypted = 0
+  let failed = 0
+
+  for (;;) {
+    // Select only rows that still need work. Rows filled in by an earlier run
+    // or by the application's dual-write do not match.
+    const { rows }: pg.QueryResult<Row> = await db.query<Row>(
+      `SELECT ${quote(primaryKey)} AS id, ${quote(encrypted)} AS payload
+         FROM ${quote(table)}
+        WHERE ($1::bigint IS NULL OR ${quote(primaryKey)} > $1::bigint)
+          AND ${quote(encrypted)} IS NOT NULL
+          AND ${quote(plaintext)} IS NULL
+        ORDER BY ${quote(primaryKey)}
+        LIMIT $2`,
+      [cursor, BATCH_SIZE],
+    )
+    if (rows.length === 0) break
+    cursor = rows[rows.length - 1].id
+
+    // One batch is one bulkDecrypt call.
+    const result = await encryption.bulkDecrypt(
+      rows.map((row) => ({ id: row.id, data: row.payload })),
+    )
+    if (result.failure) {
+      throw new Error(`bulkDecrypt failed: ${result.failure.message}`)
+    }
+
+    // Results come back in input order. A failed value does not stop the batch.
+    const ids: string[] = []
+    const values: unknown[] = []
+    result.data.forEach((item, index) => {
+      if (item.error !== undefined) {
+        failed += 1
+        console.error(`${table}.${primaryKey}=${rows[index].id}: ${item.error}`)
+        return
+      }
+      ids.push(rows[index].id)
+      values.push(item.data)
+    })
+
+    if (ids.length > 0) {
+      // The IS NULL guard keeps this write from replacing a value that the
+      // application wrote after the SELECT above.
+      await db.query(
+        `UPDATE ${quote(table)} AS t
+            SET ${quote(plaintext)} = v.value
+           FROM unnest($1::bigint[], $2::${sqlType}[]) AS v(id, value)
+          WHERE t.${quote(primaryKey)} = v.id
+            AND t.${quote(plaintext)} IS NULL`,
+        [ids, values],
+      )
+      decrypted += ids.length
+    }
+
+    console.log(`${table}.${plaintext}: ${decrypted} decrypted, ${failed} failed`)
+  }
+
+  return { decrypted, failed }
+}
+
+try {
+  const results = [
+    await decryptColumn({
+      table: "patients",
+      primaryKey: "id",
+      encrypted: "name_encrypted",
+      plaintext: "name_plain",
+      sqlType: "text",
+    }),
+    await decryptColumn({
+      table: "patients",
+      primaryKey: "id",
+      encrypted: "date_of_birth_encrypted",
+      plaintext: "date_of_birth_plain",
+      sqlType: "date",
+    }),
+  ]
+  process.exitCode = results.some((result) => result.failed > 0) ? 1 : 0
+} finally {
+  await db.end()
+}
+```
+
+Run it with the deployed environment's `CS_*` values and your database connection string:
+
+```bash
+DATABASE_URL="postgres://..." npx tsx scripts/decrypt-backfill.ts
+```
+
+The script is resumable and idempotent:
+
+- **Resumable.** The query selects only rows that have ciphertext and no plaintext. Stop the script at any point and run it again. It continues where it stopped.
+- **Idempotent.** A re-run skips rows that already have plaintext, including rows that the application dual-wrote.
+- **Safe beside live writes.** The `IS NULL` guard on the `UPDATE` keeps the backfill from replacing a value that the application wrote after the batch was read.
+- **Failure tolerant.** `bulkDecrypt` reports an error for each value that fails and continues with the rest of the batch. The script logs each failure and exits with a non-zero code. A later run retries those rows.
+
+The script assumes a `bigint` primary key. For a different key type, change the `::bigint` casts. Add one `decryptColumn` call for each column pair. Set `sqlType` to the plaintext type from the mapping table. The `date` pair above relies on the cast from the stored ISO string.
+
+<Callout type="warn">
+Run the script with the same CipherStash workspace and keyset as the deployed application. A local developer profile can point to a different workspace, which cannot decrypt the production values.
+</Callout>
+
+For the signatures and return shapes of `bulkDecrypt` and `bulkDecryptModels`, see [Bulk operations](/reference/stack/usage#bulk-operations).
+
+</Step>
+<Step>
+
+### Verify complete coverage
+
+Check that every encrypted value has a plaintext value:
+
+```sql
+SELECT
+    count(*) FILTER (
+      WHERE name_encrypted IS NOT NULL AND name_plain IS NULL
+    ) AS name_uncovered,
+    count(*) FILTER (
+      WHERE date_of_birth_encrypted IS NOT NULL
+        AND date_of_birth_plain IS NULL
+    ) AS dob_uncovered
+FROM patients;
+```
+
+Both counts must be zero. A non-zero result means failed values, values locked to a user, or a writer that is not dual-writing. Fix the cause, then run the script again.
+
+Also compare a sample of rows against your system of record. Include rows that the backfill wrote and rows that the application dual-wrote.
+
+</Step>
+<Step>
+
+### Build plaintext indexes
+
+Build the indexes that your queries need on the plaintext columns. Do this after the backfill and before you change reads. Use `CREATE INDEX CONCURRENTLY` on a live table.
+
+Indexes built on EQL term extractors do not carry over. Replace each one:
+
+| EQL index | Plaintext replacement |
+| --- | --- |
+| `hash (eql_v3.eq_term(col))` | A B-tree index on `col` |
+| `btree (eql_v3.ord_term(col))` or `btree (eql_v3.ord_term_ore(col))` | A B-tree index on `col` |
+| `gin (eql_v3.match_term(col))` | A `pg_trgm` GIN index on `col` if you need substring search, otherwise none |
+| `gin (eql_v3.to_ste_vec_query(col)::jsonb)` | A GIN index on the `jsonb` column |
+
+```sql
+CREATE INDEX CONCURRENTLY patients_name_plain_idx ON patients (name_plain);
+CREATE INDEX CONCURRENTLY patients_dob_plain_idx ON patients (date_of_birth_plain);
+ANALYZE patients;
+```
+
+Encrypted fuzzy match (`@@`) compared whole indexed tokens. Plaintext `ILIKE '%term%'` compares substrings. Check that the new behavior fits your queries. Dropping an encrypted column also drops the indexes built on it.
+
+</Step>
+<Step>
+
+### Switch reads to plaintext
+
+Deploy an application-only change that reads and filters on the plaintext columns. Queries that used encrypted operators become ordinary SQL:
+
+```typescript
+const { rows } = await db.query(
+  `SELECT id, email, name_plain, date_of_birth_plain
+     FROM patients
+    WHERE name_plain = $1 AND date_of_birth_plain > $2
+    ORDER BY date_of_birth_plain DESC`,
+  ["Alice Chen", "1980-01-01"],
+)
+```
+
+Keep dual-writes enabled. If the new read path misbehaves, reverting this deployment restores encrypted reads while both sets of columns remain current.
+
+Verify correctness instead of checking for non-empty results. Test equality matches, range boundaries, ordering, nulls, and authorization behavior.
+
+</Step>
+<Step>
+
+### Stop writing encrypted columns and drop them
+
+Let production traffic exercise the plaintext read path. Monitor query errors, latency, and uncovered-row counts for an appropriate period. Then remove the encryption code from your writers and deploy.
+
+Drop the encrypted columns and restore the original column names in one migration:
+
+```sql
+BEGIN;
+ALTER TABLE patients
+    DROP COLUMN name_encrypted,
+    DROP COLUMN date_of_birth_encrypted;
+ALTER TABLE patients RENAME COLUMN name_plain TO name;
+ALTER TABLE patients RENAME COLUMN date_of_birth_plain TO date_of_birth;
+COMMIT;
+```
+
+Restore the constraints and defaults you collected earlier, such as `NOT NULL`. If your application code reads the `_plain` names, skip the renames or deploy them together with a code change.
+
+<Callout type="warn">
+Dropping the encrypted columns is the first irreversible stage. Verify coverage again at apply time, and confirm that no old application version still reads or writes the encrypted columns.
+</Callout>
+
+</Step>
+<Step>
+
+### Uninstall EQL (optional)
+
+EQL can stay installed without cost to your data. Uninstall it when no table uses an EQL type. First list the columns that still do:
+
+```sql
+SELECT n.nspname AS schema_name,
+       c.relname AS table_name,
+       a.attname AS column_name,
+       format_type(a.atttypid, a.atttypmod) AS column_type
+  FROM pg_attribute a
+  JOIN pg_class c ON c.oid = a.attrelid
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  JOIN pg_type t ON t.oid = a.atttypid
+ WHERE a.attnum > 0
+   AND NOT a.attisdropped
+   AND c.relkind IN ('r', 'p')
+   AND t.typname LIKE 'eql\_v3\_%'
+ ORDER BY 1, 2, 3;
+```
+
+The query must return no rows. Then drop the two EQL schemas:
+
+```sql
+DROP SCHEMA IF EXISTS eql_v3 CASCADE;
+DROP SCHEMA IF EXISTS eql_v3_internal CASCADE;
+```
+
+This removes the encrypted operators, functions, and any functional indexes built on them. The `public.eql_v3_*` domain types live in the `public` schema and stay behind. Drop them if you want no trace of EQL:
+
+```sql
+SELECT format('DROP DOMAIN %I.%I;', n.nspname, t.typname) AS drop_statement
+  FROM pg_type t
+  JOIN pg_namespace n ON n.oid = t.typnamespace
+ WHERE n.nspname = 'public'
+   AND t.typtype = 'd'
+   AND t.typname LIKE 'eql\_v3\_%'
+ ORDER BY 1;
+```
+
+Run the statements it returns. If you manage the schema with Drizzle or Prisma migrations, add this SQL as a new migration. Do not edit the migration that installed EQL. See [EQL](/reference/eql) for the install and uninstall reference.
+
+</Step>
+</Steps>
+
+## How your integration changes
+
+The sequence is the same for every integration. What changes is the code around it.
+
+### Stack SDK and Supabase
+
+Stack SDK code that encrypts before writes and decrypts after reads goes away. Reads return plaintext and writes send plaintext. With `encryptedSupabase`, switch to a plain `supabase-js` client once reads use the plaintext columns.
+
+### CipherStash Proxy
+
+With Proxy, your application queries did not change on the way in, so there are no query changes to undo. Proxy encrypts parameters and decrypts results for you.
+
+The data still needs to leave the encrypted columns. You have two options:
+
+- **Run the SDK script.** It works the same way with Proxy deployments.
+- **Swap the column names.** Backfill into `_plain` columns, then drop the encrypted column and rename the plaintext column to its original name in one transaction. Your application SQL does not change. Pause writes around the swap, or dual-write during the backfill.
+
+Proxy forwards statements that reference no encrypted column unchanged. Remove Proxy from the connection path after the encrypted columns are gone.
+
+<Callout type="warn">
+If you read the plaintext back through Proxy to build your own copy, check that every value is plaintext before you write it. An unmappable `SELECT` returns the raw encrypted payload. See [Message flow](/reference/proxy/message-flow#unmappable-statements).
+</Callout>
+
+### Drizzle and Prisma ORM 8
+
+With Drizzle and Prisma, the schema types revert to plaintext. Replace each CipherStash column type with the native type for the same column:
+
+```typescript filename="src/schema.ts"
+import { integer, pgTable, text } from "drizzle-orm/pg-core"
+
+export const users = pgTable("users", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  email: text("email"), // was types.TextEq("email")
+})
+```
+
+Then remove the pieces that existed only for encryption:
+
+- **Drizzle.** Remove `encryptedIndexes(table)`, `createEncryptionOperators`, and the Encryption client. Use Drizzle's own `eq`, `gt`, and `like` operators.
+- **Prisma ORM 8.** Remove the CipherStash column constructors from the schema, the runtime envelopes such as `EncryptedString`, and the `decryptAll` calls. Use the native Prisma filters.
+
+Apply the column changes with your normal migration tool. Add the plaintext columns before the backfill, and drop the encrypted columns after reads switch.
+
+## Lock contexts
+
+A lock context binds a value's data key to a claim from the end user's token, usually `sub`. ZeroKMS releases the key only to a caller whose token carries the same claim value. The service credentials that run your backfill cannot decrypt these values. See [provable access](/solutions/provable-access).
+
+Find the locked columns by searching your code for `.withLockContext(`. A lock context applies to every value in a call, so decrypt locked and unlocked columns in separate runs. Point the main script only at unlocked columns.
+
+You have two ways to decrypt locked values:
+
+- **Decrypt as each user.** Build a client authenticated as that user with `OidcFederationStrategy`, then decrypt their rows with the same claim that the application used when it encrypted. Build one client for each user, because a strategy caches one user's token. How you obtain a user's JWT depends on your identity provider.
+- **Decrypt on read.** Your application already decrypts locked values as the signed-in user. Add a write of the plaintext to the plaintext column on that path. Rows for users who never return stay encrypted.
+
+```typescript filename="scripts/decrypt-for-user.ts"
+import { type Encrypted, OidcFederationStrategy } from "@cipherstash/stack"
+import { Encryption, encryptedTable, types } from "@cipherstash/stack/v3"
+
+const patients = encryptedTable("patients", {
+  ssn_encrypted: types.Text("ssn_encrypted"),
+})
+
+// Decrypt one user's locked values. Build one client per user.
+export async function decryptForUser(
+  userJwt: string,
+  payloads: { id: string; data: Encrypted }[],
+) {
+  const federation = OidcFederationStrategy.create(
+    process.env.CS_WORKSPACE_CRN as string,
+    async () => userJwt,
+  )
+  if (federation.failure) throw new Error(federation.failure.error.message)
+
+  const encryption = await Encryption({
+    schemas: [patients],
+    config: { authStrategy: federation.data },
+  })
+
+  // Use the same claim that the application passed when it encrypted.
+  const result = await encryption
+    .bulkDecrypt(payloads)
+    .withLockContext({ identityClaim: ["sub"] })
+  if (result.failure) throw new Error(result.failure.message)
+
+  return result.data
+}
+```
+
+Use the Node entry of the SDK for this work. The edge entry (`@cipherstash/stack/wasm-inline`) does not support lock contexts. `AccessKeyStrategy` cannot be used with a lock context, because an access key authenticates a service and not a user.
+
+Decide what happens to rows that nobody can decrypt, such as users who have left. You cannot drop an encrypted column and keep those values. Choose between deleting them and keeping the encrypted column until you can decrypt them.
+
+<Callout type="warn">
+A plaintext column has no per-user access control. Moving locked values to plaintext removes the guarantee that only the user can read them. Decide whether to keep each locked column at all.
+</Callout>
+
+## Rollback by stage
+
+| Current stage | Safe rollback |
+| --- | --- |
+| Plaintext columns added, before backfill | Revert application writes. Leave or drop the empty plaintext columns. |
+| Backfill in progress | Stop it and resume later. Keep encrypted reads and dual-writes. |
+| Reads switched | Revert reads to the encrypted columns. Keep dual-writes. |
+| Encrypted columns dropped | Restore from the backup. The encrypted values cannot be recreated without a new [forward migration](/guides/migration). |
+
+For environment ordering, credential handling, and release gates, see the [deployment guide](/guides/deployment).
