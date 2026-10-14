@@ -57,16 +57,16 @@ This guide, and the rest of the EQL reference, targets EQL v3.
 `init` scaffolds `src/encryption/index.ts`. It declares which columns are encrypted, and exports a ready-to-use client. Edit it to match your table:
 
 ```typescript filename="src/encryption/index.ts"
-import { Encryption, encryptedTable, encryptedColumn } from "@cipherstash/stack"
+import { Encryption, encryptedTable, types } from "@cipherstash/stack/v3"
 
 export const users = encryptedTable("users", {
-  email: encryptedColumn("email").equality(),
+  email: types.TextEq("email"),
 })
 
 export const encryptionClient = await Encryption({ schemas: [users] })
 ```
 
-`.equality()` declares a **capability**: it is what makes `WHERE email = ?` work later. Add `.orderAndRange()` for `ORDER BY` and comparisons, or `.freeTextSearch()` for token containment. Declare only the capabilities you query on, because each one stores an extra index term alongside the ciphertext.
+`types.TextEq` declares a **capability**: it is what makes `WHERE email = ?` work later. Use `types.TextOrd` for `ORDER BY` and comparisons, or `types.TextMatch` for token containment. Declare only the capability you query on, because each one stores an extra index term alongside the ciphertext.
 
 <Callout type="info">
 Prefer to have an agent do this? `npx stash plan` inspects your project and drafts `.cipherstash/plan.md` listing the columns worth encrypting. Review it, then `npx stash impl` applies it. This page does it by hand so you can see each moving part.
@@ -78,7 +78,7 @@ Prefer to have an agent do this? `npx stash plan` inspects your project and draf
 
 ## Create the encrypted column
 
-An encrypted column is typed with an EQL domain. The domain you pick has to match the capability you declared: `.equality()` on a text column means `public.eql_v3_text_eq`.
+An encrypted column is typed with an EQL domain. The domain you pick has to match the capability you declared: `types.TextEq` on a text column means `public.eql_v3_text_eq`.
 
 ```sql filename="schema.sql"
 CREATE TABLE users (
