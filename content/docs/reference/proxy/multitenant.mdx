@@ -40,7 +40,20 @@ SET CIPHERSTASH.KEYSET_NAME = 'tenant-1';
 - The active keyset is connection-scoped and does not affect other connections.
 - Both commands take a literal value in single quotes. PostgreSQL `SET` does not support parameterised queries.
 
+<Callout type="warn">
+Do not use `SET CIPHERSTASH.KEYSET_ID` or `SET CIPHERSTASH.KEYSET_NAME` behind a transaction-mode connection pooler that sits in front of Proxy. The keyset belongs to the Proxy connection, not to your transaction. The pooler can run a later transaction on a Proxy connection with a different keyset, which encrypts or decrypts with the wrong tenant's keys. Run the pooler behind Proxy, or use session mode. See [connection poolers](#connection-poolers).
+</Callout>
+
 Joining encrypted columns across two keysets does not work, because equality is only meaningful within a keyset. See [joins](/reference/eql/joins) for the same-keyset constraint.
+
+## Connection poolers
+
+Proxy holds keyset, prepared statement, and mapping state for each client connection. Where you place a pooler decides whether that state stays consistent.
+
+- **Pooler behind Proxy.** App, then Proxy, then pooler, then Postgres. Proxy sees one stable connection per client, so keyset state holds. Use PgBouncer 1.21 or later with `max_prepared_statements` set so prepared statements survive pooling.
+- **Pooler in front of Proxy.** Use session mode. In transaction mode, a client's `SET CIPHERSTASH.KEYSET_*`, `SET CIPHERSTASH.UNSAFE_DISABLE_MAPPING`, and prepared statements can land on another client's Proxy connection. A statement prepared on one Proxy connection and executed on another can return undecrypted results.
+
+Transaction-mode pooling in front of Proxy is untested. A table of supported topologies is coming (CIP-4167).
 
 ## Disabling encrypted mapping
 
