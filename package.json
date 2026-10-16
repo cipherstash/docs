@@ -23,7 +23,8 @@
     "validate-links": "tsx scripts/validate-links.ts",
     "validate-redirects": "tsx scripts/validate-v2-redirects.ts",
     "validate-content": "tsx scripts/validate-content-api.ts",
-    "validate-mermaid": "tsx scripts/validate-mermaid.ts"
+    "validate-mermaid": "tsx scripts/validate-mermaid.ts",
+    "triage-404s": "tsx scripts/triage-404s.ts"
   },
   "dependencies": {
     "fumadocs-core": "16.6.0",
