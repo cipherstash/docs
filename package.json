@@ -22,10 +22,14 @@
     "check-eql-pin": "tsx scripts/check-eql-pin.ts",
     "validate-links": "tsx scripts/validate-links.ts",
     "validate-redirects": "tsx scripts/validate-v2-redirects.ts",
+    "test:search": "tsx --test scripts/search.test.ts",
+    "test:search:browser": "playwright test",
+    "validate-search": "tsx scripts/validate-search.ts",
     "validate-content": "tsx scripts/validate-content-api.ts",
     "validate-mermaid": "tsx scripts/validate-mermaid.ts"
   },
   "dependencies": {
+    "@orama/orama": "3.1.18",
     "fumadocs-core": "16.6.0",
     "fumadocs-mdx": "14.2.7",
     "fumadocs-ui": "16.6.0",
@@ -41,6 +45,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.14",
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/jsdom": "^28.0.3",
     "@types/mdx": "^2.0.13",
