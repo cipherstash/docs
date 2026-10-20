@@ -1,6 +1,6 @@
 ---
 title: Indexes
-description: "Create Postgres indexes on encrypted columns using functional indexes over EQL's term-extractor functions."
+description: "Create Postgres indexes on encrypted columns, including unique indexes on HMAC equality terms."
 type: reference
 components: [eql]
 verifiedAgainst:
@@ -13,7 +13,7 @@ EQL indexes are ordinary PostgreSQL functional indexes over **term-extractor fun
 
 | Extractor | Index method | Term | Capability |
 | --- | --- | --- | --- |
-| `eql_v3.eq_term(col)` | `hash` (or `btree`) | `hm` (HMAC-256) | equality |
+| `eql_v3.eq_term(col)` | `hash` or `btree` (`btree` required for `UNIQUE`) | `hm` (HMAC-256) | equality, uniqueness |
 | `eql_v3.ord_term(col)` | `btree` | `op` (CLLW OPE) | range, `ORDER BY`, `MIN` / `MAX` |
 | `eql_v3.ord_term_ore(col)` | `btree` | `ob` (ORE block) | the same, on pinned `_ord_ore` / `text_search_ore` columns |
 | `eql_v3.match_term(col)` | `gin` | `bf` (bloom filter) | text fuzzy match (`@@`) |
@@ -36,8 +36,8 @@ Type the column as the domain variant that carries the term (see [Core concepts]
 
 ```sql
 -- Equality: hash index on eq_term
--- (columns typed public.eql_v3_<T>_eq, any text variant, or text_search; equality on
--- the non-text _ord columns compares ordering terms, so the btree below serves it)
+-- (columns typed public.eql_v3_<T>_eq, text_ord variants, or text_search variants;
+-- equality on non-text _ord columns compares ordering terms, so the btree below serves it)
 CREATE INDEX users_email_eq
   ON users USING hash (eql_v3.eq_term(email));
 
@@ -61,7 +61,43 @@ ANALYZE users;
 
 Run `ANALYZE` after every index build. `CREATE INDEX` on an expression gathers no statistics for that expression — without `ANALYZE`, the planner has no histogram for `eql_v3.eq_term(email)` and can misjudge the index it just built.
 
-Create indexes when the table has a significant number of rows (typically more than 1,000) and you query the column with the matching operator. Drop indexes for capabilities you no longer query — duplicate indexes compete for cache and slow writes.
+For query performance, create indexes when the table has a significant number of rows (typically more than 1,000) and you query the column with the matching operator. Create unique indexes as part of your schema, before accepting writes that must be unique, regardless of table size. Drop indexes for capabilities you no longer query, but retain unique indexes that enforce data integrity — duplicate indexes compete for cache and slow writes.
+
+## Unique indexes
+
+To enforce uniqueness on encrypted values, create a **unique B-tree index on `eql_v3.eq_term(col)`**. This requires an EQL type that carries an HMAC-SHA256 equality term, stored as `hm` in the encrypted payload. The supported scalar variants are:
+
+- `public.eql_v3_<T>_eq`, such as `public.eql_v3_text_eq` or `public.eql_v3_integer_eq`.
+- `public.eql_v3_text_ord`, `public.eql_v3_text_ord_ope`, and `public.eql_v3_text_ord_ore`.
+- `public.eql_v3_text_search` and `public.eql_v3_text_search_ore`.
+
+Storage-only types, `text_match`, and non-text `_ord` variants do not carry `hm` and cannot use this recipe. See [Core concepts](/reference/eql/core-concepts) for the variant model.
+
+For example, to require a unique encrypted email address for each user:
+
+```sql
+CREATE TABLE users (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  email public.eql_v3_text_eq NOT NULL
+);
+
+CREATE UNIQUE INDEX users_email_unique
+  ON users USING btree (eql_v3.eq_term(email));
+
+ANALYZE users;
+```
+
+For an existing table with an HMAC-capable column, run just the `CREATE UNIQUE INDEX` and `ANALYZE` statements. The encryption client must generate the `hm` term for every stored value. Declaring an equality-capable type or creating a non-unique equality index does not enforce uniqueness by itself.
+
+Within the same column and keyset, two encryptions of the same plaintext produce the same HMAC term even though their ciphertext differs. The unique index compares those terms, so PostgreSQL rejects an `INSERT` or `UPDATE` that would duplicate an existing email. If duplicates already exist, index creation fails until you resolve them.
+
+Use `btree`: [PostgreSQL does not support unique hash indexes](https://www.postgresql.org/docs/current/indexes-unique.html). This unique B-tree also serves equality lookups, so you do not need a separate hash index on the same expression.
+
+<Callout type="warn">
+Create the unique index on the extractor. A column declaration such as `email public.eql_v3_text_eq UNIQUE`, a `UNIQUE (email)` constraint, or a unique index on the raw `email` column compares the underlying `jsonb` payload. Separate encryptions of the same plaintext have different ciphertext, so those forms do not enforce plaintext uniqueness.
+</Callout>
+
+The example uses `NOT NULL` to require an email. If the column is nullable, the unique index allows multiple SQL `NULL` values by default, following [PostgreSQL's unique-index rules](https://www.postgresql.org/docs/current/indexes-unique.html).
 
 ## Requirements for an index to engage
 
