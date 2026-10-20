@@ -438,6 +438,8 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
 - [x] Root catch-all routes (`src/app/[...slug]`), llms.mdx mirror, sitemap/llms.txt include v2
 - [x] `v2-redirects.mjs` (unconditional) + `validate-redirects` gate in prebuild
 - [x] `/quickstart` vanity redirect
+- [x] Identifier-aware search, weighted code/heading results, page-type filters,
+      keyboard navigation and search/zero-result analytics (CIP-3350).
 - [ ] OG images for v2 pages (route only covers legacy tree)
 - [ ] Correctness CI: snippet type-checking, SQL-vs-EQL-Docker, terminology lint (CIP-3337)
 - [ ] llms.txt curation + Cloudflare AI crawl policy + md-degradation check (CIP-3339)

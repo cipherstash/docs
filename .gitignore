@@ -46,5 +46,7 @@ content/docs/reference/stack/api-reference/*
 
 # serena (local MCP tooling state)
 .serena/
+playwright-report/
+test-results/
 # EQL release manifest extracted by generate-eql-docs.ts (see generate-eql-api-docs.ts)
 .eql-manifest.release.json

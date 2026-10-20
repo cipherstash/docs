@@ -1,5 +1,8 @@
 import type { ShikiTransformer } from "@shikijs/types";
-import { rehypeCodeDefaultOptions } from "fumadocs-core/mdx-plugins";
+import {
+  rehypeCodeDefaultOptions,
+  remarkStructureDefaultOptions,
+} from "fumadocs-core/mdx-plugins";
 import { metaSchema, pageSchema } from "fumadocs-core/source/schema";
 import { defineConfig, defineDocs } from "fumadocs-mdx/config";
 import lastModifiedPlugin from "fumadocs-mdx/plugins/last-modified";
@@ -150,6 +153,26 @@ export default defineConfig({
     lastModifiedPlugin({ filter: (collection) => collection === "v2docs" }),
   ],
   mdxOptions: {
+    // Standalone fences are excluded by default. Search needs the actual API
+    // symbols in examples, with the same heading IDs as the rendered page.
+    remarkStructureOptions: {
+      types: [...remarkStructureDefaultOptions.types, "code"],
+      stringify: {
+        filterElement(node) {
+          if (
+            node.type !== "mdxJsxFlowElement" &&
+            node.type !== "mdxJsxTextElement"
+          )
+            return true;
+          // Navigation cards describe other pages. Indexing their attributes
+          // lets hub pages crowd out the actual answer (e.g. HIPAA).
+          if (node.name === "Card" || node.name === "Cards") return false;
+          return ["File", "TypeTable", "Callout"].includes(node.name ?? "")
+            ? true
+            : "children-only";
+        },
+      },
+    },
     rehypeCodeOptions: {
       // Preserve Fumadocs' default Shiki config (dual-theme mode,
       // parseMetaString) and its default transformers (notation highlight, diff,

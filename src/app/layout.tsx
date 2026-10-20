@@ -1,4 +1,4 @@
-import { RootProvider } from "fumadocs-ui/provider/next";
+import { DocsProvider } from "@/components/docs-provider";
 import { PostHogProvider } from "@/lib/posthog/provider";
 import "./global.css";
 import type { Metadata } from "next";
@@ -42,15 +42,7 @@ export default function Layout({ children }: LayoutProps<"/">) {
     >
       <body className="flex flex-col min-h-screen">
         <PostHogProvider>
-          <RootProvider
-            search={{
-              options: {
-                api: "/docs/api/search",
-              },
-            }}
-          >
-            {children}
-          </RootProvider>
+          <DocsProvider>{children}</DocsProvider>
         </PostHogProvider>
       </body>
     </html>
