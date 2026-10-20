@@ -350,6 +350,7 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
 - [ ] `/guides/development/testing-and-ci` (port deploy/testing)
 - [ ] `/guides/development/team-onboarding` (port)
 - [x] `/guides/migration` — the backfill guide, runnable (CIP-3329)
+- [x] `/guides/moving-off-cipherstash`: decrypt and exit, the reverse of the backfill guide (CIP-4166)
 - [ ] ⛔ `/guides/migration/upgrading-from-eql-v2` — REQUIRED; mechanics pending product answer (CIP-3329)
 - [ ] `/guides/migration/adopting-incrementally` (CIP-3329)
 - [ ] `/guides/migration/key-rotation-operations`

@@ -1,5 +1,11 @@
 {
   "title": "Guides",
   "icon": "Wrench",
-  "pages": ["!index", "deployment", "migration", "..."]
+  "pages": [
+    "!index",
+    "deployment",
+    "migration",
+    "moving-off-cipherstash",
+    "..."
+  ]
 }
