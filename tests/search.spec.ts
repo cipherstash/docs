@@ -209,6 +209,81 @@ test("settled queries, selection and zero-result queries reach PostHog once", as
   ).toHaveLength(1);
 });
 
+test("retry preserves analytics deduplication for revisited queries and selection", async ({
+  page,
+  baseURL,
+  analytics,
+}) => {
+  test.skip(
+    !process.env.SEARCH_ANALYTICS_TEST,
+    "Run a server with the dummy PostHog key documented in README.",
+  );
+  let failedRequests = 0;
+  await page.route("**/api/search?**", async (route) => {
+    if (new URL(route.request().url()).searchParams.get("query") === "fail") {
+      failedRequests++;
+      await route.fulfill({ status: 503, json: { error: "Unavailable" } });
+    } else await route.continue();
+  });
+  const searches = (query: string) =>
+    analytics.filter(
+      (event) =>
+        event.event === "docs_search" && event.properties.query === query,
+    );
+  const input = await openSearch(page, baseURL);
+  await input.fill("unique index");
+  await expect(page.getByRole("option").first()).toContainText("Indexes");
+  await expect
+    .poll(() => searches("unique index").length, { timeout: 15_000 })
+    .toBe(1);
+
+  await input.fill("zzzzunfindablesymbol");
+  await expect(
+    page.getByText("No results for “zzzzunfindablesymbol”."),
+  ).toBeVisible();
+  await expect
+    .poll(
+      () =>
+        analytics.filter((event) => event.event === "docs_search_zero_results")
+          .length,
+      { timeout: 15_000 },
+    )
+    .toBe(1);
+
+  await input.fill("fail");
+  await expect(page.getByRole("alert")).toContainText("Search couldn’t load");
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect.poll(() => failedRequests).toBe(2);
+  await expect(page.getByRole("alert")).toContainText("Search couldn’t load");
+
+  await input.fill("zzzzunfindablesymbol");
+  await expect(
+    page.getByText("No results for “zzzzunfindablesymbol”."),
+  ).toBeVisible();
+  // Let the 700 ms settled-query timer run before testing the selection path.
+  await page.waitForTimeout(1_000);
+  await input.fill("unique index");
+  await expect(page.getByRole("option").first()).toContainText("Indexes");
+  await input.press("Enter");
+  // Selection flushes in the same or a later batch than any duplicate query
+  // events, so wait for it before asserting the final counts.
+  await expect
+    .poll(
+      () =>
+        analytics.filter(
+          (event) => event.event === "docs_search_result_selected",
+        ).length,
+      { timeout: 15_000 },
+    )
+    .toBe(1);
+  expect.soft(searches("zzzzunfindablesymbol")).toHaveLength(1);
+  expect.soft(searches("unique index")).toHaveLength(1);
+  expect.soft(searches("fail")).toHaveLength(0);
+  expect(
+    analytics.filter((event) => event.event === "docs_search_zero_results"),
+  ).toHaveLength(1);
+});
+
 test("mobile dialog stays within the viewport and supports touch selection", async ({
   page,
   baseURL,

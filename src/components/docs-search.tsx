@@ -73,7 +73,9 @@ export default function DocsSearchDialog(props: SharedProps) {
   const router = useRouter();
   const posthog = usePostHog();
   const term = query.trim();
-  const key = `${retry}:${pageType}:${term}`;
+  // Retrying starts a new request, but does not represent a new analytics query.
+  const analyticsKey = `${pageType}:${term}`;
+  const key = `${retry}:${analyticsKey}`;
   const current = response?.key === key ? response : undefined;
   const loading = props.open && !!term && !current;
   const results = useMemo(() => current?.results ?? [], [current]);
@@ -127,8 +129,8 @@ export default function DocsSearchDialog(props: SharedProps) {
     return () => clearTimeout(timer);
 
     function track(result: SearchResponse) {
-      if (tracked.current.has(result.key)) return;
-      tracked.current.add(result.key);
+      if (tracked.current.has(analyticsKey)) return;
+      tracked.current.add(analyticsKey);
       const properties = {
         query: term,
         page_type: pageType || "all",
@@ -139,7 +141,7 @@ export default function DocsSearchDialog(props: SharedProps) {
       if (!result.results.length)
         posthog?.capture("docs_search_zero_results", properties);
     }
-  }, [props.open, term, pageType, current, posthog]);
+  }, [props.open, term, pageType, current, posthog, analyticsKey]);
 
   useEffect(() => {
     if (!props.open) {
@@ -157,8 +159,8 @@ export default function DocsSearchDialog(props: SharedProps) {
 
   function select(result: DocsSearchResult) {
     // A quick Enter may precede the settled-query timer.
-    if (!tracked.current.has(key)) {
-      tracked.current.add(key);
+    if (!tracked.current.has(analyticsKey)) {
+      tracked.current.add(analyticsKey);
       posthog?.capture("docs_search", {
         query: term,
         page_type: pageType || "all",
