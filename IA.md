@@ -10,11 +10,13 @@ on a product decision (see CIP-3307 checklist).
 ## How this branch works
 
 - New IA lives in `content/docs`, served from the site root (`/docs/<section>/…`).
-- The legacy tree (`content/stack`) is served alongside it at `/docs/stack/…`
-  until every section migrates, then deleted (CIP-3335).
-- The full legacy→v2 redirect map is `v2-redirects.mjs`, gated behind
-  `ENABLE_V2_REDIRECTS=1` (flipped on at merge). `bun run validate-redirects`
-  enforces that every legacy page has a mapping.
+- The legacy tree (`content/stack`) and its routes have been retired (CIP-3335).
+  Search, the sitemap, and both LLM feeds use only `content/docs`.
+- The full legacy→v2 redirect map is `v2-redirects.mjs` and applies unconditionally,
+  including the old landing pages, `.mdx` URLs, and direct Markdown endpoints.
+  `bun run validate-redirects` checks the saved legacy URL inventory in
+  `scripts/fixtures/legacy-docs-redirects.json` against the active Next.js rules
+  and verifies that their destinations exist.
 - Frontmatter facets (`type`, `components`, `audience`, `integration`,
   `verifiedAgainst`, `reviewBy`) are defined in `source.config.ts` (`v2docs`).
 - **Moving a page** = move the file into `content/docs`, update its facets,
@@ -176,7 +178,7 @@ One per component, at `/components/<component>`. Same template every time:
 4. Nothing else. No mechanics, no examples that live elsewhere.
 
 The "By mode" lists are generated, not hand-maintained: filter
-`source.getPages()` to pages whose `components` facet includes this component,
+`v2source.getPages()` to pages whose `components` facet includes this component,
 then group by `type`. "Integrations that use it" is the subset whose frontmatter
 also carries an `integration` block. This is why the facet earns its keep — the
 hubs cost nothing to maintain once a page is correctly tagged.
@@ -434,7 +436,7 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
 - [x] `v2` branch + this checklist
 - [x] `v2docs` collection + facet schema (`source.config.ts`)
 - [x] Root catch-all routes (`src/app/[...slug]`), llms.mdx mirror, sitemap/llms.txt include v2
-- [x] `v2-redirects.mjs` (flag-gated) + `validate-redirects` gate in prebuild
+- [x] `v2-redirects.mjs` (unconditional) + `validate-redirects` gate in prebuild
 - [x] `/quickstart` vanity redirect
 - [ ] OG images for v2 pages (route only covers legacy tree)
 - [ ] Correctness CI: snippet type-checking, SQL-vs-EQL-Docker, terminology lint (CIP-3337)
@@ -444,5 +446,7 @@ and the old `/compare/*` paths redirect there (`v2-redirects.mjs`).
 - [x] Stack SDK and Supabase-wrapper v3 alignment (CIP-3355) —
       `@cipherstash/stack` and `@cipherstash/stack-supabase` 1.0.0 are released,
       and the integration docs target their stable v3 surfaces.
-- [ ] Flip `ENABLE_V2_REDIRECTS=1`, delete `content/stack` + `/stack` routes + legacy loader (CIP-3335)
+- [x] Retire `content/stack`, its HTML/Markdown routes, and its collection/loader;
+      make legacy redirects unconditional and remove old content from search and LLM feeds (CIP-3335).
+      EQL release generation retains the manifest used by the current API reference.
 - [ ] Consistency sweep + Supabase listing v3 revision (CIP-3335)

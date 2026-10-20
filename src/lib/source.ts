@@ -1,4 +1,4 @@
-import { docs, v2docs } from "fumadocs-mdx:collections/server";
+import { v2docs } from "fumadocs-mdx:collections/server";
 import type * as PageTree from "fumadocs-core/page-tree";
 import { type InferPageType, loader } from "fumadocs-core/source";
 import { icons } from "lucide-react";
@@ -21,16 +21,7 @@ function resolveIcon(icon: string | undefined) {
   return undefined;
 }
 
-// See https://fumadocs.dev/docs/headless/source-api for more info
-export const source = loader({
-  baseUrl: "/stack",
-  source: docs.toFumadocsSource(),
-  icon: resolveIcon,
-});
-
-// V2 IA tree (CIP-3325): content/docs served from the site root, e.g.
-// /docs/get-started/quickstart. Lives alongside the legacy `source` during
-// the migration; the legacy loader and /stack routes are deleted at the end.
+// Canonical docs, served from the site root under Next's /docs basePath.
 export const v2source = loader({
   baseUrl: "/",
   source: v2docs.toFumadocsSource(),
@@ -94,7 +85,7 @@ export function getV2PageTree(): PageTree.Root {
 const DOCS_BASE_URL = "https://cipherstash.com/docs";
 
 /**
- * Public URL for a path in either tree. `page.url` is root-relative to the
+ * Public URL for a documentation path. `page.url` is root-relative to the
  * app, which serves under the /docs basePath; the root page's url is "/",
  * which would otherwise emit a trailing slash on the non-canonical form.
  */
@@ -151,9 +142,7 @@ function absolutizeLinks(markdown: string): string {
     .join("");
 }
 
-export async function getLLMText(
-  page: InferPageType<typeof source> | InferPageType<typeof v2source>,
-) {
+export async function getLLMText(page: InferPageType<typeof v2source>) {
   const processed = absolutizeLinks(await page.data.getText("processed"));
 
   // The source URL is part of the payload, not decoration. This text is
@@ -275,9 +264,4 @@ function titleMap(pages: { url: string; data: { title: string } }[]) {
 /** Related-pages footer for a page in the canonical (v2) tree. */
 export function renderV2PageNav(url: string): string {
   return renderNav(getV2PageTree(), titleMap(v2source.getPages()), url);
-}
-
-/** Related-pages footer for a page in the legacy /stack tree. */
-export function renderStackPageNav(url: string): string {
-  return renderNav(source.getPageTree(), titleMap(source.getPages()), url);
 }

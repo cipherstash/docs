@@ -44,8 +44,8 @@ const MANIFEST_PATH =
 const EQL_DIR = path.join(process.cwd(), "content/docs/reference/eql");
 const OUT_FILE = path.join(EQL_DIR, "functions.mdx");
 // Per-type function fragments embedded into the hand-written type pages via
-// Fumadocs' `<include>` directive. They live OUTSIDE the two content
-// collections (content/docs, content/stack) so they never become routes, and
+// Fumadocs' `<include>` directive. They live OUTSIDE the content
+// collection (content/docs) so they never become routes, and
 // are included cwd-relative (`<include cwd>content/partials/…`). Generated, so
 // the per-type "which functions apply" tables can't drift from the manifest.
 const FRAGMENT_DIR = path.join(process.cwd(), "content/partials/eql");

@@ -1,7 +1,8 @@
 import { createFromSource } from "fumadocs-core/search/server";
-import { source } from "@/lib/source";
+import { v2source } from "@/lib/source";
 
-export const { GET } = createFromSource(source, {
+// Index the canonical documentation collection.
+export const { GET } = createFromSource(v2source, {
   // https://docs.orama.com/docs/orama-js/supported-languages
   language: "english",
 });
