@@ -6,29 +6,8 @@ import lastModifiedPlugin from "fumadocs-mdx/plugins/last-modified";
 import { z } from "zod";
 import { cipherstashDark, cipherstashLight } from "./src/lib/shiki-themes";
 
-// You can customise Zod schemas for frontmatter and `meta.json` here
-// see https://fumadocs.dev/docs/mdx/collections
-export const docs = defineDocs({
-  dir: "content/stack",
-  docs: {
-    // `seoTitle` overrides the <title>/OG title for pages whose visual `title`
-    // is brand-styled (e.g. "/ENCRYPTION") and not ideal for search results.
-    schema: pageSchema.extend({
-      seoTitle: z.string().optional(),
-    }),
-    postprocess: {
-      includeProcessedMarkdown: true,
-    },
-  },
-  meta: {
-    schema: metaSchema,
-  },
-});
-
-// V2 information architecture (CIP-3325). New content lives in content/docs
-// and is served from the site root (e.g. /docs/get-started/...). The legacy
-// `docs` collection above (content/stack) is served alongside it during the
-// migration and is deleted once the last section moves. See IA.md.
+// Canonical documentation, served at /docs/<section>/… . "v2" refers to the
+// information architecture, not the EQL version. See IA.md.
 export const v2docs = defineDocs({
   dir: "content/docs",
   docs: {

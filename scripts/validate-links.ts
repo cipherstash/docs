@@ -1,17 +1,13 @@
 /**
  * Internal-link validation across every MDX page the site serves.
  *
- * Both content collections are covered: `content/docs` (the v2 IA, served from
- * the site root) and `content/stack` (the legacy tree, served under /stack).
- * This script used to know only about content/stack and only about markdown
- * link syntax, which left the entire v2 tree — and every `<Card href=…>` in
- * both trees — unchecked. A page could be renamed or merged away and every
- * link to it would 404 against a green build.
+ * Covers the canonical content/docs collection. Links in current content
+ * must point directly to current pages, rather than retired /stack URLs.
  *
  * For markdown links (`[text](/url)`) and JSX href attributes (`href="/url"`)
  * alike, it checks that:
  *
- *   - the target page exists, in either collection;
+ *   - the target page exists in the current collection;
  *   - a `#fragment` matches a heading on that page;
  *   - the link carries no `/docs` prefix (Next's basePath prepends it), no
  *     `/index` suffix, and no `.mdx` extension — each of which 404s.
@@ -40,10 +36,7 @@ const ROOT = process.cwd();
  * Content collections and the URL prefix each is served under. Mirrors the
  * `loader({ baseUrl })` calls in src/lib/source.ts — keep them in step.
  */
-const COLLECTIONS = [
-  { dir: "content/docs", baseUrl: "" },
-  { dir: "content/stack", baseUrl: "/stack" },
-];
+const COLLECTIONS = [{ dir: "content/docs", baseUrl: "" }];
 
 /** Shared MDX fragments, pulled into pages by `<include cwd>`. Not routable. */
 const PARTIALS_DIR = "content/partials";
@@ -161,7 +154,7 @@ function collectAnchors(lines: SourceLine[]): Set<string> {
   return anchors;
 }
 
-/** content/docs/a/b.mdx → /a/b ; content/stack/a/index.mdx → /stack/a */
+/** content/docs/a/b.mdx → /a/b ; content/docs/a/index.mdx → /a */
 function fileToUrl(file: string, dir: string, baseUrl: string): string {
   const rel = path
     .relative(path.join(ROOT, dir), file)

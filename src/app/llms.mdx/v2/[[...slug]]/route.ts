@@ -2,9 +2,7 @@ import { notFound } from "next/navigation";
 import { getPostHogClient } from "@/lib/posthog/server";
 import { getLLMText, renderV2PageNav, v2source } from "@/lib/source";
 
-// Raw-markdown mirror for the V2 IA tree, reached via the
-// `/:path*.mdx` rewrite in next.config.mjs (same pattern as the legacy
-// /llms.mdx/stack route).
+// Raw-markdown mirror, reached via the `/:path*.mdx` rewrite in next.config.mjs.
 export const revalidate = false;
 
 export async function GET(

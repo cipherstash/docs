@@ -16,7 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { JSDOM } from "jsdom";
 
-const CONTENT_DIRS = ["content/docs", "content/stack"];
+const CONTENT_DIRS = ["content/docs"];
 
 function collectFiles(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];

@@ -1,5 +1,5 @@
 import { getPostHogClient } from "@/lib/posthog/server";
-import { docsUrl, source, v2source } from "@/lib/source";
+import { docsUrl, v2source } from "@/lib/source";
 
 export const revalidate = false;
 
@@ -21,10 +21,9 @@ export async function GET(request: Request) {
   const lines: string[] = [];
   lines.push("# Documentation");
   lines.push("");
-  // V2 tree first: it's the canonical IA once the migration completes.
   // Urls are absolute: agents fetch this file at /docs/llms.txt and resolve a
   // relative "/concepts" against the origin, landing on a 404.
-  for (const page of [...v2source.getPages(), ...source.getPages()]) {
+  for (const page of v2source.getPages()) {
     lines.push(
       `- [${page.data.title}](${docsUrl(page.url)}): ${page.data.description}`,
     );

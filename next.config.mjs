@@ -1,35 +1,7 @@
 import { createMDX } from "fumadocs-mdx/next";
-import { v2Redirects } from "./v2-redirects.mjs";
+import { legacyMarkdownRedirects, v2Redirects } from "./v2-redirects.mjs";
 
 const withMDX = createMDX();
-
-// V2 IA migration (CIP-3325): the full legacy→v2 redirect map is gated so the
-// preview site serves BOTH trees while sections migrate (legacy at /stack, v2
-// at the root). Flip on at merge; once content/stack is deleted the map
-// becomes unconditional (CIP-3335). Coverage is enforced by
-// `bun run validate-redirects` regardless of the flag.
-const enableV2Redirects = process.env.ENABLE_V2_REDIRECTS === "1";
-
-// Migrated legacy sections redirect as soon as their replacements are
-// complete, without waiting for the root-level v2 IA cutover. The two legacy
-// landing pages remain available until ENABLE_V2_REDIRECTS is flipped.
-const enabledV2RedirectPrefixes = [
-  "/stack/quickstart",
-  "/stack/cipherstash/postgres",
-  "/stack/cipherstash/supabase",
-  "/stack/cipherstash/encryption",
-  "/stack/cipherstash/kms",
-  "/stack/cipherstash/proxy",
-  "/stack/cipherstash/cli",
-  "/stack/deploy",
-  "/stack/reference",
-];
-
-function isEnabledV2Redirect(source) {
-  return enabledV2RedirectPrefixes.some(
-    (prefix) => source === prefix || source.startsWith(`${prefix}/`),
-  );
-}
 
 /** @type {import('next').NextConfig} */
 const config = {
@@ -80,9 +52,10 @@ const config = {
         destination: "/integrations/prisma",
         permanent: true,
       },
-      ...v2Redirects.filter(
-        ({ source }) => enableV2Redirects || isEnabledV2Redirect(source),
-      ),
+      // Markdown rules precede HTML wildcards so old .mdx links keep serving
+      // Markdown, including redirects whose destination drops the path suffix.
+      ...legacyMarkdownRedirects,
+      ...v2Redirects,
       // === 4-section consolidation: product sections under /cipherstash/ ===
       {
         source: "/stack/encryption/:path*",
@@ -824,13 +797,8 @@ const config = {
   async rewrites() {
     return {
       beforeFiles: [
-        {
-          source: "/stack/:path*.mdx",
-          destination: "/llms.mdx/stack/:path*",
-        },
-        // Raw-markdown mirror for the v2 tree (Cloudflare/agents fetch
-        // <page>.mdx). Listed after the /stack rule so legacy paths keep
-        // resolving to the legacy collection.
+        // Raw-markdown mirror for the current docs. Legacy Markdown URLs
+        // redirect to their current equivalents before rewrites run.
         {
           source: "/:path*.mdx",
           destination: "/llms.mdx/v2/:path*",

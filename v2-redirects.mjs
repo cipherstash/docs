@@ -1,12 +1,7 @@
-// V2 IA redirect map (CIP-3325): every legacy /stack/* URL → its new home.
-// Derived from the migration map in IA.md; completeness is enforced by
-// `scripts/validate-v2-redirects.ts` (every content/stack page must match an
-// entry here, exact or wildcard).
-//
-// Gated behind ENABLE_V2_REDIRECTS=1 in next.config.mjs: during the migration
-// the preview site serves BOTH trees (legacy at /stack, v2 at the root), so
-// unmigrated content stays reachable. The flag flips on at merge; once
-// content/stack is deleted these entries become unconditional (CIP-3335).
+// Preserve published /stack URLs after retiring the legacy collection.
+// These redirects apply unconditionally. Coverage and destination validity
+// are checked against scripts/fixtures/legacy-docs-redirects.json by
+// scripts/validate-v2-redirects.ts, independently of the deleted content.
 //
 // Conventions (matching next.config.mjs): sources/destinations omit the
 // "/docs" basePath. Order matters — specific entries before wildcards.
@@ -319,9 +314,6 @@ export const v2Redirects = [
     permanent: false,
   },
   {
-    // The AI/RAG page is not part of the v2 tree yet (it needs a rewrite before
-    // it can be republished), so send its legacy URL to the Solutions index
-    // rather than a page that does not exist.
     source: "/stack/reference/use-cases/ai-rag",
     destination: "/solutions/ai-and-rag",
     permanent: false,
@@ -442,3 +434,22 @@ export const v2Redirects = [
     permanent: false,
   },
 ];
+
+// Keep both public .mdx URLs and the old direct Markdown endpoint working.
+// The docs homepage's Markdown URL is /index.mdx, not /.mdx.
+export const legacyMarkdownRedirects = v2Redirects.flatMap((redirect) => {
+  const destination =
+    redirect.destination === "/" ? "/index.mdx" : `${redirect.destination}.mdx`;
+  return [
+    {
+      ...redirect,
+      source: `${redirect.source}.mdx`,
+      destination,
+    },
+    {
+      ...redirect,
+      source: `/llms.mdx${redirect.source}`,
+      destination,
+    },
+  ];
+});
