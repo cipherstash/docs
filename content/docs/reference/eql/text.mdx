@@ -28,6 +28,8 @@ All of these are `jsonb`-backed domains. Which one you declare fixes the column'
 
 Declare only the capabilities you query on — each capability stores extra searchable material with defined leakage (see [Searchable encryption](/concepts/searchable-encryption)).
 
+To enforce unique encrypted emails, tax IDs, or other text values, use a variant that carries `hm` and create a [unique index on `eql_v3.eq_term(col)`](/reference/eql/indexes#unique-indexes). `text_eq`, the `text_ord` variants, and the `text_search` variants support this; `text` and `text_match` do not.
+
 ### Text query example
 
 A users table mixing the variants by how each column is queried:
