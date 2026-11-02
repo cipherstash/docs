@@ -26,7 +26,8 @@
     "test:search:browser": "playwright test",
     "validate-search": "tsx scripts/validate-search.ts",
     "validate-content": "tsx scripts/validate-content-api.ts",
-    "validate-mermaid": "tsx scripts/validate-mermaid.ts"
+    "validate-mermaid": "tsx scripts/validate-mermaid.ts",
+    "triage-404s": "tsx scripts/triage-404s.ts"
   },
   "dependencies": {
     "@orama/orama": "3.1.18",
