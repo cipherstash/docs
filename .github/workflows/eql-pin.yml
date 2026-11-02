@@ -1,0 +1,147 @@
+# Watches for new EQL patch releases and opens a PR bumping the docs pin.
+#
+# The EQL release is pinned deliberately (see scripts/generate-eql-docs.ts): the
+# drift check validates every schema-qualified symbol in the hand-written pages
+# against the pinned release's manifest, and a mismatch FAILS THE BUILD. An
+# auto-following pin would turn someone's unrelated PR red with no commit of
+# theirs to explain it.
+#
+# So this does not float the pin — it removes the need to *remember*. It opens a
+# PR with the bump already applied and the drift check already run, so the PR
+# says up front whether it is a rubber stamp or needs doc edits.
+#
+# Scope is the pinned MINOR only. EQL patch releases are not additive-only today
+# (3.0.1 removed eql_v3.contains, added eql_v3.matches, and renamed the whole
+# encrypted-JSON surface), so every bump goes through review. A newer minor or
+# major is reported in the PR body but never proposed.
+name: EQL pin
+
+on:
+  schedule:
+    # Daily. NOTE: GitHub only runs scheduled workflows from the DEFAULT branch,
+    # so this file must live on `main` even though it targets the docs branch.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+# The branch the docs live on and the PR targets. `main` trails the live docs
+# line; change both of these if that ever flips.
+env:
+  DOCS_BRANCH: v2
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: eql-pin
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DOCS_BRANCH }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      - name: Resolve the latest patch for the pinned minor
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bun run check-eql-pin
+
+      - name: Apply the bump
+        if: steps.check.outputs.bump == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bun run check-eql-pin -- --apply
+
+      # The whole point of the PR: report whether the new release actually fits
+      # the hand-written docs. Never fails the job — a drift failure is the
+      # signal being gathered, not an error in this workflow.
+      - name: Run the drift check against the new release
+        if: steps.check.outputs.bump == 'true'
+        id: drift
+        run: |
+          set +e
+          out=$(bun run generate-docs:eql 2>&1 && bun run generate-docs:eql-api 2>&1)
+          code=$?
+          echo "$out"
+          {
+            echo "status=$([ $code -eq 0 ] && echo clean || echo failing)"
+            echo "log<<DRIFT_EOF"
+            # Tail only: the generators are chatty, and the drift verdict and any
+            # unresolved symbols are printed at the end.
+            echo "$out" | tail -40
+            echo "DRIFT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the pin PR
+        if: steps.check.outputs.bump == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FROM: ${{ steps.check.outputs.from }}
+          TO: ${{ steps.check.outputs.to }}
+          DRIFT_STATUS: ${{ steps.drift.outputs.status }}
+          DRIFT_LOG: ${{ steps.drift.outputs.log }}
+          NEWER_MINOR: ${{ steps.check.outputs.newer_minor }}
+        run: |
+          set -euo pipefail
+          branch="chore/eql-pin-${TO}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          # Only the pin: generated artifacts are rebuilt by prebuild and are
+          # deliberately not committed to this repo.
+          git add scripts/generate-eql-docs.ts
+          git commit -m "docs: pin EQL ${TO}"
+          git push --force-with-lease -u origin "$branch"
+
+          if [ "$DRIFT_STATUS" = "clean" ]; then
+            verdict="**Drift check passes.** Every schema-qualified symbol in the hand-written pages still resolves against the \`${TO}\` manifest, so this should be mergeable as-is once the preview build is green."
+          else
+            verdict="**Drift check fails** — this bump needs doc edits before it can merge. The unresolved symbols are listed below; each is a symbol the docs reference that \`${TO}\` no longer ships under that name."
+          fi
+
+          note=""
+          if [ -n "${NEWER_MINOR}" ]; then
+            note=$'\n\n> [!NOTE]\n> '"${NEWER_MINOR}"
+          fi
+
+          body=$(cat <<EOF
+          Bumps the pinned EQL release from \`${FROM}\` to \`${TO}\`.
+
+          ${verdict}${note}
+
+          <details><summary>Drift check output</summary>
+
+          \`\`\`
+          ${DRIFT_LOG}
+          \`\`\`
+
+          </details>
+
+          ---
+
+          Opened automatically by \`.github/workflows/eql-pin.yml\`. The pin is intentionally not auto-followed — EQL patch releases still carry breaking API changes, so the bump lands as a reviewable PR rather than silently reddening someone else's build.
+          EOF
+          )
+
+          open=$(gh pr list --head "$branch" --state open --json number --jq 'length')
+          if [ "$open" != "0" ]; then
+            gh pr edit "$branch" --body "$body"
+            echo "Updated the existing PR for $branch"
+          else
+            gh pr create \
+              --base "${DOCS_BRANCH}" \
+              --head "$branch" \
+              --title "docs: pin EQL ${TO}" \
+              --body "$body"
+          fi
