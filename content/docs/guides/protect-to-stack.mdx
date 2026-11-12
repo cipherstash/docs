@@ -9,12 +9,12 @@ verifiedAgainst:
   stack: "1.2.1"
   protect: "10.2.1"
   protect-dynamodb: "6.0.1"
-  sourceRevision: "8fb583930bebd79c27a785a463dcf416a6bf1889"
+  sourceRevision: "0ecabc3f62ee8a117c467981ce00d312e6cfc636"
 ---
 
 This guide upgrades an application that already uses Protect. For plaintext columns that have never been encrypted, use [Data migration](/guides/migration).
 
-The procedures and test citations below are pinned to the [Stack migration guide at `8fb583930`](https://github.com/cipherstash/stack/blob/8fb583930bebd79c27a785a463dcf416a6bf1889/docs/migration/protect-dynamodb-to-stack.md). The source guide's SHA-256 is `1a3a83d168ebc230ebdd236123adac06db789c775c2b8387887b15fb1efdbe17`. The [customer rehearsal checklist](#customer-rehearsal-checklist) adds deployment acceptance checks to that source; it does not extend its tested compatibility scope or claim that a customer staging migration has already passed.
+The procedures and test citations below are pinned to the [Stack migration guide at `0ecabc3f6`](https://github.com/cipherstash/stack/blob/0ecabc3f62ee8a117c467981ce00d312e6cfc636/docs/migration/protect-dynamodb-to-stack.md). The source guide's SHA-256 is `46106cc0a71dbeb757bcb0b3889c6fc5741bac201afe807ed8cde0a035d3d649`. The [customer rehearsal checklist](#customer-rehearsal-checklist) adds deployment acceptance checks to that source; it does not extend its tested compatibility scope or claim that a customer staging migration has already passed.
 
 EQL (Encrypt Query Language) v2 and v3 identify data generations, **not npm package majors**. This guide targets Stack **1.2.1**, using `@cipherstash/stack/v3`. It does not migrate data to EQL v4.
 
@@ -46,7 +46,7 @@ pnpm exec turbo run test:protect-crossover --filter @cipherstash/e2e --env-mode=
 
 The native build needs the repository's Rust toolchain and trusted mise configuration. These commands are for maintainers verifying the guide; a customer installing Stack from npm receives prebuilt binaries. The crossover task also runs the PostgreSQL upgrade and executable DynamoDB example. Credentialed tests fail if configuration is missing; a skipped or unrun suite is not migration evidence.
 
-The [executable examples](https://github.com/cipherstash/stack/blob/8fb583930bebd79c27a785a463dcf416a6bf1889/e2e/migration-guide/README.md) use npm and the pinned customer packages. Run them on disposable data. The DynamoDB example uses in-memory item persistence and exercises legacy reads, new writes, normalization, bigint serialization and boolean updates (`example › runs the npm DynamoDB example through legacy reads, new writes and boolean updates`). It is not an AWS deployment test.
+The [executable examples](https://github.com/cipherstash/stack/blob/0ecabc3f62ee8a117c467981ce00d312e6cfc636/e2e/migration-guide/README.md) use npm and the pinned customer packages. Run them on disposable data. The DynamoDB example uses in-memory item persistence and exercises legacy reads, new writes, normalization, bigint serialization and boolean updates (`example › runs the npm DynamoDB example through legacy reads, new writes and boolean updates`). It is not an AWS deployment test.
 
 ## Why the supported scalar attributes need no re-encryption
 
@@ -329,7 +329,7 @@ The conversion performs these steps in one transaction:
 5. Create functional equality indexes on `eql_v3.eq_term(email_v3)` and `eql_v3.eq_term(age_v3)`.
 6. Read and decrypt the target values with Stack, compare plaintext and retained bytes against the source, then commit. A failed check rolls back the added columns and indexes too.
 
-The script below is the core of the tested [executable migration](https://github.com/cipherstash/stack/blob/8fb583930bebd79c27a785a463dcf416a6bf1889/e2e/migration-guide/postgres.ts), for the `customers` table above. `client` and `customers` are the Stack client and schema from step 2. The script decrypts the source v2 envelopes with Stack's `client.decrypt`, which accepts Protect-written v2 payloads, so no Protect client is needed after step 2 removed it (`postgres-upgrade › decrypts every Protect-written v2 source envelope with Stack to the same plaintext as Protect`). The executable example additionally cross-checks each source value with the preserved Protect build; keeping that old build for rollback (step 1) is unchanged. The full example also runs the step 1 dependency preflight (constraints, secondary indexes, views, triggers, policies, inheritance) right after the lock; do not skip it.
+The script below is the core of the tested [executable migration](https://github.com/cipherstash/stack/blob/0ecabc3f62ee8a117c467981ce00d312e6cfc636/e2e/migration-guide/postgres.ts), for the `customers` table above. `client` and `customers` are the Stack client and schema from step 2. The script decrypts the source v2 envelopes with Stack's `client.decrypt`, which accepts Protect-written v2 payloads, so no Protect client is needed after step 2 removed it (`postgres-upgrade › decrypts every Protect-written v2 source envelope with Stack to the same plaintext as Protect`). The executable example additionally cross-checks each source value with the preserved Protect build; keeping that old build for rollback (step 1) is unchanged. The dependency preflight below matches the executable example's initial-migration checks: it refuses extra constraints, secondary indexes, views, triggers, policies and inheritance before changing data or adding columns. PostgreSQL 18 records the primary key column's NOT NULL constraint in `pg_constraint`; the check permits that constraint while still refusing NOT NULL on the encrypted source columns.
 
 ```typescript filename="migration-example-8.ts"
 import postgres from 'postgres'
@@ -351,7 +351,23 @@ await sql.begin(async (tx) => {
     ['pk', 'text'], ['email', 'eql_v2_encrypted'],
     ['age', 'eql_v2_encrypted'], ['notes', 'eql_v2_encrypted'],
   ])) throw new Error('Unsupported columns')
-  // (Run the dependency preflight here.)
+  const dependencies = await tx`SELECT
+    EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'customers'::regclass AND NOT tgisinternal)
+    OR EXISTS (SELECT 1 FROM pg_constraint WHERE (conrelid = 'customers'::regclass OR confrelid = 'customers'::regclass)
+      -- PostgreSQL 18 also lists the primary key column's NOT NULL here.
+      AND NOT (contype IN ('p', 'n') AND conrelid = 'customers'::regclass AND conkey = ARRAY[1]::smallint[]))
+    -- PostgreSQL 17 and earlier keep NOT NULL out of pg_constraint.
+    OR EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'customers'::regclass
+      AND attnum > 1 AND NOT attisdropped AND attnotnull)
+    -- Initial conversion allows no secondary indexes, including target indexes.
+    OR EXISTS (SELECT 1 FROM pg_index WHERE indrelid = 'customers'::regclass AND NOT indisprimary)
+    OR EXISTS (SELECT 1 FROM pg_depend WHERE refobjid = 'customers'::regclass AND classid = 'pg_rewrite'::regclass)
+    OR (SELECT relrowsecurity OR relispartition OR relkind <> 'r' FROM pg_class WHERE oid = 'customers'::regclass)
+    OR EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = 'customers'::regclass)
+    OR EXISTS (SELECT 1 FROM pg_inherits WHERE inhparent = 'customers'::regclass OR inhrelid = 'customers'::regclass)
+    AS unsupported`
+  if (dependencies[0].unsupported)
+    throw new Error('Unsupported table dependencies: review constraints, indexes, views, triggers, policies and inheritance first')
 
   // 2. Validate every envelope and recompute its equality term with Stack.
   const rows = await tx`SELECT pk, email::jsonb AS email, age::jsonb AS age,
@@ -413,6 +429,8 @@ await sql`ANALYZE customers`
 await sql.end()
 ```
 
+**Rerunning the conversion:** after a successful commit, the table includes the three `_v3` columns. Running this conversion again fails the exact source-shape check before any DDL or data changes; the transaction rolls back without altering the completed migration. It is a one-off conversion, not an idempotent startup hook. Do not treat the mere presence of target columns as proof that a migration completed, and do not drop them to force a rerun. If a transaction failed, diagnose the failure and confirm its changes rolled back before deciding whether to retry. If the client lost the connection around commit, inspect and verify the database state first. Continue with verification and cutover after a successful migration.
+
 Only the envelope and database structure change for these proven mappings; the ciphertext and equality terms are copied unchanged. Do not generalize this to other capabilities or to v4 (`postgres-upgrade › migrates actual v2 columns, preserves ciphertext and queries, and rolls back before writes resume`).
 
 The example reads the small source table into memory and validates each value. It is not a resumable production backfill service. Rehearse duration, database lock time and key-service usage before choosing a maintenance window for your data size.
@@ -450,7 +468,7 @@ In rehearsal, test fresh Stack writes beside migrated rows, reads, lookups and u
 
 ### Reproduce the PostgreSQL example
 
-Use the [npm example instructions](https://github.com/cipherstash/stack/blob/8fb583930bebd79c27a785a463dcf416a6bf1889/e2e/migration-guide/README.md) with a disposable database containing both EQL generations. `seed` creates a new table and refuses an existing one; `migrate` validates and creates targets; `verify` reads them; `rollback` demonstrates recovery before writes; `write` demonstrates why that recovery boundary closes. No step drops or reinstalls an EQL schema.
+Use the [npm example instructions](https://github.com/cipherstash/stack/blob/0ecabc3f62ee8a117c467981ce00d312e6cfc636/e2e/migration-guide/README.md) with a disposable database containing both EQL generations. `seed` creates a new table and refuses an existing one; `migrate` validates and creates targets; `verify` reads them; `rollback` demonstrates recovery before writes; `write` demonstrates why that recovery boundary closes. No step drops or reinstalls an EQL schema.
 
 ## Optional: moving values between DynamoDB and Postgres
 
