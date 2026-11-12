@@ -96,6 +96,8 @@ const RULES: Rule[] = [
   },
   {
     id: "eql-v2-encrypted-type",
+    // This upgrade guide must identify the retained legacy source columns.
+    exempt: ["content/docs/guides/protect-to-stack.mdx"],
     pattern: /\beql_v2_encrypted\b/,
     message: "The `eql_v2_encrypted` column type was removed in EQL 3.0.0.",
     fix: "Type the column with an EQL v3 domain variant, e.g. `public.eql_v3_text_eq`. See /reference/eql/core-concepts.",
